@@ -57,7 +57,7 @@ ABlackoutGameMode (서버 베이스)
 
 ## Source & Content Structure
 
-> 상세 디렉토리 트리: [`Docs/CONVENTIONS.md` §3](Docs/CONVENTIONS.md#3-폴더-구조-가이드-directory-structure)
+> 상세 디렉토리 트리: [`Docs/CONVENTIONS.md`](Docs/CONVENTIONS.md#3-폴더-구조-가이드-directory-structure)
 
 - **모듈 루트** (`Source/ProjectBlackout/`): 공용 베이스 클래스 (GameMode, Character, PlayerController)
 - **Variant 서브디렉토리**: 언리얼 엔진 템플릿으로 생성된 `Variant_Combat/`, `Variant_Platforming/`, `Variant_SideScrolling/` (각각 AI, Animation, Gameplay, Interfaces, UI 하위 폴더). 현재 프로젝트에서는 사용하지 않습니다.
