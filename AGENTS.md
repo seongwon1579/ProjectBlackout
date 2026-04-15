@@ -60,7 +60,7 @@ ABlackoutGameMode (서버 베이스)
 > 상세 디렉토리 트리: [`Docs/CONVENTIONS.md`](Docs/CONVENTIONS.md#3-폴더-구조-가이드-directory-structure)
 
 - **모듈 루트** (`Source/ProjectBlackout/`): 공용 베이스 클래스 (GameMode, Character, PlayerController)
-- **Variant 서브디렉토리**: 언리얼 엔진 템플릿으로 생성된 `Variant_Combat/`, `Variant_Platforming/`, `Variant_SideScrolling/` (각각 AI, Animation, Gameplay, Interfaces, UI 하위 폴더). 현재 프로젝트에서는 사용하지 않습니다.
+- **Variant 서브디렉토리**: 언리얼 엔진 템플릿으로 생성된 `Variant_Combat/`, `Variant_Platforming/`, `Variant_SideScrolling/`. 현재 프로젝트에서는 사용하지 않습니다.
 - **Content**: 블루프린트는 `_BP/`에 집중, 서드파티 에셋은 `Assets/`에 격리
 
 ## Conventions (요약)
@@ -75,6 +75,8 @@ ABlackoutGameMode (서버 베이스)
 ## Key Rules for AI Agents
 
 1. **`main`, `develop` 브랜치에 직접 커밋 금지.** 항상 `feature/` 브랜치를 생성하세요.
-2. **새 C++ 파일은 해당 Variant 하위 디렉토리에 배치.** 공용/베이스 클래스는 `Source/ProjectBlackout/` 루트에 둡니다.
-3. **`Content/Assets/` 하위 파일을 수정하거나 구조를 변경하지 마세요.** 서드파티 에셋 원본입니다.
-4. **커밋 메시지는 반
+2. **새 C++ 파일은 모듈 루트(`Source/ProjectBlackout/`) 아래 목적에 맞는 폴더를 생성하여 배치하세요.**
+3. **`Variant_Combat/`, `Variant_Platforming/`, `Variant_SideScrolling/` 디렉토리는 건드리지 마세요.** 언리얼 엔진 템플릿 코드이며 이번 프로젝트에서 사용하지 않습니다.
+4. **`Content/Assets/` 하위 파일을 수정하거나 구조를 변경하지 마세요.** 서드파티 에셋 원본입니다.
+5. **커밋 메시지는 반드시 태그 형식**(`Feat`, `Fix`, `Design`, `Refactor`, `Docs`, `Chore`)을 사용하세요.
+6. **코드 변경 전 `Docs/CONVENTIONS.md`를 먼저 읽으세요.**
