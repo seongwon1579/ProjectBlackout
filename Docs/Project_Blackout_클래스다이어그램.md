@@ -1,0 +1,476 @@
+# Project Blackout — 클래스 다이어그램
+
+> Mermaid 문법 기반. TDD v5 §1~§12 참조.
+
+---
+
+## 🏗️ 핵심 게임플레이 구조
+
+### 1. 캐릭터 상속 계층 (Character Hierarchy)
+
+```mermaid
+classDiagram
+    direction TB
+
+    ACharacter <|-- ABlackoutCharacterBase
+    ABlackoutCharacterBase <|-- ABlackoutPlayerCharacter
+    ABlackoutCharacterBase <|-- ABlackoutEnemyCharacter
+    ABlackoutEnemyCharacter <|-- ABlackoutBossCharacter
+
+    ABlackoutCharacterBase ..|> IAbilitySystemInterface : implements
+
+    class ABlackoutCharacterBase {
+        <<Abstract>>
+        +GetAbilitySystemComponent() UAbilitySystemComponent*
+        #OnDeath() void
+        #OnHitReact() void
+        #OnStun() void
+    }
+
+    class ABlackoutPlayerCharacter {
+        -UCameraComponent* Camera
+        -USpringArmComponent* SpringArm
+        -UBlackoutCombatComponent* CombatComp
+        +PossessedBy(AController*) void
+    }
+
+    class ABlackoutEnemyCharacter {
+        -UAbilitySystemComponent* ASC
+        +OnSpawnFromPool() void
+        +OnReturnToPool() void
+        +BeginPlay() void
+    }
+
+    class ABlackoutBossCharacter {
+        -UBOBossData* BossData
+        -UBlackoutAggroComponent* AggroComp
+    }
+
+    ABlackoutEnemyCharacter ..|> IBlackoutPoolableInterface : implements
+```
+
+---
+
+### 2. GameMode 계층 (Server Only)
+
+```mermaid
+classDiagram
+    direction TB
+
+    AGameModeBase <|-- ABlackoutGameMode
+    ABlackoutGameMode <|-- ABlackoutLobbyGameMode
+    ABlackoutGameMode <|-- ABlackoutBattleGameMode
+
+    ABlackoutBattleGameMode --> ABlackoutPlayerState : calls ApplyBattleTransitionPolicy
+
+    class ABlackoutGameMode {
+        <<Server Only>>
+        +PostLogin(APlayerController*) void
+        +Logout(AController*) void
+        #CheckPartyWipe() void
+        #Server_CommonRPC() void
+    }
+
+    class ABlackoutLobbyGameMode {
+        +Server_SelectClass(FGameplayTag) void
+        +Server_RequestReopenClassSelect() void
+        +AllPlayersReady() bool
+        -OnReadyCheckComplete() void
+        -ServerTravel(FString MapURL) void
+    }
+
+    class ABlackoutBattleGameMode {
+        -FGameplayTag CurrentCheckpointTag
+        +OnMidBossDefeated() void
+        +OnMainBossDefeated() void
+        +Server_RestartAtCheckpoint() void
+        +Server_VoteRestart() void
+        -RespawnFieldMinions(FGameplayTag) void
+        -LoadStreamLevel(FName) void
+    }
+```
+
+---
+
+### 3. GameState / PlayerState
+
+```mermaid
+classDiagram
+    direction LR
+
+    class ABlackoutGameState {
+        +TArray DestroyedPillarIds
+        +float MatchTimer
+        +bool bRedMistActive
+        +EBossPhase CurrentPhase
+        +bool bMidBossDefeated
+    }
+
+    class ABlackoutPlayerState {
+        -UAbilitySystemComponent* ASC
+        -UBlackoutBaseAttributeSet* BaseAttributes
+        -UBlackoutPlayerAttributeSet* PlayerAttributes
+        -UBlackoutAmmoAttributeSet* AmmoAttributes
+        +FGameplayTag SelectedClassTag
+        +uint8 BloodRootCount
+        +uint8 GulSerumCount
+        +bool bIsReady
+        +ApplyBattleTransitionPolicy(EBattleTransitionType) void
+        +OnRep_SelectedClassTag() void
+        +OnRep_BloodRootCount() void
+        +OnRep_GulSerumCount() void
+    }
+
+    ABlackoutPlayerState --> UAbilitySystemComponent : owns
+    ABlackoutPlayerState --> UBlackoutBaseAttributeSet : has
+    ABlackoutPlayerState --> UBlackoutPlayerAttributeSet : has
+    ABlackoutPlayerState --> UBlackoutAmmoAttributeSet : has
+```
+
+---
+
+### 4. AttributeSet 3종
+
+```mermaid
+classDiagram
+    direction TB
+
+    UAttributeSet <|-- UBlackoutBaseAttributeSet
+    UAttributeSet <|-- UBlackoutPlayerAttributeSet
+    UAttributeSet <|-- UBlackoutAmmoAttributeSet
+
+    class UBlackoutBaseAttributeSet {
+        +FGameplayAttributeData Health
+        +FGameplayAttributeData MaxHealth
+        +FGameplayAttributeData MovementSpeed
+        +FGameplayAttributeData BaseDamage
+        +FGameplayAttributeData DamageReduction
+    }
+
+    class UBlackoutPlayerAttributeSet {
+        +FGameplayAttributeData Stamina
+        +FGameplayAttributeData MaxStamina
+        +FGameplayAttributeData CriticalHitChance
+        +FGameplayAttributeData CriticalHitMultiplier
+        +FGameplayAttributeData HealingEffectiveness
+        +FGameplayAttributeData RelicCharges
+        +FGameplayAttributeData MaxRelicCharges
+    }
+
+    class UBlackoutAmmoAttributeSet {
+        +FGameplayAttributeData PrimaryClipAmmo
+        +FGameplayAttributeData PrimaryMaxClip
+        +FGameplayAttributeData PrimaryReserveAmmo
+        +FGameplayAttributeData SecondaryClipAmmo
+        +FGameplayAttributeData SecondaryMaxClip
+        +FGameplayAttributeData SecondaryReserveAmmo
+    }
+```
+
+---
+
+### 5. 데이터 에셋 (Data-Driven)
+
+```mermaid
+classDiagram
+    direction TB
+
+    UPrimaryDataAsset <|-- UBOCharacterData
+    UPrimaryDataAsset <|-- UBOMinionData
+    UPrimaryDataAsset <|-- UBOBossData
+
+    class UBOCharacterData {
+        +float InitialHealth
+        +float InitialStamina
+        +TSubclassOf MeleeWeapon
+        +TSubclassOf PrimaryWeapon
+        +TSubclassOf SecondaryWeapon
+        +TArray GrantedAbilities
+    }
+
+    class UBOMinionData {
+        +float MaxHealth
+        +float MovementSpeed
+        +TMap AbilityDamageMap
+    }
+
+    class UBOBossData {
+        +TArray PhaseHealthThresholds
+        +TMap AbilityDamageMap
+        +float AggroSwitchCooldown
+        +float AggroDamageThreshold
+        +float AggroDecayRate
+        +FMinionSpawnTable SpawnWeights
+    }
+
+    class DT_WeaponStats {
+        <<DataTable>>
+        +float BaseDamage
+        +float FireRate
+        +int32 MagazineSize
+        +float SplashRadius
+    }
+
+    note for UBOCharacterData "GrantedAbilities: TArray<TSubclassOf<UGameplayAbility>>"
+    note for UBOMinionData "AbilityDamageMap: TMap<FGameplayTag, float>"
+    note for UBOBossData "AbilityDamageMap: TMap<FGameplayTag, float>"
+```
+
+---
+
+## ⚔️ 전투 시스템
+
+### 6. GAS 주요 GA/GE 관계
+
+```mermaid
+classDiagram
+    direction LR
+
+    class GA_FireWeapon {
+        +Hitscan / Projectile 분기
+        +Cost: ClipAmmo -1
+        +Cue: GCN_Weapon_Fire
+    }
+
+    class GA_Reload {
+        +ExecCalc_Reload
+        +Reserve → Clip 이전
+        +Cue: GCN_Weapon_Reload
+    }
+
+    class GA_Dodge {
+        +I-Frame 무적
+        +Root Motion 구르기
+        +Tag: State.Invulnerable
+    }
+
+    class GA_UseRelic {
+        +Lock-in 애니메이션
+        +GE_RelicHeal 적용
+        +RelicCharges -1
+        +Tag: State.Locked
+    }
+
+    class GA_Revive {
+        +HoldToRevive 진행도
+        +GE_Downed 해제
+        +구출자 RelicCharges -1
+    }
+
+    class GA_Melee_Player {
+        +AnimNotifyState Hitbox
+        +강철검 / 고철해머 분기
+        +콤보 연계
+    }
+
+    class ExecCalc_DamageCalc {
+        +BaseDamage x CritMul
+        +x HitZoneMultiplier
+        +x 1 - DamageReduction
+    }
+
+    class ExecCalc_CombatReward {
+        +Kill.Melee → 탄약+소모품
+        +Kill.MultiTarget.Count >= 3 → 탄약+소모품
+        +Kill.WeakSpot → 탄약+소모품
+    }
+
+    GA_FireWeapon --> ExecCalc_DamageCalc : 피격 시
+    GA_Melee_Player --> ExecCalc_DamageCalc : 피격 시
+    ExecCalc_DamageCalc --> ExecCalc_CombatReward : 사망 시
+```
+
+---
+
+### 7. 오브젝트 풀링
+
+```mermaid
+classDiagram
+    direction TB
+
+    UWorldSubsystem <|-- UBlackoutPoolSubsystem
+
+    class UBlackoutPoolSubsystem {
+        -TMap PoolMap
+        +GetFromPool(UClass*) AActor*
+        +ReturnToPool(AActor*) void
+        +PreWarm(UClass*, int32 Count) void
+    }
+
+    class IBlackoutPoolableInterface {
+        <<Interface>>
+        +OnSpawnFromPool() void
+        +OnReturnToPool() void
+    }
+
+    UBlackoutPoolSubsystem --> IBlackoutPoolableInterface : manages
+
+    note for UBlackoutPoolSubsystem "PoolMap: TMap<UClass*, TArray<AActor*>>"
+```
+
+---
+
+### 8. 어그로 시스템
+
+```mermaid
+classDiagram
+    direction LR
+
+    class UBlackoutAggroComponent {
+        <<ActorComponent, Server Only>>
+        -TMap DamageAccumulator
+        -float TargetSwitchCooldown
+        -float LastSwitchTime
+        +EvaluateTarget() APlayerState*
+        -Priority1_DamageAccumulated() APlayerState*
+        -Priority2_ClosestDistance() APlayerState*
+        -Priority3_LowestHealth() APlayerState*
+        -DecayAccumulator(float DeltaTime) void
+    }
+
+    ABlackoutBossCharacter --> UBlackoutAggroComponent : has
+    UBlackoutAggroComponent --> UBOBossData : reads tuning
+
+    note for UBlackoutAggroComponent "DamageAccumulator: TMap<TWeakObjectPtr<APlayerState>, float>"
+```
+
+---
+
+### 9. 엄폐물 파괴 (Chaos Destruction)
+
+```mermaid
+classDiagram
+    direction LR
+
+    class ABlackoutDestructiblePillar {
+        -UGeometryCollectionComponent* GC
+        -float BOPillarHealth
+        -bool bIsShattered
+        +Multicast_Shatter(FVector ImpactPoint, FVector ImpactForce) void
+        +Instant_Shatter() void
+    }
+
+    ABlackoutDestructiblePillar --> ABlackoutGameState : updates DestroyedPillarIds
+```
+
+---
+
+### 10. 플레이어 전투 컴포넌트
+
+```mermaid
+classDiagram
+    direction LR
+
+    class UBlackoutCombatComponent {
+        <<ActorComponent>>
+        -bool bIsAiming
+        -EWeaponSlot CurrentSlot
+        +GetMuzzleLocation() FVector
+        +GetAimDirection() FVector
+        +SwapWeapon(EWeaponSlot) void
+        -CalculateParallaxOffset() FVector
+    }
+
+    ABlackoutPlayerCharacter --> UBlackoutCombatComponent : has
+```
+
+---
+
+## 🌐 서버 인프라
+
+### 11. 화톳불 / 포털 (Interactable)
+
+```mermaid
+classDiagram
+    direction LR
+
+    class ABlackoutBonfire {
+        +FGameplayTag CheckpointTag
+        +Interact(APlayerController*) void
+        -ApplyRestEffect() void
+        -ReopenClassSelect() void
+    }
+
+    class ABlackoutPortal {
+        -TArray ReadyFlags
+        +Interact(APlayerController*) void
+        +CheckAllReady() bool
+    }
+
+    class IBlackoutInteractable {
+        <<Interface>>
+        +Interact(APlayerController*) void
+        +GetInteractionWidget() UUserWidget*
+    }
+
+    ABlackoutBonfire ..|> IBlackoutInteractable : implements
+    ABlackoutPortal ..|> IBlackoutInteractable : implements
+```
+
+---
+
+### 12. 매치메이킹 API 서버 (Nest.js)
+
+```mermaid
+classDiagram
+    direction TB
+
+    class SessionController {
+        <<Controller>>
+        +POST /sessions
+        +GET /sessions
+        +POST /sessions/:id/join
+        +DELETE /sessions/:id
+    }
+
+    class SessionService {
+        +create(playerName) GameSession
+        +findAll() GameSession[]
+        +findOne(sessionId) GameSession
+        +join(sessionId, playerName) GameSession
+        +remove(sessionId) boolean
+    }
+
+    class SessionExpirationListener {
+        +onModuleInit() void
+        -handleSessionExpired(sessionId) void
+        -cleanupPlayerKeys(sessionId) void
+    }
+
+    class EventsGateway {
+        <<WebSocket :3001>>
+        +handleConnection() void
+        +handleDisconnect() void
+        +emitToSession(sessionId, event, data) void
+    }
+
+    class Redis {
+        <<Redis :6379>>
+        +session:id → GameSession
+        +player:name → sessionId
+        +token:token → sessionId
+        +server:id → DedicatedServer
+    }
+
+    class GameSession {
+        +string sessionId
+        +string status
+        +string[] players
+        +number maxPlayers
+        +string serverIp
+        +number serverPort
+    }
+
+    class DedicatedServer {
+        +string serverId
+        +string ip
+        +number port
+        +string status
+    }
+
+    SessionController --> SessionService : uses
+    SessionService --> Redis : read/write
+    SessionExpirationListener --> Redis : subscribes expired events
+    SessionExpirationListener --> EventsGateway : emitToSession
+    EventsGateway --> Redis : room management
+```
