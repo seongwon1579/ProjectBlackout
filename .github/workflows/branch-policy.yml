@@ -5,6 +5,7 @@ on:
   pull_request:
     branches:
       - main
+      - develop
 
 jobs:
   check-branch-policy:
@@ -13,14 +14,20 @@ jobs:
       - name: Check merge policy
         run: |
           HEAD="${{ github.head_ref }}"
+          BASE="${{ github.base_ref }}"
 
-          echo "PR: $HEAD → main"
+          echo "PR: $HEAD → $BASE"
 
-          if [ "$HEAD" != "develop" ]; then
-            echo "❌ main으로는 develop 브랜치에서만 PR을 생성할 수 있습니다."
-            echo "   현재 브랜치: $HEAD"
-            echo "   허용된 브랜치: develop"
-            exit 1
+          if [ "$BASE" = "main" ]; then
+            if [ "$HEAD" != "develop" ]; then
+              echo "❌ main으로는 develop 브랜치에서만 PR을 생성할 수 있습니다."
+              echo "   현재 브랜치: $HEAD"
+              echo "   허용된 브랜치: develop"
+              exit 1
+            fi
+
+          elif [ "$BASE" = "develop" ]; then
+            : # develop을 대상으로 하는 모든 PR을 허용
           fi
 
           echo "✅ Branch policy 통과"
