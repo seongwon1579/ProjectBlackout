@@ -18,17 +18,24 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Merge main into develop
+      - name: Create sync PR
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git checkout develop
-          git merge origin/main --no-edit
-
-          if git push origin develop; then
-            echo "✅ main → develop 자동 동기화 완료"
-          else
-            echo "❌ 충돌 발생: develop 브랜치를 수동으로 병합해 주세요."
-            exit 1
+          # 이미 동일한 sync PR이 열려 있으면 중복 생성 방지
+          EXISTING=$(gh pr list --base develop --head main --state open --json number --jq '.[0].number')
+          if [ -n "$EXISTING" ]; then
+            echo "✅ 이미 sync PR이 열려 있습니다. (#$EXISTING)"
+            exit 0
           fi
+
+          gh pr create \
+            --base develop \
+            --head main \
+            --title "Chore: main → develop 동기화" \
+            --body "main 브랜치의 변경 사항을 develop에 반영하는 자동 생성 PR입니다."
+
+          echo "✅ sync PR 생성 완료"
