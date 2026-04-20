@@ -33,6 +33,7 @@ public class ProjectBlackout : ModuleRules
 			"ProjectBlackout/Core",
 			"ProjectBlackout/GameplayTags",
 			"ProjectBlackout/Interfaces",
+			"ProjectBlackout/Data",
 			"ProjectBlackout/Variant_Platforming",
 			"ProjectBlackout/Variant_Platforming/Animation",
 			"ProjectBlackout/Variant_Combat",
