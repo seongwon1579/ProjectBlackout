@@ -7,6 +7,9 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(State_Invulnerable,  "State.Invulnerable");
 	UE_DEFINE_GAMEPLAY_TAG(State_Locked,        "State.Locked");
 
+	// ─── GAS SetByCaller 데이터 키 ────────────────────────────────────────────
+	UE_DEFINE_GAMEPLAY_TAG(Data_Damage, "Data.Damage");
+
 	// ─── Hitbox Parts ──────────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Body_WeakSpot,    "Body.WeakSpot");
 	UE_DEFINE_GAMEPLAY_TAG(Body_ArmoredLimb, "Body.ArmoredLimb");

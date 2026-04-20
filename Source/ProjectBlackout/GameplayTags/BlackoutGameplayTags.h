@@ -10,6 +10,9 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Invulnerable);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Locked);
 
+	// ─── GAS SetByCaller 데이터 키 ────────────────────────────────────────────
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Damage);
+
 	// ─── Hitbox Parts ──────────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Body_WeakSpot);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Body_ArmoredLimb);
