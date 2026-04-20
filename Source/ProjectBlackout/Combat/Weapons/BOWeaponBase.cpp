@@ -15,7 +15,7 @@ ABOWeaponBase::ABOWeaponBase()
 void ABOWeaponBase::BeginPlay()
 {
 	Super::BeginPlay();
-	// TODO: Fetch CachedStats from DT_WeaponStats based on WeaponTag
+	// TODO: WeaponTag를 기반으로 DT_WeaponStats에서 CachedStats를 가져와야 함
 }
 
 ABlackoutCharacterBase* ABOWeaponBase::GetOwningCharacter() const

@@ -48,29 +48,29 @@ void UBlackoutCombatComponent::SwapWeapon()
 
 void UBlackoutCombatComponent::StartFire()
 {
-	// Trigger GA_FireWeapon via ASC
+	// ASC를 통해 GA_FireWeapon 트리거
 }
 
 void UBlackoutCombatComponent::StopFire()
 {
-	// Stop GA_FireWeapon
+	// GA_FireWeapon 중지
 }
 
 void UBlackoutCombatComponent::StartAim()
 {
 	bIsAiming = true;
-	// Update UI/Camera
+	// UI 및 카메라 업데이트
 }
 
 void UBlackoutCombatComponent::StopAim()
 {
 	bIsAiming = false;
-	// Revert UI/Camera
+	// UI 및 카메라 원상복구
 }
 
 void UBlackoutCombatComponent::TryReload()
 {
-	// Trigger GA_Reload via ASC
+	// ASC를 통해 GA_Reload 트리거
 }
 
 void UBlackoutCombatComponent::PerformMeleeHit()
@@ -92,7 +92,7 @@ FTransform UBlackoutCombatComponent::GetMuzzleTransform() const
 
 FVector UBlackoutCombatComponent::GetAimImpactPoint() const
 {
-	// TODO: Camera forward trace
+	// TODO: 카메라 전방 트레이스(Camera forward trace)
 	return FVector::ZeroVector;
 }
 
@@ -106,7 +106,7 @@ void UBlackoutCombatComponent::OnRep_EquippedWeapon()
 {
 	if (EquippedWeapon)
 	{
-		// Attach to character's hand socket
+		// 캐릭터의 손 소켓에 부착
 		EquippedWeapon->AttachToOwner(TEXT("WeaponSocket"));
 	}
 }

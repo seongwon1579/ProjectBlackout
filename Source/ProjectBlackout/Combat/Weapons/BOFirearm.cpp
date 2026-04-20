@@ -28,7 +28,7 @@ FHitResult ABOFirearm::Fire(const FVector& Direction)
 
 ABOProjectile* ABOFirearm::SpawnProjectile(const FVector& Direction)
 {
-	// TODO: Spawn from UBlackoutPoolSubsystem instead of normal spawn
+	// TODO: 일반 스폰 대신 UBlackoutPoolSubsystem에서 스폰하도록 구현
 	return nullptr;
 }
 

@@ -5,7 +5,7 @@ ABOMeleeWeapon::ABOMeleeWeapon()
 {
 	HitBox = CreateDefaultSubobject<UBoxComponent>(TEXT("HitBox"));
 	HitBox->SetupAttachment(WeaponMesh);
-	HitBox->SetCollisionEnabled(ECollisionEnabled::NoCollision); // Only active during sweep
+	HitBox->SetCollisionEnabled(ECollisionEnabled::NoCollision); // 스윕(공격 판정) 중에만 활성화됨
 }
 
 TArray<FHitResult> ABOMeleeWeapon::PerformSweep(const FVector& Forward)

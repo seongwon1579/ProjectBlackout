@@ -44,7 +44,7 @@ void UBlackoutAmmoAttributeSet::PostGameplayEffectExecute(const FGameplayEffectM
 {
 	Super::PostGameplayEffectExecute(Data);
 
-	// Implement custom logic after effect applied
+	// 이펙트 적용 후 커스텀 로직 구현
 }
 
 void UBlackoutAmmoAttributeSet::OnRep_PrimaryClipAmmo(const FGameplayAttributeData& OldValue)

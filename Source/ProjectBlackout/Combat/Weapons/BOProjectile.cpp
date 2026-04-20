@@ -44,5 +44,5 @@ void ABOProjectile::OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor,
 		}
 	}
 	
-	// TODO: Trigger return to pool via PoolSubsystem
+	// TODO: PoolSubsystem을 통해 풀로 반환되도록 트리거
 }
