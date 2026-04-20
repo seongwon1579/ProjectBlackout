@@ -26,6 +26,10 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Checkpoint_MidBoss);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Checkpoint_MainBoss);
 
+	// ─── Weapon Slot ───────────────────────────────────────────────────────────
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Weapon_Primary);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Weapon_Secondary);
+
 	// ─── Lobby ─────────────────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(LobbyTag_InfiniteAmmo);
 }

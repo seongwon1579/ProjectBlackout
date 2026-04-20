@@ -1,6 +1,6 @@
 #include "GAS/Effects/ExecCalc_Reload.h"
 #include "GAS/Attributes/BlackoutAmmoAttributeSet.h"
-#include "GameplayTagsManager.h"
+#include "BlackoutGameplayTags.h"
 
 namespace
 {
@@ -53,10 +53,7 @@ void UExecCalc_Reload::Execute_Implementation(
 	EvalParams.SourceTags = Spec.CapturedSourceTags.GetAggregatedTags();
 	EvalParams.TargetTags = Spec.CapturedTargetTags.GetAggregatedTags();
 
-	// InstigatorTags를 통해 주/보조 무기 판단 (예: Weapon.Primary, Weapon.Secondary)
-	// 여기서는 단순 데모를 위해 임의의 태그로 검사한다고 가정합니다.
-	// 실제 태그는 BlackoutGameplayTags 등에서 상수로 정의하여 사용하는 것이 좋습니다.
-	bool bIsPrimary = !Spec.CapturedSourceTags.GetAggregatedTags()->HasTagExact(FGameplayTag::RequestGameplayTag(FName("Weapon.Secondary")));
+	const bool bIsPrimary = !Spec.CapturedSourceTags.GetAggregatedTags()->HasTagExact(BlackoutGameplayTags::Weapon_Secondary);
 
 	float ClipAmmo = 0.0f;
 	float MaxClip = 0.0f;

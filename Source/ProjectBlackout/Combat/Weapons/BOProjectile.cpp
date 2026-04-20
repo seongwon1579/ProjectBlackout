@@ -2,6 +2,7 @@
 #include "Components/SphereComponent.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "Interfaces/BlackoutDamageable.h"
+#include "Pool/BlackoutPoolSubsystem.h"
 
 ABOProjectile::ABOProjectile()
 {
@@ -44,5 +45,8 @@ void ABOProjectile::OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor,
 		}
 	}
 	
-	// TODO: PoolSubsystem을 통해 풀로 반환되도록 트리거
+	if (UBlackoutPoolSubsystem* Pool = GetWorld()->GetSubsystem<UBlackoutPoolSubsystem>())
+	{
+		Pool->ReturnToPool(this);
+	}
 }

@@ -10,11 +10,11 @@ void UBlackoutAmmoAttributeSet::GetLifetimeReplicatedProps(TArray<FLifetimePrope
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME_CONDITION_NOTIFY(UBlackoutAmmoAttributeSet, PrimaryClipAmmo, COND_OwnerOnly, REPNOTIFY_Always);
-	DOREPLIFETIME_CONDITION_NOTIFY(UBlackoutAmmoAttributeSet, PrimaryMaxClip, COND_OwnerOnly, REPNOTIFY_Always);
-	DOREPLIFETIME_CONDITION_NOTIFY(UBlackoutAmmoAttributeSet, PrimaryReserveAmmo, COND_OwnerOnly, REPNOTIFY_Always);
-	DOREPLIFETIME_CONDITION_NOTIFY(UBlackoutAmmoAttributeSet, SecondaryClipAmmo, COND_OwnerOnly, REPNOTIFY_Always);
-	DOREPLIFETIME_CONDITION_NOTIFY(UBlackoutAmmoAttributeSet, SecondaryMaxClip, COND_OwnerOnly, REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION_NOTIFY(UBlackoutAmmoAttributeSet, PrimaryClipAmmo,      COND_OwnerOnly, REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION(       UBlackoutAmmoAttributeSet, PrimaryMaxClip,       COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION_NOTIFY(UBlackoutAmmoAttributeSet, PrimaryReserveAmmo,   COND_OwnerOnly, REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION_NOTIFY(UBlackoutAmmoAttributeSet, SecondaryClipAmmo,    COND_OwnerOnly, REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION(       UBlackoutAmmoAttributeSet, SecondaryMaxClip,     COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION_NOTIFY(UBlackoutAmmoAttributeSet, SecondaryReserveAmmo, COND_OwnerOnly, REPNOTIFY_Always);
 }
 

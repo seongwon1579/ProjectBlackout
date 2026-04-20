@@ -11,11 +11,20 @@ UBlackoutHitboxComponent::UBlackoutHitboxComponent()
 
 void UBlackoutHitboxComponent::ReceiveDamageSpec(const FGameplayEffectSpecHandle& SpecHandle)
 {
+	if (!SpecHandle.IsValid())
+	{
+		return;
+	}
+
+	if (PartTag.IsValid())
+	{
+		SpecHandle.Data->SetSetByCallerMagnitude(PartTag, DamageMultiplier);
+	}
+
 	if (AActor* Owner = GetOwner())
 	{
 		if (IBlackoutDamageable* Damageable = Cast<IBlackoutDamageable>(Owner))
 		{
-			// 필요한 경우 SpecHandle에 PartTag 및 Multiplier 주입
 			Damageable->ReceiveDamageFromHitbox(SpecHandle, AttachedBoneName);
 		}
 	}

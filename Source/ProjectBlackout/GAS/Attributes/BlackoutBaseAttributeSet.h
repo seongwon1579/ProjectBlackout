@@ -3,13 +3,8 @@
 #include "CoreMinimal.h"
 #include "AttributeSet.h"
 #include "AbilitySystemComponent.h"
+#include "BlackoutAttributeMacros.h"
 #include "BlackoutBaseAttributeSet.generated.h"
-
-#define ATTRIBUTE_ACCESSORS(ClassName, PropertyName)           \
-	GAMEPLAYATTRIBUTE_PROPERTY_GETTER(ClassName, PropertyName) \
-	GAMEPLAYATTRIBUTE_VALUE_GETTER(PropertyName)               \
-	GAMEPLAYATTRIBUTE_VALUE_SETTER(PropertyName)               \
-	GAMEPLAYATTRIBUTE_VALUE_INITTER(PropertyName)
 
 /**
  * 플레이어 / 적 / 보스 공통 기본 어트리뷰트.
