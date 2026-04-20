@@ -28,6 +28,11 @@
 - 커밋 메시지는 `Docs/CONVENTIONS.md`의 태그 형식을 따르세요.
 - 커밋 전 변경 파일 목록을 확인하고, `.uasset` / `.umap` 바이너리 파일이 포함되어 있다면 주의하세요.
 
+### PR 워크플로우
+
+- PR 메시지는 `Docs/CONVENTIONS.md`의 형식을 따르세요.
+- PR 전 base가 develop가 맞는지 확인하고 절대로 main에 직접 PR를 생성하지 마세요.
+
 ### 금지 사항
 
 - `main` 또는 `develop` 브랜치에 직접 커밋하지 마세요.
