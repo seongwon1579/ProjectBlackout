@@ -19,9 +19,11 @@
 ### 코드 생성 시 주의사항
 
 - Unreal Engine 5 C++ 코드를 생성할 때는 `#include` 경로가 모듈 구조(`ProjectBlackout/...`)와 일치하는지 확인하세요.
+- C++ 구현부(.cpp)에서 헤더에 전방 선언(Forward Declaration)된 클래스를 사용하거나 `Cast<>`를 수행할 때, 반드시 해당 클래스의 헤더 파일을 `#include` 하여 `incomplete types` 컴파일 에러가 발생하지 않도록 각별히 주의하세요.
 - `.generated.h` 인클루드를 절대 빠뜨리지 마세요.
 - `UCLASS()`, `USTRUCT()`, `UENUM()` 매크로 사용 시 적절한 Specifier를 포함하세요.
 - 헤더 파일에는 `#pragma once`를 사용하세요.
+- 모든 코드 내 주석은 반드시 한글로 작성하세요.
 
 ### 커밋 워크플로우
 

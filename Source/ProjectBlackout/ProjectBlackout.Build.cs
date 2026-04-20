@@ -23,7 +23,8 @@ public class ProjectBlackout : ModuleRules
 			// GAS (Gameplay Ability System)
 			"GameplayAbilities",
 			"GameplayTags",
-			"GameplayTasks"
+			"GameplayTasks",
+			"Niagara"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { });
@@ -31,6 +32,10 @@ public class ProjectBlackout : ModuleRules
 		PublicIncludePaths.AddRange(new string[] {
 			"ProjectBlackout",
 			"ProjectBlackout/Core",
+			"ProjectBlackout/Combat",
+			"ProjectBlackout/Combat/Weapons",
+			"ProjectBlackout/Combat/Components",
+			"ProjectBlackout/Combat/Abilities",
 			"ProjectBlackout/GameplayTags",
 			"ProjectBlackout/Interfaces",
 			"ProjectBlackout/Data",
@@ -38,6 +43,7 @@ public class ProjectBlackout : ModuleRules
 			"ProjectBlackout/GAS/Attributes",
 			"ProjectBlackout/GAS/Abilities",
 			"ProjectBlackout/GAS/Effects",
+			"ProjectBlackout/GAS/Cues",
 			"ProjectBlackout/Characters",
 			"ProjectBlackout/Framework",
 			"ProjectBlackout/Pool",
