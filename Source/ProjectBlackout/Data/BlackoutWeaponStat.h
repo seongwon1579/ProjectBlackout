@@ -25,8 +25,13 @@ struct PROJECTBLACKOUT_API FBlackoutWeaponStat : public FTableRowBase
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Weapon", meta = (ClampMin = 0.f))
 	float FireRate = 10.f;
 
+	/** 한 탄창에 들어가는 최대 장탄수 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Weapon", meta = (ClampMin = 0))
 	int32 MagazineSize = 30;
+
+	/** 소지 가능한 최대 예비 탄약 수 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Weapon", meta = (ClampMin = 0))
+	int32 MaxReserveAmmo = 120;
 
 	/** 산탄/유탄류 스플래시 반경 (cm). 비적용 무기는 0. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Weapon", meta = (ClampMin = 0.f))
