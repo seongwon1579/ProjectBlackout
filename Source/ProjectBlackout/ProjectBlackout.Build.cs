@@ -30,6 +30,17 @@ public class ProjectBlackout : ModuleRules
 
 		PublicIncludePaths.AddRange(new string[] {
 			"ProjectBlackout",
+			"ProjectBlackout/Core",
+			"ProjectBlackout/GameplayTags",
+			"ProjectBlackout/Interfaces",
+			"ProjectBlackout/Data",
+			"ProjectBlackout/GAS",
+			"ProjectBlackout/GAS/Attributes",
+			"ProjectBlackout/GAS/Abilities",
+			"ProjectBlackout/GAS/Effects",
+			"ProjectBlackout/Characters",
+			"ProjectBlackout/Framework",
+			"ProjectBlackout/Pool",
 			"ProjectBlackout/Variant_Platforming",
 			"ProjectBlackout/Variant_Platforming/Animation",
 			"ProjectBlackout/Variant_Combat",

@@ -75,3 +75,6 @@ DerivedDataCache/*
 
 # External Asset Files
 Content/Assets/*
+
+# Claude Generated Files
+.claude/*
