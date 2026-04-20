@@ -33,12 +33,10 @@ classDiagram
         <<보스 — StateTree(페이즈) + 하위 BT 보유>>
         #UBehaviorTreeComponent* SubBehaviorTreeComp
         #UBlackboardComponent* BlackboardComp
-        -UBlackoutAggroComponent* CachedAggroComp
         +OnPossess(APawn*) override void
-        +OnAggroTargetChanged(APawn* NewTarget) void
         +RunSubBehaviorTree(UBehaviorTree* SubTree) void
         +StopSubBehaviorTree() void
-        #WriteTargetToBlackboard(APawn*) void
+        +WriteTargetToBlackboard(APawn*) void
         #InitStateTreeContext() override void
     }
 
@@ -46,8 +44,9 @@ classDiagram
     ABlackoutAIController *-- UAIPerceptionComponent
     ABlackoutBossAIController *-- UBehaviorTreeComponent : sub-BT per phase
     ABlackoutBossAIController *-- UBlackboardComponent : 하위 BT 공유 BB
-    ABlackoutBossAIController ..> UBlackoutAggroComponent : binds OnTargetChanged
 ```
+
+> 어그로(타겟 선정)는 컴포넌트가 아닌 **`FBSTEval_AggroTarget` StateTree Evaluator**가 전담합니다. Evaluator가 Controller의 Blackboard에 `BB_CurrentTarget`을 기록하여 하위 BT가 참조합니다. 상세는 03 다이어그램 참조.
 
 ## 실행 모델
 
@@ -68,7 +67,7 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-    Possess[OnPossess] --> InitBoss[InitStateTreeContext<br/>+ Bind AggroComp.OnTargetChanged]
+    Possess[OnPossess] --> InitBoss[InitStateTreeContext<br/>= ASC / Pawn / BBComp 핸들 등록]
     InitBoss --> StartST[StateTreeComp.StartLogic]
     StartST --> BossST[(ST_Ravager_Phases<br/>/ ST_Shrewd_Phases)]
     BossST --> PhaseA[State: Phase A]
@@ -88,9 +87,10 @@ flowchart TB
 ## 구현 노트
 
 - **`UStateTreeAIComponent`**: 엔진 `GameplayStateTree` 플러그인 제공. `OnPossess`에서 `SetStateTreeAsset` 후 `StartLogic()` 호출.
-- **`InitStateTreeContext`**: StateTree가 참조하는 외부 데이터 핸들(ASC, AggroComp, PlayerPawnRef 등)을 바인딩. BP가 아닌 C++ 가상 함수로 서브클래스별 확장.
+- **`InitStateTreeContext`**: StateTree가 참조하는 외부 데이터 핸들(ASC, Pawn, Controller, BlackboardComp 등)을 바인딩. BP가 아닌 C++ 가상 함수로 서브클래스별 확장. `FBSTEval_AggroTarget`도 이 경로로 ASC·BBComp 핸들을 받음.
 - **`ABlackoutBossAIController::RunSubBehaviorTree`**: `UBSTTask_RunSubBehaviorTree::EnterState`에서 호출됨. 이미 다른 BT가 돌고 있다면 `StopTree` 후 교체.
-- **Blackboard 스코프**: 보스의 Blackboard는 **하위 BT 전용**으로 사용(예: `BB_CurrentTarget`, `BB_HasLineOfSight`). StateTree는 자체 파라미터/평가자를 사용하므로 Blackboard를 거의 쓰지 않음.
-- **Perception**: 미니언만 Sight 감각 활성화. 보스는 `UBlackoutAggroComponent`가 타겟 전담 → Perception 비활성화 또는 제거.
+- **Blackboard 스코프**: 보스의 Blackboard는 **하위 BT 전용**으로 사용. 어그로 Evaluator(`FBSTEval_AggroTarget`)가 `BB_CurrentTarget`을 기록하고, `UBTService_LineOfSightCheck`가 `BB_HasLineOfSight`를 기록. 하위 BT Task(MoveTo/Attack)가 이를 소비.
+- **`WriteTargetToBlackboard`**: Controller의 public 메서드. Evaluator가 외부 데이터 핸들로 Controller를 받아 이 함수를 호출하여 BB 키를 갱신.
+- **Perception**: 미니언만 Sight 감각 활성화. 보스는 `FBSTEval_AggroTarget`이 타겟을 전담 → Perception 비활성화 또는 제거.
 - **서버 전용**: AI 로직은 서버 Authority. `OnPossess`는 `HasAuthority()` 가드로 조기 리턴.
 - **디버깅**: StateTree Debugger (UE 5.3+)로 페이즈 전이/활성 상태 라이브 추적 가능. BT 대비 가시성 개선.

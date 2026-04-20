@@ -1,4 +1,4 @@
-# AI/Boss — 05. 보스 어빌리티(GA) 세트
+# AI/Boss — 04. 보스 어빌리티(GA) 세트
 
 > TDD v5 §6, GDD §5·§6 참조. 패턴별 GA를 Ability Tag로 BT에서 호출.
 

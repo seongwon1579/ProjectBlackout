@@ -1,4 +1,4 @@
-# AI/Boss — 04. StateTree 자산 + 보스 페이즈별 하위 BehaviorTree
+# AI/Boss — 03. StateTree 자산 + 보스 페이즈별 하위 BehaviorTree
 
 > 미니언은 **순수 StateTree**, 보스는 **StateTree(페이즈) + 하위 BT(페이즈별 패턴)** 하이브리드.
 > TDD v5 §6 확장 설계.
@@ -86,14 +86,76 @@ classDiagram
     }
 
     class FBSTEval_AggroTarget {
-        <<AggroComp.GetCurrentTarget 퍼블리시>>
+        <<보스 전용 — 어그로 평가·퍼블리시 일체>>
+        -TMap~TWeakObjectPtr~APlayerState~, float~ DamageAccumulator
+        -TWeakObjectPtr~APlayerState~ CurrentTargetPS
+        -float LastSwitchTime
+        +float EvaluationInterval = 0.25
+        +FStateTreeExternalDataHandle~UAbilitySystemComponent~ OwnerASC
+        +FStateTreeExternalDataHandle~ABlackoutBossAIController~ Controller
+        +FStateTreeExternalDataHandle~UBOBossData~ BossData
         +FStateTreeOutputDataHandle~APawn~ OutTarget
+        +TreeStart(Context) void
+        +TreeStop(Context) void
+        +Tick(Context, DeltaSeconds) void
+        #HandleDamageReceived(FGameplayEffectSpec) void
+        #ApplyDecay(float DeltaSeconds) void
+        #SelectByDamage() APlayerState*
+        #SelectByDistance() APlayerState*
+        #SelectByLowestHealth() APlayerState*
     }
 
     FBSTTask_ActivateAbility ..> UBlackoutAbilitySystemComponent : TryActivateAbilitiesByTag
     FBSTTask_RunSubBehaviorTree ..> ABlackoutBossAIController : RunSubBehaviorTree / StopSubBehaviorTree
-    FBSTEval_AggroTarget ..> UBlackoutAggroComponent : GetCurrentTarget
+    FBSTEval_AggroTarget ..> UAbilitySystemComponent : OnGameplayEffectAppliedDelegateToSelf
+    FBSTEval_AggroTarget ..> ABlackoutBossAIController : WriteTargetToBlackboard
+    FBSTEval_AggroTarget ..> UBOBossData : reads tuning
 ```
+
+## 어그로 Evaluator 상세 (`FBSTEval_AggroTarget`)
+
+> GDD §6.0·TDD §6.1의 누적 피해·거리·체력 기반 3순위 타겟 선정을 StateTree Evaluator로 구현.
+> 보스 StateTree의 **최상위 Evaluator로 등록**되어 모든 페이즈에서 지속 실행됨. 별도 ActorComponent를 두지 않음.
+
+### 타겟 선정 3단계 (GDD §6.0 1:1 매핑)
+
+| 순위 | 판정 | 구현 |
+|---|---|---|
+| 1 | 누적 피해 최대 | `SelectByDamage()` — `DamageAccumulator` 최대. 2위와의 격차 < `AggroDamageThreshold`면 2순위로 이관 |
+| 2 | 최근접 | `SelectByDistance()` — `FVector::DistSquared` |
+| 3 | 최저 체력 | `SelectByLowestHealth()` — `UBlackoutBaseAttributeSet::Health` |
+
+### 수명 주기 훅
+
+| 훅 | 동작 |
+|---|---|
+| `TreeStart` | Owner ASC에 `OnGameplayEffectAppliedDelegateToSelf` 바인딩, `LastSwitchTime` 초기화 |
+| `Tick` | `ApplyDecay(DeltaSeconds)` → 3순위 재평가 → 쿨다운(`AggroSwitchCooldown`) 통과 시에만 `CurrentTargetPS` 교체 → `OutTarget` 퍼블리시 + `Controller->WriteTargetToBlackboard(NewTarget)` |
+| `TreeStop` | ASC 델리게이트 언바인딩, `DamageAccumulator` 클리어 |
+
+### 튜닝 파라미터 (`UBOBossData` 주입)
+
+- `AggroSwitchCooldown` (기본 5.0초) — 마지막 전환 후 쿨다운 경과 전 타겟 유지. 현재 타겟이 **다운/사망**이면 쿨다운 무시.
+- `AggroDamageThreshold` (기본 0.15 = 15%) — 1위와 2위 누적 피해 격차 임계.
+- `AggroDecayRate` (기본 0.02 /sec) — `Accumulator *= (1 - AggroDecayRate * DeltaSeconds)` 선형 감쇠.
+
+### 데이터 흐름
+
+```mermaid
+flowchart LR
+    GE[GE_Damage 적용] --> ASC[Owner ASC Delegate]
+    ASC --> Eval[FBSTEval_AggroTarget<br/>HandleDamageReceived]
+    Eval --> Map[DamageAccumulator 갱신]
+    TickEv[ST Tick] --> Decay[ApplyDecay]
+    Decay --> Select[3순위 평가 + 쿨다운]
+    Select --> OutST[OutTarget<br/>ST 컨텍스트]
+    Select --> BB[Controller.WriteTargetToBlackboard<br/>BB_CurrentTarget]
+    OutST --> OtherTasks[다른 ST Task / Cond 참조]
+    BB --> SubBT[하위 BT MoveTo / Attack]
+```
+
+- **서버 Authority 전용**: `GE_Damage` 적용이 서버에서만 일어나므로 Evaluator도 서버에서만 의미를 가짐. `TreeStart`에서 `GetWorld()->GetNetMode() == NM_Client`면 조기 리턴하는 방어 코드 권장.
+- **BB 기록 경로**: Evaluator는 Controller를 External Data로 받아 `WriteTargetToBlackboard`를 호출. 이 한 곳에서 ST 컨텍스트와 하위 BT Blackboard를 동시에 갱신하여 일관성 유지.
 
 ## 보스 StateTree 페이즈 설계
 
@@ -142,7 +204,7 @@ stateDiagram-v2
 
 - 하위 BT는 **페이즈 전환 관심 없음**. 오직 해당 페이즈의 패턴 선택·실행만 담당. 페이즈 경계 감시는 StateTree가 전담.
 - 하위 BT의 **Blackboard는 Controller 소유** (`ABlackoutBossAIController::BlackboardComp`). 핵심 키:
-  - `BB_CurrentTarget` (Object) — AggroComp가 `OnTargetChanged`에서 기록
+  - `BB_CurrentTarget` (Object) — `FBSTEval_AggroTarget`이 Tick마다 `Controller->WriteTargetToBlackboard`로 기록
   - `BB_HasLineOfSight` (Bool) — `UBTService_LineOfSightCheck`가 업데이트 (Shrewd 전용)
 - 하위 BT 내부는 전통적 Selector / Sequence 구성. Ability 발동은 `UBTTask_ActivateBossAbility(AbilityTag=GA.Ravager.DoubleSwipe)`로 호출.
 

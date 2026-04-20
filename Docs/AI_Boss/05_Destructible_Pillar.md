@@ -1,4 +1,4 @@
-# AI/Boss — 06. 파괴 가능 기둥 (Destructible Pillar)
+# AI/Boss — 05. 파괴 가능 기둥 (Destructible Pillar)
 
 > TDD v5 §8 참조. Chaos Destruction(Geometry Collection)으로 Ravager의 `GA_Ravager_PillarCharge`에 의해서만 파괴.
 
@@ -13,7 +13,7 @@ classDiagram
         <<AActor>>
         -UGeometryCollectionComponent* GCComponent
         -UStaticMeshComponent* IntactMesh
-        -UCapsuleComponent* BlockingCollision
+        -UBoxComponent* BlockingCollision
         -float BOPillarHealth
         -bool bIsShattered
         -int32 PillarId
