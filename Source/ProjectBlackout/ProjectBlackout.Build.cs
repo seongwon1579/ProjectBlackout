@@ -43,6 +43,7 @@ public class ProjectBlackout : ModuleRules
 			"ProjectBlackout/GAS/Attributes",
 			"ProjectBlackout/GAS/Abilities",
 			"ProjectBlackout/GAS/Effects",
+			"ProjectBlackout/GAS/Cues",
 			"ProjectBlackout/Characters",
 			"ProjectBlackout/Framework",
 			"ProjectBlackout/Pool",
