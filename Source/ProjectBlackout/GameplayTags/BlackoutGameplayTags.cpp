@@ -29,4 +29,9 @@ namespace BlackoutGameplayTags
 
 	// ─── Lobby ─────────────────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(LobbyTag_InfiniteAmmo, "LobbyTag.InfiniteAmmo");
+
+	// ─── Gameplay Cues ─────────────────────────────────────────────────────────
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Character_Hit, "GameplayCue.Character.Hit");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_Fire,   "GameplayCue.Weapon.Fire");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_Reload, "GameplayCue.Weapon.Reload");
 }

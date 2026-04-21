@@ -45,6 +45,7 @@ public class ProjectBlackout : ModuleRules
 			"ProjectBlackout/GAS/Effects",
 			"ProjectBlackout/GAS/Cues",
 			"ProjectBlackout/Characters",
+			"ProjectBlackout/AI",
 			"ProjectBlackout/Framework",
 			"ProjectBlackout/Pool",
 			"ProjectBlackout/Variant_Platforming",
