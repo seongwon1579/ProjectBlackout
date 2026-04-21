@@ -1,14 +1,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GAS/Abilities/BlackoutGameplayAbility.h"
+#include "GAS/Abilities/BlackoutBossGameplayAbility.h"
 #include "GA_Ravager_BackwardJump.generated.h"
 
 /**
  * Phase A — 회피 이동 (Shockwave 선행)
  */
 UCLASS()
-class PROJECTBLACKOUT_API UGA_Ravager_BackwardJump : public UBlackoutGameplayAbility
+class PROJECTBLACKOUT_API UGA_Ravager_BackwardJump : public UBlackoutBossGameplayAbility
 {
 	GENERATED_BODY()
 

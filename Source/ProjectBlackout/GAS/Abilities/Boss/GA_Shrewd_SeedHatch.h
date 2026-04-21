@@ -1,14 +1,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GAS/Abilities/BlackoutGameplayAbility.h"
+#include "GAS/Abilities/BlackoutBossGameplayAbility.h"
 #include "GA_Shrewd_SeedHatch.generated.h"
 
 /**
  * 기획 보류 — 씨앗 부화 기믹
  */
 UCLASS()
-class PROJECTBLACKOUT_API UGA_Shrewd_SeedHatch : public UBlackoutGameplayAbility
+class PROJECTBLACKOUT_API UGA_Shrewd_SeedHatch : public UBlackoutBossGameplayAbility
 {
 	GENERATED_BODY()
 

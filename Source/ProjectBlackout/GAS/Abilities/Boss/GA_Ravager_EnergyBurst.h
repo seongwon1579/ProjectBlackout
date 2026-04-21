@@ -1,14 +1,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GAS/Abilities/BlackoutGameplayAbility.h"
+#include "GAS/Abilities/BlackoutBossGameplayAbility.h"
 #include "GA_Ravager_EnergyBurst.generated.h"
 
 /**
  * Phase B — 제자리 웅크려 충전 후 광역 에너지 파동
  */
 UCLASS()
-class PROJECTBLACKOUT_API UGA_Ravager_EnergyBurst : public UBlackoutGameplayAbility
+class PROJECTBLACKOUT_API UGA_Ravager_EnergyBurst : public UBlackoutBossGameplayAbility
 {
 	GENERATED_BODY()
 

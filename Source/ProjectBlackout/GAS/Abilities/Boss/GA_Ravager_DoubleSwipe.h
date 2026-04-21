@@ -1,14 +1,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GAS/Abilities/BlackoutGameplayAbility.h"
+#include "GAS/Abilities/BlackoutBossGameplayAbility.h"
 #include "GA_Ravager_DoubleSwipe.generated.h"
 
 /**
  * Phase A — 2연속 할퀴기 (엇박자 콤보)
  */
 UCLASS()
-class PROJECTBLACKOUT_API UGA_Ravager_DoubleSwipe : public UBlackoutGameplayAbility
+class PROJECTBLACKOUT_API UGA_Ravager_DoubleSwipe : public UBlackoutBossGameplayAbility
 {
 	GENERATED_BODY()
 

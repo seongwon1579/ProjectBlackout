@@ -1,14 +1,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GAS/Abilities/BlackoutGameplayAbility.h"
+#include "GAS/Abilities/BlackoutBossGameplayAbility.h"
 #include "GA_Ravager_Gorenado.generated.h"
 
 /**
  * Phase C — 궁극기 볼텍스 소용돌이 (중앙으로 흡입)
  */
 UCLASS()
-class PROJECTBLACKOUT_API UGA_Ravager_Gorenado : public UBlackoutGameplayAbility
+class PROJECTBLACKOUT_API UGA_Ravager_Gorenado : public UBlackoutBossGameplayAbility
 {
 	GENERATED_BODY()
 

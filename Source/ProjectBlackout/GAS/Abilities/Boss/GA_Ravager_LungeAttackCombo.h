@@ -1,14 +1,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GAS/Abilities/BlackoutGameplayAbility.h"
+#include "GAS/Abilities/BlackoutBossGameplayAbility.h"
 #include "GA_Ravager_LungeAttackCombo.generated.h"
 
 /**
  * Phase A — 도약 덮침 → 할퀴기 → 물기 복합 콤보
  */
 UCLASS()
-class PROJECTBLACKOUT_API UGA_Ravager_LungeAttackCombo : public UBlackoutGameplayAbility
+class PROJECTBLACKOUT_API UGA_Ravager_LungeAttackCombo : public UBlackoutBossGameplayAbility
 {
 	GENERATED_BODY()
 

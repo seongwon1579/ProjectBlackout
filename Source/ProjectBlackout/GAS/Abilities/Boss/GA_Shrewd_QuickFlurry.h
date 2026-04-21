@@ -1,14 +1,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GAS/Abilities/BlackoutGameplayAbility.h"
+#include "GAS/Abilities/BlackoutBossGameplayAbility.h"
 #include "GA_Shrewd_QuickFlurry.generated.h"
 
 /**
  * 발판 페이즈 — 짧은 딜레이 후 복수 화살 연사
  */
 UCLASS()
-class PROJECTBLACKOUT_API UGA_Shrewd_QuickFlurry : public UBlackoutGameplayAbility
+class PROJECTBLACKOUT_API UGA_Shrewd_QuickFlurry : public UBlackoutBossGameplayAbility
 {
 	GENERATED_BODY()
 

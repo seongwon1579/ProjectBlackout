@@ -1,14 +1,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GAS/Abilities/BlackoutGameplayAbility.h"
+#include "GAS/Abilities/BlackoutBossGameplayAbility.h"
 #include "GA_Shrewd_Lunge.generated.h"
 
 /**
  * 지면 페이즈 — 장거리 강습 도약 (Motion Warping)
  */
 UCLASS()
-class PROJECTBLACKOUT_API UGA_Shrewd_Lunge : public UBlackoutGameplayAbility
+class PROJECTBLACKOUT_API UGA_Shrewd_Lunge : public UBlackoutBossGameplayAbility
 {
 	GENERATED_BODY()
 
