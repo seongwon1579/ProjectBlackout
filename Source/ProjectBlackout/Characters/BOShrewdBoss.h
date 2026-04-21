@@ -19,6 +19,8 @@ class PROJECTBLACKOUT_API ABOShrewdBoss : public ABlackoutBossCharacter
 public:
 	ABOShrewdBoss();
 
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Boss|Shrewd")
 	void EnterPlatformPhase();
 

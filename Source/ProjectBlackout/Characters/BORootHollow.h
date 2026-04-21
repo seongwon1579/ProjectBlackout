@@ -7,8 +7,8 @@
 class UStateTree;
 
 /**
- * Root Hollow Minion
- * 일반 미니언 — 순수 StateTree를 이용해 행동(돌진 등)을 수행.
+ * Root Hollow 일반 미니언.
+ * 순수 StateTree를 이용해 추격·돌진 행동을 수행.
  */
 UCLASS()
 class PROJECTBLACKOUT_API ABORootHollow : public ABlackoutEnemyCharacter

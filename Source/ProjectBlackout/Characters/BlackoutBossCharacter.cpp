@@ -17,17 +17,20 @@ void ABlackoutBossCharacter::BeginPlay()
 	if (HasAuthority() && GetAbilitySystemComponent())
 	{
 		// 델리게이트 바인딩 (ASC 측 구현에 맞게 조정 필요)
-		// GetAbilitySystemComponent()->OnGameplayEffectAppliedDelegateToSelf.AddUObject(this, &ABlackoutBossCharacter::OnDamageReceived);
+		// GetAbilitySystemComponent()->OnGameplayEffectAppliedDelegateToSelf.AddUObject(
+		//     this, &ABlackoutBossCharacter::OnDamageReceived);
 	}
 }
 
 void ABlackoutBossCharacter::OnReturnToPool_Implementation()
 {
-	// Bosses are not pooled. Destroy instead.
+	// 보스는 풀링 대상이 아님. 풀 반환 대신 즉시 제거.
 	Destroy();
 }
 
-void ABlackoutBossCharacter::OnDamageReceived(const FGameplayEffectSpec& Spec)
+void ABlackoutBossCharacter::OnDamageReceived(UAbilitySystemComponent* Source,
+                                              const FGameplayEffectSpec& Spec,
+                                              FActiveGameplayEffectHandle Handle)
 {
 	EvaluatePhaseTransition();
 }

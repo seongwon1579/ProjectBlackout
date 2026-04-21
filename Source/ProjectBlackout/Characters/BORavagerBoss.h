@@ -38,7 +38,7 @@ protected:
 
 	/** Phase C 진입 시 공격 선/후딜 감소를 위한 애니메이션 배속 승수 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blackout|Boss|Ravager")
-	float AnimPlayRateMultiplier;
+	float AnimPlayRateMultiplier = 1.0f;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Boss|Ravager")
 	int32 SummonedMinionCount;

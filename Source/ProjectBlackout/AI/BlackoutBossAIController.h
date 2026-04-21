@@ -9,8 +9,8 @@ class UBlackboardComponent;
 class UBehaviorTree;
 
 /**
- * AI Controller for Bosses. Uses StateTree for Phase management and 
- * BehaviorTree for sub-phase attack patterns.
+ * 보스 전용 AI 컨트롤러.
+ * StateTree로 페이즈를 관리하고, 페이즈별 하위 BehaviorTree로 전투 패턴을 수행.
  */
 UCLASS()
 class PROJECTBLACKOUT_API ABlackoutBossAIController : public ABlackoutAIController
@@ -22,15 +22,15 @@ public:
 
 	virtual void OnPossess(APawn* InPawn) override;
 
-	/** Runs a sub-behavior tree for the current phase */
+	/** 현재 페이즈에 맞는 하위 BehaviorTree를 실행 */
 	UFUNCTION(BlueprintCallable, Category = "Blackout|AI")
 	void RunSubBehaviorTree(UBehaviorTree* SubTree);
 
-	/** Stops the currently running sub-behavior tree */
+	/** 현재 실행 중인 하위 BehaviorTree를 정지 */
 	UFUNCTION(BlueprintCallable, Category = "Blackout|AI")
 	void StopSubBehaviorTree();
 
-	/** Writes the given target to the blackboard (called by Aggro Evaluator) */
+	/** 어그로 Evaluator가 선정한 타겟을 Blackboard에 기록 */
 	UFUNCTION(BlueprintCallable, Category = "Blackout|AI")
 	void WriteTargetToBlackboard(APawn* TargetPawn);
 

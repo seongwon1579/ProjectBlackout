@@ -28,13 +28,13 @@ void ABlackoutBossAIController::RunSubBehaviorTree(UBehaviorTree* SubTree)
 		return;
 	}
 
-	// If a tree is already running, stop it first
+	// 이미 실행 중인 트리가 있으면 먼저 정지
 	if (SubBehaviorTreeComp->IsRunning())
 	{
 		StopSubBehaviorTree();
 	}
 
-	// Initialize blackboard if needed
+	// Blackboard 초기화 (SubTree에 에셋이 지정된 경우)
 	if (SubTree->BlackboardAsset)
 	{
 		BlackboardComp->InitializeBlackboard(*SubTree->BlackboardAsset);

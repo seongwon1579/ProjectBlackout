@@ -18,7 +18,7 @@ void ABlackoutAIController::OnPossess(APawn* InPawn)
 		
 		if (StateTreeComp)
 		{
-			// StateTree asset should be set in Blueprint or via DataAsset before this
+			// StateTree 에셋은 BP 서브클래스 또는 DataAsset에서 지정된 후 이 호출이 이루어져야 함
 			StateTreeComp->StartLogic();
 		}
 	}
@@ -36,10 +36,10 @@ void ABlackoutAIController::OnUnPossess()
 
 void ABlackoutAIController::InitStateTreeContext()
 {
-	// Base implementation. Subclasses can override to bind external data handles.
+	// 베이스 구현. 서브클래스에서 오버라이드하여 외부 데이터 핸들 바인딩.
 }
 
 void ABlackoutAIController::InitPerception()
 {
-	// Base implementation for Perception initialization.
+	// 베이스 구현. Perception이 필요한 서브클래스에서 오버라이드.
 }

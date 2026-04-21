@@ -9,8 +9,8 @@ class UStateTree;
 class ABOProjectile;
 
 /**
- * Root Wraith Elite Minion
- * 엘리트 미니언 — 순수 StateTree를 이용해 원거리 2연사 및 점멸을 수행.
+ * Root Wraith 엘리트 미니언.
+ * 순수 StateTree를 이용해 원거리 2연사 및 시야 밖 점멸을 수행.
  */
 UCLASS()
 class PROJECTBLACKOUT_API ABORootWraith : public ABlackoutEnemyCharacter

@@ -21,8 +21,8 @@ enum class EBossPhase : uint8
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnBossPhaseChangedSignature, EBossPhase, NewPhase);
 
 /**
- * Base class for Boss Characters (Shrewd, Ravager).
- * Manages Phase Transitions based on damage received.
+ * 보스 캐릭터(Shrewd, Ravager) 베이스 클래스.
+ * 수신된 피해를 기반으로 페이즈 전환을 관리.
  */
 UCLASS(Abstract)
 class PROJECTBLACKOUT_API ABlackoutBossCharacter : public ABlackoutEnemyCharacter
@@ -40,16 +40,18 @@ public:
 protected:
 	virtual void BeginPlay() override;
 
-	/** Called when damage is received to check for phase transitions */
-	virtual void OnDamageReceived(const FGameplayEffectSpec& Spec);
+	/** 피해 수신 시 페이즈 전환 조건을 확인하기 위해 호출됨 */
+	virtual void OnDamageReceived(UAbilitySystemComponent* Source,
+	                              const FGameplayEffectSpec& Spec,
+	                              FActiveGameplayEffectHandle Handle);
 
-	/** Evaluates if a phase transition should occur based on health cutlines */
+	/** 체력 컷라인 기준으로 페이즈 전환 여부를 평가 */
 	virtual void EvaluatePhaseTransition();
 
-	/** Overridden by child classes to handle specific phase change logic */
+	/** 자식 클래스에서 오버라이드하여 페이즈 전환 전용 로직 처리 */
 	virtual void OnPhaseChanged(EBossPhase NewPhase);
 
-	/** Broadcasts the phase change event */
+	/** 페이즈 변경 이벤트를 브로드캐스트 */
 	void BroadcastOnPhaseChanged();
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Boss")
