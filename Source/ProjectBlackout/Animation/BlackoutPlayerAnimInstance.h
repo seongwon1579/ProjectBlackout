@@ -31,4 +31,16 @@ protected:
 	/** 전력질주 여부 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Animation")
 	bool bIsSprinting;
+
+	/** 에임 오프셋 Yaw (-180 ~ 180) */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Animation")
+	float AO_Yaw;
+
+	/** 에임 오프셋 Pitch (-90 ~ 90) */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Animation")
+	float AO_Pitch;
+
+	/** 에임 오프셋 보간 속도 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Animation")
+	float AO_InterpSpeed = 15.f;
 };

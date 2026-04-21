@@ -36,6 +36,9 @@ void UBlackoutAnimInstanceBase::NativeUpdateAnimation(float DeltaSeconds)
 	Velocity = OwnerCharacter->GetVelocity();
 	GroundSpeed = Velocity.Size2D();
 
+	// 이동 방향 계산 (-180 ~ 180)
+	MovementDirection = CalculateDirection(Velocity, OwnerCharacter->GetActorRotation());
+
 	bIsFalling = OwnerMovementComponent->IsFalling();
 	
 	// 가속도 벡터의 크기가 0보다 크면 가속 중(입력 중)인 것으로 판단

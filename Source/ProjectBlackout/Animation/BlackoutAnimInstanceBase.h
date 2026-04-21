@@ -45,6 +45,10 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Animation")
 	FVector Velocity;
 
+	/** 이동 방향 (-180 ~ 180도) */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Animation")
+	float MovementDirection;
+
 	/** 다운 상태 여부 (State.Downed 태그 기반) */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Animation")
 	bool bIsDowned;

@@ -2,6 +2,7 @@
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "AbilitySystemComponent.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
+#include "Kismet/KismetMathLibrary.h"
 
 void UBlackoutPlayerAnimInstance::NativeInitializeAnimation()
 {
@@ -20,10 +21,20 @@ void UBlackoutPlayerAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 		if (!PlayerCharacter) return;
 	}
 
-	// GAS 태그 또는 컴포넌트로부터 상태 정보 업데이트
-	// 예: 조준 중인지 확인 (Combat 에픽에서 추가될 태그 등 활용 예정)
-	// if (UAbilitySystemComponent* ASC = PlayerCharacter->GetAbilitySystemComponent())
-	// {
-	//     bIsAiming = ASC->HasMatchingGameplayTag(FGameplayTag::RequestGameplayTag(FName("State.Aiming")));
-	// }
+	// GAS 태그 상태 업데이트
+	if (UAbilitySystemComponent* ASC = PlayerCharacter->GetAbilitySystemComponent())
+	{
+		bIsAiming = ASC->HasMatchingGameplayTag(BlackoutGameplayTags::State_Aiming);
+		bIsSprinting = ASC->HasMatchingGameplayTag(BlackoutGameplayTags::State_Sprinting);
+	}
+
+	// 에임 오프셋 계산 (조준 시 상체 회전을 위함)
+	// 컨트롤 회전(카메라)과 캐릭터 정면 사이의 차이 계산
+	const FRotator ControlRotation = PlayerCharacter->GetControlRotation();
+	const FRotator ActorRotation = PlayerCharacter->GetActorRotation();
+	const FRotator Delta = UKismetMathLibrary::NormalizedDeltaRotator(ControlRotation, ActorRotation);
+
+	// 부드러운 애니메이션을 위해 보간(Interpolation) 적용
+	AO_Yaw = FMath::FInterpTo(AO_Yaw, Delta.Yaw, DeltaSeconds, AO_InterpSpeed);
+	AO_Pitch = FMath::FInterpTo(AO_Pitch, Delta.Pitch, DeltaSeconds, AO_InterpSpeed);
 }
