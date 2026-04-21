@@ -1,4 +1,6 @@
 #include "BlackoutAbilitySystemComponent.h"
+#include "Abilities/BlackoutGameplayAbility.h"
+#include "Core/BlackoutTypes.h"
 #include "BlackoutLog.h"
 
 void UBlackoutAbilitySystemComponent::GiveDefaultAbilities(const TArray<TSubclassOf<UGameplayAbility>>& Abilities)
@@ -14,8 +16,20 @@ void UBlackoutAbilitySystemComponent::GiveDefaultAbilities(const TArray<TSubclas
 		{
 			continue;
 		}
-		GiveAbility(FGameplayAbilitySpec(AbilityClass, 1));
-		BO_LOG_GAS(Verbose, "Granted ability: %s", *AbilityClass->GetName());
+
+		FGameplayAbilitySpec Spec(AbilityClass, 1);
+		
+		// 만약 UBlackoutGameplayAbility라면 정의된 InputID를 Spec에 할당
+		if (const UBlackoutGameplayAbility* BlackoutAbility = Cast<UBlackoutGameplayAbility>(AbilityClass->GetDefaultObject()))
+		{
+			if (BlackoutAbility->InputID != EBlackoutAbilityInputID::None)
+			{
+				Spec.InputID = static_cast<int32>(BlackoutAbility->InputID);
+			}
+		}
+
+		GiveAbility(Spec);
+		BO_LOG_GAS(Verbose, "Granted ability: %s (InputID: %d)", *AbilityClass->GetName(), Spec.InputID);
 	}
 }
 

@@ -22,10 +22,16 @@ class PROJECTBLACKOUT_API ABlackoutPlayerCharacter : public ABlackoutCharacterBa
 public:
 	ABlackoutPlayerCharacter();
 
+	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	virtual void PossessedBy(AController* NewController) override;
 	virtual void OnRep_PlayerState() override;
 
 protected:
+	/** ASC와 입력 컴포넌트 바인딩 */
+	void BindASCInput();
+
+	bool bIsInputBound = false;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Camera")
 	TObjectPtr<USpringArmComponent> SpringArm;
 
