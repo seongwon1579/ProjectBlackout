@@ -1,4 +1,7 @@
 #include "Animation/BlackoutEnemyAnimInstance.h"
+
+#include "AbilitySystemComponent.h"
+#include "BlackoutGameplayTags.h"
 #include "Characters/BlackoutEnemyCharacter.h"
 
 void UBlackoutEnemyAnimInstance::NativeInitializeAnimation()
@@ -18,5 +21,9 @@ void UBlackoutEnemyAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 		if (!EnemyCharacter) return;
 	}
 
-	// AI 상태나 태그를 통해 bIsAttacking 등의 상태 업데이트 로직이 들어갈 자리
+	// GAS 태그 상태 업데이트
+	if (UAbilitySystemComponent* ASC = EnemyCharacter->GetAbilitySystemComponent())
+	{
+		bIsAttacking = ASC->HasMatchingGameplayTag(BlackoutGameplayTags::State_Attacking);
+	}
 }

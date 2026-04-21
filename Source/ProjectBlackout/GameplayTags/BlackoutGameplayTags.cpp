@@ -6,6 +6,9 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(State_Downed,        "State.Downed");
 	UE_DEFINE_GAMEPLAY_TAG(State_Invulnerable,  "State.Invulnerable");
 	UE_DEFINE_GAMEPLAY_TAG(State_Locked,        "State.Locked");
+	UE_DEFINE_GAMEPLAY_TAG(State_Aiming,        "State.Aiming");
+	UE_DEFINE_GAMEPLAY_TAG(State_Sprinting,     "State.Sprinting");
+	UE_DEFINE_GAMEPLAY_TAG(State_Attacking,     "State.Attacking");
 
 	// ─── GAS SetByCaller 데이터 키 ────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Data_Damage,        "Data.Damage");

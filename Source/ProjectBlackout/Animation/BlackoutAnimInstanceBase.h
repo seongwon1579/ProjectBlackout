@@ -44,4 +44,12 @@ protected:
 	/** 현재 속도 벡터 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Animation")
 	FVector Velocity;
+
+	/** 다운 상태 여부 (State.Downed 태그 기반) */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Animation")
+	bool bIsDowned;
+
+	/** 행동 제약 상태 여부 (State.Locked 태그 기반) */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Animation")
+	bool bIsLocked;
 };

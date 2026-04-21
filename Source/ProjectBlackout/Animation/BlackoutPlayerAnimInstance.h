@@ -27,4 +27,8 @@ protected:
 	/** 조준 여부 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Animation")
 	bool bIsAiming;
+
+	/** 전력질주 여부 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Animation")
+	bool bIsSprinting;
 };

@@ -1,6 +1,8 @@
 #include "Animation/BlackoutAnimInstanceBase.h"
 #include "Characters/BlackoutCharacterBase.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "AbilitySystemComponent.h"
+#include "GameplayTags/BlackoutGameplayTags.h"
 #include "Kismet/KismetMathLibrary.h"
 
 void UBlackoutAnimInstanceBase::NativeInitializeAnimation()
@@ -38,4 +40,11 @@ void UBlackoutAnimInstanceBase::NativeUpdateAnimation(float DeltaSeconds)
 	
 	// 가속도 벡터의 크기가 0보다 크면 가속 중(입력 중)인 것으로 판단
 	bIsAccelerating = OwnerMovementComponent->GetCurrentAcceleration().SizeSquared() > 0.f;
+
+	// GAS 태그 상태 업데이트
+	if (UAbilitySystemComponent* ASC = OwnerCharacter->GetAbilitySystemComponent())
+	{
+		bIsDowned = ASC->HasMatchingGameplayTag(BlackoutGameplayTags::State_Downed);
+		bIsLocked = ASC->HasMatchingGameplayTag(BlackoutGameplayTags::State_Locked);
+	}
 }

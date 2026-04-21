@@ -1,7 +1,7 @@
 #include "Animation/BlackoutPlayerAnimInstance.h"
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "AbilitySystemComponent.h"
-#include "GameplayTagContainer.h"
+#include "GameplayTags/BlackoutGameplayTags.h"
 
 void UBlackoutPlayerAnimInstance::NativeInitializeAnimation()
 {
