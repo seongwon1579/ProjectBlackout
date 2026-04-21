@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "BlackoutGameMode.h"
+#include "UObject/SoftObjectPath.h"
 #include "BlackoutLobbyGameMode.generated.h"
 
 UCLASS()
@@ -15,4 +16,13 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Lobby")
 	virtual void StartBattle();
+	
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Lobby")
+	virtual void NotifyReadyChanged();
+	
+protected:
+	virtual void OnPlayerJoined(APlayerController* NewPlayer) override;
+	
+	UPROPERTY(EditDefaultsOnly  , Category = "Blackout|Lobby")
+	FSoftObjectPath BattleMapPath;
 };
