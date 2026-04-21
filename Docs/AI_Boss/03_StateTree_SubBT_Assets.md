@@ -8,14 +8,14 @@
 | 에셋 | 종류 | 대상 | 책임 |
 |---|---|---|---|
 | `ST_RootHollow` | StateTree | `ABORootHollow` | Chase → Charge → Recover 순환 |
-| `ST_RootWraith` | StateTree | `ABORootWraith` | Kite → FireTwinArrows → Teleport 순환 |
-| `ST_Shrewd_Phases` | StateTree | `ABOShrewdBoss` | Platform ↔ Ground 페이즈 관리 |
-| `BT_Shrewd_Platform` | BehaviorTree | Shrewd Platform 상태 하위 | 원거리 투사체 + LoS 점멸 |
-| `BT_Shrewd_Ground` | BehaviorTree | Shrewd Ground 상태 하위 | 근접 AoE + 씨앗 투하 |
+| `ST_RootWraith` | StateTree | `ABORootWraith` | Kite → FireTwinArrows → (Teleport 또는 근접 시 BowShove) 순환 |
+| `ST_Shrewd_Phases` | StateTree | `ABOShrewdBoss` | Platform(원거리) ↔ Ground(근접) **2-Phase Cycling** |
+| `BT_Shrewd_Platform` | BehaviorTree | Shrewd Platform 상태 하위 | `ExplosiveArrow` / `QuickFlurry` / `LoSTeleport` |
+| `BT_Shrewd_Ground` | BehaviorTree | Shrewd Ground 상태 하위 | `MeleeCombo` / `Lunge` (Motion Warping) / ~~`SeedDrop`~~ (**기획 보류**) |
 | `ST_Ravager_Phases` | StateTree | `ABORavagerBoss` | Phase A/B/C 관리 |
-| `BT_Ravager_PhaseA` | BehaviorTree | Ravager Phase A 상태 하위 | DoubleSwipe / TurnBite / Lunge / Howl_Summon |
-| `BT_Ravager_PhaseB` | BehaviorTree | Ravager Phase B 상태 하위 | Phase A 전체 + Howl_AoE + 혼합 스폰 |
-| `BT_Ravager_PhaseC` | BehaviorTree | Ravager Phase C 상태 하위 | Phase A/B + Gorenado + PillarCharge |
+| `BT_Ravager_PhaseA` | BehaviorTree | Ravager Phase A 상태 하위 | `DoubleSwipe` / `LungeAttackCombo`(할퀴기+물기 콤보 통합) / `BackwardJump`→`ChargedShockwave` 연계 / `Howl_Summon` |
+| `BT_Ravager_PhaseB` | BehaviorTree | Ravager Phase B 상태 하위 | Phase A 전체 + `EnergyBurst`(웅크려 충전형 AoE) + 일반+엘리트 혼합 스폰 |
+| `BT_Ravager_PhaseC` | BehaviorTree | Ravager Phase C 상태 하위 | Phase A/B 전체 + `Gorenado` (기둥 파괴는 돌진 계열 GA의 부차 효과) |
 
 ## StateTree 커스텀 Task / Condition / Evaluator
 
@@ -27,6 +27,7 @@ classDiagram
     FStateTreeTaskCommonBase <|-- FBSTTask_Charge
     FStateTreeTaskCommonBase <|-- FBSTTask_Teleport
     FStateTreeTaskCommonBase <|-- FBSTTask_FireTwinArrows
+    FStateTreeTaskCommonBase <|-- FBSTTask_BowShove
     FStateTreeTaskCommonBase <|-- FBSTTask_ActivateAbility
     FStateTreeTaskCommonBase <|-- FBSTTask_RunSubBehaviorTree
 
@@ -60,6 +61,13 @@ classDiagram
         <<Root Wraith 2연발 투사체>>
         +TSubclassOf~ABOProjectile~ ProjectileClass
         +float IntervalSeconds
+    }
+
+    class FBSTTask_BowShove {
+        <<Root Wraith 근접 밀치기 — 신규>>
+        +float ShoveImpulse
+        +float ShoveRange
+        +float PostShoveBackstepDistance
     }
 
     class FBSTTask_ActivateAbility {
@@ -135,9 +143,10 @@ classDiagram
 
 ### 튜닝 파라미터 (`UBOBossData` 주입)
 
-- `AggroSwitchCooldown` (기본 5.0초) — 마지막 전환 후 쿨다운 경과 전 타겟 유지. 현재 타겟이 **다운/사망**이면 쿨다운 무시.
+- `AggroSwitchCooldown` (기본 **5.0초** — GDD §6.0 "최소 5초 간격" 규정값) — 마지막 전환 후 쿨다운 경과 전 타겟 유지. 현재 타겟이 **다운/사망**이면 쿨다운 무시.
 - `AggroDamageThreshold` (기본 0.15 = 15%) — 1위와 2위 누적 피해 격차 임계.
 - `AggroDecayRate` (기본 0.02 /sec) — `Accumulator *= (1 - AggroDecayRate * DeltaSeconds)` 선형 감쇠.
+- **Shrewd / Ravager 동일 Evaluator 인스턴스 사용**: 보스별 차이는 위 파라미터 값만 변경해서 `UBOBossData`로 주입. 로직/코드 분기 없음.
 
 ### 데이터 흐름
 
@@ -184,6 +193,9 @@ stateDiagram-v2
 
 ### `ST_Shrewd_Phases`
 
+> **2-Phase Cycling**: 발판(원거리) ↔ 지면(근접) 을 타이머/패턴 루프 완료 조건으로 왕복.
+> **씨앗 기믹은 GDD §5에서 "개발 보류. 제거될 수 있음"으로 명시됨.** 아래 `SeedHatchingBranch`는 `bEnableSeedMechanic = true`일 때만 활성화되는 선택 분기이며 기본값은 비활성.
+
 ```mermaid
 stateDiagram-v2
     [*] --> PlatformPhase
@@ -197,6 +209,12 @@ stateDiagram-v2
     }
     state GroundPhase {
         [*] --> RunBT_Ground : FBSTTask_RunSubBehaviorTree(BT_Shrewd_Ground)
+        note right of RunBT_Ground
+          (선택) SeedHatchingBranch
+          bEnableSeedMechanic=true
+          인 경우에만 BT 내부에서
+          UBTTask_SeedDrop 활성화
+        end note
     }
 ```
 
@@ -223,13 +241,13 @@ classDiagram
     }
 
     class UBTTask_SeedDrop {
-        <<BT_Shrewd_Ground 전용>>
+        <<BT_Shrewd_Ground — 기획 보류 (선택 분기)>>
         -int32 SeedCount = 4
         -TSubclassOf~AActor~ SeedActorClass
     }
 
     class UBTTask_SpawnMinionWave {
-        <<BT_Ravager_PhaseB/C 전용>>
+        <<Ravager Phase A/B/C & Shrewd Ground 공용>>
         +EBOMinionWaveType WaveType
     }
 

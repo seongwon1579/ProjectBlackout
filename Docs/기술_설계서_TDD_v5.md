@@ -81,23 +81,21 @@ Unreal Engine **5.7.4 바이너리 빌드(버전 고정)** 기반의 **Dedicated
   - `GA_Minion_MeleeAttack`: 미니언(Root Hollow)의 박치기 등 기본 근접 공격. 타격 판정(Sweep, Overlap)에 맞춰 타겟에게 `GE_Damage` 부여.
   - `GA_Wraith_FireArrow`: 엘리트 미니언(Root Wraith)의 원거리 2연발 화살 투사체 발사. 풀비용(Cost) 없이 쿨다운만 적용.
   - `GA_Wraith_Teleport`: 엘리트 미니언의 순간이동. **NavMesh `GetRandomReachablePointInRadius()`** 사용, 반경 600cm 이내 측방/후방 지점 선택. 모든 전투 레벨에 NavMesh Bake 필수. 시전/도착 시 `GCN_Wraith_Teleport [Static]` 호출.
-- **중간 보스(슈루드, Shrewd) 패턴 GA**:
-  - `GA_Shrewd_ExplosiveArrow`: 발판 위 원거리 폭발 화살. `AnimNotify` 시점에 풀링된 발사체 스폰. 착탄 시 스플래시 피해.
+- **중간 보스(약삭빠름, Shrewd) 패턴 GA**:
+  - `GA_Shrewd_ExplosiveArrow`: 발판 위에서 곡사로 원거리 폭발 화살 발사. `AnimNotify` 시점에 풀링된 발사체 스폰. 착탄 시 스플래시 피해.
   - `GA_Shrewd_QuickFlurry`: 짧은 예비 딜레이 후 복수 화살 연속 발사. 발사 수/간격은 `UBOBossData.AbilityDamageMap`으로 관리.
-  - `GA_Shrewd_MeleeCombo`: 근접 페이즈 2~3단 발톱/몸통 콤보. `AnimNotifyState` 기반 Hitbox 활성화.
+  - `GA_Shrewd_MeleeCombo`: 근접 페이즈 2~3단 활대 공격 콤보. `AnimNotifyState` 기반 Hitbox 활성화.
   - `GA_Shrewd_Lunge`: 돌진 도약. **Motion Warping**으로 착지 오차 보정.
   - `GA_Shrewd_SeedDrop`: 포효 후 중앙 나무에서 씨앗 포드 액터 10~12개 투하(`BTTask_SeedDrop`). 부화 시작과 동시에 `State.Invulnerable` 태그 부여. 모든 씨앗 포드 파괴 시 자동 해제. 씨앗 포드는 `UBlackoutPoolSubsystem` 풀링 대상.
   - `GA_Shrewd_LoSTeleport`: `BTService_LineOfSightCheck`가 0.5초 주기로 서버 측 라인트레이스 수행, 차단 시 발동. NavMesh에서 플레이어 인접 유효 지점으로 `SetActorLocation()` 이동 후 즉시 `GA_Shrewd_MeleeCombo` 자동 활성화. `GCN_Shrewd_LoSTeleport [Static]` 트리거.
 - **메인 보스(타락한 약탈자, Corrupted Ravager) 패턴 GA**:
   - `GA_Ravager_DoubleSwipe`: 넓은 대각선 2연속 할퀴기 엇박자 콤보.
-  - `GA_Ravager_TurnBite`: 타겟이 후방/측면 위치 시 빠르게 회전하며 시전하는 카운터 물기.
   - `GA_Ravager_BackwardJump`: 거리 확보용 후방 도약 이동 처리.
   - `GA_Ravager_LungeAttack`: 원거리 강습 도약 후 할퀴기/물기 복합 연계 콤보격. Motion Warping 적용.
   - `GA_Ravager_Shockwave`: 앞발 에너지 차지 후 바닥을 타고 날아가는 가로 장풍격(Projectile). `AnimNotify` 시점 풀링 스폰. `GCN_Ravager_Shockwave_Launch` 지면 파쇄 연출.
-  - `GA_Ravager_Howl_Summon`: 하울링 몽타주와 함께 미니언 스폰 데이터를 읽어 동적 스폰.
-  - `GA_Ravager_Howl_AoE`: Phase B 광역 에너지 폭발. 제자리 웅크림 차지 후 주변 넓은 반경에 치명 피해. `GCN_Ravager_Howl` 음파 이펙트.
+  - `GA_Ravager_SummonMinion`: 하울링 (혹은 몸을 터는) 몽타주와 함께 미니언 스폰 데이터를 읽어 동적 스폰.
+  - `GA_Ravager_EnergyBurst`: Phase B 광역 에너지 폭발. 제자리 웅크림 차지 후 주변 넓은 반경에 치명 피해. `GCN_Ravager_Howl` 음파 이펙트.
   - `GA_Ravager_Gorenado`: Phase C 궁극기. 다단 히트(Tick) 볼텍스 장판 생성. 플레이어 끌어당김은 `AddForce`/`AddImpulse` 대신 **서버에서 매 Tick마다 `SetActorLocation()`으로 강제 위치 이동** 처리(네트워크 물리 오차 방지). 끌어당김 강도는 볼텍스 중심 거리 반비례 점증.
-  - `GA_Ravager_PillarCharge`: 엄폐물(기둥) 파괴 전용 돌진기. 기둥과 충돌 시 §8의 Chaos Destruction 트리거.
 
 ## 5. 데미지 판정 및 조건부 자원 보상 (Gameplay Effect)
 GE와 ExecCalc(실행 계산기)를 사용해, 피격 처리와 기믹 보상을 처리합니다.
@@ -145,22 +143,27 @@ GE와 ExecCalc(실행 계산기)를 사용해, 피격 처리와 기믹 보상을
 | **타락한 약탈자 (Ravager)** | `Body.WeakSpot` | 등 종양(Back Pustules) | **1.5배** | 어그로 전환 시 등이 플레이어에게 노출되는 순간 |
 | **타락한 약탈자 (Ravager)** | `Body.ArmoredLimb` | 앞발 장갑(Armored Legs) | **0.5배** | 상시 활성 (피해 감쇠용) |
 
-## 6. 인공지능 (AI) 기믹 제어 (Behavior Tree)
-- **미니언 (Minions)**
-  - `Root Hollow (일반)`: 플레이어와 거리를 좁힌 뒤 구르기/박치기 공격 태스크(`BTTask_Charge`)를 수행하여 자세 무너짐(Stagger)을 유발합니다.
-  - `Root Wraith (엘리트)`: 활을 이용한 2연발 투사체 발사 후, 플레이어의 시야 바깥 영역(NavMesh 노드 쿼리)으로 즉시 점멸(`BTTask_Teleport`)하여 진영을 교란합니다.
-- **중간 보스 (슈루드 - Shrewd)**: 메인 전투 돌입 전 파티 화력 검증 관문. Blackboard Key(`BB_IsOnPlatform`)로 원거리(발판)/근접(지면) 페이즈 교대. `BTService_LineOfSightCheck`가 0.5초 주기로 타겟의 LoS를 체크하며, 차단 시 즉각 `GA_Shrewd_LoSTeleport`를 발동합니다. 씨앗 기믹은 `BTTask_SeedDrop`이 담당하며, 씨앗 투하 시 `State.Invulnerable` 태그 부여 → 씨앗 전량 파괴 완료 시 자동 해제됩니다.
-- **메인 보스 (타락한 약탈자 - Corrupted Ravager)**: Blackboard Key로 체력을 추적하여 페이즈 분기.
-  - `Phase A` (100~60%): `GA_Ravager_DoubleSwipe`, `GA_Ravager_TurnBite`, `GA_Ravager_BackwardJump` 후 `GA_Ravager_Shockwave` 연계, `GA_Ravager_LungeAttack` 등 기동성 압박. 일반 미니언(Root Hollow) 스폰 `GA_Ravager_Howl_Summon`.
-  - `Phase B` (60~30%): `GE_Enrage` 적용으로 스탯 펌핑. `GCN_RedMist [Actor]` 지속 이펙트 활성화. 즉사급 범위기 `GA_Ravager_Howl_AoE` 발동 주기 추가. **일반+엘리트 미니언 혼합 스폰** 분기 실행.
-  - `Phase C` (30% 이하): 선후딜 감소(애니메이션 PlayRate 승수 적용). 궁극기 `GA_Ravager_Gorenado` 소용돌이 태스크 활성화. 맵의 기둥 상당수가 `GA_Ravager_PillarCharge`로 이미 파괴된 상태로 회피 난이도 상승.
+## 6. 인공지능 (AI) 기믹 제어 (StateTree + 하위 BehaviorTree)
+> **AI 프레임워크 원칙**: 미니언은 **순수 StateTree**, 보스는 **StateTree(페이즈 관리) + 하위 BehaviorTree(페이즈별 패턴)** 하이브리드. 상세 자산/노드 설계는 `Docs/AI_Boss/` 참조.
+
+- **미니언 (Minions, 순수 StateTree)**
+  - `Root Hollow (일반)`: 플레이어와 거리를 좁힌 뒤 도약/구르기 박치기 Task(`FBSTTask_Charge`)를 수행하여 자세 무너짐(Stagger)을 유발합니다. 보스가 몸을 털 때 붉은 구근(Bulb) 형태로 뿌려진 뒤 즉시 부화.
+  - `Root Wraith (엘리트)`: 원거리에서는 2연발 투사체(`FBSTTask_FireTwinArrows`) 발사 후 시야 밖 NavMesh 쿼리 지점으로 즉시 점멸(`FBSTTask_Teleport`). **근접 접근 감지 시 활대를 휘둘러 플레이어를 강하게 밀쳐내는 Push Task(`FBSTTask_BowShove`)** 로 거리를 재확보합니다.
+- **중간 보스 (슈루드 - Shrewd, StateTree 페이즈 + 하위 BT)**: 메인 전투 돌입 전 파티 화력 검증 관문. StateTree의 최상위 상태가 원거리(발판) / 근접(지면) **2-Phase Cycling** 을 관리하고, 각 페이즈가 하위 BT를 실행합니다. 타겟팅은 §6.1 **공통 어그로 시스템**을 Ravager와 동일하게 적용합니다.
+  - `원거리 페이즈 (Platform)`: 발판 위로 도약 후 `GA_Shrewd_ExplosiveArrow`(폭발 속성 단발 화살), `GA_Shrewd_QuickFlurry`(복수 화살 연사) 순환. `UBTService_LineOfSightCheck`가 0.5초 주기로 타겟의 LoS를 체크하여, 차단 시 즉각 `GA_Shrewd_LoSTeleport`(해당 플레이어에게 텔레포트 후 근접 콤보)를 발동합니다.
+  - `근접 페이즈 (Ground)`: 발판에서 내려와 타겟에게 근접 교전. `GA_Shrewd_MeleeCombo`(활대 근접 타격), `GA_Shrewd_Lunge`(Motion Warping 기반 장거리 강습 도약)로 압박합니다.
+  - **씨앗 기믹 (`GA_Shrewd_SeedHatch` / `UBTTask_SeedDrop` / `State.Invulnerable` 태그)**: **기획 보류(GDD §5). 제거될 수 있음** — 스켈레톤은 유지하되 페이즈 전이 경로에서 분리하고 데이터 에셋 플래그(`bEnableSeedMechanic = false`)로 비활성화 상태를 기본값으로 둡니다.
+- **메인 보스 (타락한 약탈자 - Corrupted Ravager, StateTree 3-Phase + 하위 BT)**: StateTree의 `FBSTEval_HealthRatio`가 HP 비율을 지속 퍼블리시하고, `FBSTCond_HealthBelow` 전이로 페이즈 분기.
+  - `Phase A` (100~60%): **기동성 압박**. 주요 패턴은 `GA_Ravager_DoubleSwipe`(넓은 대각선 할퀴기 엇박자 콤보), `GA_Ravager_LungeAttackCombo`(도약하여 덮친 뒤 할퀴기+물기를 연속으로 잇는 **복합 콤보 — 기존 TurnBite를 이 콤보의 물기 단계로 흡수**), `GA_Ravager_BackwardJump`(회피 이동) → `GA_Ravager_ChargedShockwave`(앞발 충전 후 바닥을 타고 날아가는 가로 형태 장풍) **연계기**, `GA_Ravager_SummonMinion`(Root Hollow/Root Wraith 간헐 스폰).
+  - `Phase B` (60~30%): 전환 트리거 `GA_Ravager_Howl_Phase`(붉은 안개 포효) → `GE_Enrage` 적용으로 공격/이동 속도 증가. `GCN_RedMist [Actor]` 지속 이펙트 활성화. 신규 광역기 **`GA_Ravager_EnergyBurst`(제자리에서 웅크리며 붉은 에너지를 충전 후 주변 넓은 반경에 치명적 피해를 주는 에너지 파동 — 기존 Howl_AoE를 재정의)** 주기적 발동. **일반+엘리트(Root Wraith) 미니언 혼합 스폰** 분기 실행 (`UBTTask_SpawnMinionWave` WaveType = `Mixed`).
+  - `Phase C` (30% 이하): 체력이 30% 이하로 감소시 광폭화 진입, 선후딜 감소(애니메이션 PlayRate 승수 1.0 → 1.3 적용). Phase A/B 패턴 전체 유지 + 궁극기 `GA_Ravager_Gorenado`(볼텍스 소용돌이로 플레이어를 중앙으로 끌어당김) 신규 추가. 맵의 기둥은 Phase A/B 전투 동안 `GA_Ravager_LungeAttackCombo`/`GA_Ravager_DoubleSwipe`의 **근접 계열 공격 히트 부차 효과**로 순차 파괴된 상태이므로, 별도 전용 `GA_Ravager_PillarCharge`를 두지 않고 해당 GA들의 히트 판정이 `ABlackoutDestructiblePillar`에 적중하면 파괴를 트리거합니다(§8).
 
 ### 6.1 보스 공통 — 타겟팅(어그로) 시스템 ⭐ (신규)
 GDD §6.0을 구현하는 전용 모듈입니다. 중간 보스(Shrewd)와 메인 보스(Ravager) 모두에 동일하게 적용됩니다.
 
-- **`UBlackoutAggroComponent` (ActorComponent)**: `ABlackoutBossCharacter`에 부착. 서버 Authority 전용. 0.25초 주기 타이머로 타겟 평가를 수행하며, 결과를 Behavior Tree의 Blackboard Key `BB_CurrentTarget`에 기록합니다.
+- **`FBSTEval_AggroTarget` (StateTree Evaluator)**: 보스 StateTree의 **최상위 Evaluator로 등록**되어 모든 페이즈에서 지속 실행됩니다. 별도의 ActorComponent를 두지 않고, BT의 BTService와 동등한 역할을 StateTree Evaluator로 일원화합니다. 서버 Authority 전용 (`TreeStart`에서 `NM_Client` 방어 가드). 0.25초 주기(`EvaluationInterval`)로 타겟을 평가하여, Controller의 Blackboard Key `BB_CurrentTarget`에 결과를 기록합니다.
 
-- **누적 피해 트래킹**: 컴포넌트 내부에 `TMap<TWeakObjectPtr<APlayerState>, float> DamageAccumulator` 보관. 보스가 `GE_Damage`를 수신할 때 `UAbilitySystemComponent::OnGameplayEffectAppliedDelegateToSelf` 바인딩을 통해 Instigator PlayerState별 누적치를 갱신합니다.
+- **누적 피해 트래킹**: Evaluator InstanceData 내부에 `TMap<TWeakObjectPtr<APlayerState>, float> DamageAccumulator` 보관. 보스가 `GE_Damage`를 수신할 때 `UAbilitySystemComponent::OnGameplayEffectAppliedDelegateToSelf` 바인딩을 통해 Instigator PlayerState별 누적치를 갱신합니다.
 
 - **타겟 선정 우선순위** (GDD §6.0 1:1 매핑):
 

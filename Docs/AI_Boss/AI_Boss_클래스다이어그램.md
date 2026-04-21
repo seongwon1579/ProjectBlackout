@@ -14,11 +14,11 @@
 
 ## 에픽 범위 요약
 
-- **미니언**: `Root Hollow`(일반, 근접 돌진), `Root Wraith`(엘리트, 2연발 투사체 + 점멸)
-- **중간 보스**: `Shrewd` — 발판/지면 교대 페이즈, LoS 체크 시 즉각 점멸, 씨앗 기믹(무적 태그 부여)
-- **메인 보스**: `Corrupted Ravager` — 3-Phase (기동성 → 광폭화 → 궁극기), 기둥 파괴 기믹
-- **공통 모듈**: `FBSTEval_AggroTarget` StateTree Evaluator (보스 전용 어그로 평가), `UBOBossData` (페이즈·어그로 튜닝)
-- **환경 오브젝트**: `ABlackoutDestructiblePillar` (Phase C 난이도 가중)
+- **미니언**: `Root Hollow`(일반, 박치기 Stagger 돌진), `Root Wraith`(엘리트, 2연발 투사체 + 점멸 + 근접 밀치기)
+- **중간 보스**: `Shrewd` — **2-Phase Cycling**(원거리 발판 / 근접 지면), LoS 차단 시 즉각 텔레포트 후 근접 콤보, 공통 어그로(§6.0) 적용. **씨앗 기믹은 기획 보류(제거 가능)** — 스켈레톤만 유지.
+- **메인 보스**: `Corrupted Ravager` — 3-Phase (기동성 → 붉은안개/혼합소환 → 광폭화/Gorenado), 기둥 파괴는 돌진 계열 GA의 부차 효과
+- **공통 모듈**: `FBSTEval_AggroTarget` StateTree Evaluator (Shrewd/Ravager **공통** 어그로 평가), `UBOBossData` (페이즈·어그로 튜닝)
+- **환경 오브젝트**: `ABlackoutDestructiblePillar` (Phase A/B 진행 중 돌진 히트로 순차 파괴되어 Phase C 회피 난이도 상승)
 
 ## AI 아키텍처 원칙 ⭐
 
