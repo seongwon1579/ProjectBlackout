@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Characters/BlackoutEnemyCharacter.h"
+#include "GameplayEffectTypes.h"
 #include "BlackoutBossCharacter.generated.h"
 
 class UBOBossData;
