@@ -46,7 +46,7 @@ classDiagram
     ABlackoutBossAIController *-- UBlackboardComponent : 하위 BT 공유 BB
 ```
 
-> 어그로(타겟 선정)는 컴포넌트가 아닌 **`FBSTEval_AggroTarget` StateTree Evaluator**가 전담합니다. Evaluator가 Controller의 Blackboard에 `BB_CurrentTarget`을 기록하여 하위 BT가 참조합니다. 상세는 03 다이어그램 참조.
+> 어그로(타겟 선정)는 컴포넌트가 아닌 **`FBSTEval_AggroTarget` StateTree Evaluator**가 전담합니다. Evaluator가 Controller의 Blackboard에 `BB_CurrentTarget`을 기록하여 하위 BT가 참조합니다. **Shrewd와 Ravager 모두 동일 Evaluator를 재사용**(GDD §6.0 공통 규칙)하며, 보스별 차이는 `UBOBossData`의 튜닝 파라미터로만 조정합니다. 상세는 03 다이어그램 참조.
 
 ## 실행 모델
 
@@ -70,11 +70,11 @@ flowchart TB
     Possess[OnPossess] --> InitBoss[InitStateTreeContext<br/>= ASC / Pawn / BBComp 핸들 등록]
     InitBoss --> StartST[StateTreeComp.StartLogic]
     StartST --> BossST[(ST_Ravager_Phases<br/>/ ST_Shrewd_Phases)]
-    BossST --> PhaseA[State: Phase A]
-    BossST --> PhaseB[State: Phase B]
-    BossST --> PhaseC[State: Phase C]
-    PhaseA --> SubBT_A[[BT_Ravager_PhaseA]]
-    PhaseB --> SubBT_B[[BT_Ravager_PhaseB]]
+    BossST --> PhaseA[State: Phase A / Platform]
+    BossST --> PhaseB[State: Phase B / Ground]
+    BossST --> PhaseC[State: Phase C<br/>(Ravager 전용)]
+    PhaseA --> SubBT_A[[BT_Ravager_PhaseA<br/>또는 BT_Shrewd_Platform]]
+    PhaseB --> SubBT_B[[BT_Ravager_PhaseB<br/>또는 BT_Shrewd_Ground]]
     PhaseC --> SubBT_C[[BT_Ravager_PhaseC]]
     SubBT_A -. EnterState Task .-> RunBT["SubBehaviorTreeComp.StartTree(BT)"]
     SubBT_B -. ExitState Task .-> StopBT["SubBehaviorTreeComp.StopTree()"]
