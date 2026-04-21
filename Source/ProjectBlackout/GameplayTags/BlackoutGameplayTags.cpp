@@ -8,7 +8,12 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(State_Locked,        "State.Locked");
 
 	// ─── GAS SetByCaller 데이터 키 ────────────────────────────────────────────
-	UE_DEFINE_GAMEPLAY_TAG(Data_Damage, "Data.Damage");
+	UE_DEFINE_GAMEPLAY_TAG(Data_Damage,        "Data.Damage");
+	UE_DEFINE_GAMEPLAY_TAG(Data_MaxHealth,     "Data.Stat.MaxHealth");
+	UE_DEFINE_GAMEPLAY_TAG(Data_Health,        "Data.Stat.Health");
+	UE_DEFINE_GAMEPLAY_TAG(Data_MaxStamina,    "Data.Stat.MaxStamina");
+	UE_DEFINE_GAMEPLAY_TAG(Data_Stamina,       "Data.Stat.Stamina");
+	UE_DEFINE_GAMEPLAY_TAG(Data_MovementSpeed, "Data.Stat.MovementSpeed");
 
 	// ─── Hitbox Parts ──────────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Body_WeakSpot,    "Body.WeakSpot");

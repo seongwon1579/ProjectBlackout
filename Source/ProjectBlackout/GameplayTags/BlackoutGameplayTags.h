@@ -12,6 +12,11 @@ namespace BlackoutGameplayTags
 
 	// ─── GAS SetByCaller 데이터 키 ────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Damage);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_MaxHealth);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Health);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_MaxStamina);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Stamina);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_MovementSpeed);
 
 	// ─── Hitbox Parts ──────────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Body_WeakSpot);

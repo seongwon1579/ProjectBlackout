@@ -26,6 +26,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Stats")
 	float BaseMaxStamina = 100.f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Stats")
+	float BaseMovementSpeed = 600.f;
+
 	/** 전투 맵 진입 시 지급되는 블러드 루트 기본 소지량 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Consumables", meta = (ClampMin = 0))
 	int32 InitialBloodRoot = 1;
