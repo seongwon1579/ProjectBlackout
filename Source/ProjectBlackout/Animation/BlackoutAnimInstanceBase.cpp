@@ -1,0 +1,41 @@
+#include "Animation/BlackoutAnimInstanceBase.h"
+#include "Characters/BlackoutCharacterBase.h"
+#include "GameFramework/CharacterMovementComponent.h"
+#include "Kismet/KismetMathLibrary.h"
+
+void UBlackoutAnimInstanceBase::NativeInitializeAnimation()
+{
+	Super::NativeInitializeAnimation();
+
+	OwnerCharacter = Cast<ABlackoutCharacterBase>(TryGetPawnOwner());
+	if (OwnerCharacter)
+	{
+		OwnerMovementComponent = OwnerCharacter->GetCharacterMovement();
+	}
+}
+
+void UBlackoutAnimInstanceBase::NativeUpdateAnimation(float DeltaSeconds)
+{
+	Super::NativeUpdateAnimation(DeltaSeconds);
+
+	if (!OwnerCharacter || !OwnerMovementComponent)
+	{
+		// 초기화 실패 시 재시도
+		OwnerCharacter = Cast<ABlackoutCharacterBase>(TryGetPawnOwner());
+		if (OwnerCharacter)
+		{
+			OwnerMovementComponent = OwnerCharacter->GetCharacterMovement();
+		}
+		
+		if (!OwnerCharacter || !OwnerMovementComponent) return;
+	}
+
+	// 기본 이동 데이터 업데이트
+	Velocity = OwnerCharacter->GetVelocity();
+	GroundSpeed = Velocity.Size2D();
+
+	bIsFalling = OwnerMovementComponent->IsFalling();
+	
+	// 가속도 벡터의 크기가 0보다 크면 가속 중(입력 중)인 것으로 판단
+	bIsAccelerating = OwnerMovementComponent->GetCurrentAcceleration().SizeSquared() > 0.f;
+}
