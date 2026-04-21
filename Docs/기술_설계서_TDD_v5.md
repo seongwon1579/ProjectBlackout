@@ -154,9 +154,17 @@ GE와 ExecCalc(실행 계산기)를 사용해, 피격 처리와 기믹 보상을
   - `근접 페이즈 (Ground)`: 발판에서 내려와 타겟에게 근접 교전. `GA_Shrewd_MeleeCombo`(활대 근접 타격), `GA_Shrewd_Lunge`(Motion Warping 기반 장거리 강습 도약)로 압박합니다.
   - **씨앗 기믹 (`GA_Shrewd_SeedHatch` / `UBTTask_SeedDrop` / `State.Invulnerable` 태그)**: **기획 보류(GDD §5). 제거될 수 있음** — 스켈레톤은 유지하되 페이즈 전이 경로에서 분리하고 데이터 에셋 플래그(`bEnableSeedMechanic = false`)로 비활성화 상태를 기본값으로 둡니다.
 - **메인 보스 (타락한 약탈자 - Corrupted Ravager, StateTree 3-Phase + 하위 BT)**: StateTree의 `FBSTEval_HealthRatio`가 HP 비율을 지속 퍼블리시하고, `FBSTCond_HealthBelow` 전이로 페이즈 분기.
-  - `Phase A` (100~60%): **기동성 압박**. 주요 패턴은 `GA_Ravager_DoubleSwipe`(넓은 대각선 할퀴기 엇박자 콤보), `GA_Ravager_LungeAttackCombo`(도약하여 덮친 뒤 할퀴기+물기를 연속으로 잇는 **복합 콤보 — 기존 TurnBite를 이 콤보의 물기 단계로 흡수**), `GA_Ravager_BackwardJump`(회피 이동) → `GA_Ravager_ChargedShockwave`(앞발 충전 후 바닥을 타고 날아가는 가로 형태 장풍) **연계기**, `GA_Ravager_SummonMinion`(Root Hollow/Root Wraith 간헐 스폰).
-  - `Phase B` (60~30%): 전환 트리거 `GA_Ravager_Howl_Phase`(붉은 안개 포효) → `GE_Enrage` 적용으로 공격/이동 속도 증가. `GCN_RedMist [Actor]` 지속 이펙트 활성화. 신규 광역기 **`GA_Ravager_EnergyBurst`(제자리에서 웅크리며 붉은 에너지를 충전 후 주변 넓은 반경에 치명적 피해를 주는 에너지 파동 — 기존 Howl_AoE를 재정의)** 주기적 발동. **일반+엘리트(Root Wraith) 미니언 혼합 스폰** 분기 실행 (`UBTTask_SpawnMinionWave` WaveType = `Mixed`).
-  - `Phase C` (30% 이하): 체력이 30% 이하로 감소시 광폭화 진입, 선후딜 감소(애니메이션 PlayRate 승수 1.0 → 1.3 적용). Phase A/B 패턴 전체 유지 + 궁극기 `GA_Ravager_Gorenado`(볼텍스 소용돌이로 플레이어를 중앙으로 끌어당김) 신규 추가. 맵의 기둥은 Phase A/B 전투 동안 `GA_Ravager_LungeAttackCombo`/`GA_Ravager_DoubleSwipe`의 **근접 계열 공격 히트 부차 효과**로 순차 파괴된 상태이므로, 별도 전용 `GA_Ravager_PillarCharge`를 두지 않고 해당 GA들의 히트 판정이 `ABlackoutDestructiblePillar`에 적중하면 파괴를 트리거합니다(§8).
+  - `Phase A` (100~60%): **기동성 압박**. 주요 패턴은 `GA_Ravager_DoubleSwipe`(넓은 대각선 할퀴기 엇박자 콤보).
+    - `GA_Ravager_LungeAttackCombo`(도약하여 덮친 뒤 할퀴기+물기를 연속으로 잇는 **복합 콤보 — 기존 TurnBite를 이 콤보의 물기 단계로 흡수**)
+    - `GA_Ravager_BackwardJump`(회피 이동) → `GA_Ravager_ChargedShockwave`(앞발 충전 후 바닥을 타고 날아가는 가로 형태 장풍) **연계기**
+    - `GA_Ravager_SummonMinion`(Root Hollow/Root Wraith 간헐 스폰).
+  - `Phase B` (60~30%): 전환 트리거 `GA_Ravager_Howl_Phase`(붉은 안개 포효) → `GE_Enrage` 적용으로 공격/이동 속도 증가.
+    - `GCN_RedMist [Actor]` 지속 이펙트 활성화.
+    - 신규 광역기 **`GA_Ravager_EnergyBurst`(제자리에서 웅크리며 붉은 에너지를 충전 후 주변 넓은 반경에 치명적 피해를 주는 에너지 파동)** 주기적 발동.
+    - **일반+엘리트(Root Wraith) 미니언 혼합 스폰** 분기 실행 (`UBTTask_SpawnMinionWave` WaveType = `Mixed`).
+  - `Phase C` (30% 이하): 체력이 30% 이하로 감소시 광폭화 진입, 선후딜 감소(애니메이션 PlayRate 승수 1.0 → 1.3 적용).
+    - Phase A/B 패턴 전체 유지 + 궁극기 `GA_Ravager_Gorenado`(볼텍스 소용돌이로 플레이어를 중앙으로 끌어당김) 신규 추가.
+    - 맵의 기둥은 Phase A/B 전투 동안 `GA_Ravager_LungeAttackCombo`/`GA_Ravager_DoubleSwipe`의 **근접 계열 공격 히트 부차 효과**로 순차 파괴된 상태이므로, 별도 전용 `GA_Ravager_PillarCharge`를 두지 않고 해당 GA들의 히트 판정이 `ABlackoutDestructiblePillar`에 적중하면 파괴를 트리거합니다(§8).
 
 ### 6.1 보스 공통 — 타겟팅(어그로) 시스템 ⭐ (신규)
 GDD §6.0을 구현하는 전용 모듈입니다. 중간 보스(Shrewd)와 메인 보스(Ravager) 모두에 동일하게 적용됩니다.

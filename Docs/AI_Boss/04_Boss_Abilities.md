@@ -1,7 +1,7 @@
 # AI/Boss — 04. 보스 어빌리티(GA) 세트
 
 > TDD v5 §6, GDD §5·§6 참조. 패턴별 GA를 Ability Tag로 BT에서 호출.
-> **2026-04-21 GDD 개정 반영**: TurnBite 통합, Howl_AoE→EnergyBurst 재정의, PillarCharge 제거, Shrewd 패턴 세분화, 씨앗 기믹 보류 반영.
+> **2026-04-21 GDD 개정 반영**: TurnBite 통합, Howl_AoE→EnergyBurst 재정의, PillarCharge 제거, Shrewd 패턴 세분화, 씨앗 기믹 보류 반영. Ravager_Howl_Summon->SummonMinion 명칭 변경
 
 ```mermaid
 classDiagram
@@ -18,7 +18,7 @@ classDiagram
     UBlackoutGameplayAbility <|-- UGA_Ravager_LungeAttackCombo
     UBlackoutGameplayAbility <|-- UGA_Ravager_BackwardJump
     UBlackoutGameplayAbility <|-- UGA_Ravager_ChargedShockwave
-    UBlackoutGameplayAbility <|-- UGA_Ravager_Howl_Summon
+    UBlackoutGameplayAbility <|-- UGA_Ravager_SummonMinion
     UBlackoutGameplayAbility <|-- UGA_Ravager_Howl_Phase
     UBlackoutGameplayAbility <|-- UGA_Ravager_Howl_Shockwave
     UBlackoutGameplayAbility <|-- UGA_Ravager_EnergyBurst
@@ -78,8 +78,9 @@ classDiagram
         +bool bBreaksPillarOnHit
     }
 
-    class UGA_Ravager_Howl_Summon {
+    class UGA_Ravager_SummonMinion {
         <<Phase A — Root Hollow 간헐 스폰>>
+        <<Phase B — Root Wraith 추가 스폰>>
         +int32 SpawnCount = 3
     }
 
