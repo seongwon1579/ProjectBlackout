@@ -9,6 +9,7 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "BlackoutLog.h"
+#include "EnhancedInputComponent.h"
 
 ABlackoutPlayerCharacter::ABlackoutPlayerCharacter()
 {
@@ -26,14 +27,34 @@ ABlackoutPlayerCharacter::ABlackoutPlayerCharacter()
 	bUseControllerRotationYaw = false;
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 }
-
 void ABlackoutPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
 	BindASCInput();
-}
+	
+	
+	UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent);
+	if (!EnhancedInputComponent)
+	{
+		return;
+	}
 
+	if (MoveAction)
+	{
+		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ABlackoutPlayerCharacter::Move);
+	}
+
+	if (LookAction)
+	{
+		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &ABlackoutPlayerCharacter::Look);
+	}
+
+	if (MouseLookAction)
+	{
+		EnhancedInputComponent->BindAction(MouseLookAction, ETriggerEvent::Triggered, this, &ABlackoutPlayerCharacter::Look);
+	}
+}
 void ABlackoutPlayerCharacter::PossessedBy(AController* NewController)
 {
 	Super::PossessedBy(NewController);
@@ -143,3 +164,44 @@ void ABlackoutPlayerCharacter::InitializeAttributes()
 		BO_LOG_GAS(Log, "Attributes initialized for %s using GE", *GetName());
 	}
 }
+
+
+#pragma region InputSetup
+
+void ABlackoutPlayerCharacter::Move(const FInputActionValue& Value)
+{
+	const FVector2D MovementVector = Value.Get<FVector2D>();
+	DoMove(MovementVector.X, MovementVector.Y);
+}
+
+void ABlackoutPlayerCharacter::Look(const FInputActionValue& Value)
+{
+	const FVector2D LookAxisVector = Value.Get<FVector2D>();
+	DoLook(LookAxisVector.X, LookAxisVector.Y);
+}
+
+void ABlackoutPlayerCharacter::DoMove(float Right, float Forward)
+{
+	if (GetController() != nullptr)
+	{
+		const FRotator Rotation = GetController()->GetControlRotation();
+		const FRotator YawRotation(0.0f, Rotation.Yaw, 0.0f);
+
+		const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
+		const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+
+		AddMovementInput(ForwardDirection, Forward);
+		AddMovementInput(RightDirection, Right);
+	}
+}
+
+void ABlackoutPlayerCharacter::DoLook(float Yaw, float Pitch)
+{
+	if (GetController() != nullptr)
+	{
+		AddControllerYawInput(Yaw);
+		AddControllerPitchInput(Pitch);
+	}
+}
+
+#pragma endregion 
