@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "GameplayTagContainer.h"
 #include "GAS/Abilities/BlackoutGameplayAbility.h"
 #include "BlackoutGA_Reload.generated.h"
 
@@ -31,4 +32,6 @@ protected:
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	void OnReloadMontageCompleted();
+
+	FGameplayTag PendingWeaponSlotTag;
 };

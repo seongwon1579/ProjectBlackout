@@ -1,5 +1,7 @@
 #include "GAS/Abilities/Player/BlackoutGA_FireWeapon.h"
+
 #include "AbilitySystemComponent.h"
+#include "Characters/BlackoutPlayerCharacter.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
 #include "Combat/Weapons/BOFirearm.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
@@ -8,6 +10,7 @@
 
 UBlackoutGA_FireWeapon::UBlackoutGA_FireWeapon()
 {
+	InputID = EBlackoutAbilityInputID::Fire;
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::LocalPredicted;
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Sprinting);
@@ -17,6 +20,15 @@ UBlackoutGA_FireWeapon::UBlackoutGA_FireWeapon()
 
 void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
+	const ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
+	UBlackoutCombatComponent* CombatComponent = PlayerCharacter ? PlayerCharacter->GetCombatComponent() : nullptr;
+	ABOFirearm* EquippedFirearm = CombatComponent ? CombatComponent->GetEquippedFirearm() : nullptr;
+	if (!EquippedFirearm)
+	{
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		return;
+	}
+
 	if (!CommitAbility(Handle, ActorInfo, ActivationInfo))
 	{
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
@@ -34,10 +46,16 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 	PlayFireMontage();
 
 	// 3. 트레이스 수행 또는 발사체 스폰 (무기 컴포넌트 정보 기반)
-	// TODO: ABOFirearm::Fire 호출 및 피격 결과에 따른 데미지 이펙트 적용
+	const FVector MuzzleLocation = CombatComponent->GetMuzzleTransform().GetLocation();
+	const FVector AimTarget = CombatComponent->GetAimImpactPoint();
+	const FVector FireDirection = (AimTarget - MuzzleLocation).GetSafeNormal();
+	EquippedFirearm->Fire(FireDirection);
 
 	// 4. 사격 GameplayCue 트리거
-	// TODO: GCN_Weapon_Fire 일회성 이벤트 트리거
+	if (UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo())
+	{
+		AbilitySystemComponent->ExecuteGameplayCue(BlackoutGameplayTags::GameplayCue_Weapon_Fire);
+	}
 
 	EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
 }
@@ -67,8 +85,35 @@ FGameplayEffectSpecHandle UBlackoutGA_FireWeapon::BuildDamageSpec(const FHitResu
 
 bool UBlackoutGA_FireWeapon::ApplyAmmoCost()
 {
-	// TODO: 장착된 무기(주무기/보조무기)의 태그를 식별하여 해당하는 ClipAmmo를 1 차감
-	return true; // 임시 성공 처리
+	const ABlackoutPlayerCharacter* PlayerCharacter = CurrentActorInfo ? Cast<ABlackoutPlayerCharacter>(CurrentActorInfo->AvatarActor.Get()) : nullptr;
+	const UBlackoutCombatComponent* CombatComponent = PlayerCharacter ? PlayerCharacter->GetCombatComponent() : nullptr;
+	UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo();
+	if (!CombatComponent || !AbilitySystemComponent)
+	{
+		return false;
+	}
+
+	const FGameplayTag WeaponSlotTag = CombatComponent->GetEquippedWeaponSlotTag();
+	if (WeaponSlotTag == BlackoutGameplayTags::Weapon_Secondary)
+	{
+		const float SecondaryClipAmmo = AbilitySystemComponent->GetNumericAttribute(UBlackoutAmmoAttributeSet::GetSecondaryClipAmmoAttribute());
+		if (SecondaryClipAmmo < 1.0f)
+		{
+			return false;
+		}
+
+		AbilitySystemComponent->ApplyModToAttribute(UBlackoutAmmoAttributeSet::GetSecondaryClipAmmoAttribute(), EGameplayModOp::Additive, -1.0f);
+		return true;
+	}
+
+	const float PrimaryClipAmmo = AbilitySystemComponent->GetNumericAttribute(UBlackoutAmmoAttributeSet::GetPrimaryClipAmmoAttribute());
+	if (PrimaryClipAmmo < 1.0f)
+	{
+		return false;
+	}
+
+	AbilitySystemComponent->ApplyModToAttribute(UBlackoutAmmoAttributeSet::GetPrimaryClipAmmoAttribute(), EGameplayModOp::Additive, -1.0f);
+	return true;
 }
 
 void UBlackoutGA_FireWeapon::PlayFireMontage()

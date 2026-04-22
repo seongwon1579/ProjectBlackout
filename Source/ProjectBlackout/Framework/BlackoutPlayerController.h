@@ -3,17 +3,19 @@
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
 #include "GameplayTagContainer.h"
+#include "Core/BlackoutTypes.h"
 #include "BlackoutPlayerController.generated.h"
 
 class UInputMappingContext;
+class UInputAction;
+class UBlackoutAbilitySystemComponent;
+
 UCLASS()
 class PROJECTBLACKOUT_API ABlackoutPlayerController : public APlayerController
 {
 	GENERATED_BODY()
 
 public:
-	
-	
 	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "Blackout|Controller")
 	void Server_SelectClass(FGameplayTag ClassTag);
 	
@@ -45,9 +47,34 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input")
 	TObjectPtr<UInputMappingContext> MouseLookMappingContext;
-	
-	
-	
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input")
+	TObjectPtr<UInputAction> FireAction;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input")
+	TObjectPtr<UInputAction> ReloadAction;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input")
+	TObjectPtr<UInputAction> MeleeAction;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input")
+	TObjectPtr<UInputAction> DodgeAction;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input")
+	TObjectPtr<UInputAction> SprintAction;
+
+	void OnFirePressed();
+	void OnFireReleased();
+	void OnReloadPressed();
+	void OnMeleePressed();
+	void OnDodgePressed();
+	void OnSprintPressed();
+	void OnSprintReleased();
+
+	void HandleAbilityInputPressed(EBlackoutAbilityInputID InputID);
+	void HandleAbilityInputReleased(EBlackoutAbilityInputID InputID);
+	UBlackoutAbilitySystemComponent* GetBlackoutAbilitySystemComponent() const;
+
 #pragma endregion 
 	
 };

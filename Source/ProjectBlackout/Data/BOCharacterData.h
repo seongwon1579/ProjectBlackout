@@ -6,6 +6,9 @@
 #include "Abilities/GameplayAbility.h"
 #include "BOCharacterData.generated.h"
 
+class ABOFirearm;
+class ABOMeleeWeapon;
+
 /**
  * 플레이어 병과(Assault / Demolition / Sniper)별 초기 스탯 및 어빌리티 데이터.
  * ABlackoutPlayerState::ApplyBattleTransitionPolicy, ABlackoutLobbyGameMode::PostLogin에서 참조.
@@ -47,9 +50,13 @@ public:
 
 	/** 시작 주무기 클래스 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Weapons")
-	TSubclassOf<AActor> StartingPrimaryWeapon;
+	TSubclassOf<ABOFirearm> StartingPrimaryWeapon;
 
 	/** 시작 보조무기 클래스 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Weapons")
-	TSubclassOf<AActor> StartingSecondaryWeapon;
+	TSubclassOf<ABOFirearm> StartingSecondaryWeapon;
+
+	/** 시작 근접 무기 클래스 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Weapons")
+	TSubclassOf<ABOMeleeWeapon> StartingMeleeWeapon;
 };

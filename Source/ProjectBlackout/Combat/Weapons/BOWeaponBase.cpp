@@ -7,6 +7,8 @@
 ABOWeaponBase::ABOWeaponBase()
 {
 	PrimaryActorTick.bCanEverTick = false;
+	bReplicates = true;
+	SetReplicateMovement(false);
 	
 	WeaponMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("WeaponMesh"));
 	RootComponent = WeaponMesh;
@@ -27,6 +29,16 @@ ABlackoutCharacterBase* ABOWeaponBase::GetOwningCharacter() const
 float ABOWeaponBase::GetBaseDamage() const
 {
 	return CachedStats.BaseDamage;
+}
+
+int32 ABOWeaponBase::GetMagazineSize() const
+{
+	return CachedStats.MagazineSize;
+}
+
+int32 ABOWeaponBase::GetMaxReserveAmmo() const
+{
+	return CachedStats.MaxReserveAmmo;
 }
 
 void ABOWeaponBase::AttachToOwner(FName SocketName)

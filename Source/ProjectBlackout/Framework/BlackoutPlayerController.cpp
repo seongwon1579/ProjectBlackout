@@ -1,8 +1,10 @@
 #include "BlackoutPlayerController.h"
 
 #include "BlackoutLobbyGameMode.h"
+#include "BlackoutAbilitySystemComponent.h"
 #include "BlackoutPlayerState.h"
 #include "BlackoutLog.h"
+#include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
 
@@ -77,6 +79,99 @@ void ABlackoutPlayerController::SetupInputComponent()
 			InputSubsystem->AddMappingContext(MouseLookMappingContext, 0);
 		}
 	}
+
+	UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(InputComponent);
+	if (!EnhancedInputComponent)
+	{
+		return;
+	}
+
+	if (FireAction)
+	{
+		EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Started, this, &ABlackoutPlayerController::OnFirePressed);
+		EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Completed, this, &ABlackoutPlayerController::OnFireReleased);
+	}
+
+	if (ReloadAction)
+	{
+		EnhancedInputComponent->BindAction(ReloadAction, ETriggerEvent::Started, this, &ABlackoutPlayerController::OnReloadPressed);
+	}
+
+	if (MeleeAction)
+	{
+		EnhancedInputComponent->BindAction(MeleeAction, ETriggerEvent::Started, this, &ABlackoutPlayerController::OnMeleePressed);
+	}
+
+	if (DodgeAction)
+	{
+		EnhancedInputComponent->BindAction(DodgeAction, ETriggerEvent::Started, this, &ABlackoutPlayerController::OnDodgePressed);
+	}
+
+	if (SprintAction)
+	{
+		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Started, this, &ABlackoutPlayerController::OnSprintPressed);
+		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed, this, &ABlackoutPlayerController::OnSprintReleased);
+	}
+}
+
+void ABlackoutPlayerController::OnFirePressed()
+{
+	HandleAbilityInputPressed(EBlackoutAbilityInputID::Fire);
+}
+
+void ABlackoutPlayerController::OnFireReleased()
+{
+	HandleAbilityInputReleased(EBlackoutAbilityInputID::Fire);
+}
+
+void ABlackoutPlayerController::OnReloadPressed()
+{
+	HandleAbilityInputPressed(EBlackoutAbilityInputID::Reload);
+	HandleAbilityInputReleased(EBlackoutAbilityInputID::Reload);
+}
+
+void ABlackoutPlayerController::OnMeleePressed()
+{
+	HandleAbilityInputPressed(EBlackoutAbilityInputID::Melee);
+	HandleAbilityInputReleased(EBlackoutAbilityInputID::Melee);
+}
+
+void ABlackoutPlayerController::OnDodgePressed()
+{
+	HandleAbilityInputPressed(EBlackoutAbilityInputID::Dodge);
+	HandleAbilityInputReleased(EBlackoutAbilityInputID::Dodge);
+}
+
+void ABlackoutPlayerController::OnSprintPressed()
+{
+	HandleAbilityInputPressed(EBlackoutAbilityInputID::Sprint);
+}
+
+void ABlackoutPlayerController::OnSprintReleased()
+{
+	HandleAbilityInputReleased(EBlackoutAbilityInputID::Sprint);
+}
+
+void ABlackoutPlayerController::HandleAbilityInputPressed(EBlackoutAbilityInputID InputID)
+{
+	if (UBlackoutAbilitySystemComponent* AbilitySystemComponent = GetBlackoutAbilitySystemComponent())
+	{
+		AbilitySystemComponent->AbilityLocalInputPressed(static_cast<int32>(InputID));
+	}
+}
+
+void ABlackoutPlayerController::HandleAbilityInputReleased(EBlackoutAbilityInputID InputID)
+{
+	if (UBlackoutAbilitySystemComponent* AbilitySystemComponent = GetBlackoutAbilitySystemComponent())
+	{
+		AbilitySystemComponent->AbilityLocalInputReleased(static_cast<int32>(InputID));
+	}
+}
+
+UBlackoutAbilitySystemComponent* ABlackoutPlayerController::GetBlackoutAbilitySystemComponent() const
+{
+	const ABlackoutPlayerState* BlackoutPlayerState = GetPlayerState<ABlackoutPlayerState>();
+	return BlackoutPlayerState ? BlackoutPlayerState->GetBlackoutAbilitySystemComponent() : nullptr;
 }
 
 #pragma endregion 

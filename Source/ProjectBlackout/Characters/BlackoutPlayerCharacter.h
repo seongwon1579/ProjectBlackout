@@ -7,6 +7,7 @@
 class USpringArmComponent;
 class UCameraComponent;
 class UBOCharacterData;
+class UBlackoutCombatComponent;
 class UGameplayEffect;
 class UInputAction;
 
@@ -28,18 +29,19 @@ public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	virtual void PossessedBy(AController* NewController) override;
 	virtual void OnRep_PlayerState() override;
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	UBlackoutCombatComponent* GetCombatComponent() const { return CombatComponent; }
 	
 protected:
-	/** ASC와 입력 컴포넌트 바인딩 */
-	void BindASCInput();
-
-	bool bIsInputBound = false;
-	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Camera")
 	TObjectPtr<USpringArmComponent> SpringArm;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Camera")
 	TObjectPtr<UCameraComponent> Camera;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Combat")
+	TObjectPtr<UBlackoutCombatComponent> CombatComponent;
 
 	/** 병과별 스탯·어빌리티 데이터. BP 서브클래스(BP_Assault 등)에서 지정. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Data")

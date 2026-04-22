@@ -27,6 +27,12 @@ public:
 	float GetBaseDamage() const;
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	int32 GetMagazineSize() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	int32 GetMaxReserveAmmo() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	void AttachToOwner(FName SocketName);
 
 protected:

@@ -53,7 +53,7 @@ void UExecCalc_Reload::Execute_Implementation(
 	EvalParams.SourceTags = Spec.CapturedSourceTags.GetAggregatedTags();
 	EvalParams.TargetTags = Spec.CapturedTargetTags.GetAggregatedTags();
 
-	const bool bIsPrimary = !Spec.CapturedSourceTags.GetAggregatedTags()->HasTagExact(BlackoutGameplayTags::Weapon_Secondary);
+	const bool bIsPrimary = !Spec.GetDynamicAssetTags().HasTagExact(BlackoutGameplayTags::Weapon_Secondary);
 
 	float ClipAmmo = 0.0f;
 	float MaxClip = 0.0f;
