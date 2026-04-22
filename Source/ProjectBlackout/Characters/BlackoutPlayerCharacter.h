@@ -30,7 +30,7 @@ public:
 	virtual void PossessedBy(AController* NewController) override;
 	virtual void OnRep_PlayerState() override;
 
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat|Accessors")
 	UBlackoutCombatComponent* GetCombatComponent() const { return CombatComponent; }
 	
 protected:
@@ -40,7 +40,7 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Camera")
 	TObjectPtr<UCameraComponent> Camera;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Combat")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Components")
 	TObjectPtr<UBlackoutCombatComponent> CombatComponent;
 
 	/** 병과별 스탯·어빌리티 데이터. BP 서브클래스(BP_Assault 등)에서 지정. */
@@ -53,7 +53,6 @@ protected:
 
 	/** CharacterData를 기반으로 초기 어트리뷰트 값 설정 (GE 적용) */
 	virtual void InitializeAttributes();
-	
 	
 	
 	// 플레이어 캐릭터 인풋 매핑 세팅 //

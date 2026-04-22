@@ -5,6 +5,7 @@
 #include "BlackoutGA_MeleePlayer.generated.h"
 
 class UAnimMontage;
+struct FTimerHandle;
 
 /**
  * 플레이어 근접 공격 게임플레이 어빌리티 (TDD v5 §4.1)
@@ -28,6 +29,15 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
 	TMap<int32, float> ComboWindowMap;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
+	float MeleeHitDelay = 0.12f;
+
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	void OnMeleeHitNotify();
+
+	UFUNCTION()
+	void OnMeleeAttackFinished();
+
+	FTimerHandle MeleeHitTimerHandle;
+	FTimerHandle MeleeFinishTimerHandle;
 };

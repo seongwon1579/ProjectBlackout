@@ -270,20 +270,20 @@ ABOWeaponBase* UBlackoutCombatComponent::SpawnWeaponActor(TSubclassOf<ABOWeaponB
 
 void UBlackoutCombatComponent::RefreshWeaponAttachments() const
 {
-	auto AttachWeapon = [](ABOWeaponBase* Weapon, const FName SocketName, const bool bHidden)
+	auto AttachWeapon = [](ABOWeaponBase* Weapon, const FName SocketName)
 	{
 		if (!Weapon)
 		{
 			return;
 		}
 
-		Weapon->SetActorHiddenInGame(bHidden);
+		Weapon->SetActorHiddenInGame(false);
 		Weapon->AttachToOwner(SocketName);
 	};
 
-	AttachWeapon(PrimaryWeapon, EquippedWeapon == PrimaryWeapon ? EquippedWeaponSocketName : PrimaryHolsterSocketName, EquippedWeapon != PrimaryWeapon);
-	AttachWeapon(SecondaryWeapon, EquippedWeapon == SecondaryWeapon ? EquippedWeaponSocketName : SecondaryHolsterSocketName, EquippedWeapon != SecondaryWeapon);
-	AttachWeapon(MeleeWeapon, MeleeHolsterSocketName, true);
+	AttachWeapon(PrimaryWeapon, EquippedWeapon == PrimaryWeapon ? EquippedWeaponSocketName : PrimaryHolsterSocketName);
+	AttachWeapon(SecondaryWeapon, EquippedWeapon == SecondaryWeapon ? EquippedWeaponSocketName : SecondaryHolsterSocketName);
+	AttachWeapon(MeleeWeapon, MeleeHolsterSocketName);
 }
 
 void UBlackoutCombatComponent::ApplyInitialAmmoLoadout() const

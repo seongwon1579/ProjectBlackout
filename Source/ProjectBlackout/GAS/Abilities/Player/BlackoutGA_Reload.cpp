@@ -5,9 +5,11 @@
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
 #include "Combat/Weapons/BOFirearm.h"
+#include "Engine/World.h"
 #include "GameFramework/Character.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "GAS/Attributes/BlackoutAmmoAttributeSet.h"
+#include "TimerManager.h"
 
 UBlackoutGA_Reload::UBlackoutGA_Reload()
 {
@@ -56,24 +58,40 @@ void UBlackoutGA_Reload::ActivateAbility(const FGameplayAbilitySpecHandle Handle
 	// 1. 장전 애니메이션 몽타주 재생
 	if (ReloadMontage)
 	{
+		float MontageDuration = 0.0f;
+
 		if (ACharacter* Character = Cast<ACharacter>(ActorInfo->AvatarActor.Get()))
 		{
 			if (UAnimInstance* AnimInstance = Character->GetMesh() ? Character->GetMesh()->GetAnimInstance() : nullptr)
 			{
-				AnimInstance->Montage_Play(ReloadMontage);
+				MontageDuration = AnimInstance->Montage_Play(ReloadMontage);
 			}
 		}
 
-		OnReloadMontageCompleted();
+		if (MontageDuration > 0.0f)
+		{
+			if (UWorld* World = ActorInfo->AvatarActor.IsValid() ? ActorInfo->AvatarActor->GetWorld() : nullptr)
+			{
+				World->GetTimerManager().SetTimer(ReloadCompletionTimerHandle, this, &UBlackoutGA_Reload::OnReloadMontageCompleted, MontageDuration, false);
+				return;
+			}
+		}
 	}
-	else
-	{
-		OnReloadMontageCompleted();
-	}
+
+	OnReloadMontageCompleted();
 }
 
 void UBlackoutGA_Reload::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
 {
+	if (ActorInfo && ActorInfo->AvatarActor.IsValid())
+	{
+		if (UWorld* World = ActorInfo->AvatarActor->GetWorld())
+		{
+			World->GetTimerManager().ClearTimer(ReloadCompletionTimerHandle);
+		}
+	}
+
+	PendingWeaponSlotTag = FGameplayTag();
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
 

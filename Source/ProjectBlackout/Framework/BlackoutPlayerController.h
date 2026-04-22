@@ -37,11 +37,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Controller")
 	void EnterSpectatorMode();
 	
-#pragma region InputSetup 
-public:
+#pragma region InputSetup
+protected:
 	virtual void SetupInputComponent() override;
 	
-protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input")
 	TObjectPtr<UInputMappingContext> DefaultMappingContext;
 

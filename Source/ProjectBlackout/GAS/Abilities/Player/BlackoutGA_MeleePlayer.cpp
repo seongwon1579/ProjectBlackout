@@ -4,8 +4,10 @@
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
 #include "Combat/Weapons/BOMeleeWeapon.h"
+#include "Engine/World.h"
 #include "GameFramework/Character.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
+#include "TimerManager.h"
 
 UBlackoutGA_MeleePlayer::UBlackoutGA_MeleePlayer()
 {
@@ -24,15 +26,25 @@ void UBlackoutGA_MeleePlayer::ActivateAbility(const FGameplayAbilitySpecHandle H
 	}
 
 	// 1. 근접 공격 애니메이션 몽타주 재생 및 콤보 윈도우(입력 대기) 활성화
+	float MontageDuration = 0.0f;
 	if (MeleeMontage)
 	{
 		if (ACharacter* Character = Cast<ACharacter>(ActorInfo->AvatarActor.Get()))
 		{
 			if (UAnimInstance* AnimInstance = Character->GetMesh() ? Character->GetMesh()->GetAnimInstance() : nullptr)
 			{
-				AnimInstance->Montage_Play(MeleeMontage);
+				MontageDuration = AnimInstance->Montage_Play(MeleeMontage);
 			}
 		}
+	}
+
+	if (UWorld* World = ActorInfo && ActorInfo->AvatarActor.IsValid() ? ActorInfo->AvatarActor->GetWorld() : nullptr)
+	{
+		World->GetTimerManager().SetTimer(MeleeHitTimerHandle, this, &UBlackoutGA_MeleePlayer::OnMeleeHitNotify, FMath::Max(0.0f, MeleeHitDelay), false);
+
+		const float FinishDelay = MontageDuration > 0.0f ? MontageDuration : FMath::Max(0.2f, MeleeHitDelay + 0.05f);
+		World->GetTimerManager().SetTimer(MeleeFinishTimerHandle, this, &UBlackoutGA_MeleePlayer::OnMeleeAttackFinished, FinishDelay, false);
+		return;
 	}
 
 	OnMeleeHitNotify();
@@ -41,6 +53,15 @@ void UBlackoutGA_MeleePlayer::ActivateAbility(const FGameplayAbilitySpecHandle H
 
 void UBlackoutGA_MeleePlayer::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
 {
+	if (ActorInfo && ActorInfo->AvatarActor.IsValid())
+	{
+		if (UWorld* World = ActorInfo->AvatarActor->GetWorld())
+		{
+			World->GetTimerManager().ClearTimer(MeleeHitTimerHandle);
+			World->GetTimerManager().ClearTimer(MeleeFinishTimerHandle);
+		}
+	}
+
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
 
@@ -52,4 +73,14 @@ void UBlackoutGA_MeleePlayer::OnMeleeHitNotify()
 	{
 		CombatComponent->PerformMeleeHit();
 	}
+}
+
+void UBlackoutGA_MeleePlayer::OnMeleeAttackFinished()
+{
+	if (!IsActive())
+	{
+		return;
+	}
+
+	K2_EndAbility();
 }

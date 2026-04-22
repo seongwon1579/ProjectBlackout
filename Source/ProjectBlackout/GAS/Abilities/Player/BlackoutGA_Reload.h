@@ -7,6 +7,7 @@
 
 class UGameplayEffect;
 class UAnimMontage;
+struct FTimerHandle;
 
 /**
  * 플레이어 무기 장전 게임플레이 어빌리티 (TDD v5 §4.1)
@@ -34,4 +35,5 @@ protected:
 	void OnReloadMontageCompleted();
 
 	FGameplayTag PendingWeaponSlotTag;
+	FTimerHandle ReloadCompletionTimerHandle;
 };
