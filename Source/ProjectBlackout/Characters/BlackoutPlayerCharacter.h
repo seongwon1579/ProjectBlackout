@@ -79,4 +79,11 @@ protected:
 	
 	
 #pragma endregion 
+	
+#pragma region Movement
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Movement")
+	float ForwardTurnInterpSpeed = 10.f;
+	
+#pragma endregion
 };
