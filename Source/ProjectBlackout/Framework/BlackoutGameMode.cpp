@@ -4,6 +4,7 @@
 #include "BlackoutPlayerController.h"
 #include "BlackoutLog.h"
 #include "Kismet/GameplayStatics.h"
+#include "GameFramework/GameStateBase.h"
 
 ABlackoutGameMode::ABlackoutGameMode()
 {
@@ -46,4 +47,27 @@ void ABlackoutGameMode::Logout(AController* Exiting)
 void ABlackoutGameMode::HandlePartyWipe()
 {
 	BO_LOG_CORE(Log, "HandlePartyWipe triggered");
+}
+
+// Ready 집계 기본 구현. 정원 미달이거나 한 명이라도 bIsReady == false 면 false.
+bool ABlackoutGameMode::AllPlayersReady() const
+{
+	if (ConnectedPlayers.Num() < MaxPlayers) { return false; }
+	if (!GameState) { return false; }
+
+	for (APlayerState* PS : GameState->PlayerArray)
+	{
+		const ABlackoutPlayerState* BlackoutPS = Cast<ABlackoutPlayerState>(PS);
+		if (!BlackoutPS || !BlackoutPS->bIsReady) { return false; }
+	}
+	return true;
+}
+
+// Ready 상태 갱신 직후 호출. 성립 시 자식 GameMode 훅 실행.
+void ABlackoutGameMode::NotifyReadyChanged()
+{
+	if (AllPlayersReady())
+	{
+		OnAllPlayersReady();
+	}
 }
