@@ -1,4 +1,4 @@
-﻿#include "BlackoutMatchmakingSubsystem.h"
+#include "BlackoutMatchmakingSubsystem.h"
 #include "BlackoutNetworkSettings.h"
 #include "BlackoutLog.h"
 #include "HttpModule.h"
@@ -10,12 +10,13 @@
 #include "GameFramework/PlayerController.h"
 #include "Engine/World.h"
 
+// GameInstance 부팅 시 호출. WebSockets 모듈 로드 + NetworkSettings 기본값 적용.
 void UBlackoutMatchmakingSubsystem::Initialize(
 	FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
 	FModuleManager::Get().LoadModuleChecked(TEXT("WebSockets"));
-	
+
 	if (const UBlackoutNetworkSettings* Settings = GetDefault<UBlackoutNetworkSettings>())
 	{
 		bAutoTravelOnGameStart = Settings->bAutoTravelOnGameStart;
@@ -23,6 +24,7 @@ void UBlackoutMatchmakingSubsystem::Initialize(
 	}
 }
 
+// GameInstance 종료 시 WebSocket 정리 + 토큰 폐기.
 void UBlackoutMatchmakingSubsystem::Deinitialize()
 {
 	DisconnectLobby();
@@ -31,6 +33,7 @@ void UBlackoutMatchmakingSubsystem::Deinitialize()
 	Super::Deinitialize();
 }
 
+// POST /auth/login — JSON body로 계정 전송. 응답은 OnLoginResponse.
 void UBlackoutMatchmakingSubsystem::Login(const FString& PlayerName, const FString& Password)
 {
 	const UBlackoutNetworkSettings* Settings = GetDefault<UBlackoutNetworkSettings>();
@@ -53,6 +56,7 @@ void UBlackoutMatchmakingSubsystem::Login(const FString& PlayerName, const FStri
 	BO_LOG_NET(Log, "Login 요청 전송: %s", *PlayerName);
 }
 
+// POST /matchmaking/start — Bearer 토큰 필요. 응답은 OnStartMatchmakingResponse.
 void UBlackoutMatchmakingSubsystem::StartMatchmaking()
 {
 	if (!IsLoggedIn())
@@ -76,6 +80,7 @@ void UBlackoutMatchmakingSubsystem::StartMatchmaking()
 	BO_LOG_NET(Log, "StartMatchmaking 요청");
 }
 
+// DELETE /matchmaking — 세션 이탈 (playing 중 허용: surrender).
 void UBlackoutMatchmakingSubsystem::CancelMatchmaking()
 {
 	if (!IsLoggedIn())
@@ -97,6 +102,7 @@ void UBlackoutMatchmakingSubsystem::CancelMatchmaking()
 	BO_LOG_NET(Log, "CancelMatchmaking 요청");
 }
 
+// 데디 IP:Port 로 ClientTravel. 호출 전 로비 WebSocket 정리.
 void UBlackoutMatchmakingSubsystem::TravelToGameServer(const FString& ServerIp, int32 ServerPort)
 {
 	if (ServerIp.IsEmpty() || ServerPort <= 0)
@@ -126,6 +132,7 @@ void UBlackoutMatchmakingSubsystem::TravelToGameServer(const FString& ServerIp, 
 	PC->ClientTravel(Addr, TRAVEL_Absolute);
 }
 
+// 로비 WebSocket 연결. 이벤트 콜백 바인딩 + Connect 호출.
 void UBlackoutMatchmakingSubsystem::ConnectLobby()
 {
 	if (WebSocket.IsValid() && WebSocket->IsConnected())
@@ -151,6 +158,7 @@ void UBlackoutMatchmakingSubsystem::ConnectLobby()
 	WebSocket->Connect();
 }
 
+// WebSocket 닫기 + 현재 세션 식별자 초기화.
 void UBlackoutMatchmakingSubsystem::DisconnectLobby()
 {
 	if (WebSocket.IsValid())
@@ -179,6 +187,7 @@ void UBlackoutMatchmakingSubsystem::SetAuthHeader(const FHttpRequestRef& Request
 }
 
 
+// 로그인 응답 파싱. access_token 추출 후 ConnectLobby 자동 호출.
 void UBlackoutMatchmakingSubsystem::OnLoginResponse(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bSucceeded)
 {
 	if (!bSucceeded || !Response.IsValid())
@@ -225,6 +234,7 @@ void UBlackoutMatchmakingSubsystem::OnLoginResponse(FHttpRequestPtr Request, FHt
 	OnLoginComplete.Broadcast(true);
 }
 
+// 매칭 시작 응답 파싱. session 필드에서 FBlackoutSessionInfo 채우고 join_session 예약.
 void UBlackoutMatchmakingSubsystem::OnStartMatchmakingResponse(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bSucceeded)
 {
 	if (!bSucceeded || !Response.IsValid())
@@ -287,6 +297,7 @@ void UBlackoutMatchmakingSubsystem::OnStartMatchmakingResponse(FHttpRequestPtr R
 	OnMatchmakingStarted.Broadcast(Info);
 }
 
+// 매칭 취소 응답. sessionDestroyed 값을 OnMatchmakingCancelled 로 전달.
 void UBlackoutMatchmakingSubsystem::OnCancelMatchmakingResponse(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bSucceeded)
 {
 	if (!bSucceeded || !Response.IsValid())
@@ -316,6 +327,7 @@ void UBlackoutMatchmakingSubsystem::OnCancelMatchmakingResponse(FHttpRequestPtr 
 	OnMatchmakingCancelled.Broadcast(bDestroyed);
 }
 
+// join_session 요청 처리. WebSocket 미연결이면 PendingSessionId 에 예약.
 void UBlackoutMatchmakingSubsystem::SendJoinSessionMessage(const FString& SessionId)
 {
 	PendingSessionId = SessionId;
@@ -329,6 +341,7 @@ void UBlackoutMatchmakingSubsystem::SendJoinSessionMessage(const FString& Sessio
 	}
 }
 
+// 로비 WebSocket 메시지 분기. event 필드로 각 이벤트 델리게이트 Broadcast.
 void UBlackoutMatchmakingSubsystem::HandleWsMessage(const FString& MessageStr)
 {
 	BO_LOG_NET(Log, "수신: %s", *MessageStr);
@@ -345,7 +358,8 @@ void UBlackoutMatchmakingSubsystem::HandleWsMessage(const FString& MessageStr)
 	{
 		return;
 	}
-	
+
+	// 서버 ACK / keepalive 성격 이벤트는 클라에서 반응 없음.
 	if (Event == TEXT("hi") || Event == TEXT("joined_session") || Event == TEXT("left_session") || Event == TEXT("pong"))
 	{
 		return;
@@ -428,6 +442,7 @@ void UBlackoutMatchmakingSubsystem::HandleWsMessage(const FString& MessageStr)
 	}
 }
 
+// WebSocket 연결 성공 콜백. 예약된 join_session 송신.
 void UBlackoutMatchmakingSubsystem::HandleWsConnected()
 {
 	BO_LOG_NET(Log, "WS 연결 성공");
