@@ -108,5 +108,17 @@ ABlackoutGameMode (서버 베이스)
 2. **새 C++ 파일은 모듈 루트(`Source/ProjectBlackout/`) 아래 목적에 맞는 폴더를 생성하여 배치하세요.**
 3. **`Variant_Combat/`, `Variant_Platforming/`, `Variant_SideScrolling/` 디렉토리는 건드리지 마세요.** 언리얼 엔진 템플릿 코드이며 이번 프로젝트에서 사용하지 않습니다.
 4. **`Content/Assets/` 하위 파일을 수정하거나 구조를 변경하지 마세요.** 서드파티 에셋 원본입니다.
-5. **커밋 메시지는 반드시 태그 형식**(`Feat`, `Fix`, `Design`, `Refactor`, `Docs`, `Chore`)을 사용하세요.
-6. **코드 변경 전 위 "작업 유형별 참조 가이드" 표를 먼저 확인하고, 해당 섹션만 로드하세요.** 무조건 전체 문서를 읽지 마세요.
+5. **`.uproject`, `.uplugin` 파일을 임의로 수정하지 마세요.** 모듈/플러그인 구성 변경은 사용자 확인 후 진행합니다.
+6. **커밋 메시지는 반드시 태그 형식**(`Feat`, `Fix`, `Design`, `Refactor`, `Docs`, `Chore`)을 사용하세요. PR의 base는 항상 `develop` 입니다. `main` 에 직접 PR 금지.
+7. **코드 변경 전 위 "작업 유형별 참조 가이드" 표를 먼저 확인하고, 해당 섹션만 로드하세요.** 무조건 전체 문서를 읽지 마세요.
+
+## C++ 코드 생성 시 주의사항 (UE5 공통 함정)
+
+> 상세 네이밍/접두사 규칙은 [`CONVENTIONS.md`](Docs/CONVENTIONS.md) §2 참조.
+
+- **`#include` 경로**는 모듈 구조(`ProjectBlackout/...`)와 일치해야 합니다.
+- **전방 선언(Forward Declaration)** 된 클래스를 `.cpp`에서 사용하거나 `Cast<>` 할 때는 반드시 해당 클래스 헤더를 `#include` 하여 `incomplete types` 에러를 예방하세요.
+- **`.generated.h` 인클루드**를 절대 빠뜨리지 마세요. 항상 해당 파일 `#include` 목록의 **마지막**에 위치해야 합니다.
+- 헤더 파일에는 **`#pragma once`** 를 사용하세요.
+- `UCLASS()`, `USTRUCT()`, `UENUM()` 매크로에는 적절한 **Specifier** (`BlueprintType`, `Blueprintable` 등)를 포함하세요.
+- **모든 코드 내 주석은 한글로 작성**하세요.
