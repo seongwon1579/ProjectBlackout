@@ -1,8 +1,11 @@
 #include "Combat/Components/BlackoutCombatComponent.h"
+#include "AbilitySystemInterface.h"
 #include "Net/UnrealNetwork.h"
 #include "Combat/Weapons/BOWeaponBase.h"
 #include "Combat/Weapons/BOFirearm.h"
 #include "Combat/Weapons/BOMeleeWeapon.h"
+#include "GameplayTags/BlackoutGameplayTags.h"
+#include "AbilitySystemComponent.h"
 
 UBlackoutCombatComponent::UBlackoutCombatComponent()
 {
@@ -58,6 +61,17 @@ void UBlackoutCombatComponent::StopFire()
 
 void UBlackoutCombatComponent::StartAim()
 {
+	if (const IAbilitySystemInterface* AbilitySystemInterface = Cast<IAbilitySystemInterface>(GetOwner()))
+	{
+		if (const UAbilitySystemComponent* AbilitySystemComponent = AbilitySystemInterface->GetAbilitySystemComponent())
+		{
+			if (AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Sprinting))
+			{
+				return;
+			}
+		}
+	}
+
 	bIsAiming = true;
 	// UI 및 카메라 업데이트
 }

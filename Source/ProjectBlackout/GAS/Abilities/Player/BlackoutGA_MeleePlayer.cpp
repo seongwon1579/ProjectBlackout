@@ -1,13 +1,15 @@
-#include "Combat/Abilities/GA_Melee_Player.h"
+#include "GAS/Abilities/Player/BlackoutGA_MeleePlayer.h"
 #include "Combat/Weapons/BOMeleeWeapon.h"
+#include "GameplayTags/BlackoutGameplayTags.h"
 
-UGA_Melee_Player::UGA_Melee_Player()
+UBlackoutGA_MeleePlayer::UBlackoutGA_MeleePlayer()
 {
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::LocalPredicted;
+	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Sprinting);
 }
 
-void UGA_Melee_Player::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+void UBlackoutGA_MeleePlayer::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
 	if (!CommitAbility(Handle, ActorInfo, ActivationInfo))
 	{
@@ -26,12 +28,12 @@ void UGA_Melee_Player::ActivateAbility(const FGameplayAbilitySpecHandle Handle, 
 	}
 }
 
-void UGA_Melee_Player::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
+void UBlackoutGA_MeleePlayer::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
 {
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
 
-void UGA_Melee_Player::OnMeleeHitNotify()
+void UBlackoutGA_MeleePlayer::OnMeleeHitNotify()
 {
 	// 몽타주 내의 AnimNotify에서 어빌리티 태스크를 통해 호출됨
 	// TODO: 장착된 근접 무기의 ABOMeleeWeapon::PerformSweep 호출 및 피격 결과에 따른 GE_Damage 적용

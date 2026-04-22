@@ -2,41 +2,32 @@
 
 #include "CoreMinimal.h"
 #include "GAS/Abilities/BlackoutGameplayAbility.h"
-#include "GA_FireWeapon.generated.h"
+#include "BlackoutGA_MeleePlayer.generated.h"
 
-class UGameplayEffect;
+class UAnimMontage;
 
 /**
- * 플레이어 사격 게임플레이 어빌리티 (TDD v5 §4.1)
- * 코스트 지불(탄약), 몽타주 재생, 트레이스/발사체 스폰을 처리합니다.
+ * 플레이어 근접 공격 게임플레이 어빌리티 (TDD v5 §4.1)
+ * 몽타주 재생, AnimNotify 수신을 통한 스윕 검사, 콤보 입력 윈도우 처리를 담당합니다.
  */
 UCLASS()
-class PROJECTBLACKOUT_API UGA_FireWeapon : public UBlackoutGameplayAbility
+class PROJECTBLACKOUT_API UBlackoutGA_MeleePlayer : public UBlackoutGameplayAbility
 {
 	GENERATED_BODY()
-	
+
 public:
-	UGA_FireWeapon();
+	UBlackoutGA_MeleePlayer();
 
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
 
 protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
-	TSubclassOf<UGameplayEffect> DamageEffectClass;
+	TObjectPtr<UAnimMontage> MeleeMontage;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
-	float ParallaxMaxDistance = 10000.0f;
+	TMap<int32, float> ComboWindowMap;
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
-	FHitResult PerformTrace(const FVector& Start, const FVector& End);
-
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
-	FGameplayEffectSpecHandle BuildDamageSpec(const FHitResult& HitResult);
-
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
-	bool ApplyAmmoCost();
-
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
-	void PlayFireMontage();
+	void OnMeleeHitNotify();
 };

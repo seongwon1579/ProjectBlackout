@@ -1,14 +1,14 @@
-#include "Combat/Abilities/GA_Reload.h"
+#include "GAS/Abilities/Player/BlackoutGA_Reload.h"
 #include "AbilitySystemComponent.h"
 #include "GAS/Attributes/BlackoutAmmoAttributeSet.h"
 
-UGA_Reload::UGA_Reload()
+UBlackoutGA_Reload::UBlackoutGA_Reload()
 {
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::LocalPredicted;
 }
 
-void UGA_Reload::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+void UBlackoutGA_Reload::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
 	if (!CommitAbility(Handle, ActorInfo, ActivationInfo))
 	{
@@ -27,12 +27,12 @@ void UGA_Reload::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const 
 	}
 }
 
-void UGA_Reload::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
+void UBlackoutGA_Reload::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
 {
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
 
-void UGA_Reload::OnReloadMontageCompleted()
+void UBlackoutGA_Reload::OnReloadMontageCompleted()
 {
 	// 장전 완료 시 데미지 이펙트 (ReloadEffectClass, 내부적으로 ExecCalc_Reload 실행) 적용하여 탄약 수치 갱신
 	if (ReloadEffectClass && GetAbilitySystemComponentFromActorInfo())
