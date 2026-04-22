@@ -24,6 +24,9 @@ protected:
 	// 플레이어 접속 시 전투 진입 자원 초기화 정책 적용 (LobbyToBattle).
 	virtual void OnPlayerJoined(APlayerController* NewPlayer) override;
 
+	// 전원 Ready 시 보스 활성화 훅 + InCombat 전환.
+	virtual void OnAllPlayersReady() override;
+
 	// 마지막으로 활성화된 화톳불. 파티 전멸 시 이 액터 위치로 복귀.
 	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Battle")
 	TObjectPtr<AActor> CurrentCheckpointActor;

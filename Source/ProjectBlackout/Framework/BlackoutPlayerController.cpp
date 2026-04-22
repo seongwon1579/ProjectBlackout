@@ -1,6 +1,6 @@
 #include "BlackoutPlayerController.h"
 
-#include "BlackoutLobbyGameMode.h"
+#include "BlackoutGameMode.h"
 #include "BlackoutAbilitySystemComponent.h"
 #include "BlackoutPlayerState.h"
 #include "BlackoutLog.h"
@@ -27,9 +27,10 @@ void ABlackoutPlayerController::Server_SetReady_Implementation(bool bNewReady)
 	PS->bIsReady = bNewReady;
 	BO_LOG_NET(Log , "Server_SetReady:%s -> %s",*GetName(), bNewReady ? TEXT("Ready") : TEXT("NotReady"));
 	
-	if (ABlackoutLobbyGameMode* LobbyMode = GetWorld()->GetAuthGameMode<ABlackoutLobbyGameMode>())
+	// Lobby / Battle 공통. 부모 GameMode 의 NotifyReadyChanged 가 자식의 OnAllPlayersReady 훅을 호출.
+	if (ABlackoutGameMode* Mode = GetWorld()->GetAuthGameMode<ABlackoutGameMode>())
 	{
-		LobbyMode->NotifyReadyChanged();
+		Mode->NotifyReadyChanged();
 	}
 }
 

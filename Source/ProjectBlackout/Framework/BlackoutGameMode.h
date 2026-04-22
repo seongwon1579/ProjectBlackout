@@ -17,6 +17,14 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|GameMode")
 	virtual void HandlePartyWipe();
 
+	// 정원 충족 + 전원 bIsReady == true 조건 검사. Lobby / Battle 공용.
+	UFUNCTION(BlueprintCallable, Category = "Blackout|GameMode")
+	virtual bool AllPlayersReady() const;
+
+	// PlayerController::Server_SetReady 처리 직후 호출. AllPlayersReady 성립 시 OnAllPlayersReady 훅 실행.
+	UFUNCTION(BlueprintCallable, Category = "Blackout|GameMode")
+	virtual void NotifyReadyChanged();
+
 protected:
 	// 매치 시작 시 URL 옵션(?SessionId=...)을 파싱해 MatchmakingSessionId에 보관한다.
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
@@ -26,6 +34,9 @@ protected:
 	// 자식 GameMode(Lobby/Battle)가 공통 집계 뒤 확장 로직을 붙이는 훅.
 	virtual void OnPlayerJoined(APlayerController* NewPlayer) {}
 	virtual void OnPlayerLeft(AController* Exiting) {}
+
+	// 전원 Ready 성립 시 자식 GameMode 가 override 하여 액션을 정의하는 훅 (Lobby: StartBattle / Battle: 보스 활성).
+	virtual void OnAllPlayersReady() {}
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|GameMode")
 	int32 MaxPlayers = 4;
