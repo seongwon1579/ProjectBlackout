@@ -23,10 +23,12 @@ ABlackoutPlayerCharacter::ABlackoutPlayerCharacter()
 	Camera->SetupAttachment(SpringArm, USpringArmComponent::SocketName);
 	Camera->bUsePawnControlRotation = false;
 
-	// TPS: 컨트롤러 회전은 카메라에만 적용, 캐릭터는 이동 방향으로 자동 회전
+	// TPS: 컨트롤러 회전은 카메라에만 적용, 캐릭터는 이동 방향으로 자동 회전 x
 	bUseControllerRotationYaw = false;
-	GetCharacterMovement()->bOrientRotationToMovement = true;
+	GetCharacterMovement()->bOrientRotationToMovement = false;
+	GetCharacterMovement()->bUseControllerDesiredRotation = false;
 }
+
 void ABlackoutPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
@@ -184,7 +186,29 @@ void ABlackoutPlayerCharacter::Look(const FInputActionValue& Value)
 
 void ABlackoutPlayerCharacter::DoMove(float Right, float Forward)
 {
-	if (GetController() != nullptr)
+	if (GetController() == nullptr)
+	{
+		return;
+	}
+
+	if (Forward > 0.f)
+	{
+		const FRotator TargetRotation(0.f, GetController()->GetControlRotation().Yaw, 0.f);
+		const FRotator NewRotation = FMath::RInterpTo(
+			GetActorRotation(),
+			TargetRotation,
+			GetWorld()->GetDeltaSeconds(),
+			ForwardTurnInterpSpeed);
+
+		SetActorRotation(NewRotation);
+	}
+
+	AddMovementInput(GetActorForwardVector(), Forward);
+	AddMovementInput(GetActorRightVector(), Right);
+	
+	
+	
+	/*if (GetController() != nullptr)
 	{
 		const FRotator Rotation = GetController()->GetControlRotation();
 		const FRotator YawRotation(0.0f, Rotation.Yaw, 0.0f);
@@ -194,7 +218,7 @@ void ABlackoutPlayerCharacter::DoMove(float Right, float Forward)
 
 		AddMovementInput(ForwardDirection, Forward);
 		AddMovementInput(RightDirection, Right);
-	}
+	}*/
 }
 
 void ABlackoutPlayerCharacter::DoLook(float Yaw, float Pitch)
