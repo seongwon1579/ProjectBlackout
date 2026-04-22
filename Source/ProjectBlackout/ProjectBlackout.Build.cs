@@ -24,7 +24,13 @@ public class ProjectBlackout : ModuleRules
 			"GameplayAbilities",
 			"GameplayTags",
 			"GameplayTasks",
-			"Niagara"
+			"Niagara",
+			// Networking (Matchmaking System)
+			"HTTP",
+			"Json",
+			"JsonUtilities",
+			"WebSockets",
+			"DeveloperSettings"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { });
