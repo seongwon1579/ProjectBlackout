@@ -20,12 +20,18 @@ public class ProjectBlackout : ModuleRules
 			"UMG",
 			"Slate",
 			"SlateCore",
+			"AnimGraphRuntime",
 			// GAS (Gameplay Ability System)
 			"GameplayAbilities",
 			"GameplayTags",
 			"GameplayTasks",
 			"Niagara",
-			"AnimGraphRuntime"
+			// Networking (Matchmaking System)
+			"HTTP",
+			"Json",
+			"JsonUtilities",
+			"WebSockets",
+			"DeveloperSettings"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { });
