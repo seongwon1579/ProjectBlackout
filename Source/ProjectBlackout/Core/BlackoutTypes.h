@@ -26,3 +26,13 @@ enum class EBattleTransitionType : uint8
 	CheckpointRest      UMETA(DisplayName = "Checkpoint Rest"),
 	PartyWipeRestart    UMETA(DisplayName = "Party Wipe Restart"),
 };
+
+// 매치 전체 생애주기 상태. ABlackoutGameState::CurrentMatchState 에서 Replicated.
+UENUM(BlueprintType)
+enum class EBlackoutMatchState : uint8
+{
+	InLobby     UMETA(DisplayName = "In Lobby"),      // 로비 맵 진행 · Ready Check 대기
+	Starting    UMETA(DisplayName = "Starting"),      // 전투 맵으로 ServerTravel 중
+	InCombat    UMETA(DisplayName = "In Combat"),     // 전투 맵 진행
+	Ended       UMETA(DisplayName = "Ended"),         // 승리/패배 후
+};

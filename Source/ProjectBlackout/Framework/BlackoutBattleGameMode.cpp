@@ -1,10 +1,11 @@
 #include "BlackoutBattleGameMode.h"
 #include "BlackoutPlayerState.h"
+#include "BlackoutGameState.h"
 #include "BlackoutLog.h"
 #include "Core/BlackoutTypes.h"
 #include "GameFramework/PlayerController.h"
 
-// 플레이어 접속 직후 전투 진입 자원 정책 적용.
+// 플레이어 접속 직후 전투 진입 자원 정책 적용. 정원 충족 시 매치 상태를 InCombat 으로 전환.
 void ABlackoutBattleGameMode::OnPlayerJoined(APlayerController* NewPlayer)
 {
 	if (!NewPlayer) { return; }
@@ -12,6 +13,18 @@ void ABlackoutBattleGameMode::OnPlayerJoined(APlayerController* NewPlayer)
 	if (ABlackoutPlayerState* PS = NewPlayer->GetPlayerState<ABlackoutPlayerState>())
 	{
 		PS->ApplyBattleTransitionPolicy(EBattleTransitionType::LobbyToBattle);
+	}
+
+	// 4인 정원 충족 시 매치 상태를 InCombat 으로 한 번만 전환.
+	if (ConnectedPlayers.Num() == MaxPlayers)
+	{
+		if (ABlackoutGameState* GS = GetGameState<ABlackoutGameState>())
+		{
+			if (GS->CurrentMatchState != EBlackoutMatchState::InCombat)
+			{
+				GS->SetMatchState(EBlackoutMatchState::InCombat);
+			}
+		}
 	}
 }
 

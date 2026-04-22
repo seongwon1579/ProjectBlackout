@@ -1,6 +1,7 @@
 #include "BlackoutLobbyGameMode.h"
 #include "BlackoutPlayerController.h"
 #include "BlackoutPlayerState.h"
+#include "BlackoutGameState.h"
 #include "BlackoutLog.h"
 #include "GameFramework/GameModeBase.h"
 #include "GameFramework/GameStateBase.h"
@@ -35,6 +36,12 @@ void ABlackoutLobbyGameMode::StartBattle()
 		BO_LOG_NET(Error,"StartBattle 실패 : BattleMapPath 미설정 (BP_BlackoutLobbyGameMode에서 지정 필요)");
 		return ;
 	}
+
+	if (ABlackoutGameState* GS = GetGameState<ABlackoutGameState>())
+	{
+		GS->SetMatchState(EBlackoutMatchState::Starting);
+	}
+
 	BO_LOG_NET(Log, "StartBattle : ServerTravel -> %s",*BattleMapPath.ToString());
 	GetWorld()->ServerTravel(BattleMapPath.ToString());
 }
