@@ -4,6 +4,7 @@
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
 #include "Combat/Weapons/BOMeleeWeapon.h"
+#include "Core/BlackoutLog.h"
 #include "Engine/World.h"
 #include "GameFramework/Character.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
@@ -19,11 +20,16 @@ UBlackoutGA_MeleePlayer::UBlackoutGA_MeleePlayer()
 
 void UBlackoutGA_MeleePlayer::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
+	BO_LOG_GAS(Log, "GA_MeleePlayer activate requested");
+
 	if (!CommitAbility(Handle, ActorInfo, ActivationInfo))
 	{
+		BO_LOG_GAS(Warning, "GA_MeleePlayer failed: CommitAbility 실패");
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
+
+	BO_LOG_GAS(Log, "GA_MeleePlayer activated: Character=%s", *GetNameSafe(ActorInfo ? ActorInfo->AvatarActor.Get() : nullptr));
 
 	// 1. 근접 공격 애니메이션 몽타주 재생 및 콤보 윈도우(입력 대기) 활성화
 	float MontageDuration = 0.0f;
@@ -53,6 +59,8 @@ void UBlackoutGA_MeleePlayer::ActivateAbility(const FGameplayAbilitySpecHandle H
 
 void UBlackoutGA_MeleePlayer::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
 {
+	BO_LOG_GAS(Log, "GA_MeleePlayer ended: Cancelled=%s", bWasCancelled ? TEXT("true") : TEXT("false"));
+
 	if (ActorInfo && ActorInfo->AvatarActor.IsValid())
 	{
 		if (UWorld* World = ActorInfo->AvatarActor->GetWorld())
@@ -67,6 +75,8 @@ void UBlackoutGA_MeleePlayer::EndAbility(const FGameplayAbilitySpecHandle Handle
 
 void UBlackoutGA_MeleePlayer::OnMeleeHitNotify()
 {
+	BO_LOG_GAS(Log, "GA_MeleePlayer hit notify");
+
 	// 몽타주 내의 AnimNotify에서 어빌리티 태스크를 통해 호출됨
 	const ABlackoutPlayerCharacter* PlayerCharacter = CurrentActorInfo ? Cast<ABlackoutPlayerCharacter>(CurrentActorInfo->AvatarActor.Get()) : nullptr;
 	if (UBlackoutCombatComponent* CombatComponent = PlayerCharacter ? PlayerCharacter->GetCombatComponent() : nullptr)
@@ -82,5 +92,6 @@ void UBlackoutGA_MeleePlayer::OnMeleeAttackFinished()
 		return;
 	}
 
+	BO_LOG_GAS(Log, "GA_MeleePlayer finished by timer");
 	K2_EndAbility();
 }

@@ -3,6 +3,7 @@
 #include "AbilitySystemComponent.h"
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
+#include "Core/BlackoutLog.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "GAS/Attributes/BlackoutBaseAttributeSet.h"
@@ -22,8 +23,11 @@ UBlackoutGA_Sprint::UBlackoutGA_Sprint()
 void UBlackoutGA_Sprint::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
 	const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
+	BO_LOG_GAS(Log, "GA_Sprint activate requested");
+
 	if (!ActorInfo || !ActorInfo->AvatarActor.IsValid())
 	{
+		BO_LOG_GAS(Warning, "GA_Sprint failed: ActorInfo 또는 AvatarActor가 유효하지 않음");
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
@@ -31,6 +35,7 @@ void UBlackoutGA_Sprint::ActivateAbility(const FGameplayAbilitySpecHandle Handle
 	UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo();
 	if (!AbilitySystemComponent)
 	{
+		BO_LOG_GAS(Warning, "GA_Sprint failed: AbilitySystemComponent가 없음");
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
@@ -38,9 +43,12 @@ void UBlackoutGA_Sprint::ActivateAbility(const FGameplayAbilitySpecHandle Handle
 	const float CurrentStamina = AbilitySystemComponent->GetNumericAttribute(UBlackoutPlayerAttributeSet::GetStaminaAttribute());
 	if (CurrentStamina < MinActivationStamina || !CommitAbility(Handle, ActorInfo, ActivationInfo))
 	{
+		BO_LOG_GAS(Warning, "GA_Sprint failed: 스태미나 부족 또는 CommitAbility 실패 (CurrentStamina=%.2f)", CurrentStamina);
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
+
+	BO_LOG_GAS(Log, "GA_Sprint activated: Character=%s", *GetNameSafe(ActorInfo->AvatarActor.Get()));
 
 	ApplySprintSpeed(ActorInfo);
 
@@ -62,6 +70,7 @@ void UBlackoutGA_Sprint::InputReleased(const FGameplayAbilitySpecHandle Handle, 
 
 	if (IsActive())
 	{
+		BO_LOG_GAS(Log, "GA_Sprint input released");
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
 	}
 }
@@ -69,6 +78,8 @@ void UBlackoutGA_Sprint::InputReleased(const FGameplayAbilitySpecHandle Handle, 
 void UBlackoutGA_Sprint::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
 	const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
 {
+	BO_LOG_GAS(Log, "GA_Sprint ended: Cancelled=%s", bWasCancelled ? TEXT("true") : TEXT("false"));
+
 	if (ActorInfo && ActorInfo->AvatarActor.IsValid())
 	{
 		if (UWorld* World = ActorInfo->AvatarActor->GetWorld())
@@ -86,6 +97,7 @@ void UBlackoutGA_Sprint::HandleSprintTick()
 {
 	if (!IsActive() || !ConsumeSprintStamina())
 	{
+		BO_LOG_GAS(Log, "GA_Sprint finishing: 비활성 상태이거나 스태미나가 부족함");
 		K2_EndAbility();
 	}
 }

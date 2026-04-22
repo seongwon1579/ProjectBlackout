@@ -157,7 +157,7 @@ void ABlackoutPlayerController::HandleAbilityInputPressed(EBlackoutAbilityInputI
 {
 	if (UBlackoutAbilitySystemComponent* AbilitySystemComponent = GetBlackoutAbilitySystemComponent())
 	{
-		AbilitySystemComponent->AbilityLocalInputPressed(static_cast<int32>(InputID));
+		AbilitySystemComponent->HandleAbilityInputPressed(InputID);
 	}
 }
 
@@ -165,7 +165,7 @@ void ABlackoutPlayerController::HandleAbilityInputReleased(EBlackoutAbilityInput
 {
 	if (UBlackoutAbilitySystemComponent* AbilitySystemComponent = GetBlackoutAbilitySystemComponent())
 	{
-		AbilitySystemComponent->AbilityLocalInputReleased(static_cast<int32>(InputID));
+		AbilitySystemComponent->HandleAbilityInputReleased(InputID);
 	}
 }
 

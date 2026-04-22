@@ -3,6 +3,7 @@
 #include "AbilitySystemComponent.h"
 #include "Animation/AnimInstance.h"
 #include "Characters/BlackoutPlayerCharacter.h"
+#include "Core/BlackoutLog.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "GAS/Attributes/BlackoutPlayerAttributeSet.h"
@@ -20,8 +21,11 @@ UBlackoutGA_Dodge::UBlackoutGA_Dodge()
 void UBlackoutGA_Dodge::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
 	const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
+	BO_LOG_GAS(Log, "GA_Dodge activate requested");
+
 	if (!ActorInfo || !ActorInfo->AvatarActor.IsValid())
 	{
+		BO_LOG_GAS(Warning, "GA_Dodge failed: ActorInfo 또는 AvatarActor가 유효하지 않음");
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
@@ -29,12 +33,14 @@ void UBlackoutGA_Dodge::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
 	ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get());
 	if (!PlayerCharacter || !ConsumeStamina())
 	{
+		BO_LOG_GAS(Warning, "GA_Dodge failed: PlayerCharacter가 없거나 스태미나가 부족함");
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
 
 	if (!CommitAbility(Handle, ActorInfo, ActivationInfo))
 	{
+		BO_LOG_GAS(Warning, "GA_Dodge failed: CommitAbility 실패");
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
@@ -43,9 +49,12 @@ void UBlackoutGA_Dodge::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
 	const FVector DodgeDirection = CalculateDodgeDirection(ActorInfo, bIsBackstep);
 	if (DodgeDirection.IsNearlyZero())
 	{
+		BO_LOG_GAS(Warning, "GA_Dodge failed: 회피 방향 계산 결과가 0 벡터");
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
+
+	BO_LOG_GAS(Log, "GA_Dodge activated: Character=%s, Backstep=%s", *GetNameSafe(PlayerCharacter), bIsBackstep ? TEXT("true") : TEXT("false"));
 
 	if (UCharacterMovementComponent* MovementComponent = PlayerCharacter->GetCharacterMovement())
 	{
@@ -72,6 +81,8 @@ void UBlackoutGA_Dodge::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
 void UBlackoutGA_Dodge::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
 	const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
 {
+	BO_LOG_GAS(Log, "GA_Dodge ended: Cancelled=%s", bWasCancelled ? TEXT("true") : TEXT("false"));
+
 	if (ActorInfo && ActorInfo->AvatarActor.IsValid())
 	{
 		if (UWorld* World = ActorInfo->AvatarActor->GetWorld())
@@ -90,6 +101,7 @@ void UBlackoutGA_Dodge::OnDodgeFinished()
 		return;
 	}
 
+	BO_LOG_GAS(Log, "GA_Dodge finished by timer");
 	K2_EndAbility();
 }
 

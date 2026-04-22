@@ -5,6 +5,7 @@
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
 #include "Combat/Weapons/BOFirearm.h"
+#include "Core/BlackoutLog.h"
 #include "Engine/World.h"
 #include "GameFramework/Character.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
@@ -20,12 +21,15 @@ UBlackoutGA_Reload::UBlackoutGA_Reload()
 
 void UBlackoutGA_Reload::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
+	BO_LOG_GAS(Log, "GA_Reload activate requested");
+
 	const ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
 	const UBlackoutCombatComponent* CombatComponent = PlayerCharacter ? PlayerCharacter->GetCombatComponent() : nullptr;
 	const ABOFirearm* EquippedFirearm = CombatComponent ? CombatComponent->GetEquippedFirearm() : nullptr;
 	UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo();
 	if (!CombatComponent || !EquippedFirearm || !AbilitySystemComponent)
 	{
+		BO_LOG_GAS(Warning, "GA_Reload failed: CombatComponent, 무기 또는 ASC가 유효하지 않음");
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
@@ -45,15 +49,19 @@ void UBlackoutGA_Reload::ActivateAbility(const FGameplayAbilitySpecHandle Handle
 
 	if (CurrentClipAmmo >= CurrentMaxClip || CurrentReserveAmmo <= 0.0f)
 	{
+		BO_LOG_GAS(Warning, "GA_Reload failed: 장전 불필요 또는 예비 탄약 없음 (Clip=%.2f, MaxClip=%.2f, Reserve=%.2f)", CurrentClipAmmo, CurrentMaxClip, CurrentReserveAmmo);
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
 
 	if (!CommitAbility(Handle, ActorInfo, ActivationInfo))
 	{
+		BO_LOG_GAS(Warning, "GA_Reload failed: CommitAbility 실패");
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
+
+	BO_LOG_GAS(Log, "GA_Reload activated: Character=%s, Weapon=%s", *GetNameSafe(ActorInfo ? ActorInfo->AvatarActor.Get() : nullptr), *GetNameSafe(EquippedFirearm));
 
 	// 1. 장전 애니메이션 몽타주 재생
 	if (ReloadMontage)
@@ -83,6 +91,8 @@ void UBlackoutGA_Reload::ActivateAbility(const FGameplayAbilitySpecHandle Handle
 
 void UBlackoutGA_Reload::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
 {
+	BO_LOG_GAS(Log, "GA_Reload ended: Cancelled=%s", bWasCancelled ? TEXT("true") : TEXT("false"));
+
 	if (ActorInfo && ActorInfo->AvatarActor.IsValid())
 	{
 		if (UWorld* World = ActorInfo->AvatarActor->GetWorld())
@@ -97,6 +107,8 @@ void UBlackoutGA_Reload::EndAbility(const FGameplayAbilitySpecHandle Handle, con
 
 void UBlackoutGA_Reload::OnReloadMontageCompleted()
 {
+	BO_LOG_GAS(Log, "GA_Reload montage completed");
+
 	// 장전 완료 시 데미지 이펙트 (ReloadEffectClass, 내부적으로 ExecCalc_Reload 실행) 적용하여 탄약 수치 갱신
 	if (ReloadEffectClass && GetAbilitySystemComponentFromActorInfo())
 	{
@@ -110,6 +122,7 @@ void UBlackoutGA_Reload::OnReloadMontageCompleted()
 
 			GetAbilitySystemComponentFromActorInfo()->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
 			GetAbilitySystemComponentFromActorInfo()->ExecuteGameplayCue(BlackoutGameplayTags::GameplayCue_Weapon_Reload);
+			BO_LOG_GAS(Log, "GA_Reload applied reload effect");
 		}
 	}
 

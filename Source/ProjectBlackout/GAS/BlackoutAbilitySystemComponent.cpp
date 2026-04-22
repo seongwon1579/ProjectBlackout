@@ -1,6 +1,5 @@
 #include "BlackoutAbilitySystemComponent.h"
 #include "Abilities/BlackoutGameplayAbility.h"
-#include "Core/BlackoutTypes.h"
 #include "BlackoutLog.h"
 
 void UBlackoutAbilitySystemComponent::GiveDefaultAbilities(const TArray<TSubclassOf<UGameplayAbility>>& Abilities)
@@ -30,6 +29,71 @@ void UBlackoutAbilitySystemComponent::GiveDefaultAbilities(const TArray<TSubclas
 
 		GiveAbility(Spec);
 		BO_LOG_GAS(Verbose, "Granted ability: %s (InputID: %d)", *AbilityClass->GetName(), Spec.InputID);
+	}
+}
+
+void UBlackoutAbilitySystemComponent::HandleAbilityInputPressed(EBlackoutAbilityInputID InputID)
+{
+	if (InputID == EBlackoutAbilityInputID::None)
+	{
+		return;
+	}
+
+	const int32 RawInputID = static_cast<int32>(InputID);
+	bool bFoundMatchingAbility = false;
+
+	ABILITYLIST_SCOPE_LOCK();
+
+	for (FGameplayAbilitySpec& AbilitySpec : ActivatableAbilities.Items)
+	{
+		if (AbilitySpec.InputID != RawInputID)
+		{
+			continue;
+		}
+
+		bFoundMatchingAbility = true;
+		AbilitySpec.InputPressed = true;
+
+		if (AbilitySpec.IsActive())
+		{
+			AbilitySpecInputPressed(AbilitySpec);
+			continue;
+		}
+
+		const bool bActivated = TryActivateAbility(AbilitySpec.Handle);
+		BO_LOG_GAS(Verbose, "InputPressed: ID=%d Ability=%s Activated=%s", RawInputID, *GetNameSafe(AbilitySpec.Ability), bActivated ? TEXT("true") : TEXT("false"));
+	}
+
+	if (!bFoundMatchingAbility)
+	{
+		BO_LOG_GAS(Verbose, "InputPressed: ID=%d has no matching ability on %s", RawInputID, *GetNameSafe(GetOwner()));
+	}
+}
+
+void UBlackoutAbilitySystemComponent::HandleAbilityInputReleased(EBlackoutAbilityInputID InputID)
+{
+	if (InputID == EBlackoutAbilityInputID::None)
+	{
+		return;
+	}
+
+	const int32 RawInputID = static_cast<int32>(InputID);
+
+	ABILITYLIST_SCOPE_LOCK();
+
+	for (FGameplayAbilitySpec& AbilitySpec : ActivatableAbilities.Items)
+	{
+		if (AbilitySpec.InputID != RawInputID)
+		{
+			continue;
+		}
+
+		AbilitySpec.InputPressed = false;
+
+		if (AbilitySpec.IsActive())
+		{
+			AbilitySpecInputReleased(AbilitySpec);
+		}
 	}
 }
 
