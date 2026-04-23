@@ -133,7 +133,7 @@ void UBlackoutCombatComponent::HandlePrimaryActionPressed()
 	ActivePrimaryActionInputID = ResolvedInputID;
 	HandleAbilityInputPressed(ResolvedInputID);
 
-	if (ResolvedInputID == EBlackoutAbilityInputID::Melee)
+	if (ResolvedInputID == EBlackoutAbilityInputID::Melee || ResolvedInputID == EBlackoutAbilityInputID::Reload)
 	{
 		HandleAbilityInputReleased(ResolvedInputID);
 		ActivePrimaryActionInputID = EBlackoutAbilityInputID::None;
@@ -367,6 +367,23 @@ bool UBlackoutCombatComponent::CanStartAim() const
 		&& !AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Locked);
 }
 
+float UBlackoutCombatComponent::GetEquippedClipAmmo() const
+{
+	const IAbilitySystemInterface* AbilitySystemInterface = Cast<IAbilitySystemInterface>(GetOwner());
+	const UAbilitySystemComponent* AbilitySystemComponent = AbilitySystemInterface ? AbilitySystemInterface->GetAbilitySystemComponent() : nullptr;
+	if (!AbilitySystemComponent)
+	{
+		return 0.0f;
+	}
+
+	if (GetEquippedWeaponSlotTag() == BlackoutGameplayTags::Weapon_Secondary)
+	{
+		return AbilitySystemComponent->GetNumericAttribute(UBlackoutAmmoAttributeSet::GetSecondaryClipAmmoAttribute());
+	}
+
+	return AbilitySystemComponent->GetNumericAttribute(UBlackoutAmmoAttributeSet::GetPrimaryClipAmmoAttribute());
+}
+
 void UBlackoutCombatComponent::ApplyAimingState(bool bNewAiming)
 {
 	bIsAiming = bNewAiming;
@@ -382,7 +399,12 @@ EBlackoutAbilityInputID UBlackoutCombatComponent::ResolvePrimaryActionInputID() 
 {
 	if (bIsAiming)
 	{
-		return GetEquippedFirearm() ? EBlackoutAbilityInputID::Fire : EBlackoutAbilityInputID::None;
+		if (!GetEquippedFirearm())
+		{
+			return EBlackoutAbilityInputID::None;
+		}
+
+		return GetEquippedClipAmmo() > 0.0f ? EBlackoutAbilityInputID::Fire : EBlackoutAbilityInputID::Reload;
 	}
 
 	return MeleeWeapon ? EBlackoutAbilityInputID::Melee : EBlackoutAbilityInputID::None;

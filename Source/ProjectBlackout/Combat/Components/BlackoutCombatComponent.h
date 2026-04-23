@@ -129,6 +129,7 @@ private:
 	void RefreshWeaponAttachments() const;
 	void ApplyInitialAmmoLoadout() const;
 	bool CanStartAim() const;
+	float GetEquippedClipAmmo() const;
 	void ApplyAimingState(bool bNewAiming);
 	EBlackoutAbilityInputID ResolvePrimaryActionInputID() const;
 	void HandleAbilityInputPressed(EBlackoutAbilityInputID InputID) const;
