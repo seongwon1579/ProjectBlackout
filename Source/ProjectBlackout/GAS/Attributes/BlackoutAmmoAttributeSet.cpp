@@ -11,10 +11,10 @@ void UBlackoutAmmoAttributeSet::GetLifetimeReplicatedProps(TArray<FLifetimePrope
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME_CONDITION_NOTIFY(UBlackoutAmmoAttributeSet, PrimaryClipAmmo,      COND_OwnerOnly, REPNOTIFY_Always);
-	DOREPLIFETIME_CONDITION(       UBlackoutAmmoAttributeSet, PrimaryMaxClip,       COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION_NOTIFY(UBlackoutAmmoAttributeSet, PrimaryMaxClip,       COND_OwnerOnly, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(UBlackoutAmmoAttributeSet, PrimaryReserveAmmo,   COND_OwnerOnly, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(UBlackoutAmmoAttributeSet, SecondaryClipAmmo,    COND_OwnerOnly, REPNOTIFY_Always);
-	DOREPLIFETIME_CONDITION(       UBlackoutAmmoAttributeSet, SecondaryMaxClip,     COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION_NOTIFY(UBlackoutAmmoAttributeSet, SecondaryMaxClip,     COND_OwnerOnly, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(UBlackoutAmmoAttributeSet, SecondaryReserveAmmo, COND_OwnerOnly, REPNOTIFY_Always);
 }
 
@@ -52,6 +52,11 @@ void UBlackoutAmmoAttributeSet::OnRep_PrimaryClipAmmo(const FGameplayAttributeDa
 	GAMEPLAYATTRIBUTE_REPNOTIFY(UBlackoutAmmoAttributeSet, PrimaryClipAmmo, OldValue);
 }
 
+void UBlackoutAmmoAttributeSet::OnRep_PrimaryMaxClip(const FGameplayAttributeData& OldValue)
+{
+	GAMEPLAYATTRIBUTE_REPNOTIFY(UBlackoutAmmoAttributeSet, PrimaryMaxClip, OldValue);
+}
+
 void UBlackoutAmmoAttributeSet::OnRep_PrimaryReserveAmmo(const FGameplayAttributeData& OldValue)
 {
 	GAMEPLAYATTRIBUTE_REPNOTIFY(UBlackoutAmmoAttributeSet, PrimaryReserveAmmo, OldValue);
@@ -60,6 +65,11 @@ void UBlackoutAmmoAttributeSet::OnRep_PrimaryReserveAmmo(const FGameplayAttribut
 void UBlackoutAmmoAttributeSet::OnRep_SecondaryClipAmmo(const FGameplayAttributeData& OldValue)
 {
 	GAMEPLAYATTRIBUTE_REPNOTIFY(UBlackoutAmmoAttributeSet, SecondaryClipAmmo, OldValue);
+}
+
+void UBlackoutAmmoAttributeSet::OnRep_SecondaryMaxClip(const FGameplayAttributeData& OldValue)
+{
+	GAMEPLAYATTRIBUTE_REPNOTIFY(UBlackoutAmmoAttributeSet, SecondaryMaxClip, OldValue);
 }
 
 void UBlackoutAmmoAttributeSet::OnRep_SecondaryReserveAmmo(const FGameplayAttributeData& OldValue)

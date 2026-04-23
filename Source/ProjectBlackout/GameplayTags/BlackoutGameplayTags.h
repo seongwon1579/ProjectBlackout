@@ -13,6 +13,11 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Sprinting);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Attacking);
 
+	// ─── Character Class ───────────────────────────────────────────────────────
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_Class_Assault);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_Class_Demolition);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_Class_Sniper);
+
 	// ─── GAS SetByCaller 데이터 키 ────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Damage);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_MaxHealth);

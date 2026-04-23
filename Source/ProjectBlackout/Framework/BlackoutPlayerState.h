@@ -28,7 +28,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|PlayerState")
 	void ApplyBattleTransitionPolicy(EBattleTransitionType TransitionType);
 
-	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_SelectedClassTag, Category = "Blackout|PlayerState")
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Blackout|PlayerState")
 	FGameplayTag SelectedClassTag;
 
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Blackout|PlayerState")
@@ -53,6 +53,4 @@ protected:
 	UPROPERTY()
 	TObjectPtr<const UBlackoutAmmoAttributeSet> AmmoAttributeSet;
 
-	UFUNCTION()
-	void OnRep_SelectedClassTag();
 };

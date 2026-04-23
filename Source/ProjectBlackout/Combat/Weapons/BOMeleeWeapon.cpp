@@ -1,5 +1,7 @@
 #include "Combat/Weapons/BOMeleeWeapon.h"
+
 #include "Components/BoxComponent.h"
+#include "Engine/World.h"
 
 ABOMeleeWeapon::ABOMeleeWeapon()
 {
@@ -11,7 +13,21 @@ ABOMeleeWeapon::ABOMeleeWeapon()
 TArray<FHitResult> ABOMeleeWeapon::PerformSweep(const FVector& Forward)
 {
 	TArray<FHitResult> HitResults;
-	// TODO: Implement Box Sweep based on HitBox location and Forward vector
+
+	if (!HitBox || !GetWorld())
+	{
+		return HitResults;
+	}
+
+	const FVector SweepStart = HitBox->GetComponentLocation();
+	const FVector SweepEnd = SweepStart + Forward.GetSafeNormal() * SwingRadius;
+	const FQuat SweepRotation = HitBox->GetComponentQuat();
+	const FCollisionShape CollisionShape = FCollisionShape::MakeBox(HitBox->GetScaledBoxExtent());
+
+	FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(BOMeleeWeapon_Sweep), false, GetOwner());
+	QueryParams.AddIgnoredActor(this);
+
+	GetWorld()->SweepMultiByChannel(HitResults, SweepStart, SweepEnd, SweepRotation, ECC_Pawn, CollisionShape, QueryParams);
 	return HitResults;
 }
 

@@ -1,4 +1,6 @@
 #include "Combat/Weapons/BOFirearm.h"
+
+#include "Engine/World.h"
 #include "NiagaraComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Combat/Weapons/BOProjectile.h"
@@ -17,7 +19,16 @@ FHitResult ABOFirearm::Fire(const FVector& Direction)
 	FHitResult HitResult;
 	if (bUseHitscan)
 	{
-		// TODO: Implement LineTraceByChannel
+		if (UWorld* World = GetWorld())
+		{
+			const FVector TraceStart = GetMuzzleTransform().GetLocation();
+			const FVector TraceEnd = TraceStart + Direction.GetSafeNormal() * 10000.0f;
+
+			FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(BOFirearm_Fire), false, GetOwner());
+			QueryParams.AddIgnoredActor(this);
+
+			World->LineTraceSingleByChannel(HitResult, TraceStart, TraceEnd, ECC_Visibility, QueryParams);
+		}
 	}
 	else
 	{

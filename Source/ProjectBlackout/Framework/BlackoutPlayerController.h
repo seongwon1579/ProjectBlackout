@@ -3,17 +3,20 @@
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
 #include "GameplayTagContainer.h"
+#include "Core/BlackoutTypes.h"
 #include "BlackoutPlayerController.generated.h"
 
 class UInputMappingContext;
+class UInputAction;
+class UBlackoutAbilitySystemComponent;
+class UBlackoutCombatComponent;
+
 UCLASS()
 class PROJECTBLACKOUT_API ABlackoutPlayerController : public APlayerController
 {
 	GENERATED_BODY()
 
 public:
-	
-	
 	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "Blackout|Controller")
 	void Server_SelectClass(FGameplayTag ClassTag);
 	
@@ -35,19 +38,45 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Controller")
 	void EnterSpectatorMode();
 	
-#pragma region InputSetup 
-public:
+#pragma region InputSetup
+protected:
 	virtual void SetupInputComponent() override;
 	
-protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input")
 	TObjectPtr<UInputMappingContext> DefaultMappingContext;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input")
 	TObjectPtr<UInputMappingContext> MouseLookMappingContext;
-	
-	
-	
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input")
+	TObjectPtr<UInputAction> FireAction;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input")
+	TObjectPtr<UInputAction> AimAction;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input")
+	TObjectPtr<UInputAction> ReloadAction;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input")
+	TObjectPtr<UInputAction> DodgeAction;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input")
+	TObjectPtr<UInputAction> SprintAction;
+
+	void OnFirePressed();
+	void OnFireReleased();
+	void OnAimPressed();
+	void OnAimReleased();
+	void OnReloadPressed();
+	void OnDodgePressed();
+	void OnSprintPressed();
+	void OnSprintReleased();
+
+	void HandleAbilityInputPressed(EBlackoutAbilityInputID InputID);
+	void HandleAbilityInputReleased(EBlackoutAbilityInputID InputID);
+	UBlackoutAbilitySystemComponent* GetBlackoutAbilitySystemComponent() const;
+	UBlackoutCombatComponent* GetBlackoutCombatComponent() const;
+
 #pragma endregion 
 	
 };

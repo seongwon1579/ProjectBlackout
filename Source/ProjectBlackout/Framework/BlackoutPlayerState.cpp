@@ -56,8 +56,3 @@ void ABlackoutPlayerState::ApplyBattleTransitionPolicy(EBattleTransitionType Tra
 		break;
 	}
 }
-
-void ABlackoutPlayerState::OnRep_SelectedClassTag()
-{
-	BO_LOG_CORE(Log, "SelectedClassTag changed: %s", *SelectedClassTag.ToString());
-}

@@ -10,6 +10,11 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(State_Sprinting,     "State.Sprinting");
 	UE_DEFINE_GAMEPLAY_TAG(State_Attacking,     "State.Attacking");
 
+	// ─── Character Class ───────────────────────────────────────────────────────
+	UE_DEFINE_GAMEPLAY_TAG(Character_Class_Assault,    "Character.Class.Assault");
+	UE_DEFINE_GAMEPLAY_TAG(Character_Class_Demolition, "Character.Class.Demolition");
+	UE_DEFINE_GAMEPLAY_TAG(Character_Class_Sniper,     "Character.Class.Sniper");
+
 	// ─── GAS SetByCaller 데이터 키 ────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Data_Damage,        "Data.Damage");
 	UE_DEFINE_GAMEPLAY_TAG(Data_MaxHealth,     "Data.Stat.MaxHealth");

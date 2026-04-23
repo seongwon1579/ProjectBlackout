@@ -1,5 +1,6 @@
 #include "BlackoutPlayerCharacter.h"
 #include "BlackoutAbilitySystemComponent.h"
+#include "Combat/Components/BlackoutCombatComponent.h"
 #include "Data/BOCharacterData.h"
 #include "AbilitySystemInterface.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
@@ -23,6 +24,8 @@ ABlackoutPlayerCharacter::ABlackoutPlayerCharacter()
 	Camera->SetupAttachment(SpringArm, USpringArmComponent::SocketName);
 	Camera->bUsePawnControlRotation = false;
 
+	CombatComponent = CreateDefaultSubobject<UBlackoutCombatComponent>(TEXT("CombatComponent"));
+
 	// TPS: 컨트롤러 회전은 카메라에만 적용, 캐릭터는 이동 방향으로 자동 회전 x
 	bUseControllerRotationYaw = false;
 	GetCharacterMovement()->bOrientRotationToMovement = false;
@@ -32,9 +35,6 @@ ABlackoutPlayerCharacter::ABlackoutPlayerCharacter()
 void ABlackoutPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
-
-	BindASCInput();
-	
 	
 	UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent);
 	if (!EnhancedInputComponent)
@@ -77,11 +77,14 @@ void ABlackoutPlayerCharacter::PossessedBy(AController* NewController)
 			if (CharacterData)
 			{
 				AbilitySystemComponent->GiveDefaultAbilities(CharacterData->GrantedAbilities);
+
+				if (CombatComponent)
+				{
+					CombatComponent->InitializeLoadoutFromCharacterData(CharacterData);
+				}
+
 				BO_LOG_GAS(Log, "Abilities granted to %s", *GetName());
 			}
-
-			// 입력 바인딩 시도
-			BindASCInput();
 		}
 	}
 }
@@ -102,33 +105,7 @@ void ABlackoutPlayerCharacter::OnRep_PlayerState()
 
 			// 클라이언트에서도 어트리뷰트 초기화
 			InitializeAttributes();
-
-			// 입력 바인딩 시도
-			BindASCInput();
 		}
-	}
-}
-
-void ABlackoutPlayerCharacter::BindASCInput()
-{
-	if (!bIsInputBound && AbilitySystemComponent && InputComponent)
-	{
-		// GAS의 입력 매핑 정보를 정의
-		// EBlackoutAbilityInputID 열거형과 문자열 이름을 연결
-		FTopLevelAssetPath EnumAssetPath = FTopLevelAssetPath(StaticEnum<EBlackoutAbilityInputID>());
-		
-		AbilitySystemComponent->BindAbilityActivationToInputComponent(InputComponent,
-			FGameplayAbilityInputBinds(
-				FString("Confirm"),
-				FString("Cancel"),
-				EnumAssetPath,
-				static_cast<int32>(EBlackoutAbilityInputID::Confirm),
-				static_cast<int32>(EBlackoutAbilityInputID::Cancel)
-			)
-		);
-
-		bIsInputBound = true;
-		BO_LOG_GAS(Log, "ASC input bound for %s", *GetName());
 	}
 }
 
@@ -159,7 +136,9 @@ void ABlackoutPlayerCharacter::InitializeAttributes()
 	{
 		// CharacterData의 값을 SetByCaller 태그를 통해 GE로 전달
 		SpecHandle.Data.Get()->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_MaxHealth, CharacterData->BaseMaxHealth);
+		SpecHandle.Data.Get()->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Health, CharacterData->BaseMaxHealth);
 		SpecHandle.Data.Get()->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_MaxStamina, CharacterData->BaseMaxStamina);
+		SpecHandle.Data.Get()->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Stamina, CharacterData->BaseMaxStamina);
 		SpecHandle.Data.Get()->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_MovementSpeed, CharacterData->BaseMovementSpeed);
 
 		AbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());

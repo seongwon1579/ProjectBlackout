@@ -22,7 +22,7 @@ public:
 	FGameplayAttributeData PrimaryClipAmmo;
 	ATTRIBUTE_ACCESSORS(UBlackoutAmmoAttributeSet, PrimaryClipAmmo)
 
-	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Ammo", Replicated)
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Ammo", ReplicatedUsing = OnRep_PrimaryMaxClip)
 	FGameplayAttributeData PrimaryMaxClip;
 	ATTRIBUTE_ACCESSORS(UBlackoutAmmoAttributeSet, PrimaryMaxClip)
 
@@ -34,7 +34,7 @@ public:
 	FGameplayAttributeData SecondaryClipAmmo;
 	ATTRIBUTE_ACCESSORS(UBlackoutAmmoAttributeSet, SecondaryClipAmmo)
 
-	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Ammo", Replicated)
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Ammo", ReplicatedUsing = OnRep_SecondaryMaxClip)
 	FGameplayAttributeData SecondaryMaxClip;
 	ATTRIBUTE_ACCESSORS(UBlackoutAmmoAttributeSet, SecondaryMaxClip)
 
@@ -46,9 +46,13 @@ protected:
 	UFUNCTION()
 	virtual void OnRep_PrimaryClipAmmo(const FGameplayAttributeData& OldValue);
 	UFUNCTION()
+	virtual void OnRep_PrimaryMaxClip(const FGameplayAttributeData& OldValue);
+	UFUNCTION()
 	virtual void OnRep_PrimaryReserveAmmo(const FGameplayAttributeData& OldValue);
 	UFUNCTION()
 	virtual void OnRep_SecondaryClipAmmo(const FGameplayAttributeData& OldValue);
+	UFUNCTION()
+	virtual void OnRep_SecondaryMaxClip(const FGameplayAttributeData& OldValue);
 	UFUNCTION()
 	virtual void OnRep_SecondaryReserveAmmo(const FGameplayAttributeData& OldValue);
 };

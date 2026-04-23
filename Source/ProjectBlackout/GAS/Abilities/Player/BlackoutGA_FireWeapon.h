@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GAS/Abilities/BlackoutGameplayAbility.h"
-#include "GA_FireWeapon.generated.h"
+#include "BlackoutGA_FireWeapon.generated.h"
 
 class UGameplayEffect;
 
@@ -11,12 +11,12 @@ class UGameplayEffect;
  * 코스트 지불(탄약), 몽타주 재생, 트레이스/발사체 스폰을 처리합니다.
  */
 UCLASS()
-class PROJECTBLACKOUT_API UGA_FireWeapon : public UBlackoutGameplayAbility
+class PROJECTBLACKOUT_API UBlackoutGA_FireWeapon : public UBlackoutGameplayAbility
 {
 	GENERATED_BODY()
 	
 public:
-	UGA_FireWeapon();
+	UBlackoutGA_FireWeapon();
 
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;

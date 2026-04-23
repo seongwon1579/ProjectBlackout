@@ -12,17 +12,14 @@ class PROJECTBLACKOUT_API ABlackoutLobbyGameMode : public ABlackoutGameMode
 
 public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Lobby")
-	virtual bool AllPlayersReady() const;
-
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Lobby")
 	virtual void StartBattle();
-	
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Lobby")
-	virtual void NotifyReadyChanged();
-	
+
 protected:
 	virtual void OnPlayerJoined(APlayerController* NewPlayer) override;
-	
-	UPROPERTY(EditDefaultsOnly  , Category = "Blackout|Lobby")
+
+	// 전원 Ready 성립 시 StartBattle 트리거.
+	virtual void OnAllPlayersReady() override;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Blackout|Lobby")
 	FSoftObjectPath BattleMapPath;
 };

@@ -3,7 +3,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "AbilitySystemComponent.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
-#include "Kismet/KismetMathLibrary.h"
+#include "KismetAnimationLibrary.h"
 
 void UBlackoutAnimInstanceBase::NativeInitializeAnimation()
 {
@@ -37,7 +37,7 @@ void UBlackoutAnimInstanceBase::NativeUpdateAnimation(float DeltaSeconds)
 	GroundSpeed = Velocity.Size2D();
 
 	// 이동 방향 계산 (-180 ~ 180)
-	MovementDirection = CalculateDirection(Velocity, OwnerCharacter->GetActorRotation());
+	MovementDirection = UKismetAnimationLibrary::CalculateDirection(Velocity, OwnerCharacter->GetActorRotation());
 
 	bIsFalling = OwnerMovementComponent->IsFalling();
 	
