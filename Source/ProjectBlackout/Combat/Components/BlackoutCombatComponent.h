@@ -40,10 +40,19 @@ public:
 	void StopFire();
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	void HandlePrimaryActionPressed();
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	void HandlePrimaryActionReleased();
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	void StartAim();
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	void StopAim();
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|Combat")
+	bool IsAiming() const { return bIsAiming; }
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	void TryReload();
@@ -79,6 +88,9 @@ protected:
 	UFUNCTION()
 	void OnRep_EquippedWeapon();
 
+	UFUNCTION()
+	void OnRep_IsAiming();
+
 	UPROPERTY(Transient, ReplicatedUsing = OnRep_EquippedWeapon, BlueprintReadOnly, Category = "Blackout|Combat")
 	TObjectPtr<ABOWeaponBase> EquippedWeapon;
 
@@ -91,7 +103,7 @@ protected:
 	UPROPERTY(Transient, Replicated, BlueprintReadOnly, Category = "Blackout|Combat")
 	TObjectPtr<ABOMeleeWeapon> MeleeWeapon;
 
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Blackout|Combat")
+	UPROPERTY(ReplicatedUsing = OnRep_IsAiming, BlueprintReadOnly, Category = "Blackout|Combat")
 	bool bIsAiming = false;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
@@ -116,6 +128,13 @@ private:
 	ABOWeaponBase* SpawnWeaponActor(TSubclassOf<ABOWeaponBase> WeaponClass);
 	void RefreshWeaponAttachments() const;
 	void ApplyInitialAmmoLoadout() const;
+	bool CanStartAim() const;
+	float GetEquippedClipAmmo() const;
+	void ApplyAimingState(bool bNewAiming);
+	EBlackoutAbilityInputID ResolvePrimaryActionInputID() const;
 	void HandleAbilityInputPressed(EBlackoutAbilityInputID InputID) const;
 	void HandleAbilityInputReleased(EBlackoutAbilityInputID InputID) const;
+
+	UPROPERTY(Transient)
+	EBlackoutAbilityInputID ActivePrimaryActionInputID = EBlackoutAbilityInputID::None;
 };

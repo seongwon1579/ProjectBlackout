@@ -3,6 +3,7 @@
 #include "AbilitySystemComponent.h"
 #include "Animation/AnimInstance.h"
 #include "Characters/BlackoutPlayerCharacter.h"
+#include "GAS/BlackoutAbilitySystemComponent.h"
 #include "Core/BlackoutLog.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
@@ -120,6 +121,12 @@ bool UBlackoutGA_Dodge::ConsumeStamina() const
 	}
 
 	AbilitySystemComponent->ApplyModToAttribute(UBlackoutPlayerAttributeSet::GetStaminaAttribute(), EGameplayModOp::Additive, -StaminaCost);
+
+	if (UBlackoutAbilitySystemComponent* BlackoutAbilitySystemComponent = Cast<UBlackoutAbilitySystemComponent>(AbilitySystemComponent))
+	{
+		BlackoutAbilitySystemComponent->NotifyStaminaSpent();
+	}
+
 	return true;
 }
 

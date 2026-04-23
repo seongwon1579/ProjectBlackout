@@ -1,6 +1,7 @@
 #include "Animation/BlackoutPlayerAnimInstance.h"
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "AbilitySystemComponent.h"
+#include "Combat/Components/BlackoutCombatComponent.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "Kismet/KismetMathLibrary.h"
 
@@ -22,10 +23,19 @@ void UBlackoutPlayerAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	}
 
 	// GAS 태그 상태 업데이트
+	if (const UBlackoutCombatComponent* CombatComponent = PlayerCharacter->GetCombatComponent())
+	{
+		bIsAiming = CombatComponent->IsAiming();
+	}
+
 	if (UAbilitySystemComponent* ASC = PlayerCharacter->GetAbilitySystemComponent())
 	{
-		bIsAiming = ASC->HasMatchingGameplayTag(BlackoutGameplayTags::State_Aiming);
 		bIsSprinting = ASC->HasMatchingGameplayTag(BlackoutGameplayTags::State_Sprinting);
+
+		if (!PlayerCharacter->GetCombatComponent())
+		{
+			bIsAiming = ASC->HasMatchingGameplayTag(BlackoutGameplayTags::State_Aiming);
+		}
 	}
 
 	// 에임 오프셋 계산 (조준 시 상체 회전을 위함)

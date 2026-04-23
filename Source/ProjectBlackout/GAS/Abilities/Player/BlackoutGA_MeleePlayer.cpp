@@ -15,6 +15,7 @@ UBlackoutGA_MeleePlayer::UBlackoutGA_MeleePlayer()
 	InputID = EBlackoutAbilityInputID::Melee;
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::LocalPredicted;
+	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Aiming);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Sprinting);
 }
 

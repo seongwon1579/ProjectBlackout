@@ -122,20 +122,43 @@ void UBlackoutCombatComponent::StopFire()
 	HandleAbilityInputReleased(EBlackoutAbilityInputID::Fire);
 }
 
-void UBlackoutCombatComponent::StartAim()
+void UBlackoutCombatComponent::HandlePrimaryActionPressed()
 {
-	if (const IAbilitySystemInterface* AbilitySystemInterface = Cast<IAbilitySystemInterface>(GetOwner()))
+	const EBlackoutAbilityInputID ResolvedInputID = ResolvePrimaryActionInputID();
+	if (ResolvedInputID == EBlackoutAbilityInputID::None)
 	{
-		if (const UAbilitySystemComponent* AbilitySystemComponent = AbilitySystemInterface->GetAbilitySystemComponent())
-		{
-			if (AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Sprinting))
-			{
-				return;
-			}
-		}
+		return;
 	}
 
-	bIsAiming = true;
+	ActivePrimaryActionInputID = ResolvedInputID;
+	HandleAbilityInputPressed(ResolvedInputID);
+
+	if (ResolvedInputID == EBlackoutAbilityInputID::Melee || ResolvedInputID == EBlackoutAbilityInputID::Reload)
+	{
+		HandleAbilityInputReleased(ResolvedInputID);
+		ActivePrimaryActionInputID = EBlackoutAbilityInputID::None;
+	}
+}
+
+void UBlackoutCombatComponent::HandlePrimaryActionReleased()
+{
+	if (ActivePrimaryActionInputID == EBlackoutAbilityInputID::None)
+	{
+		return;
+	}
+
+	HandleAbilityInputReleased(ActivePrimaryActionInputID);
+	ActivePrimaryActionInputID = EBlackoutAbilityInputID::None;
+}
+
+void UBlackoutCombatComponent::StartAim()
+{
+	if (!CanStartAim())
+	{
+		return;
+	}
+
+	ApplyAimingState(true);
 
 	if (GetOwner() && !GetOwner()->HasAuthority())
 	{
@@ -145,7 +168,7 @@ void UBlackoutCombatComponent::StartAim()
 
 void UBlackoutCombatComponent::StopAim()
 {
-	bIsAiming = false;
+	ApplyAimingState(false);
 
 	if (GetOwner() && !GetOwner()->HasAuthority())
 	{
@@ -239,12 +262,23 @@ void UBlackoutCombatComponent::Server_EquipWeapon_Implementation(ABOWeaponBase* 
 
 void UBlackoutCombatComponent::Server_SetAiming_Implementation(bool bNewAiming)
 {
-	bIsAiming = bNewAiming;
+	if (bNewAiming && !CanStartAim())
+	{
+		ApplyAimingState(false);
+		return;
+	}
+
+	ApplyAimingState(bNewAiming);
 }
 
 void UBlackoutCombatComponent::OnRep_EquippedWeapon()
 {
 	RefreshWeaponAttachments();
+}
+
+void UBlackoutCombatComponent::OnRep_IsAiming()
+{
+	ApplyAimingState(bIsAiming);
 }
 
 ABOWeaponBase* UBlackoutCombatComponent::SpawnWeaponActor(TSubclassOf<ABOWeaponBase> WeaponClass)
@@ -312,6 +346,68 @@ void UBlackoutCombatComponent::ApplyInitialAmmoLoadout() const
 	AbilitySystemComponent->SetNumericAttributeBase(UBlackoutAmmoAttributeSet::GetSecondaryMaxClipAttribute(), SecondaryMagazineSize);
 	AbilitySystemComponent->SetNumericAttributeBase(UBlackoutAmmoAttributeSet::GetSecondaryClipAmmoAttribute(), SecondaryMagazineSize);
 	AbilitySystemComponent->SetNumericAttributeBase(UBlackoutAmmoAttributeSet::GetSecondaryReserveAmmoAttribute(), SecondaryReserveAmmo);
+}
+
+bool UBlackoutCombatComponent::CanStartAim() const
+{
+	if (!GetEquippedFirearm())
+	{
+		return false;
+	}
+
+	const IAbilitySystemInterface* AbilitySystemInterface = Cast<IAbilitySystemInterface>(GetOwner());
+	const UAbilitySystemComponent* AbilitySystemComponent = AbilitySystemInterface ? AbilitySystemInterface->GetAbilitySystemComponent() : nullptr;
+	if (!AbilitySystemComponent)
+	{
+		return false;
+	}
+
+	return !AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Sprinting)
+		&& !AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Downed)
+		&& !AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Locked);
+}
+
+float UBlackoutCombatComponent::GetEquippedClipAmmo() const
+{
+	const IAbilitySystemInterface* AbilitySystemInterface = Cast<IAbilitySystemInterface>(GetOwner());
+	const UAbilitySystemComponent* AbilitySystemComponent = AbilitySystemInterface ? AbilitySystemInterface->GetAbilitySystemComponent() : nullptr;
+	if (!AbilitySystemComponent)
+	{
+		return 0.0f;
+	}
+
+	if (GetEquippedWeaponSlotTag() == BlackoutGameplayTags::Weapon_Secondary)
+	{
+		return AbilitySystemComponent->GetNumericAttribute(UBlackoutAmmoAttributeSet::GetSecondaryClipAmmoAttribute());
+	}
+
+	return AbilitySystemComponent->GetNumericAttribute(UBlackoutAmmoAttributeSet::GetPrimaryClipAmmoAttribute());
+}
+
+void UBlackoutCombatComponent::ApplyAimingState(bool bNewAiming)
+{
+	bIsAiming = bNewAiming;
+
+	const IAbilitySystemInterface* AbilitySystemInterface = Cast<IAbilitySystemInterface>(GetOwner());
+	if (UAbilitySystemComponent* AbilitySystemComponent = AbilitySystemInterface ? AbilitySystemInterface->GetAbilitySystemComponent() : nullptr)
+	{
+		AbilitySystemComponent->SetLooseGameplayTagCount(BlackoutGameplayTags::State_Aiming, bIsAiming ? 1 : 0);
+	}
+}
+
+EBlackoutAbilityInputID UBlackoutCombatComponent::ResolvePrimaryActionInputID() const
+{
+	if (bIsAiming)
+	{
+		if (!GetEquippedFirearm())
+		{
+			return EBlackoutAbilityInputID::None;
+		}
+
+		return GetEquippedClipAmmo() > 0.0f ? EBlackoutAbilityInputID::Fire : EBlackoutAbilityInputID::Reload;
+	}
+
+	return MeleeWeapon ? EBlackoutAbilityInputID::Melee : EBlackoutAbilityInputID::None;
 }
 
 void UBlackoutCombatComponent::HandleAbilityInputPressed(EBlackoutAbilityInputID InputID) const
