@@ -19,8 +19,10 @@ void ABlackoutLobbyGameMode::StartBattle()
 		GS->SetMatchState(EBlackoutMatchState::Starting);
 	}
 
-	BO_LOG_NET(Log, "StartBattle : ServerTravel -> %s", *BattleMapPath.ToString());
-	GetWorld()->ServerTravel(BattleMapPath.ToString());
+	// ToString() 은 "/Game/Path.AssetName" 을 반환하는데 ServerTravel 은 PackageName 만 허용.
+	const FString PackageName = BattleMapPath.GetLongPackageName();
+	BO_LOG_NET(Log, "StartBattle : ServerTravel -> %s", *PackageName);
+	GetWorld()->ServerTravel(PackageName);
 }
 
 // 전원 Ready 성립 시 전투 맵으로 ServerTravel 트리거.
