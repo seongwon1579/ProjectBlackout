@@ -42,7 +42,6 @@ public class ProjectBlackout : ModuleRules
 			"ProjectBlackout/Combat",
 			"ProjectBlackout/Combat/Weapons",
 			"ProjectBlackout/Combat/Components",
-			"ProjectBlackout/Combat/Abilities",
 			"ProjectBlackout/GameplayTags",
 			"ProjectBlackout/Interfaces",
 			"ProjectBlackout/Data",
