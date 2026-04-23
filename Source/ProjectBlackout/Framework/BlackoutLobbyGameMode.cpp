@@ -13,6 +13,12 @@ void ABlackoutLobbyGameMode::StartBattle()
 		BO_LOG_NET(Error, "StartBattle 실패 : BattleMapPath 미설정 (BP_BlackoutLobbyGameMode에서 지정 필요)");
 		return;
 	}
+	if (bTravelInitiated)
+	{
+		BO_LOG_NET(Warning , "StartBattle 중복 호출 무시 - ServerTravel 이미 진행 중");
+		return;
+	}
+	bTravelInitiated = true;
 
 	if (ABlackoutGameState* GS = GetGameState<ABlackoutGameState>())
 	{
