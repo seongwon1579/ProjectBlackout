@@ -3,7 +3,10 @@
 #include "CoreMinimal.h"
 #include "AbilitySystemComponent.h"
 #include "Core/BlackoutTypes.h"
+#include "TimerManager.h"
 #include "BlackoutAbilitySystemComponent.generated.h"
+
+class UGameplayEffect;
 
 /**
  * 프로젝트 전용 ASC.
@@ -35,4 +38,28 @@ public:
 	 * 서버 전용. 모든 GA와 GE를 제거. 미니언 풀 반환(OnReturnToPool) 시 ASC 초기화에 사용.
 	 */
 	void ClearAllAbilitiesAndEffects();
+
+	/**
+	 * 서버 전용. 스태미나 소비가 발생했음을 알리고 자동 회복 대기 시간을 재설정합니다.
+	 */
+	void NotifyStaminaSpent();
+
+protected:
+	UPROPERTY(EditDefaultsOnly, Category = "Blackout|Stamina")
+	float StaminaRegenDelay = 1.2f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Blackout|Stamina")
+	float StaminaRegenTickInterval = 0.2f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Blackout|Stamina")
+	TSubclassOf<UGameplayEffect> StaminaRegenEffectClass;
+
+private:
+	void StartStaminaRegen();
+	void HandleStaminaRegenTick();
+	void StopStaminaRegen();
+	bool CanRecoverStamina() const;
+
+	FTimerHandle StaminaRegenDelayTimerHandle;
+	FTimerHandle StaminaRegenTickTimerHandle;
 };
