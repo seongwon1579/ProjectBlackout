@@ -5,6 +5,7 @@
 #include "BlackoutBossAnimInstance.generated.h"
 
 class ABlackoutBossCharacter;
+class AProjectBlackoutCharacter;
 
 /**
  * 보스 몬스터 전용 애니메이션 인스턴스.
@@ -31,4 +32,36 @@ protected:
 	/** 그로기 상태 여부 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Animation")
 	bool bIsGroggy;
+
+	/** 지면 이동 속도 (블렌드 스페이스 Speed 축) */
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Animation|BlendSpace")
+	float Speed;
+
+	/** 이동 방향 (-180 ~ 180, 블렌드 스페이스 Direction 축) */
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Animation|BlendSpace")
+	float Direction;
+
+	/** 회전 중인지 여부 — ABP 스테이트 전이 조건 */
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Animation|BlendSpace")
+	float CurrentAngle;
+	
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Animation|BlendSpace")
+	float TargetAngle;
+
+	UPROPERTY(EditAnywhere)
+	UAnimMontage* TurnLeftMontage;
+
+	UPROPERTY(EditAnywhere)
+	UAnimMontage* TurnRightMontage;
+
+public:
+	UPROPERTY(BlueprintReadOnly)
+	bool bIsTurning = false;
+
+	float DesiredYaw = 0.f;
+	
+	void StartTurn(float AngleDelta);
+	void OnTurnMontageEnded(UAnimMontage* Montage, bool bInterrupted);
+
+	
 };
