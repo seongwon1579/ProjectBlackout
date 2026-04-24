@@ -1,38 +1,74 @@
 #include "AI/BTTask_ActivateBossAbility.h"
 #include "AIController.h"
-#include "BehaviorTree/BlackboardComponent.h"
-#include "GAS/BlackoutAbilitySystemComponent.h"
+#include "AbilitySystemComponent.h"
 #include "AbilitySystemGlobals.h"
+#include "Abilities/GameplayAbility.h"
 
 UBTTask_ActivateBossAbility::UBTTask_ActivateBossAbility()
 {
 	NodeName = "Activate Boss Ability";
-	bNotifyTick = true;
+	bCreateNodeInstance = true; // 멤버 변수로 상태 보관하기 위해 인스턴스화
 }
 
 EBTNodeResult::Type UBTTask_ActivateBossAbility::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
-	AAIController* AIController = OwnerComp.GetAIOwner();
-	if (!AIController || !AIController->GetPawn() || !AbilityTag.IsValid())
+	AAIController* AI = OwnerComp.GetAIOwner();
+	if (!AI || !AI->GetPawn() || !AbilityTag.IsValid()) return EBTNodeResult::Failed;
+
+	UAbilitySystemComponent* ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(AI->GetPawn());
+	if (!ASC) return EBTNodeResult::Failed;
+
+	const bool bActivated = ASC->TryActivateAbilitiesByTag(FGameplayTagContainer(AbilityTag));
+	if (!bActivated) return EBTNodeResult::Failed;
+	if (!bWaitForEnd) return EBTNodeResult::Succeeded;
+
+	// 활성화된 어빌리티 인스턴스를 찾아 종료 델리게이트 바인딩
+	TArray<FGameplayAbilitySpec*> MatchingSpecs;
+	ASC->GetActivatableGameplayAbilitySpecsByAllMatchingTags(FGameplayTagContainer(AbilityTag), MatchingSpecs);
+
+	for (FGameplayAbilitySpec* Spec : MatchingSpecs)
 	{
-		return EBTNodeResult::Failed;
+		if (!Spec || !Spec->IsActive()) continue;
+
+		UGameplayAbility* Instance = Spec->GetPrimaryInstance();
+		if (!Instance) break; // Non-instanced ability: 아래에서 Succeeded 반환
+
+		CachedOwnerComp = &OwnerComp;
+		BoundAbility    = Instance;
+		Instance->OnGameplayAbilityEnded.AddUObject(this, &UBTTask_ActivateBossAbility::HandleAbilityEnded);
+		return EBTNodeResult::InProgress;
 	}
 
-	UAbilitySystemComponent* ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(AIController->GetPawn());
-	if (!ASC)
+	// Non-instanced ability이거나 이미 종료된 경우 즉시 완료
+	return EBTNodeResult::Succeeded;
+}
+
+void UBTTask_ActivateBossAbility::HandleAbilityEnded(UGameplayAbility* Ability)
+{
+	UnbindDelegate();
+	if (CachedOwnerComp)
 	{
-		return EBTNodeResult::Failed;
+		FinishLatentTask(*CachedOwnerComp, EBTNodeResult::Succeeded);
+		CachedOwnerComp = nullptr;
 	}
+}
 
-	// Ability 실행 로직
-	bool bActivated = ASC->TryActivateAbilitiesByTag(FGameplayTagContainer(AbilityTag));
+EBTNodeResult::Type UBTTask_ActivateBossAbility::AbortTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
+{
+	// 어빌리티는 취소하지 않는다 — GA가 끝까지 실행되도록 허용
+	// 다음 BT 노드 실행만 막으면 되므로 델리게이트만 해제한다
+	UnbindDelegate();
+	CachedOwnerComp = nullptr;
+	return EBTNodeResult::Aborted;
+}
 
-	if (bActivated)
+void UBTTask_ActivateBossAbility::UnbindDelegate()
+{
+	if (BoundAbility.IsValid())
 	{
-		return bWaitForEnd ? EBTNodeResult::InProgress : EBTNodeResult::Succeeded;
+		BoundAbility->OnGameplayAbilityEnded.RemoveAll(this);
 	}
-
-	return EBTNodeResult::Failed;
+	BoundAbility.Reset();
 }
 
 FString UBTTask_ActivateBossAbility::GetStaticDescription() const

@@ -1,7 +1,7 @@
 #include "AI/BSTTask_BowShove.h"
+#include "AI/BOAICalcHelper.h"
 #include "StateTreeExecutionContext.h"
 #include "Characters/BORootWraith.h"
-#include "GameFramework/Pawn.h"
 
 EStateTreeRunStatus FBSTTask_BowShove::EnterState(FStateTreeExecutionContext& Context, const FStateTreeTransitionResult& Transition) const
 {
@@ -13,10 +13,7 @@ EStateTreeRunStatus FBSTTask_BowShove::EnterState(FStateTreeExecutionContext& Co
 	}
 
 	// 사거리 초과 시 즉시 실패 — Kite 상태로 되돌아가도록 StateTree 전이
-	const float DistSq = FVector::DistSquared(
-		InstanceData.OwnerCharacter->GetActorLocation(),
-		InstanceData.TargetPawn->GetActorLocation());
-	if (DistSq > FMath::Square(InstanceData.ShoveRange))
+	if (!UBOAICalcHelper::IsWithinRange(InstanceData.OwnerCharacter, InstanceData.TargetPawn, InstanceData.ShoveRange))
 	{
 		return EStateTreeRunStatus::Failed;
 	}

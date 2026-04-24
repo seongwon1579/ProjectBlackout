@@ -15,6 +15,20 @@ EStateTreeRunStatus FBSTTask_RunSubBehaviorTree::EnterState(FStateTreeExecutionC
 	return EStateTreeRunStatus::Failed;
 }
 
+EStateTreeRunStatus FBSTTask_RunSubBehaviorTree::Tick(FStateTreeExecutionContext& Context, const float DeltaTime) const
+{
+	const FInstanceDataType& InstanceData = Context.GetInstanceData(*this);
+
+	// BTTask_CheckPhaseExit 가 BT를 자체 종료한 경우 StateTree에 Succeeded 반환
+	// → StateTree 가 이 상태의 Transition 조건을 평가해 다음 페이즈로 전환한다
+	if (InstanceData.Controller && !InstanceData.Controller->IsSubBehaviorTreeRunning())
+	{
+		return EStateTreeRunStatus::Succeeded;
+	}
+
+	return EStateTreeRunStatus::Running;
+}
+
 void FBSTTask_RunSubBehaviorTree::ExitState(FStateTreeExecutionContext& Context, const FStateTreeTransitionResult& Transition) const
 {
 	FInstanceDataType& InstanceData = Context.GetInstanceData(*this);

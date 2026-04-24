@@ -1,7 +1,5 @@
 #include "AI/BTService_LineOfSightCheck.h"
-#include "AIController.h"
-#include "BehaviorTree/BlackboardComponent.h"
-#include "GameFramework/Actor.h"
+#include "AI/BTNodeHelper.h"
 
 UBTService_LineOfSightCheck::UBTService_LineOfSightCheck()
 {
@@ -14,21 +12,12 @@ void UBTService_LineOfSightCheck::TickNode(UBehaviorTreeComponent& OwnerComp, ui
 {
 	Super::TickNode(OwnerComp, NodeMemory, DeltaSeconds);
 
-	AAIController* AIController = OwnerComp.GetAIOwner();
-	UBlackboardComponent* BlackboardComp = OwnerComp.GetBlackboardComponent();
+	AAIController* AI = UBTNodeHelper::GetAIController(OwnerComp);
+	UBlackboardComponent* BB = UBTNodeHelper::GetBlackboard(OwnerComp);
+	if (!AI || !BB) return;
 
-	if (!AIController || !BlackboardComp)
-	{
-		return;
-	}
+	AActor* Target = UBTNodeHelper::GetActorFromBB(OwnerComp, TargetKey);
+	const bool bHasLoS = Target ? AI->LineOfSightTo(Target) : false;
 
-	AActor* TargetActor = Cast<AActor>(BlackboardComp->GetValueAsObject(TargetKey.SelectedKeyName));
-	
-	bool bHasLoS = false;
-	if (TargetActor)
-	{
-		bHasLoS = AIController->LineOfSightTo(TargetActor);
-	}
-
-	BlackboardComp->SetValueAsBool(OutHasLineOfSightKey.SelectedKeyName, bHasLoS);
+	BB->SetValueAsBool(OutHasLineOfSightKey.SelectedKeyName, bHasLoS);
 }
