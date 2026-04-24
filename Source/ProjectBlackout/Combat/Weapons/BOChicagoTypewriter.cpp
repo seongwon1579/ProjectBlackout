@@ -8,11 +8,13 @@ ABOChicagoTypewriter::ABOChicagoTypewriter()
 	WeaponTag = BlackoutGameplayTags::Weapon_Primary;
 	CachedStats.WeaponTag = WeaponTag;
 	CachedStats.BaseDamage = 14.0f;
-	CachedStats.FireRate = 9.0f;
-	CachedStats.bIsAutomatic = true;
-	CachedStats.MagazineSize = 40;
-	CachedStats.MaxReserveAmmo = 200;
-	CachedStats.SplashRadius = 0.0f;
+	CachedFirearmStats.WeaponTag = WeaponTag;
+	CachedFirearmStats.BaseDamage = 14.0f;
+	CachedFirearmStats.FireRate = 9.0f;
+	CachedFirearmStats.bIsAutomatic = true;
+	CachedFirearmStats.MagazineSize = 40;
+	CachedFirearmStats.MaxReserveAmmo = 200;
+	CachedFirearmStats.SplashRadius = 0.0f;
 
 	bUseHitscan = true;
 	MuzzleSocket = TEXT("MuzzleSocket");

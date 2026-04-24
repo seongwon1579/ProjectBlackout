@@ -8,11 +8,13 @@ ABORepeaterPistol::ABORepeaterPistol()
 	WeaponTag = BlackoutGameplayTags::Weapon_Secondary;
 	CachedStats.WeaponTag = WeaponTag;
 	CachedStats.BaseDamage = 22.0f;
-	CachedStats.FireRate = 2.5f;
-	CachedStats.bIsAutomatic = false;
-	CachedStats.MagazineSize = 6;
-	CachedStats.MaxReserveAmmo = 36;
-	CachedStats.SplashRadius = 0.0f;
+	CachedFirearmStats.WeaponTag = WeaponTag;
+	CachedFirearmStats.BaseDamage = 22.0f;
+	CachedFirearmStats.FireRate = 2.5f;
+	CachedFirearmStats.bIsAutomatic = false;
+	CachedFirearmStats.MagazineSize = 6;
+	CachedFirearmStats.MaxReserveAmmo = 36;
+	CachedFirearmStats.SplashRadius = 0.0f;
 
 	bUseHitscan = true;
 	MuzzleSocket = TEXT("MuzzleSocket");

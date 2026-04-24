@@ -306,6 +306,7 @@ ABOWeaponBase* UBlackoutCombatComponent::SpawnWeaponActor(TSubclassOf<ABOWeaponB
 	if (SpawnedWeapon)
 	{
 		SpawnedWeapon->SetOwner(GetOwner());
+		SpawnedWeapon->InitializeStatsFromDataTable();
 	}
 
 	return SpawnedWeapon;

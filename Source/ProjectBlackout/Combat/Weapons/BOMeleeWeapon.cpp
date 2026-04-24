@@ -10,6 +10,21 @@ ABOMeleeWeapon::ABOMeleeWeapon()
 	HitBox->SetCollisionEnabled(ECollisionEnabled::NoCollision); // 스윕(공격 판정) 중에만 활성화됨
 }
 
+bool ABOMeleeWeapon::InitializeStatsFromDataTable()
+{
+	Super::InitializeStatsFromDataTable();
+
+	if (const FBlackoutMeleeWeaponStat* FoundStats = MeleeStatsRow.GetRow<FBlackoutMeleeWeaponStat>(TEXT("BOMeleeWeapon::InitializeStatsFromDataTable")))
+	{
+		CachedMeleeStats = *FoundStats;
+		ApplyCommonStats(CachedMeleeStats);
+		SwingRadius = CachedMeleeStats.SwingRadius;
+		return true;
+	}
+
+	return false;
+}
+
 TArray<FHitResult> ABOMeleeWeapon::PerformSweep(const FVector& Forward)
 {
 	TArray<FHitResult> HitResults;

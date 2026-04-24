@@ -6,8 +6,7 @@
 #include "BlackoutWeaponStat.generated.h"
 
 /**
- * DT_WeaponStats DataTable 행 구조체.
- * 무기별 기본 스탯. UBlackoutCombatComponent에서 무기 스탯 조회에 사용.
+ * 모든 무기가 공유하는 기본 스탯 행 구조체.
  */
 USTRUCT(BlueprintType)
 struct PROJECTBLACKOUT_API FBlackoutWeaponStat : public FTableRowBase
@@ -20,6 +19,15 @@ struct PROJECTBLACKOUT_API FBlackoutWeaponStat : public FTableRowBase
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Weapon", meta = (ClampMin = 0.f))
 	float BaseDamage = 20.f;
+};
+
+/**
+ * 총기 전용 스탯 행 구조체.
+ */
+USTRUCT(BlueprintType)
+struct PROJECTBLACKOUT_API FBlackoutFirearmStat : public FBlackoutWeaponStat
+{
+	GENERATED_BODY()
 
 	/** 초당 발사 횟수 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Weapon", meta = (ClampMin = 0.f))
@@ -40,4 +48,17 @@ struct PROJECTBLACKOUT_API FBlackoutWeaponStat : public FTableRowBase
 	/** 산탄/유탄류 스플래시 반경 (cm). 비적용 무기는 0. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Weapon", meta = (ClampMin = 0.f))
 	float SplashRadius = 0.f;
+};
+
+/**
+ * 근접 무기 전용 스탯 행 구조체.
+ */
+USTRUCT(BlueprintType)
+struct PROJECTBLACKOUT_API FBlackoutMeleeWeaponStat : public FBlackoutWeaponStat
+{
+	GENERATED_BODY()
+
+	/** 공격 판정 스윕 거리 (cm) */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Weapon", meta = (ClampMin = 0.f))
+	float SwingRadius = 50.f;
 };

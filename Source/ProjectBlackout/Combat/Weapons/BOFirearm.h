@@ -24,9 +24,32 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	FTransform GetMuzzleTransform() const;
 
+	virtual bool InitializeStatsFromDataTable() override;
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	float GetFireRate() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	bool IsAutomatic() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	int32 GetMagazineSize() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	int32 GetMaxReserveAmmo() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	float GetSplashRadius() const;
+
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Combat")
 	TObjectPtr<UNiagaraComponent> MuzzleFlash;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Weapon", meta = (RowType = "/Script/ProjectBlackout.BlackoutFirearmStat"))
+	FDataTableRowHandle FirearmStatsRow;
+
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Weapon")
+	FBlackoutFirearmStat CachedFirearmStats;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
 	FName MuzzleSocket;

@@ -14,6 +14,20 @@ ABOFirearm::ABOFirearm()
 	MuzzleSocket = TEXT("MuzzleSocket");
 }
 
+bool ABOFirearm::InitializeStatsFromDataTable()
+{
+	Super::InitializeStatsFromDataTable();
+
+	if (const FBlackoutFirearmStat* FoundStats = FirearmStatsRow.GetRow<FBlackoutFirearmStat>(TEXT("BOFirearm::InitializeStatsFromDataTable")))
+	{
+		CachedFirearmStats = *FoundStats;
+		ApplyCommonStats(CachedFirearmStats);
+		return true;
+	}
+
+	return false;
+}
+
 FHitResult ABOFirearm::Fire(const FVector& Direction)
 {
 	FHitResult HitResult;
@@ -50,4 +64,29 @@ FTransform ABOFirearm::GetMuzzleTransform() const
 		return WeaponMesh->GetSocketTransform(MuzzleSocket);
 	}
 	return GetActorTransform();
+}
+
+float ABOFirearm::GetFireRate() const
+{
+	return CachedFirearmStats.FireRate;
+}
+
+bool ABOFirearm::IsAutomatic() const
+{
+	return CachedFirearmStats.bIsAutomatic;
+}
+
+int32 ABOFirearm::GetMagazineSize() const
+{
+	return CachedFirearmStats.MagazineSize;
+}
+
+int32 ABOFirearm::GetMaxReserveAmmo() const
+{
+	return CachedFirearmStats.MaxReserveAmmo;
+}
+
+float ABOFirearm::GetSplashRadius() const
+{
+	return CachedFirearmStats.SplashRadius;
 }

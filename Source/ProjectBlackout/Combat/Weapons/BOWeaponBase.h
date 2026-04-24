@@ -26,23 +26,15 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	float GetBaseDamage() const;
 
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
-	float GetFireRate() const;
-
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
-	bool IsAutomatic() const;
-
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
-	int32 GetMagazineSize() const;
-
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
-	int32 GetMaxReserveAmmo() const;
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Weapon")
+	virtual bool InitializeStatsFromDataTable();
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	void AttachToOwner(FName SocketName);
 
 protected:
 	virtual void BeginPlay() override;
+	void ApplyCommonStats(const FBlackoutWeaponStat& WeaponStats);
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Combat")
 	TObjectPtr<USkeletalMeshComponent> WeaponMesh;

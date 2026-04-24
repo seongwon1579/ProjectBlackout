@@ -17,7 +17,26 @@ ABOWeaponBase::ABOWeaponBase()
 void ABOWeaponBase::BeginPlay()
 {
 	Super::BeginPlay();
-	// TODO: WeaponTag를 기반으로 DT_WeaponStats에서 CachedStats를 가져와야 함
+	InitializeStatsFromDataTable();
+}
+
+bool ABOWeaponBase::InitializeStatsFromDataTable()
+{
+	return false;
+}
+
+void ABOWeaponBase::ApplyCommonStats(const FBlackoutWeaponStat& WeaponStats)
+{
+	CachedStats = WeaponStats;
+
+	if (CachedStats.WeaponTag.IsValid())
+	{
+		WeaponTag = CachedStats.WeaponTag;
+	}
+	else
+	{
+		CachedStats.WeaponTag = WeaponTag;
+	}
 }
 
 ABlackoutCharacterBase* ABOWeaponBase::GetOwningCharacter() const
@@ -29,26 +48,6 @@ ABlackoutCharacterBase* ABOWeaponBase::GetOwningCharacter() const
 float ABOWeaponBase::GetBaseDamage() const
 {
 	return CachedStats.BaseDamage;
-}
-
-float ABOWeaponBase::GetFireRate() const
-{
-	return CachedStats.FireRate;
-}
-
-bool ABOWeaponBase::IsAutomatic() const
-{
-	return CachedStats.bIsAutomatic;
-}
-
-int32 ABOWeaponBase::GetMagazineSize() const
-{
-	return CachedStats.MagazineSize;
-}
-
-int32 ABOWeaponBase::GetMaxReserveAmmo() const
-{
-	return CachedStats.MaxReserveAmmo;
 }
 
 void ABOWeaponBase::AttachToOwner(FName SocketName)
