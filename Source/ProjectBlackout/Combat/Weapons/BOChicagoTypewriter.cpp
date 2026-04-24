@@ -9,6 +9,7 @@ ABOChicagoTypewriter::ABOChicagoTypewriter()
 	CachedStats.WeaponTag = WeaponTag;
 	CachedStats.BaseDamage = 14.0f;
 	CachedStats.FireRate = 9.0f;
+	CachedStats.bIsAutomatic = true;
 	CachedStats.MagazineSize = 40;
 	CachedStats.MaxReserveAmmo = 200;
 	CachedStats.SplashRadius = 0.0f;

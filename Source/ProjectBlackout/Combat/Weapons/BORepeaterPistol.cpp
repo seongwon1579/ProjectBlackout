@@ -9,6 +9,7 @@ ABORepeaterPistol::ABORepeaterPistol()
 	CachedStats.WeaponTag = WeaponTag;
 	CachedStats.BaseDamage = 22.0f;
 	CachedStats.FireRate = 2.5f;
+	CachedStats.bIsAutomatic = false;
 	CachedStats.MagazineSize = 6;
 	CachedStats.MaxReserveAmmo = 36;
 	CachedStats.SplashRadius = 0.0f;

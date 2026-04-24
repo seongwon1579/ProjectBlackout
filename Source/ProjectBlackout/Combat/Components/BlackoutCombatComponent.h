@@ -4,6 +4,7 @@
 #include "Components/ActorComponent.h"
 #include "Core/BlackoutTypes.h"
 #include "GameplayTagContainer.h"
+#include "TimerManager.h"
 #include "BlackoutCombatComponent.generated.h"
 
 class ABOWeaponBase;
@@ -132,9 +133,15 @@ private:
 	float GetEquippedClipAmmo() const;
 	void ApplyAimingState(bool bNewAiming);
 	EBlackoutAbilityInputID ResolvePrimaryActionInputID() const;
+	void StartAutomaticFire();
+	void StopAutomaticFire();
+	void HandleAutomaticFireTick();
+	void ReleaseActivePrimaryAction();
 	void HandleAbilityInputPressed(EBlackoutAbilityInputID InputID) const;
 	void HandleAbilityInputReleased(EBlackoutAbilityInputID InputID) const;
 
 	UPROPERTY(Transient)
 	EBlackoutAbilityInputID ActivePrimaryActionInputID = EBlackoutAbilityInputID::None;
+
+	FTimerHandle AutomaticFireTimerHandle;
 };

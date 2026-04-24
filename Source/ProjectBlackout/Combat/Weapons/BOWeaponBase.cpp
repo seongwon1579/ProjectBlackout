@@ -31,6 +31,16 @@ float ABOWeaponBase::GetBaseDamage() const
 	return CachedStats.BaseDamage;
 }
 
+float ABOWeaponBase::GetFireRate() const
+{
+	return CachedStats.FireRate;
+}
+
+bool ABOWeaponBase::IsAutomatic() const
+{
+	return CachedStats.bIsAutomatic;
+}
+
 int32 ABOWeaponBase::GetMagazineSize() const
 {
 	return CachedStats.MagazineSize;

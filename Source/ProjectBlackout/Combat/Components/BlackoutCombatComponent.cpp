@@ -103,6 +103,9 @@ void UBlackoutCombatComponent::EquipSecondary()
 
 void UBlackoutCombatComponent::SwapWeapon()
 {
+	StopAutomaticFire();
+	ReleaseActivePrimaryAction();
+
 	if (EquippedWeapon == PrimaryWeapon)
 	{
 		EquipSecondary();
@@ -133,22 +136,22 @@ void UBlackoutCombatComponent::HandlePrimaryActionPressed()
 	ActivePrimaryActionInputID = ResolvedInputID;
 	HandleAbilityInputPressed(ResolvedInputID);
 
+	if (ResolvedInputID == EBlackoutAbilityInputID::Fire)
+	{
+		StartAutomaticFire();
+		return;
+	}
+
 	if (ResolvedInputID == EBlackoutAbilityInputID::Melee || ResolvedInputID == EBlackoutAbilityInputID::Reload)
 	{
-		HandleAbilityInputReleased(ResolvedInputID);
-		ActivePrimaryActionInputID = EBlackoutAbilityInputID::None;
+		ReleaseActivePrimaryAction();
 	}
 }
 
 void UBlackoutCombatComponent::HandlePrimaryActionReleased()
 {
-	if (ActivePrimaryActionInputID == EBlackoutAbilityInputID::None)
-	{
-		return;
-	}
-
-	HandleAbilityInputReleased(ActivePrimaryActionInputID);
-	ActivePrimaryActionInputID = EBlackoutAbilityInputID::None;
+	StopAutomaticFire();
+	ReleaseActivePrimaryAction();
 }
 
 void UBlackoutCombatComponent::StartAim()
@@ -168,6 +171,12 @@ void UBlackoutCombatComponent::StartAim()
 
 void UBlackoutCombatComponent::StopAim()
 {
+	StopAutomaticFire();
+	if (ActivePrimaryActionInputID == EBlackoutAbilityInputID::Fire)
+	{
+		ReleaseActivePrimaryAction();
+	}
+
 	ApplyAimingState(false);
 
 	if (GetOwner() && !GetOwner()->HasAuthority())
@@ -410,6 +419,67 @@ EBlackoutAbilityInputID UBlackoutCombatComponent::ResolvePrimaryActionInputID() 
 	return MeleeWeapon ? EBlackoutAbilityInputID::Melee : EBlackoutAbilityInputID::None;
 }
 
+void UBlackoutCombatComponent::StartAutomaticFire()
+{
+	const ABOFirearm* EquippedFirearm = GetEquippedFirearm();
+	if (!EquippedFirearm || !EquippedFirearm->IsAutomatic() || !GetWorld())
+	{
+		return;
+	}
+
+	const float FireInterval = 1.0f / FMath::Max(EquippedFirearm->GetFireRate(), 0.01f);
+	GetWorld()->GetTimerManager().SetTimer(
+		AutomaticFireTimerHandle,
+		this,
+		&UBlackoutCombatComponent::HandleAutomaticFireTick,
+		FireInterval,
+		true);
+}
+
+void UBlackoutCombatComponent::StopAutomaticFire()
+{
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(AutomaticFireTimerHandle);
+	}
+}
+
+void UBlackoutCombatComponent::HandleAutomaticFireTick()
+{
+	if (!CanStartAim())
+	{
+		StopAutomaticFire();
+		ReleaseActivePrimaryAction();
+		return;
+	}
+
+	if (ActivePrimaryActionInputID != EBlackoutAbilityInputID::Fire || ResolvePrimaryActionInputID() != EBlackoutAbilityInputID::Fire)
+	{
+		StopAutomaticFire();
+		ReleaseActivePrimaryAction();
+
+		if (bIsAiming && GetEquippedFirearm())
+		{
+			HandleAbilityInputPressed(EBlackoutAbilityInputID::Reload);
+			HandleAbilityInputReleased(EBlackoutAbilityInputID::Reload);
+		}
+		return;
+	}
+
+	HandleAbilityInputPressed(EBlackoutAbilityInputID::Fire);
+}
+
+void UBlackoutCombatComponent::ReleaseActivePrimaryAction()
+{
+	if (ActivePrimaryActionInputID == EBlackoutAbilityInputID::None)
+	{
+		return;
+	}
+
+	HandleAbilityInputReleased(ActivePrimaryActionInputID);
+	ActivePrimaryActionInputID = EBlackoutAbilityInputID::None;
+}
+
 void UBlackoutCombatComponent::HandleAbilityInputPressed(EBlackoutAbilityInputID InputID) const
 {
 	const IAbilitySystemInterface* AbilitySystemInterface = Cast<IAbilitySystemInterface>(GetOwner());
@@ -417,7 +487,7 @@ void UBlackoutCombatComponent::HandleAbilityInputPressed(EBlackoutAbilityInputID
 		? Cast<UBlackoutAbilitySystemComponent>(AbilitySystemInterface->GetAbilitySystemComponent())
 		: nullptr)
 	{
-		AbilitySystemComponent->AbilityLocalInputPressed(static_cast<int32>(InputID));
+		AbilitySystemComponent->HandleAbilityInputPressed(InputID);
 	}
 }
 
@@ -428,6 +498,6 @@ void UBlackoutCombatComponent::HandleAbilityInputReleased(EBlackoutAbilityInputI
 		? Cast<UBlackoutAbilitySystemComponent>(AbilitySystemInterface->GetAbilitySystemComponent())
 		: nullptr)
 	{
-		AbilitySystemComponent->AbilityLocalInputReleased(static_cast<int32>(InputID));
+		AbilitySystemComponent->HandleAbilityInputReleased(InputID);
 	}
 }

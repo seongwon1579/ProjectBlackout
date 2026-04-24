@@ -25,6 +25,10 @@ struct PROJECTBLACKOUT_API FBlackoutWeaponStat : public FTableRowBase
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Weapon", meta = (ClampMin = 0.f))
 	float FireRate = 10.f;
 
+	/** 입력을 누르고 있을 때 FireRate 간격으로 계속 발사할지 여부 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Weapon")
+	bool bIsAutomatic = false;
+
 	/** 한 탄창에 들어가는 최대 장탄수 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Weapon", meta = (ClampMin = 0))
 	int32 MagazineSize = 30;
