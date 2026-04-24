@@ -34,6 +34,14 @@ void ABlackoutBattleGameMode::OnPlayerJoined(APlayerController *NewPlayer)
 	}
 }
 
+void ABlackoutBattleGameMode::OnPlayerLeft(AController* Exiting)
+{
+	if (ConnectedPlayers.Num() == 0)
+	{
+		EndMatch(EBlackoutMatchEndReason::AllPlayersLeft);
+	}
+}
+
 // 전원 Ready 시 InCombat 전환 + 보스 활성화 훅. 실제 보스 활성 로직은 전투팀 합류 시 연결.
 void ABlackoutBattleGameMode::OnAllPlayersReady()
 {
@@ -54,6 +62,31 @@ void ABlackoutBattleGameMode::HandleCheckpoint(AActor *BonfireActor)
 
 	CurrentCheckpointActor = BonfireActor;
 	BO_LOG_NET(Log, "체크포인트 갱신: %s", *BonfireActor->GetName());
+}
+
+void ABlackoutBattleGameMode::EndMatch(EBlackoutMatchEndReason Reason)
+{
+	ABlackoutGameState* GS = GetGameState<ABlackoutGameState>();
+	
+	if (!GS)
+	{
+		return;
+	}
+	if (GS->CurrentMatchState == EBlackoutMatchState::Ended)
+	{
+		return;
+	}
+	
+	GS ->SetMatchState(EBlackoutMatchState::Ended);
+	
+	const TCHAR* ReasonText = TEXT("Unknown");
+	switch (Reason)
+	{
+		case EBlackoutMatchEndReason::BossDefeated : ReasonText =TEXT("BossDefeated"); break;
+		case EBlackoutMatchEndReason::AllPlayersLeft:ReasonText =TEXT("AllPlayersLeft"); break;
+		case EBlackoutMatchEndReason::Timeout:ReasonText =TEXT("Timeout"); break;
+	}
+	BO_LOG_NET(Log, "EndMatch: Reason=%s", ReasonText);
 }
 
 // 파티 전멸 감지 시 호출. 체크포인트 텔레포트 + PartyWipeRestart 정책 + Ready 리셋 + InCombatReady 복귀.

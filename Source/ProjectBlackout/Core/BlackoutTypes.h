@@ -37,3 +37,12 @@ enum class EBlackoutMatchState : uint8
 	InCombat        UMETA(DisplayName = "In Combat"),        // 보스 활성 · 전투 진행
 	Ended           UMETA(DisplayName = "Ended"),            // 승리/패배 후
 };
+
+UENUM(BlueprintType)
+enum class EBlackoutMatchEndReason:uint8
+{
+	BossDefeated UMETA(DisplayName = "Boss Defeated"),
+	AllPlayersLeft UMETA(DisplayName = "All Players Left"),
+	Timeout UMETA(DisplayName = "Timeout"),
+	
+};
