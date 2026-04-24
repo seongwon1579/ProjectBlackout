@@ -3,6 +3,7 @@
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemInterface.h"
 #include "BlackoutAbilitySystemComponent.h"
+#include "Characters/BlackoutPlayerCharacter.h"
 #include "Combat/Weapons/BOFirearm.h"
 #include "Combat/Weapons/BOMeleeWeapon.h"
 #include "Combat/Weapons/BOWeaponBase.h"
@@ -392,6 +393,11 @@ void UBlackoutCombatComponent::ApplyAimingState(bool bNewAiming)
 	if (UAbilitySystemComponent* AbilitySystemComponent = AbilitySystemInterface ? AbilitySystemInterface->GetAbilitySystemComponent() : nullptr)
 	{
 		AbilitySystemComponent->SetLooseGameplayTagCount(BlackoutGameplayTags::State_Aiming, bIsAiming ? 1 : 0);
+	}
+
+	if (ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(GetOwner()))
+	{
+		PlayerCharacter->HandleAimStateChanged(bIsAiming);
 	}
 }
 

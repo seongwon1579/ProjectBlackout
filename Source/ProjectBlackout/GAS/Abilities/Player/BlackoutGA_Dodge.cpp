@@ -1,8 +1,9 @@
 #include "GAS/Abilities/Player/BlackoutGA_Dodge.h"
 
 #include "AbilitySystemComponent.h"
-#include "Animation/AnimInstance.h"
 #include "Characters/BlackoutPlayerCharacter.h"
+#include "Combat/Components/BlackoutCombatComponent.h"
+#include "Animation/AnimMontage.h"
 #include "GAS/BlackoutAbilitySystemComponent.h"
 #include "Core/BlackoutLog.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -15,6 +16,7 @@ UBlackoutGA_Dodge::UBlackoutGA_Dodge()
 	InputID = EBlackoutAbilityInputID::Dodge;
 
 	ActivationOwnedTags.AddTag(BlackoutGameplayTags::State_Invulnerable);
+	ActivationOwnedTags.AddTag(BlackoutGameplayTags::State_Locked);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Downed);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Locked);
 }
@@ -45,7 +47,8 @@ void UBlackoutGA_Dodge::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
-
+	
+	// TODO : 백스텝 임시 항상 FALSE  , 추후 방향입력 X DODGE 실행시 백스텝 추가 예정 
 	bool bIsBackstep = false;
 	const FVector DodgeDirection = CalculateDodgeDirection(ActorInfo, bIsBackstep);
 	if (DodgeDirection.IsNearlyZero())
@@ -55,27 +58,57 @@ void UBlackoutGA_Dodge::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
 		return;
 	}
 
-	BO_LOG_GAS(Log, "GA_Dodge activated: Character=%s, Backstep=%s", *GetNameSafe(PlayerCharacter), bIsBackstep ? TEXT("true") : TEXT("false"));
+	bIsBackstep = false; // 현재는 forward roll만 사용
+
+	const FRotator TargetRotation(0.f, DodgeDirection.Rotation().Yaw, 0.f);
+	PlayerCharacter->SetActorRotation(TargetRotation);
+
+	if (UBlackoutCombatComponent* CombatComponent = PlayerCharacter->GetCombatComponent())
+	{
+		CombatComponent->StopAim();
+	}
 
 	if (UCharacterMovementComponent* MovementComponent = PlayerCharacter->GetCharacterMovement())
 	{
 		MovementComponent->StopMovementImmediately();
 	}
 
-	const float LaunchStrength = bIsBackstep ? BackstepStrength : DodgeStrength;
-	PlayerCharacter->LaunchCharacter(DodgeDirection * LaunchStrength + FVector::UpVector * UpwardImpulse, true, true);
-
 	if (DodgeMontage)
 	{
-		if (UAnimInstance* AnimInstance = PlayerCharacter->GetMesh() ? PlayerCharacter->GetMesh()->GetAnimInstance() : nullptr)
+		// 오너 클라는 즉시 재생해서 입력 반응성을 확보
+		if (PlayerCharacter->IsLocallyControlled())
 		{
-			AnimInstance->Montage_Play(DodgeMontage);
+			PlayerCharacter->PlayDodgeMontage(DodgeMontage, 1.f);
+		}
+
+		// 서버는 다른 클라들에게 몽타주를 전파
+		if (PlayerCharacter->HasAuthority())
+		{
+			PlayerCharacter->Multicast_PlayDodgeMontage(DodgeMontage, 1.f);
 		}
 	}
+	else
+	{
+		BO_LOG_GAS(Warning, "GA_Dodge: DodgeMontage가 설정되지 않아 몽타주를 재생하지 못함");
+	}
 
+	const float LaunchStrength = DodgeStrength;
+	PlayerCharacter->LaunchCharacter(DodgeDirection * LaunchStrength + FVector::UpVector * UpwardImpulse, true, true);
+
+	const float DodgeEndDelay =
+		(DodgeMontage && DodgeMontage->GetPlayLength() > 0.f)
+			? DodgeMontage->GetPlayLength()
+			: DodgeDuration;
+
+	// 몽타주 길이 기준으로 어빌리티를 종료해 이동 잠금과 상태 태그를 함께 정리
 	if (UWorld* World = PlayerCharacter->GetWorld())
 	{
-		World->GetTimerManager().SetTimer(DodgeEndTimerHandle, this, &UBlackoutGA_Dodge::OnDodgeFinished, DodgeDuration, false);
+		World->GetTimerManager().SetTimer(
+			DodgeEndTimerHandle,
+			this,
+			&UBlackoutGA_Dodge::OnDodgeFinished,
+			DodgeEndDelay,
+			false);
 	}
 }
 
@@ -86,6 +119,11 @@ void UBlackoutGA_Dodge::EndAbility(const FGameplayAbilitySpecHandle Handle, cons
 
 	if (ActorInfo && ActorInfo->AvatarActor.IsValid())
 	{
+		if (ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()))
+		{
+			PlayerCharacter->SetPendingDodgeInput(FVector2D::ZeroVector);
+		}
+
 		if (UWorld* World = ActorInfo->AvatarActor->GetWorld())
 		{
 			World->GetTimerManager().ClearTimer(DodgeEndTimerHandle);
@@ -132,7 +170,7 @@ bool UBlackoutGA_Dodge::ConsumeStamina() const
 
 FVector UBlackoutGA_Dodge::CalculateDodgeDirection(const FGameplayAbilityActorInfo* ActorInfo, bool& bOutIsBackstep) const
 {
-	bOutIsBackstep = true;
+	bOutIsBackstep = false;
 
 	const ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
 	if (!PlayerCharacter)
@@ -140,12 +178,45 @@ FVector UBlackoutGA_Dodge::CalculateDodgeDirection(const FGameplayAbilityActorIn
 		return FVector::ZeroVector;
 	}
 
-	const FVector LastInputDirection = PlayerCharacter->GetLastMovementInputVector().GetSafeNormal2D();
-	if (!LastInputDirection.IsNearlyZero())
+	const FVector2D PendingDodgeInput = PlayerCharacter->GetPendingDodgeInput();
+	const FVector2D CachedMoveInput = PlayerCharacter->GetCachedMoveInput();
+	const FVector2D InputToUse = !PendingDodgeInput.IsNearlyZero() ? PendingDodgeInput : CachedMoveInput;
+
+	BO_LOG_GAS(Log,
+		"DodgeInput: Pending=(%.2f, %.2f), Cached=(%.2f, %.2f)",
+		PendingDodgeInput.X, PendingDodgeInput.Y,
+		CachedMoveInput.X, CachedMoveInput.Y);
+
+	if (!InputToUse.IsNearlyZero())
 	{
-		bOutIsBackstep = false;
-		return LastInputDirection;
+		const FRotator ControlRotation = PlayerCharacter->GetControlRotation();
+		const FRotator YawRotation(0.f, ControlRotation.Yaw, 0.f);
+
+		const FVector ControlForward = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
+		const FVector ControlRight = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+
+		const FVector WorldInputDirection =
+			(ControlForward * InputToUse.Y + ControlRight * InputToUse.X).GetSafeNormal2D();
+
+		if (!WorldInputDirection.IsNearlyZero())
+		{
+			return WorldInputDirection;
+		}
 	}
 
-	return -PlayerCharacter->GetActorForwardVector().GetSafeNormal2D();
+	// 서버에서 입력 전송 타이밍이 어긋나도 최소한 실제 이동 방향은 따라가도록 보조
+	const FVector LastMovementDirection = PlayerCharacter->GetLastMovementInputVector().GetSafeNormal2D();
+	if (!LastMovementDirection.IsNearlyZero())
+	{
+		return LastMovementDirection;
+	}
+
+	const FVector VelocityDirection = PlayerCharacter->GetVelocity().GetSafeNormal2D();
+	if (!VelocityDirection.IsNearlyZero())
+	{
+		return VelocityDirection;
+	}
+
+	return PlayerCharacter->GetActorForwardVector().GetSafeNormal2D();
+	
 }

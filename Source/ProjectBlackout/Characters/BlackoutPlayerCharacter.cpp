@@ -7,6 +7,8 @@
 #include "Core/BlackoutTypes.h"
 #include "GameFramework/PlayerState.h"
 #include "Camera/CameraComponent.h"
+#include "Animation/AnimInstance.h"
+#include "Animation/AnimMontage.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "BlackoutLog.h"
@@ -14,6 +16,8 @@
 
 ABlackoutPlayerCharacter::ABlackoutPlayerCharacter()
 {
+	PrimaryActorTick.bCanEverTick = true;
+
 	// TPS 카메라 셋업
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
 	SpringArm->SetupAttachment(RootComponent);
@@ -26,11 +30,34 @@ ABlackoutPlayerCharacter::ABlackoutPlayerCharacter()
 
 	CombatComponent = CreateDefaultSubobject<UBlackoutCombatComponent>(TEXT("CombatComponent"));
 
-	// TPS: 컨트롤러 회전은 카메라에만 적용, 캐릭터는 이동 방향으로 자동 회전 x
+	// TPS: 컨트롤러 회전은 카메라에만 적용하고, 기본 이동 회전은 CharacterMovement가 담당
 	bUseControllerRotationYaw = false;
-	GetCharacterMovement()->bOrientRotationToMovement = false;
+	GetCharacterMovement()->bOrientRotationToMovement = true;
 	GetCharacterMovement()->bUseControllerDesiredRotation = false;
+	GetCharacterMovement()->RotationRate = FRotator(0.f, 720.f, 0.f);
 }
+
+void ABlackoutPlayerCharacter::BeginPlay()
+{
+	Super::BeginPlay();
+
+	CacheAimDefaults();
+	UpdateAimMovementMode();
+}
+
+void ABlackoutPlayerCharacter::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+	
+	// aim 모드  틱 로컬 플레이어 카메라 갱신 
+	if (!IsLocallyControlled())
+	{
+		return;
+	}
+
+	UpdateAimCamera(DeltaSeconds);
+}
+
 
 void ABlackoutPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
@@ -44,7 +71,10 @@ void ABlackoutPlayerCharacter::SetupPlayerInputComponent(UInputComponent* Player
 
 	if (MoveAction)
 	{
+		// 회피시 입력했던 방향을 기억하기 위한 바인딩 
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ABlackoutPlayerCharacter::Move);
+		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Completed, this, &ABlackoutPlayerCharacter::Move);
+		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Canceled, this, &ABlackoutPlayerCharacter::Move);
 	}
 
 	if (LookAction)
@@ -93,7 +123,7 @@ void ABlackoutPlayerCharacter::OnRep_PlayerState()
 {
 	Super::OnRep_PlayerState();
 
-	// Client: InitAbilityActorInfo
+	
 	if (IAbilitySystemInterface* ASCInterface = Cast<IAbilitySystemInterface>(GetPlayerState()))
 	{
 		AbilitySystemComponent = Cast<UBlackoutAbilitySystemComponent>(
@@ -106,6 +136,159 @@ void ABlackoutPlayerCharacter::OnRep_PlayerState()
 			// 클라이언트에서도 어트리뷰트 초기화
 			InitializeAttributes();
 		}
+	}
+}
+
+void ABlackoutPlayerCharacter::Server_SetPendingDodgeInput_Implementation(FVector2D NewInput)
+{
+	PendingDodgeInput = NewInput;
+}
+
+void ABlackoutPlayerCharacter::Multicast_PlayDodgeMontage_Implementation(UAnimMontage* Montage, float PlayRate)
+{
+	PlayDodgeMontage(Montage, PlayRate);
+}
+
+bool ABlackoutPlayerCharacter::PlayDodgeMontage(UAnimMontage* Montage, float PlayRate)
+{
+	if (!Montage)
+	{
+		BO_LOG_GAS(Warning, "PlayDodgeMontage failed: Montage가 비어 있음");
+		bIsDodgeMontagePlaying = false;
+		return false;
+	}
+
+	USkeletalMeshComponent* MeshComponent = GetMesh();
+	if (!MeshComponent)
+	{
+		BO_LOG_GAS(Warning, "PlayDodgeMontage failed: MeshComponent가 비어 있음");
+		bIsDodgeMontagePlaying = false;
+		return false;
+	}
+
+	UAnimInstance* AnimInstance = MeshComponent->GetAnimInstance();
+	if (!AnimInstance)
+	{
+		BO_LOG_GAS(Warning, "PlayDodgeMontage failed: AnimInstance가 비어 있음");
+		bIsDodgeMontagePlaying = false;
+		return false;
+	}
+
+	// 로컬 예측 재생 후 멀티캐스트가 도착해도 같은 몽타주를 다시 시작하지 않도록 방지
+	if (AnimInstance->GetCurrentActiveMontage() == Montage && AnimInstance->Montage_IsPlaying(Montage))
+	{
+		bIsDodgeMontagePlaying = true;
+		BO_LOG_GAS(Verbose, "PlayDodgeMontage skipped: 이미 같은 몽타주가 재생 중임");
+		return true;
+	}
+
+	const float PlayResult = PlayAnimMontage(Montage, PlayRate);
+	if (PlayResult > 0.f)
+	{
+		FOnMontageEnded MontageEndedDelegate;
+		MontageEndedDelegate.BindUObject(this, &ABlackoutPlayerCharacter::HandleDodgeMontageEnded);
+		AnimInstance->Montage_SetEndDelegate(MontageEndedDelegate, Montage);
+		bIsDodgeMontagePlaying = true;
+	}
+	else
+	{
+		bIsDodgeMontagePlaying = false;
+	}
+
+	BO_LOG_GAS(Log,
+		"PlayDodgeMontage result=%.2f Local=%s Authority=%s Montage=%s",
+		PlayResult,
+		IsLocallyControlled() ? TEXT("true") : TEXT("false"),
+		HasAuthority() ? TEXT("true") : TEXT("false"),
+		*GetNameSafe(Montage));
+
+	return PlayResult > 0.f;
+}
+
+void ABlackoutPlayerCharacter::HandleDodgeMontageEnded(UAnimMontage* Montage, bool bInterrupted)
+{
+	bIsDodgeMontagePlaying = false;
+	BO_LOG_GAS(Log,
+		"Dodge montage ended: Interrupted=%s Montage=%s",
+		bInterrupted ? TEXT("true") : TEXT("false"),
+		*GetNameSafe(Montage));
+}
+
+void ABlackoutPlayerCharacter::HandleAimStateChanged(bool bNewAiming)
+{
+	ApplyAimMovementMode(bNewAiming);
+}
+
+void ABlackoutPlayerCharacter::CacheAimDefaults()
+{
+	if (SpringArm)
+	{
+		DefaultArmLength = SpringArm->TargetArmLength;
+		DefaultSocketOffset = SpringArm->SocketOffset;
+	}
+
+	if (Camera)
+	{
+		DefaultFOV = Camera->FieldOfView;
+	}
+
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		DefaultMaxWalkSpeed = MoveComp->MaxWalkSpeed;
+	}
+}
+
+void ABlackoutPlayerCharacter::UpdateAimCamera(float DeltaSeconds)
+{
+	if (!SpringArm || !Camera || !CombatComponent)
+	{
+		return;
+	}
+
+	const bool bIsAiming = CombatComponent->IsAiming();
+
+	const float TargetArmLength = bIsAiming ? AimArmLength : DefaultArmLength;
+	const FVector TargetSocketOffset = bIsAiming ? AimSocketOffset : DefaultSocketOffset;
+	const float TargetFOV = bIsAiming ? AimFOV : DefaultFOV;
+
+	
+	//aim 모드 카메라 숄더에 고정 
+	SpringArm->TargetArmLength = FMath::FInterpTo(
+		SpringArm->TargetArmLength,
+		TargetArmLength,
+		DeltaSeconds,
+		AimCameraInterpSpeed);
+
+	SpringArm->SocketOffset = FMath::VInterpTo(
+		SpringArm->SocketOffset,
+		TargetSocketOffset,
+		DeltaSeconds,
+		AimCameraInterpSpeed);
+
+	Camera->SetFieldOfView(FMath::FInterpTo(
+		Camera->FieldOfView,
+		TargetFOV,
+		DeltaSeconds,
+		AimCameraInterpSpeed));
+}
+
+void ABlackoutPlayerCharacter::UpdateAimMovementMode()
+{
+	if (!CombatComponent)
+	{
+		return;
+	}
+
+	ApplyAimMovementMode(CombatComponent->IsAiming());
+}
+
+void ABlackoutPlayerCharacter::ApplyAimMovementMode(bool bIsAiming)
+{
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		MoveComp->bOrientRotationToMovement = !bIsAiming;
+		MoveComp->bUseControllerDesiredRotation = bIsAiming;
+		MoveComp->MaxWalkSpeed = bIsAiming ? AimMaxWalkSpeed : DefaultMaxWalkSpeed;
 	}
 }
 
@@ -152,6 +335,10 @@ void ABlackoutPlayerCharacter::InitializeAttributes()
 void ABlackoutPlayerCharacter::Move(const FInputActionValue& Value)
 {
 	const FVector2D MovementVector = Value.Get<FVector2D>();
+	
+	//* 입력방향 기억 
+	CachedMoveInput = MovementVector;
+	
 	DoMove(MovementVector.X, MovementVector.Y);
 }
 
@@ -168,34 +355,24 @@ void ABlackoutPlayerCharacter::DoMove(float Right, float Forward)
 		return;
 	}
 
-	if (Forward > 0.f)
+	if (AbilitySystemComponent && AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Locked))
 	{
-		const FRotator TargetRotation(0.f, GetController()->GetControlRotation().Yaw, 0.f);
-		const FRotator NewRotation = FMath::RInterpTo(
-			GetActorRotation(),
-			TargetRotation,
-			GetWorld()->GetDeltaSeconds(),
-			ForwardTurnInterpSpeed);
-
-		SetActorRotation(NewRotation);
+		return;
 	}
 
-	AddMovementInput(GetActorForwardVector(), Forward);
-	AddMovementInput(GetActorRightVector(), Right);
-	
-	
-	
-	/*if (GetController() != nullptr)
+	if (bIsDodgeMontagePlaying)
 	{
-		const FRotator Rotation = GetController()->GetControlRotation();
-		const FRotator YawRotation(0.0f, Rotation.Yaw, 0.0f);
+		return;
+	}
 
-		const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
-		const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+	const FRotator ControlRotation = GetController()->GetControlRotation();
+	const FRotator YawRotation(0.f, ControlRotation.Yaw, 0.f);
 
-		AddMovementInput(ForwardDirection, Forward);
-		AddMovementInput(RightDirection, Right);
-	}*/
+	const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
+	const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+
+	AddMovementInput(ForwardDirection, Forward);
+	AddMovementInput(RightDirection, Right);
 }
 
 void ABlackoutPlayerCharacter::DoLook(float Yaw, float Pitch)

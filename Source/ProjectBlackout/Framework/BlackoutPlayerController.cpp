@@ -164,6 +164,17 @@ void ABlackoutPlayerController::OnReloadPressed()
 
 void ABlackoutPlayerController::OnDodgePressed()
 {
+	if (ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(GetPawn()))
+	{
+		const FVector2D DodgeInput = PlayerCharacter->GetCachedMoveInput();
+
+		// 로컬 예측용
+		PlayerCharacter->SetPendingDodgeInput(DodgeInput);
+
+		// 서버 권한용
+		PlayerCharacter->Server_SetPendingDodgeInput(DodgeInput);
+	}
+
 	HandleAbilityInputPressed(EBlackoutAbilityInputID::Dodge);
 	HandleAbilityInputReleased(EBlackoutAbilityInputID::Dodge);
 }
