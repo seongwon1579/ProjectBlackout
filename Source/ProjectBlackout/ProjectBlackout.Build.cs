@@ -20,29 +20,40 @@ public class ProjectBlackout : ModuleRules
 			"UMG",
 			"Slate",
 			"SlateCore",
+			"AnimGraphRuntime",
 			// GAS (Gameplay Ability System)
 			"GameplayAbilities",
 			"GameplayTags",
-			"GameplayTasks"
+			"GameplayTasks",
+			"Niagara",
+			// Networking (Matchmaking System)
+			"HTTP",
+			"Json",
+			"JsonUtilities",
+			"WebSockets",
+			"DeveloperSettings"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { });
 
 		PublicIncludePaths.AddRange(new string[] {
 			"ProjectBlackout",
-			"ProjectBlackout/Variant_Platforming",
-			"ProjectBlackout/Variant_Platforming/Animation",
-			"ProjectBlackout/Variant_Combat",
-			"ProjectBlackout/Variant_Combat/AI",
-			"ProjectBlackout/Variant_Combat/Animation",
-			"ProjectBlackout/Variant_Combat/Gameplay",
-			"ProjectBlackout/Variant_Combat/Interfaces",
-			"ProjectBlackout/Variant_Combat/UI",
-			"ProjectBlackout/Variant_SideScrolling",
-			"ProjectBlackout/Variant_SideScrolling/AI",
-			"ProjectBlackout/Variant_SideScrolling/Gameplay",
-			"ProjectBlackout/Variant_SideScrolling/Interfaces",
-			"ProjectBlackout/Variant_SideScrolling/UI"
+			"ProjectBlackout/Core",
+			"ProjectBlackout/Combat",
+			"ProjectBlackout/Combat/Weapons",
+			"ProjectBlackout/Combat/Components",
+			"ProjectBlackout/GameplayTags",
+			"ProjectBlackout/Interfaces",
+			"ProjectBlackout/Data",
+			"ProjectBlackout/GAS",
+			"ProjectBlackout/GAS/Attributes",
+			"ProjectBlackout/GAS/Abilities",
+			"ProjectBlackout/GAS/Effects",
+			"ProjectBlackout/GAS/Cues",
+			"ProjectBlackout/Characters",
+			"ProjectBlackout/AI",
+			"ProjectBlackout/Framework",
+			"ProjectBlackout/Pool"
 		});
 
 		// Uncomment if you are using online features

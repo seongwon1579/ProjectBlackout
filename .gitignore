@@ -74,4 +74,10 @@ Plugins/**/Intermediate/*
 DerivedDataCache/*
 
 # External Asset Files
-Content/Assets/*
+Content/Assets/**
+!Content/Assets/.gitkeep
+Content/RemnantAssets/**
+!Content/RemnantAssets/.gitkeep
+
+# Claude Generated Files
+.claude/*
