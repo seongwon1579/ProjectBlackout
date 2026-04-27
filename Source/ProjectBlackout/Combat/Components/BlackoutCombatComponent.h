@@ -62,6 +62,12 @@ public:
 	void PerformMeleeHit();
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	void BeginMeleeWeaponAttachmentOverride();
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	void EndMeleeWeaponAttachmentOverride();
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	ABOWeaponBase* GetEquippedWeapon() const { return EquippedWeapon; }
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
@@ -95,6 +101,9 @@ protected:
 	UFUNCTION()
 	void OnRep_IsAiming();
 
+	UFUNCTION()
+	void OnRep_MeleeWeaponAttachmentOverride();
+
 	UPROPERTY(Transient, ReplicatedUsing = OnRep_EquippedWeapon, BlueprintReadOnly, Category = "Blackout|Combat")
 	TObjectPtr<ABOWeaponBase> EquippedWeapon;
 
@@ -109,6 +118,9 @@ protected:
 
 	UPROPERTY(ReplicatedUsing = OnRep_IsAiming, BlueprintReadOnly, Category = "Blackout|Combat")
 	bool bIsAiming = false;
+
+	UPROPERTY(ReplicatedUsing = OnRep_MeleeWeaponAttachmentOverride, BlueprintReadOnly, Category = "Blackout|Combat")
+	bool bMeleeWeaponAttachmentOverride = false;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
 	float AimParallaxOffset = 100.0f;

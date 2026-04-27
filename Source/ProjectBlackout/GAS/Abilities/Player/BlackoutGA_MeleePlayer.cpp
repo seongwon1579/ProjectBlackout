@@ -32,6 +32,14 @@ void UBlackoutGA_MeleePlayer::ActivateAbility(const FGameplayAbilitySpecHandle H
 
 	BO_LOG_GAS(Log, "GA_MeleePlayer activated: Character=%s", *GetNameSafe(ActorInfo ? ActorInfo->AvatarActor.Get() : nullptr));
 
+	if (ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr)
+	{
+		if (UBlackoutCombatComponent* CombatComponent = PlayerCharacter->GetCombatComponent())
+		{
+			CombatComponent->BeginMeleeWeaponAttachmentOverride();
+		}
+	}
+
 	// 1. 근접 공격 애니메이션 몽타주 재생 및 콤보 윈도우(입력 대기) 활성화
 	float MontageDuration = 0.0f;
 	if (MeleeMontage)
@@ -64,6 +72,14 @@ void UBlackoutGA_MeleePlayer::EndAbility(const FGameplayAbilitySpecHandle Handle
 
 	if (ActorInfo && ActorInfo->AvatarActor.IsValid())
 	{
+		if (ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()))
+		{
+			if (UBlackoutCombatComponent* CombatComponent = PlayerCharacter->GetCombatComponent())
+			{
+				CombatComponent->EndMeleeWeaponAttachmentOverride();
+			}
+		}
+
 		if (UWorld* World = ActorInfo->AvatarActor->GetWorld())
 		{
 			World->GetTimerManager().ClearTimer(MeleeHitTimerHandle);

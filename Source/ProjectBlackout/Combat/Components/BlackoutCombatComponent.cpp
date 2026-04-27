@@ -30,6 +30,7 @@ void UBlackoutCombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProper
 	DOREPLIFETIME(UBlackoutCombatComponent, SecondaryWeapon);
 	DOREPLIFETIME(UBlackoutCombatComponent, MeleeWeapon);
 	DOREPLIFETIME(UBlackoutCombatComponent, bIsAiming);
+	DOREPLIFETIME(UBlackoutCombatComponent, bMeleeWeaponAttachmentOverride);
 }
 
 void UBlackoutCombatComponent::InitializeLoadoutFromCharacterData(const UBOCharacterData* CharacterData)
@@ -200,6 +201,28 @@ void UBlackoutCombatComponent::PerformMeleeHit()
 	}
 }
 
+void UBlackoutCombatComponent::BeginMeleeWeaponAttachmentOverride()
+{
+	if (!MeleeWeapon)
+	{
+		return;
+	}
+
+	bMeleeWeaponAttachmentOverride = true;
+	RefreshWeaponAttachments();
+}
+
+void UBlackoutCombatComponent::EndMeleeWeaponAttachmentOverride()
+{
+	if (!bMeleeWeaponAttachmentOverride)
+	{
+		return;
+	}
+
+	bMeleeWeaponAttachmentOverride = false;
+	RefreshWeaponAttachments();
+}
+
 ABOFirearm* UBlackoutCombatComponent::GetEquippedFirearm() const
 {
 	return Cast<ABOFirearm>(EquippedWeapon);
@@ -296,6 +319,11 @@ void UBlackoutCombatComponent::OnRep_IsAiming()
 	ApplyAimingState(bIsAiming);
 }
 
+void UBlackoutCombatComponent::OnRep_MeleeWeaponAttachmentOverride()
+{
+	RefreshWeaponAttachments();
+}
+
 ABOWeaponBase* UBlackoutCombatComponent::SpawnWeaponActor(TSubclassOf<ABOWeaponBase> WeaponClass)
 {
 	if (!WeaponClass || !GetWorld() || !GetOwner())
@@ -344,10 +372,11 @@ void UBlackoutCombatComponent::RefreshWeaponAttachments() const
 
 	const bool bPrimaryEquipped = EquippedWeapon == PrimaryWeapon;
 	const bool bSecondaryEquipped = EquippedWeapon == SecondaryWeapon;
+	const bool bMeleeEquipped = bMeleeWeaponAttachmentOverride && MeleeWeapon;
 
-	AttachWeapon(PrimaryWeapon, bPrimaryEquipped);
-	AttachWeapon(SecondaryWeapon, bSecondaryEquipped);
-	AttachWeapon(MeleeWeapon, false);
+	AttachWeapon(PrimaryWeapon, !bMeleeEquipped && bPrimaryEquipped);
+	AttachWeapon(SecondaryWeapon, !bMeleeEquipped && bSecondaryEquipped);
+	AttachWeapon(MeleeWeapon, bMeleeEquipped);
 }
 
 void UBlackoutCombatComponent::ApplyInitialAmmoLoadout() const
