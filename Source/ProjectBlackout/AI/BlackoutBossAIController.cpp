@@ -1,4 +1,5 @@
 #include "AI/BlackoutBossAIController.h"
+#include "AI/ActionPipeline.h"
 #include "AI/BossPhaseManager.h"
 #include "AI/BossBTRunner.h"
 #include "BehaviorTree/BehaviorTreeComponent.h"
@@ -28,6 +29,9 @@ void ABlackoutBossAIController::OnPossess(APawn* InPawn)
 
 	BTRunner = NewObject<UBossBTRunner>(this);
 	BTRunner->Initialize(this,SubBTComp, BBComp);
+
+	ActionPipeline = NewObject<UActionPipeline>(this);
+	ActionPipeline->Initialize();
 }
 
 void ABlackoutBossAIController::OnUnPossess()
@@ -99,7 +103,6 @@ void ABlackoutBossAIController::Tick(float DeltaSeconds)
 	Super::Tick(DeltaSeconds);
 	if (BTRunner->CheckingActor)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Actor is already in progress"));
 	}
 }
 

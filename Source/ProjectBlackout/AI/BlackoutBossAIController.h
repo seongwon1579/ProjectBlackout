@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "AI/BlackoutAIController.h"
+#include "AI/ActionPipelineOwner.h"
 #include "AI/BossPhaseManager.h"
 #include "AI/BossBTRunner.h"
 #include "Perception/AIPerceptionComponent.h"
@@ -11,6 +12,7 @@
 class UBehaviorTreeComponent;
 class UBlackboardComponent;
 class UBehaviorTree;
+class UActionPipeline;
 
 /**
  * 보스 전용 AI 컨트롤러.
@@ -23,7 +25,7 @@ class UBehaviorTree;
  * 서버(Dedicated Server) 전용: 모든 AI 로직은 서버에서만 실행된다.
  */
 UCLASS()
-class PROJECTBLACKOUT_API ABlackoutBossAIController : public ABlackoutAIController
+class PROJECTBLACKOUT_API ABlackoutBossAIController : public ABlackoutAIController, public IActionPipelineOwner
 {
 	GENERATED_BODY()
 
@@ -51,6 +53,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|AI")
 	void RequestPhaseExit();
 
+	// ── IActionPipelineOwner ──────────────────────────────────────────────────
+	virtual UActionPipeline* GetActionPipeline() const override { return ActionPipeline; }
+
 protected:
 	virtual void InitPerception() override;
 	virtual void Tick(float DeltaSeconds) override;
@@ -75,4 +80,7 @@ private:
 
 	UPROPERTY()
 	TObjectPtr<UBossBTRunner> BTRunner;
+
+	UPROPERTY()
+	TObjectPtr<UActionPipeline> ActionPipeline;
 };

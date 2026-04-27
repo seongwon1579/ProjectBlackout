@@ -62,7 +62,6 @@ void UBossBTRunner::WriteTargetToBlackboard(APawn* TargetPawn)
 	if (!HasAuthority() || !BBComp.IsValid()) return;
 
 	CheckingActor = TargetPawn;
-	UE_LOG(LogTemp, Warning, TEXT("WriteTargetToBlackboard"));
 	CachedTarget = TargetPawn;
 	BBComp->SetValueAsObject(TargetKeyName, TargetPawn);
 }
