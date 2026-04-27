@@ -26,11 +26,17 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	float GetBaseDamage() const;
 
+	UFUNCTION(BlueprintPure, Category = "Blackout|Combat")
+	FName GetEquippedSocketName() const;
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|Combat")
+	FName GetHolsterSocketName() const;
+
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Weapon")
 	virtual bool InitializeStatsFromDataTable();
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
-	void AttachToOwner(FName SocketName);
+	bool AttachToOwner(FName SocketName);
 
 protected:
 	virtual void BeginPlay() override;

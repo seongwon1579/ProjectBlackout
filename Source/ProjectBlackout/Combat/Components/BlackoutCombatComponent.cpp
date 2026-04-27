@@ -30,6 +30,7 @@ void UBlackoutCombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProper
 	DOREPLIFETIME(UBlackoutCombatComponent, SecondaryWeapon);
 	DOREPLIFETIME(UBlackoutCombatComponent, MeleeWeapon);
 	DOREPLIFETIME(UBlackoutCombatComponent, bIsAiming);
+	DOREPLIFETIME(UBlackoutCombatComponent, bMeleeWeaponAttachmentOverride);
 }
 
 void UBlackoutCombatComponent::InitializeLoadoutFromCharacterData(const UBOCharacterData* CharacterData)
@@ -200,6 +201,28 @@ void UBlackoutCombatComponent::PerformMeleeHit()
 	}
 }
 
+void UBlackoutCombatComponent::BeginMeleeWeaponAttachmentOverride()
+{
+	if (!MeleeWeapon)
+	{
+		return;
+	}
+
+	bMeleeWeaponAttachmentOverride = true;
+	RefreshWeaponAttachments();
+}
+
+void UBlackoutCombatComponent::EndMeleeWeaponAttachmentOverride()
+{
+	if (!bMeleeWeaponAttachmentOverride)
+	{
+		return;
+	}
+
+	bMeleeWeaponAttachmentOverride = false;
+	RefreshWeaponAttachments();
+}
+
 ABOFirearm* UBlackoutCombatComponent::GetEquippedFirearm() const
 {
 	return Cast<ABOFirearm>(EquippedWeapon);
@@ -286,9 +309,19 @@ void UBlackoutCombatComponent::OnRep_EquippedWeapon()
 	RefreshWeaponAttachments();
 }
 
+void UBlackoutCombatComponent::OnRep_LoadoutWeapon()
+{
+	RefreshWeaponAttachments();
+}
+
 void UBlackoutCombatComponent::OnRep_IsAiming()
 {
 	ApplyAimingState(bIsAiming);
+}
+
+void UBlackoutCombatComponent::OnRep_MeleeWeaponAttachmentOverride()
+{
+	RefreshWeaponAttachments();
 }
 
 ABOWeaponBase* UBlackoutCombatComponent::SpawnWeaponActor(TSubclassOf<ABOWeaponBase> WeaponClass)
@@ -307,6 +340,7 @@ ABOWeaponBase* UBlackoutCombatComponent::SpawnWeaponActor(TSubclassOf<ABOWeaponB
 	if (SpawnedWeapon)
 	{
 		SpawnedWeapon->SetOwner(GetOwner());
+		SpawnedWeapon->SetActorHiddenInGame(true);
 		SpawnedWeapon->InitializeStatsFromDataTable();
 	}
 
@@ -315,20 +349,34 @@ ABOWeaponBase* UBlackoutCombatComponent::SpawnWeaponActor(TSubclassOf<ABOWeaponB
 
 void UBlackoutCombatComponent::RefreshWeaponAttachments() const
 {
-	auto AttachWeapon = [](ABOWeaponBase* Weapon, const FName SocketName)
+	auto AttachWeapon = [this](ABOWeaponBase* Weapon, const bool bAttachAsEquipped)
 	{
 		if (!Weapon)
 		{
 			return;
 		}
 
-		Weapon->SetActorHiddenInGame(false);
-		Weapon->AttachToOwner(SocketName);
+		Weapon->InitializeStatsFromDataTable();
+
+		const FName SocketName = bAttachAsEquipped ? EquippedWeaponSocketName : Weapon->GetHolsterSocketName();
+		if (SocketName.IsNone())
+		{
+			return;
+		}
+
+		if (Weapon->AttachToOwner(SocketName))
+		{
+			Weapon->SetActorHiddenInGame(false);
+		}
 	};
 
-	AttachWeapon(PrimaryWeapon, EquippedWeapon == PrimaryWeapon ? EquippedWeaponSocketName : PrimaryHolsterSocketName);
-	AttachWeapon(SecondaryWeapon, EquippedWeapon == SecondaryWeapon ? EquippedWeaponSocketName : SecondaryHolsterSocketName);
-	AttachWeapon(MeleeWeapon, MeleeHolsterSocketName);
+	const bool bPrimaryEquipped = EquippedWeapon == PrimaryWeapon;
+	const bool bSecondaryEquipped = EquippedWeapon == SecondaryWeapon;
+	const bool bMeleeEquipped = bMeleeWeaponAttachmentOverride && MeleeWeapon;
+
+	AttachWeapon(PrimaryWeapon, !bMeleeEquipped && bPrimaryEquipped);
+	AttachWeapon(SecondaryWeapon, !bMeleeEquipped && bSecondaryEquipped);
+	AttachWeapon(MeleeWeapon, bMeleeEquipped);
 }
 
 void UBlackoutCombatComponent::ApplyInitialAmmoLoadout() const

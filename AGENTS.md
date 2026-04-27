@@ -101,6 +101,7 @@ ABlackoutGameMode (서버 베이스)
 - UPROPERTY Category 대분류: `"Blackout|..."` 필수
 - 에셋: `Prefix_Name` (PascalCase, 접두사 표 참조)
 - Git: `feature/` 브랜치 → `develop` PR. 태그(`Feat`/`Fix`/`Design`/`Refactor`/`Docs`/`Chore`)
+- 커밋 및 PR 생성 시 `Docs/CONVENTIONS.md`의 커밋 메시지/PR 양식과 `.github/PULL_REQUEST_TEMPLATE.md`를 준수
 
 ## Key Rules for AI Agents
 

@@ -19,6 +19,14 @@ struct PROJECTBLACKOUT_API FBlackoutWeaponStat : public FTableRowBase
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Weapon", meta = (ClampMin = 0.f))
 	float BaseDamage = 20.f;
+
+	/** 장착 중인 무기를 부착할 캐릭터 메시 소켓 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Weapon")
+	FName EquippedSocketName = TEXT("WeaponSocket");
+
+	/** 수납 중인 무기를 부착할 캐릭터 메시 소켓. 비워두면 슬롯 기본 소켓을 사용합니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Weapon")
+	FName HolsterSocketName = NAME_None;
 };
 
 /**
