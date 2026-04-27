@@ -19,9 +19,9 @@ public:
 protected:
 	virtual void TickNode(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, float DeltaSeconds) override;
 
-	/** 추적할 타겟 액터 */
-	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard")
-	FBlackboardKeySelector TargetKey;
+	// /** 추적할 타겟 액터 */
+	// UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard")
+	// FBlackboardKeySelector TargetKey;
 
 	/** 타겟 월드 위치 (Vector) */
 	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard")
