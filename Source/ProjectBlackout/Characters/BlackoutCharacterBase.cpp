@@ -1,4 +1,6 @@
 #include "BlackoutCharacterBase.h"
+
+#include "AbilitySystemComponent.h"
 #include "BlackoutAbilitySystemComponent.h"
 #include "BlackoutLog.h"
 
@@ -11,6 +13,22 @@ ABlackoutCharacterBase::ABlackoutCharacterBase()
 UAbilitySystemComponent* ABlackoutCharacterBase::GetAbilitySystemComponent() const
 {
 	return AbilitySystemComponent;
+}
+
+FGameplayTag ABlackoutCharacterBase::GetHitPartTag(FName BoneName) const
+{
+	return FGameplayTag();
+}
+
+void ABlackoutCharacterBase::ReceiveDamageFromHitbox(const FGameplayEffectSpecHandle& SpecHandle, FName BoneName)
+{
+	if (!HasAuthority() || !AbilitySystemComponent || !SpecHandle.IsValid())
+	{
+		return;
+	}
+
+	AbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
+	OnHitReact();
 }
 
 void ABlackoutCharacterBase::OnDeath()

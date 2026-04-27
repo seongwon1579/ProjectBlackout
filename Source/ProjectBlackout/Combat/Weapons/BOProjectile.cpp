@@ -1,4 +1,5 @@
 #include "Combat/Weapons/BOProjectile.h"
+#include "Combat/Components/BlackoutHitboxComponent.h"
 #include "Components/SphereComponent.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "Interfaces/BlackoutDamageable.h"
@@ -19,7 +20,7 @@ ABOProjectile::ABOProjectile()
 void ABOProjectile::OnSpawnFromPool_Implementation()
 {
 	Collision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	Movement->SetActive(true);
+	Movement->Velocity = FVector::ZeroVector;
 }
 
 void ABOProjectile::OnReturnToPool_Implementation()
@@ -35,18 +36,36 @@ void ABOProjectile::InitFromSpec(const FGameplayEffectSpecHandle& InDamageSpec, 
 	SplashRadius = Radius;
 }
 
+void ABOProjectile::Launch(const FVector& Direction)
+{
+	if (!Movement)
+	{
+		return;
+	}
+
+	Movement->Velocity = Direction.GetSafeNormal() * Movement->InitialSpeed;
+	Movement->SetActive(true, true);
+}
+
 void ABOProjectile::OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
-	if (OtherActor && HasAuthority())
+	if (HasAuthority() && DamageSpec.IsValid())
 	{
-		if (IBlackoutDamageable* Damageable = Cast<IBlackoutDamageable>(OtherActor))
+		if (UBlackoutHitboxComponent* HitboxComponent = Cast<UBlackoutHitboxComponent>(OtherComp))
+		{
+			HitboxComponent->ReceiveDamageSpec(DamageSpec);
+		}
+		else if (IBlackoutDamageable* Damageable = Cast<IBlackoutDamageable>(OtherActor))
 		{
 			Damageable->ReceiveDamageFromHitbox(DamageSpec, Hit.BoneName);
 		}
 	}
 	
-	if (UBlackoutPoolSubsystem* Pool = GetWorld()->GetSubsystem<UBlackoutPoolSubsystem>())
+	if (UWorld* World = GetWorld())
 	{
-		Pool->ReturnToPool(this);
+		if (UBlackoutPoolSubsystem* Pool = World->GetSubsystem<UBlackoutPoolSubsystem>())
+		{
+			Pool->ReturnToPool(this);
+		}
 	}
 }
