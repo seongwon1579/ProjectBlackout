@@ -1,12 +1,25 @@
 #include "Combat/Components/BlackoutHitboxComponent.h"
+
+#include "Core/BlackoutCollisionChannels.h"
 #include "Interfaces/BlackoutDamageable.h"
 
 UBlackoutHitboxComponent::UBlackoutHitboxComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
 	UBoxComponent::SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	
-	// 트레이스 채널 블록, 오버랩 무시 등 설정...
+	UBoxComponent::SetCollisionResponseToAllChannels(ECR_Ignore);
+	UBoxComponent::SetCollisionResponseToChannel(BlackoutCollisionChannels::WeaponTrace, ECR_Block);
+	UBoxComponent::SetGenerateOverlapEvents(false);
+}
+
+void UBlackoutHitboxComponent::BeginPlay()
+{
+	Super::BeginPlay();
+
+	UBoxComponent::SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	UBoxComponent::SetCollisionResponseToAllChannels(ECR_Ignore);
+	UBoxComponent::SetCollisionResponseToChannel(BlackoutCollisionChannels::WeaponTrace, ECR_Block);
+	UBoxComponent::SetGenerateOverlapEvents(false);
 }
 
 void UBlackoutHitboxComponent::ReceiveDamageSpec(const FGameplayEffectSpecHandle& SpecHandle)

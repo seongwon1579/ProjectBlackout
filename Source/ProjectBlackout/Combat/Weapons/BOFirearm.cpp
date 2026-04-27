@@ -1,9 +1,36 @@
 #include "Combat/Weapons/BOFirearm.h"
 
+#include "AbilitySystemComponent.h"
+#include "AbilitySystemInterface.h"
+#include "DrawDebugHelpers.h"
+#include "Engine/Engine.h"
 #include "Engine/World.h"
+#include "GameFramework/Pawn.h"
 #include "NiagaraComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Combat/Components/BlackoutHitboxComponent.h"
 #include "Combat/Weapons/BOProjectile.h"
+#include "Core/BlackoutCollisionChannels.h"
+#include "Core/BlackoutLog.h"
+#include "GAS/Attributes/BlackoutBaseAttributeSet.h"
+#include "Interfaces/BlackoutDamageable.h"
+#include "Pool/BlackoutPoolSubsystem.h"
+
+namespace
+{
+	bool TryGetHealthForDebug(const AActor* TargetActor, float& OutHealth)
+	{
+		const IAbilitySystemInterface* AbilitySystemInterface = Cast<IAbilitySystemInterface>(TargetActor);
+		const UAbilitySystemComponent* AbilitySystemComponent = AbilitySystemInterface ? AbilitySystemInterface->GetAbilitySystemComponent() : nullptr;
+		if (!AbilitySystemComponent)
+		{
+			return false;
+		}
+
+		OutHealth = AbilitySystemComponent->GetNumericAttribute(UBlackoutBaseAttributeSet::GetHealthAttribute());
+		return true;
+	}
+}
 
 ABOFirearm::ABOFirearm()
 {
@@ -28,7 +55,7 @@ bool ABOFirearm::InitializeStatsFromDataTable()
 	return false;
 }
 
-FHitResult ABOFirearm::Fire(const FVector& Direction)
+FHitResult ABOFirearm::Fire(const FVector& Direction, const FGameplayEffectSpecHandle& DamageSpecHandle)
 {
 	FHitResult HitResult;
 	if (bUseHitscan)
@@ -41,20 +68,119 @@ FHitResult ABOFirearm::Fire(const FVector& Direction)
 			FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(BOFirearm_Fire), false, GetOwner());
 			QueryParams.AddIgnoredActor(this);
 
-			World->LineTraceSingleByChannel(HitResult, TraceStart, TraceEnd, ECC_Visibility, QueryParams);
+			World->LineTraceSingleByChannel(HitResult, TraceStart, TraceEnd, BlackoutCollisionChannels::WeaponTrace, QueryParams);
+			AActor* HitActor = HitResult.GetActor();
+			UPrimitiveComponent* HitComponent = HitResult.GetComponent();
+			AActor* DamageTargetActor = HitActor;
+
+			if (bDrawDebugHitscanRay)
+			{
+				const bool bHit = HitResult.bBlockingHit;
+				const FVector DebugEnd = bHit ? HitResult.ImpactPoint : TraceEnd;
+				const FColor DebugColor = bHit ? FColor::Red : FColor::Green;
+				DrawDebugLine(World, TraceStart, DebugEnd, DebugColor, false, DebugHitscanRayDuration, 0, DebugHitscanRayThickness);
+			}
+
+			float HealthBefore = 0.0f;
+			bool bCapturedHealthBefore = bDrawDebugHitscanRay && TryGetHealthForDebug(DamageTargetActor, HealthBefore);
+			bool bAppliedDamage = false;
+
+			if (HasAuthority() && HitResult.bBlockingHit && DamageSpecHandle.IsValid())
+			{
+				if (UBlackoutHitboxComponent* HitboxComponent = Cast<UBlackoutHitboxComponent>(HitComponent))
+				{
+					DamageTargetActor = HitboxComponent->GetOwner();
+					if (bDrawDebugHitscanRay && !bCapturedHealthBefore)
+					{
+						bCapturedHealthBefore = TryGetHealthForDebug(DamageTargetActor, HealthBefore);
+					}
+					HitboxComponent->ReceiveDamageSpec(DamageSpecHandle);
+					bAppliedDamage = true;
+				}
+				else if (HitActor)
+				{
+					if (IBlackoutDamageable* Damageable = Cast<IBlackoutDamageable>(HitActor))
+					{
+						Damageable->ReceiveDamageFromHitbox(DamageSpecHandle, HitResult.BoneName);
+						bAppliedDamage = true;
+					}
+				}
+			}
+
+			if (bDrawDebugHitscanRay)
+			{
+				float HealthAfter = 0.0f;
+				const bool bCapturedHealthAfter = bAppliedDamage && TryGetHealthForDebug(DamageTargetActor, HealthAfter);
+				FString DamageText = TEXT("None");
+				if (bCapturedHealthBefore && bCapturedHealthAfter)
+				{
+					const float DamageDealt = FMath::Max(HealthBefore - HealthAfter, 0.0f);
+					DamageText = FString::Printf(TEXT("%.1f"), DamageDealt);
+				}
+				else if (bAppliedDamage)
+				{
+					DamageText = TEXT("Unknown");
+				}
+				else if (!HasAuthority())
+				{
+					DamageText = TEXT("ClientOnly");
+				}
+				else if (!DamageSpecHandle.IsValid())
+				{
+					DamageText = TEXT("InvalidSpec");
+				}
+
+				BO_SCREEN_CORE(Log,
+				               "Hitscan Debug: Target=%s Component=%s Damage=%s",
+				               *GetNameSafe(HitActor),
+				               *GetNameSafe(HitComponent),
+				               *DamageText);
+			}
 		}
 	}
 	else
 	{
-		SpawnProjectile(Direction);
+		SpawnProjectile(Direction, DamageSpecHandle);
 	}
 	return HitResult;
 }
 
-ABOProjectile* ABOFirearm::SpawnProjectile(const FVector& Direction)
+ABOProjectile* ABOFirearm::SpawnProjectile(const FVector& Direction, const FGameplayEffectSpecHandle& DamageSpecHandle)
 {
-	// TODO: 일반 스폰 대신 UBlackoutPoolSubsystem에서 스폰하도록 구현
-	return nullptr;
+	if (!HasAuthority() || !ProjectileClass || !DamageSpecHandle.IsValid())
+	{
+		return nullptr;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return nullptr;
+	}
+
+	const FVector SafeDirection = Direction.GetSafeNormal();
+	const FTransform SpawnTransform(SafeDirection.Rotation(), GetMuzzleTransform().GetLocation());
+
+	ABOProjectile* Projectile = nullptr;
+	if (UBlackoutPoolSubsystem* Pool = World->GetSubsystem<UBlackoutPoolSubsystem>())
+	{
+		Projectile = Cast<ABOProjectile>(Pool->SpawnFromPool(ProjectileClass, SpawnTransform));
+	}
+
+	if (!Projectile)
+	{
+		BO_LOG_POOL(Error, "SpawnProjectile failed: 풀에서 발사체를 가져오지 못함 (Weapon=%s, ProjectileClass=%s)",
+		            *GetNameSafe(this),
+		            *GetNameSafe(ProjectileClass.Get()));
+		return nullptr;
+	}
+
+	Projectile->SetOwner(GetOwner());
+	Projectile->SetInstigator(Cast<APawn>(GetOwner()));
+	Projectile->InitFromSpec(DamageSpecHandle, GetSplashRadius());
+	Projectile->Launch(SafeDirection);
+
+	return Projectile;
 }
 
 FTransform ABOFirearm::GetMuzzleTransform() const

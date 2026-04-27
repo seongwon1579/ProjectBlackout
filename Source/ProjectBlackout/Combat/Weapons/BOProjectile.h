@@ -21,6 +21,7 @@ public:
 	virtual void OnReturnToPool_Implementation() override;
 
 	void InitFromSpec(const FGameplayEffectSpecHandle& InDamageSpec, float Radius);
+	void Launch(const FVector& Direction);
 
 protected:
 	UFUNCTION()

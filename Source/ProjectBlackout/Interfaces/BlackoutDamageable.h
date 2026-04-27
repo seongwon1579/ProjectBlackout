@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "UObject/Interface.h"
 #include "GameplayEffectTypes.h"
+#include "GameplayTagContainer.h"
 #include "BlackoutDamageable.generated.h"
 
 UINTERFACE(MinimalAPI, NotBlueprintable)

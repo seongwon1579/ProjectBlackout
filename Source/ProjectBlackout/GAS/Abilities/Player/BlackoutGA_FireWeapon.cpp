@@ -58,7 +58,8 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 	const FVector MuzzleLocation = CombatComponent->GetMuzzleTransform().GetLocation();
 	const FVector AimTarget = CombatComponent->GetAimImpactPoint();
 	const FVector FireDirection = (AimTarget - MuzzleLocation).GetSafeNormal();
-	EquippedFirearm->Fire(FireDirection);
+	const FGameplayEffectSpecHandle DamageSpecHandle = BuildDamageSpec(EquippedFirearm);
+	EquippedFirearm->Fire(FireDirection, DamageSpecHandle);
 
 	// 4. 사격 GameplayCue 트리거
 	if (UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo())
@@ -82,13 +83,29 @@ FHitResult UBlackoutGA_FireWeapon::PerformTrace(const FVector& Start, const FVec
 	return HitResult;
 }
 
-FGameplayEffectSpecHandle UBlackoutGA_FireWeapon::BuildDamageSpec(const FHitResult& HitResult)
+FGameplayEffectSpecHandle UBlackoutGA_FireWeapon::BuildDamageSpec(const ABOFirearm* Firearm)
 {
 	FGameplayEffectSpecHandle SpecHandle;
-	if (DamageEffectClass && GetAbilitySystemComponentFromActorInfo())
+	if (!DamageEffectClass)
+	{
+		BO_LOG_GAS(Error, "BuildDamageSpec failed: DamageEffectClass가 설정되지 않음 (Ability=%s)", *GetNameSafe(this));
+		return SpecHandle;
+	}
+
+	if (Firearm && GetAbilitySystemComponentFromActorInfo())
 	{
 		SpecHandle = MakeOutgoingGameplayEffectSpec(DamageEffectClass, GetAbilityLevel());
-		// TODO: HitResult에서 Hitbox 컴포넌트의 부위 태그를 확인하고 SetByCaller로 데미지 배율(Body.WeakSpot 등) 주입
+		if (SpecHandle.IsValid())
+		{
+			SpecHandle.Data->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Damage, Firearm->GetBaseDamage());
+		}
+	}
+	else
+	{
+		BO_LOG_GAS(Warning,
+		           "BuildDamageSpec failed: Firearm=%s ASC=%s",
+		           *GetNameSafe(Firearm),
+		           *GetNameSafe(GetAbilitySystemComponentFromActorInfo()));
 	}
 	return SpecHandle;
 }

@@ -7,6 +7,7 @@
 #include "Combat/Weapons/BOFirearm.h"
 #include "Combat/Weapons/BOMeleeWeapon.h"
 #include "Combat/Weapons/BOWeaponBase.h"
+#include "Core/BlackoutCollisionChannels.h"
 #include "Data/BOCharacterData.h"
 #include "Engine/World.h"
 #include "GAS/Attributes/BlackoutAmmoAttributeSet.h"
@@ -270,7 +271,7 @@ FVector UBlackoutCombatComponent::GetAimImpactPoint() const
 			FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(BlackoutCombat_AimTrace), false, GetOwner());
 			QueryParams.AddIgnoredActor(EquippedWeapon);
 
-			if (GetWorld() && GetWorld()->LineTraceSingleByChannel(HitResult, TraceStart, TraceEnd, ECC_Visibility, QueryParams))
+			if (GetWorld() && GetWorld()->LineTraceSingleByChannel(HitResult, TraceStart, TraceEnd, BlackoutCollisionChannels::WeaponTrace, QueryParams))
 			{
 				return HitResult.ImpactPoint;
 			}
