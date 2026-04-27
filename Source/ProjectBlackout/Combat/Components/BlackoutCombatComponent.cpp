@@ -286,6 +286,11 @@ void UBlackoutCombatComponent::OnRep_EquippedWeapon()
 	RefreshWeaponAttachments();
 }
 
+void UBlackoutCombatComponent::OnRep_LoadoutWeapon()
+{
+	RefreshWeaponAttachments();
+}
+
 void UBlackoutCombatComponent::OnRep_IsAiming()
 {
 	ApplyAimingState(bIsAiming);
@@ -307,6 +312,7 @@ ABOWeaponBase* UBlackoutCombatComponent::SpawnWeaponActor(TSubclassOf<ABOWeaponB
 	if (SpawnedWeapon)
 	{
 		SpawnedWeapon->SetOwner(GetOwner());
+		SpawnedWeapon->SetActorHiddenInGame(true);
 		SpawnedWeapon->InitializeStatsFromDataTable();
 	}
 
@@ -315,7 +321,7 @@ ABOWeaponBase* UBlackoutCombatComponent::SpawnWeaponActor(TSubclassOf<ABOWeaponB
 
 void UBlackoutCombatComponent::RefreshWeaponAttachments() const
 {
-	auto AttachWeapon = [](ABOWeaponBase* Weapon, const bool bAttachAsEquipped, const FName FallbackSocketName)
+	auto AttachWeapon = [this](ABOWeaponBase* Weapon, const bool bAttachAsEquipped)
 	{
 		if (!Weapon)
 		{
@@ -324,19 +330,24 @@ void UBlackoutCombatComponent::RefreshWeaponAttachments() const
 
 		Weapon->InitializeStatsFromDataTable();
 
-		const FName WeaponSocketName = bAttachAsEquipped ? Weapon->GetEquippedSocketName() : Weapon->GetHolsterSocketName();
-		const FName SocketName = WeaponSocketName.IsNone() ? FallbackSocketName : WeaponSocketName;
+		const FName SocketName = bAttachAsEquipped ? EquippedWeaponSocketName : Weapon->GetHolsterSocketName();
+		if (SocketName.IsNone())
+		{
+			return;
+		}
 
-		Weapon->SetActorHiddenInGame(false);
-		Weapon->AttachToOwner(SocketName);
+		if (Weapon->AttachToOwner(SocketName))
+		{
+			Weapon->SetActorHiddenInGame(false);
+		}
 	};
 
 	const bool bPrimaryEquipped = EquippedWeapon == PrimaryWeapon;
 	const bool bSecondaryEquipped = EquippedWeapon == SecondaryWeapon;
 
-	AttachWeapon(PrimaryWeapon, bPrimaryEquipped, bPrimaryEquipped ? EquippedWeaponSocketName : PrimaryHolsterSocketName);
-	AttachWeapon(SecondaryWeapon, bSecondaryEquipped, bSecondaryEquipped ? EquippedWeaponSocketName : SecondaryHolsterSocketName);
-	AttachWeapon(MeleeWeapon, false, MeleeHolsterSocketName);
+	AttachWeapon(PrimaryWeapon, bPrimaryEquipped);
+	AttachWeapon(SecondaryWeapon, bSecondaryEquipped);
+	AttachWeapon(MeleeWeapon, false);
 }
 
 void UBlackoutCombatComponent::ApplyInitialAmmoLoadout() const

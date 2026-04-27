@@ -90,18 +90,21 @@ protected:
 	void OnRep_EquippedWeapon();
 
 	UFUNCTION()
+	void OnRep_LoadoutWeapon();
+
+	UFUNCTION()
 	void OnRep_IsAiming();
 
 	UPROPERTY(Transient, ReplicatedUsing = OnRep_EquippedWeapon, BlueprintReadOnly, Category = "Blackout|Combat")
 	TObjectPtr<ABOWeaponBase> EquippedWeapon;
 
-	UPROPERTY(Transient, Replicated, BlueprintReadOnly, Category = "Blackout|Combat")
+	UPROPERTY(Transient, ReplicatedUsing = OnRep_LoadoutWeapon, BlueprintReadOnly, Category = "Blackout|Combat")
 	TObjectPtr<ABOFirearm> PrimaryWeapon;
 
-	UPROPERTY(Transient, Replicated, BlueprintReadOnly, Category = "Blackout|Combat")
+	UPROPERTY(Transient, ReplicatedUsing = OnRep_LoadoutWeapon, BlueprintReadOnly, Category = "Blackout|Combat")
 	TObjectPtr<ABOFirearm> SecondaryWeapon;
 
-	UPROPERTY(Transient, Replicated, BlueprintReadOnly, Category = "Blackout|Combat")
+	UPROPERTY(Transient, ReplicatedUsing = OnRep_LoadoutWeapon, BlueprintReadOnly, Category = "Blackout|Combat")
 	TObjectPtr<ABOMeleeWeapon> MeleeWeapon;
 
 	UPROPERTY(ReplicatedUsing = OnRep_IsAiming, BlueprintReadOnly, Category = "Blackout|Combat")
@@ -115,15 +118,6 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
 	FName EquippedWeaponSocketName = TEXT("WeaponSocket");
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
-	FName PrimaryHolsterSocketName = TEXT("PrimaryWeaponSocket");
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
-	FName SecondaryHolsterSocketName = TEXT("SecondaryWeaponSocket");
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
-	FName MeleeHolsterSocketName = TEXT("MeleeWeaponSocket");
 
 private:
 	ABOWeaponBase* SpawnWeaponActor(TSubclassOf<ABOWeaponBase> WeaponClass);

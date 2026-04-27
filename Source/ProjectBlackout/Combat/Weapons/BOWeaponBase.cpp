@@ -2,7 +2,7 @@
 
 #include "BlackoutCharacterBase.h"
 #include "Components/SkeletalMeshComponent.h"
-#include "GameFramework/Character.h" // Using Character as base for now
+#include "GameFramework/Character.h"
 
 ABOWeaponBase::ABOWeaponBase()
 {
@@ -60,10 +60,20 @@ FName ABOWeaponBase::GetHolsterSocketName() const
 	return CachedStats.HolsterSocketName;
 }
 
-void ABOWeaponBase::AttachToOwner(FName SocketName)
+bool ABOWeaponBase::AttachToOwner(FName SocketName)
 {
-	if (ACharacter* Character = Cast<ACharacter>(GetOwner()))
+	if (SocketName.IsNone())
 	{
-		AttachToComponent(Character->GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, SocketName);
+		return false;
 	}
+
+	ACharacter* Character = Cast<ACharacter>(GetOwner());
+	USkeletalMeshComponent* CharacterMesh = Character ? Character->GetMesh() : nullptr;
+	if (!CharacterMesh || !CharacterMesh->DoesSocketExist(SocketName))
+	{
+		return false;
+	}
+
+	AttachToComponent(CharacterMesh, FAttachmentTransformRules::SnapToTargetNotIncludingScale, SocketName);
+	return true;
 }

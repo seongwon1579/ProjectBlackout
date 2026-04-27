@@ -36,7 +36,7 @@ public:
 	virtual bool InitializeStatsFromDataTable();
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
-	void AttachToOwner(FName SocketName);
+	bool AttachToOwner(FName SocketName);
 
 protected:
 	virtual void BeginPlay() override;
