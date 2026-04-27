@@ -1,4 +1,6 @@
 #include "Animation/BlackoutBossAnimInstance.h"
+
+#include "EditorCategoryUtils.h"
 #include "Characters/BlackoutBossCharacter.h"
 #include "ProjectBlackoutCharacter.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -16,16 +18,19 @@ void UBlackoutBossAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 {
 	Super::NativeUpdateAnimation(DeltaSeconds);
 
-	AProjectBlackoutCharacter* TestCharacter = Cast<AProjectBlackoutCharacter>(TryGetPawnOwner());
-	if (!TestCharacter) return;
-
-	UCharacterMovementComponent* MoveComp = TestCharacter->GetCharacterMovement();
-	if (!MoveComp) return;
-
-	const FVector Vel = TestCharacter->GetVelocity();
-	Speed = Vel.Size2D();
-	Direction = UKismetAnimationLibrary::CalculateDirection(Vel, TestCharacter->GetActorRotation());
+	// AProjectBlackoutCharacter* TestCharacter = Cast<AProjectBlackoutCharacter>(TryGetPawnOwner());
+	// if (!TestCharacter) return;
+	//
+	// UCharacterMovementComponent* MoveComp = TestCharacter->GetCharacterMovement();
+	// if (!MoveComp) return;
 	
+	ACharacter* Char = Cast<ACharacter>(TryGetPawnOwner());
+	if (!Char) return;
+	
+	const FVector Vel = Char->GetVelocity();
+	Speed = Vel.Size2D();
+	Direction = UKismetAnimationLibrary::CalculateDirection(Vel, Char->GetActorRotation());
+	AimDirection = 50;
 }
 
 void UBlackoutBossAnimInstance::StartTurn(float AngleDelta)

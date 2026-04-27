@@ -2,13 +2,17 @@
 
 #include "CoreMinimal.h"
 #include "AI/BlackoutAIController.h"
+#include "AI/ActionPipelineOwner.h"
 #include "AI/BossPhaseManager.h"
 #include "AI/BossBTRunner.h"
+#include "Perception/AIPerceptionComponent.h"
+#include "Perception/AISenseConfig_Sight.h"
 #include "BlackoutBossAIController.generated.h"
 
 class UBehaviorTreeComponent;
 class UBlackboardComponent;
 class UBehaviorTree;
+class UActionPipeline;
 
 /**
  * 보스 전용 AI 컨트롤러.
@@ -21,7 +25,7 @@ class UBehaviorTree;
  * 서버(Dedicated Server) 전용: 모든 AI 로직은 서버에서만 실행된다.
  */
 UCLASS()
-class PROJECTBLACKOUT_API ABlackoutBossAIController : public ABlackoutAIController
+class PROJECTBLACKOUT_API ABlackoutBossAIController : public ABlackoutAIController, public IActionPipelineOwner
 {
 	GENERATED_BODY()
 
@@ -33,7 +37,7 @@ public:
 
 	// ── BT 퍼사드 (FBSTTask_RunSubBehaviorTree 에서 호출) ─────────────────────
 	UFUNCTION(BlueprintCallable, Category = "Blackout|AI")
-	void RunSubBehaviorTree(UBehaviorTree* SubTree);
+	void RunSubBehaviorTree(UBehaviorTree* SubTree, APawn* InitialTarget = nullptr);
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|AI")
 	void StopSubBehaviorTree();
@@ -49,7 +53,17 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|AI")
 	void RequestPhaseExit();
 
+	// ── IActionPipelineOwner ──────────────────────────────────────────────────
+	virtual UActionPipeline* GetActionPipeline() const override { return ActionPipeline; }
+
+protected:
+	virtual void InitPerception() override;
+	virtual void Tick(float DeltaSeconds) override;
+
 private:
+	UFUNCTION()
+	void OnTargetPerceived(AActor* Actor, FAIStimulus Stimulus);
+
 	// Actor에 소속된 컴포넌트 (GC 및 네트워크 컨텍스트 필요)
 	UPROPERTY(VisibleAnywhere, Category = "Blackout|AI")
 	TObjectPtr<UBehaviorTreeComponent> SubBTComp;
@@ -57,10 +71,16 @@ private:
 	UPROPERTY(VisibleAnywhere, Category = "Blackout|AI")
 	TObjectPtr<UBlackboardComponent> BBComp;
 
+	UPROPERTY(VisibleAnywhere, Category = "Blackout|AI")
+	TObjectPtr<UAIPerceptionComponent> PerceptionComp;
+
 	// 책임 분리된 로직 매니저 (서버 전용 UObject, Outer = this)
 	UPROPERTY()
 	TObjectPtr<UBossPhaseManager> PhaseManager;
 
 	UPROPERTY()
 	TObjectPtr<UBossBTRunner> BTRunner;
+
+	UPROPERTY()
+	TObjectPtr<UActionPipeline> ActionPipeline;
 };

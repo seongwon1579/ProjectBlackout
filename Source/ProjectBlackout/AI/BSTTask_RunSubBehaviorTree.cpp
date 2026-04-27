@@ -8,7 +8,7 @@ EStateTreeRunStatus FBSTTask_RunSubBehaviorTree::EnterState(FStateTreeExecutionC
 
 	if (InstanceData.Controller && InstanceData.SubTreeAsset)
 	{
-		InstanceData.Controller->RunSubBehaviorTree(InstanceData.SubTreeAsset);
+		InstanceData.Controller->RunSubBehaviorTree(InstanceData.SubTreeAsset, InstanceData.InitialTarget);
 		return EStateTreeRunStatus::Running;
 	}
 

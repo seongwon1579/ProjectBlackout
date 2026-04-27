@@ -31,8 +31,8 @@ public:
 	                UBehaviorTreeComponent*    InBTComp,
 	                UBlackboardComponent*      InBBComp);
 
-	/** 페이즈에 맞는 SubBehaviorTree를 (재)시작한다. */
-	void RunBehaviorTree(UBehaviorTree* SubTree);
+	/** 페이즈에 맞는 SubBehaviorTree를 (재)시작한다. InitialTarget이 있으면 BB 초기화 후 즉시 주입한다. */
+	void RunBehaviorTree(UBehaviorTree* SubTree, APawn* InitialTarget = nullptr);
 
 	/** BT를 즉시 안전하게 정지한다. */
 	void Stop();
@@ -49,6 +49,8 @@ public:
 	 * BTTask_CheckPhaseExit 가 현재 어빌리티 완료 후 안전하게 BT를 종료하도록 유도한다.
 	 */
 	void RequestPhaseExit();
+	
+	AActor* CheckingActor;
 
 private:
 	bool HasAuthority() const;
@@ -56,6 +58,8 @@ private:
 	TWeakObjectPtr<ABlackoutBossAIController> OwnerController;
 	TWeakObjectPtr<UBehaviorTreeComponent>    BTComp;
 	TWeakObjectPtr<UBlackboardComponent>      BBComp;
+
+	TWeakObjectPtr<APawn> CachedTarget;
 
 	static const FName TargetKeyName;
 	static const FName PhaseExitKeyName;

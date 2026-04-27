@@ -40,6 +40,10 @@ protected:
 	/** 이동 방향 (-180 ~ 180, 블렌드 스페이스 Direction 축) */
 	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Animation|BlendSpace")
 	float Direction;
+	
+	/** 이동 방향 (-180 ~ 180, 블렌드 스페이스 Direction 축) */
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Animation|BlendSpace")
+	float AimDirection;
 
 	/** 회전 중인지 여부 — ABP 스테이트 전이 조건 */
 	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Animation|BlendSpace")

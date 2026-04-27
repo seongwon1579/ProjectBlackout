@@ -1,10 +1,27 @@
 #include "Characters/BORavagerBoss.h"
 
+#include "AbilitySystemComponent.h"
+#include "AbilitySystemGlobals.h"
+#include "GameplayAbilitySpec.h"
+#include "AI/BOAggroComponent.h"
+
 ABORavagerBoss::ABORavagerBoss()
 {
 	PrimaryActorTick.bCanEverTick = true;
 	AnimPlayRateMultiplier = 1.0f;
 	SummonedMinionCount = 0;
+
+	AggroComp = CreateDefaultSubobject<UBOAggroComponent>(TEXT("AggroComp"));
+}
+
+APawn* ABORavagerBoss::GetHighestAggroTarget() const
+{
+	return AggroComp ? AggroComp->GetHighestAggroTarget() : nullptr;
+}
+
+void ABORavagerBoss::AddThreat(APawn* Source, float Amount)
+{
+	if (AggroComp) AggroComp->AddThreat(Source, Amount);
 }
 
 void ABORavagerBoss::EnterPhaseA()
@@ -45,4 +62,18 @@ void ABORavagerBoss::OnPhaseChanged(EBossPhase NewPhase)
 	Super::OnPhaseChanged(NewPhase);
 
 	// TODO: 페이즈별 초기화 (예: Phase B 진입 시 Enrage 이펙트 등)
+}
+
+void ABORavagerBoss::BeginPlay()
+{
+	Super::BeginPlay();
+	
+	UAbilitySystemComponent* ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(this);
+
+	// 2. ASC가 있고, 에디터에서 DefaultAbility를 넣어줬다면 실행
+	if (ASC && DefaultAbility)
+	{
+		// 서버 체크 없이 그냥 부여
+		ASC->GiveAbility(FGameplayAbilitySpec(DefaultAbility, 1));
+	}
 }

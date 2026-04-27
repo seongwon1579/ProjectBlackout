@@ -17,6 +17,10 @@ struct PROJECTBLACKOUT_API FBSTTask_RunSubBehaviorTreeInstanceData
 
 	UPROPERTY(EditAnywhere, Category = "Parameter")
 	TObjectPtr<UBehaviorTree> SubTreeAsset;
+
+	/** FBSTEval_AggroTarget::OutTarget 에 바인딩. BT 시작 시 BB에 주입된다. */
+	UPROPERTY(EditAnywhere, Category = "Parameter")
+	TObjectPtr<APawn> InitialTarget;
 };
 
 USTRUCT(meta = (DisplayName = "Run Sub Behavior Tree", Category = "Blackout|Boss"))

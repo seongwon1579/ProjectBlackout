@@ -1,64 +1,38 @@
 #include "AI/BSTEval_AggroTarget.h"
 #include "StateTreeExecutionContext.h"
-#include "AbilitySystemComponent.h"
-#include "AI/BlackoutBossAIController.h"
-#include "Data/BOBossData.h"
-#include "GameFramework/PlayerState.h"
-
-void FBSTEval_AggroTarget::TreeStart(FStateTreeExecutionContext& Context) const
-{
-	FInstanceDataType& InstanceData = Context.GetInstanceData(*this);
-	
-	if (!InstanceData.OwnerASC || InstanceData.OwnerASC->GetOwner()->GetLocalRole() != ROLE_Authority)
-	{
-		return;
-	}
-
-	InstanceData.DamageAccumulator.Empty();
-	InstanceData.CurrentTargetPS = nullptr;
-	InstanceData.LastSwitchTime = 0.0f;
-
-	// TODO: 바인딩
-}
-
-void FBSTEval_AggroTarget::TreeStop(FStateTreeExecutionContext& Context) const
-{
-	FInstanceDataType& InstanceData = Context.GetInstanceData(*this);
-
-	if (InstanceData.OwnerASC && InstanceData.OwnerASC->GetOwner()->GetLocalRole() == ROLE_Authority)
-	{
-		// TODO: 바인딩 해제
-	}
-	InstanceData.DamageAccumulator.Empty();
-}
+#include "AIController.h"
+#include "Perception/AIPerceptionComponent.h"
 
 void FBSTEval_AggroTarget::Tick(FStateTreeExecutionContext& Context, const float DeltaTime) const
 {
-	FInstanceDataType& InstanceData = Context.GetInstanceData(*this);
+	FInstanceDataType& Data = Context.GetInstanceData(*this);
+	if (!Data.Controller) return;
 
-	if (!InstanceData.OwnerASC || InstanceData.OwnerASC->GetOwner()->GetLocalRole() != ROLE_Authority)
-	{
-		return;
-	}
+	UAIPerceptionComponent* PerceptionComp = Data.Controller->GetAIPerceptionComponent();
+	if (!PerceptionComp) return;
 
-	// 1. 누적 피해 감쇠
-	if (InstanceData.BossData)
+	APawn* OwnerPawn = Data.Controller->GetPawn();
+
+	TArray<AActor*> Perceived;
+	PerceptionComp->GetCurrentlyPerceivedActors(nullptr, Perceived);
+
+	APawn* BestTarget = nullptr;
+	float BestDistSq  = MAX_FLT;
+
+	for (AActor* Actor : Perceived)
 	{
-		float Decay = InstanceData.BossData->AggroDecayRate * DeltaTime;
-		for (auto& Pair : InstanceData.DamageAccumulator)
+		APawn* Pawn = Cast<APawn>(Actor);
+		if (!Pawn || Pawn == OwnerPawn) continue;
+
+		const float DistSq = FVector::DistSquared(
+			OwnerPawn->GetActorLocation(), Pawn->GetActorLocation());
+
+		if (DistSq < BestDistSq)
 		{
-			Pair.Value = FMath::Max(0.0f, Pair.Value - Pair.Value * Decay);
+			BestDistSq = DistSq;
+			BestTarget = Pawn;
 		}
 	}
 
-	// 2. 타겟 선정
-	APlayerState* BestTarget = nullptr;
-
-	// 3. 기록
-	if (BestTarget && InstanceData.Controller)
-	{
-		APawn* TargetPawn = BestTarget->GetPawn();
-		InstanceData.OutTarget = TargetPawn;
-		InstanceData.Controller->WriteTargetToBlackboard(TargetPawn);
-	}
+	Data.OutTarget = BestTarget;
 }
