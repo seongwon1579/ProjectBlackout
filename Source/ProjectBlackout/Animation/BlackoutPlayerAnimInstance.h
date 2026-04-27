@@ -28,6 +28,10 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Animation")
 	bool bIsAiming;
 
+	/** 현재 장착 무기가 양손 무기인지 여부 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Animation")
+	bool bIsTwoHanded;
+
 	/** 전력질주 여부 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Animation")
 	bool bIsSprinting;

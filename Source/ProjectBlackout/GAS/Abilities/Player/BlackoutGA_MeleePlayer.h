@@ -5,7 +5,7 @@
 #include "BlackoutGA_MeleePlayer.generated.h"
 
 class UAnimMontage;
-struct FTimerHandle;
+class UAnimInstance;
 
 /**
  * 플레이어 근접 공격 게임플레이 어빌리티 (TDD v5 §4.1)
@@ -21,23 +21,39 @@ public:
 
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
+	virtual void InputPressed(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo) override;
+
+	/** 현재 액터에서 활성 중인 근접 어빌리티 인스턴스를 찾습니다. */
+	static UBlackoutGA_MeleePlayer* GetActiveMeleeAbilityFromActor(const AActor* OwnerActor);
+
+	/** 몽타주 히트 노티파이에서 호출됩니다. */
+	void HandleMeleeHitNotify();
+
+	/** 콤보 입력 윈도우 시작 노티파이에서 호출됩니다. */
+	void HandleComboWindowOpened();
+
+	/** 콤보 입력 윈도우 종료 노티파이에서 호출됩니다. */
+	void HandleComboWindowClosed();
 
 protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
 	TObjectPtr<UAnimMontage> MeleeMontage;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
-	TMap<int32, float> ComboWindowMap;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
-	float MeleeHitDelay = 0.12f;
-
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
-	void OnMeleeHitNotify();
+	TArray<FName> ComboSectionNames;
 
 	UFUNCTION()
-	void OnMeleeAttackFinished();
+	void OnMeleeMontageEnded(UAnimMontage* Montage, bool bInterrupted);
 
-	FTimerHandle MeleeHitTimerHandle;
-	FTimerHandle MeleeFinishTimerHandle;
+private:
+	bool JumpToNextComboSection();
+	void ResetComboState();
+	UAnimInstance* GetAvatarAnimInstance() const;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UAnimInstance> ActiveAnimInstance;
+
+	int32 CurrentComboIndex = INDEX_NONE;
+	bool bComboWindowOpen = false;
+	bool bComboInputQueued = false;
 };
