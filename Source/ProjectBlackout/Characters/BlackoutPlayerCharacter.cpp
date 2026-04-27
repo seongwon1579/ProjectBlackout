@@ -205,6 +205,66 @@ bool ABlackoutPlayerCharacter::PlayDodgeMontage(UAnimMontage* Montage, float Pla
 	return PlayResult > 0.f;
 }
 
+void ABlackoutPlayerCharacter::Multicast_PlayWeaponSwapMontage_Implementation(FGameplayTag TargetWeaponSlotTag, float PlayRate)
+{
+	PlayWeaponSwapMontage(TargetWeaponSlotTag, PlayRate);
+}
+
+bool ABlackoutPlayerCharacter::PlayWeaponSwapMontage(FGameplayTag TargetWeaponSlotTag, float PlayRate)
+{
+	UAnimMontage* Montage = GetWeaponSwapMontage(TargetWeaponSlotTag);
+	if (!Montage)
+	{
+		BO_LOG_GAS(Warning, "PlayWeaponSwapMontage failed: 슬롯 %s 에 대응하는 몽타주가 비어 있음", *TargetWeaponSlotTag.ToString());
+		bIsWeaponSwapMontagePlaying = false;
+		return false;
+	}
+
+	USkeletalMeshComponent* MeshComponent = GetMesh();
+	if (!MeshComponent)
+	{
+		BO_LOG_GAS(Warning, "PlayWeaponSwapMontage failed: MeshComponent가 비어 있음");
+		bIsWeaponSwapMontagePlaying = false;
+		return false;
+	}
+
+	UAnimInstance* AnimInstance = MeshComponent->GetAnimInstance();
+	if (!AnimInstance)
+	{
+		BO_LOG_GAS(Warning, "PlayWeaponSwapMontage failed: AnimInstance가 비어 있음");
+		bIsWeaponSwapMontagePlaying = false;
+		return false;
+	}
+
+	// 로컬 예측 재생 후 멀티캐스트가 도착해도 같은 몽타주를 다시 시작하지 않도록 방지
+	if (AnimInstance->GetCurrentActiveMontage() == Montage && AnimInstance->Montage_IsPlaying(Montage))
+	{
+		bIsWeaponSwapMontagePlaying = true;
+		return true;
+	}
+
+	const float PlayResult = PlayAnimMontage(Montage, PlayRate);
+	if (PlayResult > 0.f)
+	{
+		FOnMontageEnded MontageEndedDelegate;
+		MontageEndedDelegate.BindUObject(this, &ABlackoutPlayerCharacter::HandleWeaponSwapMontageEnded);
+		AnimInstance->Montage_SetEndDelegate(MontageEndedDelegate, Montage);
+		bIsWeaponSwapMontagePlaying = true;
+		return true;
+	}
+
+	bIsWeaponSwapMontagePlaying = false;
+	return false;
+}
+
+void ABlackoutPlayerCharacter::CommitPendingWeaponSwap()
+{
+	if (CombatComponent)
+	{
+		CombatComponent->CommitPendingWeaponSwap();
+	}
+}
+
 void ABlackoutPlayerCharacter::HandleDodgeMontageEnded(UAnimMontage* Montage, bool bInterrupted)
 {
 	bIsDodgeMontagePlaying = false;
@@ -214,9 +274,39 @@ void ABlackoutPlayerCharacter::HandleDodgeMontageEnded(UAnimMontage* Montage, bo
 		*GetNameSafe(Montage));
 }
 
+void ABlackoutPlayerCharacter::HandleWeaponSwapMontageEnded(UAnimMontage* Montage, bool bInterrupted)
+{
+	bIsWeaponSwapMontagePlaying = false;
+
+	if (CombatComponent)
+	{
+		CombatComponent->HandleWeaponSwapMontageEnded(bInterrupted);
+	}
+
+	BO_LOG_GAS(Log,
+		"Weapon swap montage ended: Interrupted=%s Montage=%s",
+		bInterrupted ? TEXT("true") : TEXT("false"),
+		*GetNameSafe(Montage));
+}
+
 void ABlackoutPlayerCharacter::HandleAimStateChanged(bool bNewAiming)
 {
 	ApplyAimMovementMode(bNewAiming);
+}
+
+UAnimMontage* ABlackoutPlayerCharacter::GetWeaponSwapMontage(FGameplayTag TargetWeaponSlotTag) const
+{
+	if (TargetWeaponSlotTag == BlackoutGameplayTags::Weapon_Primary)
+	{
+		return EquipPrimaryMontage;
+	}
+
+	if (TargetWeaponSlotTag == BlackoutGameplayTags::Weapon_Secondary)
+	{
+		return EquipSecondaryMontage;
+	}
+
+	return nullptr;
 }
 
 void ABlackoutPlayerCharacter::CacheAimDefaults()

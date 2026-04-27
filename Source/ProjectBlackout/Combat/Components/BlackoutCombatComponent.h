@@ -62,6 +62,12 @@ public:
 	void PerformMeleeHit();
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	void CommitPendingWeaponSwap();
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|Combat")
+	bool IsWeaponSwapInProgress() const { return bIsWeaponSwapInProgress; }
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	void BeginMeleeWeaponAttachmentOverride();
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
@@ -90,6 +96,17 @@ public:
 
 	UFUNCTION(Server, Reliable)
 	void Server_SetAiming(bool bNewAiming);
+
+	UFUNCTION(Server, Reliable)
+	void Server_BeginWeaponSwap(FGameplayTag TargetWeaponSlotTag);
+
+	UFUNCTION(Server, Reliable)
+	void Server_CommitPendingWeaponSwap(FGameplayTag TargetWeaponSlotTag);
+
+	UFUNCTION(Server, Reliable)
+	void Server_CancelPendingWeaponSwap();
+
+	void HandleWeaponSwapMontageEnded(bool bInterrupted);
 
 protected:
 	UFUNCTION()
@@ -138,6 +155,8 @@ private:
 	bool CanStartAim() const;
 	float GetEquippedClipAmmo() const;
 	void ApplyAimingState(bool bNewAiming);
+	ABOWeaponBase* ResolveWeaponBySlotTag(FGameplayTag WeaponSlotTag) const;
+	bool BeginWeaponSwapInternal(FGameplayTag TargetWeaponSlotTag);
 	EBlackoutAbilityInputID ResolvePrimaryActionInputID() const;
 	void StartAutomaticFire();
 	void StopAutomaticFire();
@@ -148,6 +167,12 @@ private:
 
 	UPROPERTY(Transient)
 	EBlackoutAbilityInputID ActivePrimaryActionInputID = EBlackoutAbilityInputID::None;
+
+	UPROPERTY(Transient)
+	FGameplayTag PendingWeaponSwapSlotTag;
+
+	UPROPERTY(Transient)
+	bool bIsWeaponSwapInProgress = false;
 
 	FTimerHandle AutomaticFireTimerHandle;
 };

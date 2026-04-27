@@ -23,9 +23,12 @@ void UBlackoutPlayerAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	}
 
 	// GAS 태그 상태 업데이트
+	bIsTwoHanded = false;
+
 	if (const UBlackoutCombatComponent* CombatComponent = PlayerCharacter->GetCombatComponent())
 	{
 		bIsAiming = CombatComponent->IsAiming();
+		bIsTwoHanded = CombatComponent->GetEquippedWeaponSlotTag() == BlackoutGameplayTags::Weapon_Primary;
 	}
 
 	if (UAbilitySystemComponent* ASC = PlayerCharacter->GetAbilitySystemComponent())

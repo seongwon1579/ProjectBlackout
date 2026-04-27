@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "BlackoutCharacterBase.h"
+#include "GameplayTagContainer.h"
 #include "BlackoutPlayerCharacter.generated.h"
 
 class USpringArmComponent;
@@ -52,8 +53,20 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
 	bool PlayDodgeMontage(UAnimMontage* Montage, float PlayRate = 1.f);
 
+	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
+	void Multicast_PlayWeaponSwapMontage(FGameplayTag TargetWeaponSlotTag, float PlayRate = 1.f);
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
+	bool PlayWeaponSwapMontage(FGameplayTag TargetWeaponSlotTag, float PlayRate = 1.f);
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
+	void CommitPendingWeaponSwap();
+
 	UFUNCTION(BlueprintPure, Category = "Blackout|Animation")
 	bool IsDodgeMontagePlaying() const { return bIsDodgeMontagePlaying; }
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|Animation")
+	bool IsWeaponSwapMontagePlaying() const { return bIsWeaponSwapMontagePlaying; }
 
 	void HandleAimStateChanged(bool bNewAiming);
 	
@@ -121,6 +134,20 @@ protected:
 
 	UFUNCTION()
 	void HandleDodgeMontageEnded(UAnimMontage* Montage, bool bInterrupted);
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
+	TObjectPtr<UAnimMontage> EquipPrimaryMontage;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
+	TObjectPtr<UAnimMontage> EquipSecondaryMontage;
+
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Animation")
+	bool bIsWeaponSwapMontagePlaying = false;
+
+	UFUNCTION()
+	void HandleWeaponSwapMontageEnded(UAnimMontage* Montage, bool bInterrupted);
+
+	UAnimMontage* GetWeaponSwapMontage(FGameplayTag TargetWeaponSlotTag) const;
 	
 #pragma endregion
 	

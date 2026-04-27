@@ -106,20 +106,38 @@ void UBlackoutCombatComponent::EquipSecondary()
 
 void UBlackoutCombatComponent::SwapWeapon()
 {
-	StopAutomaticFire();
-	ReleaseActivePrimaryAction();
-
-	if (EquippedWeapon == PrimaryWeapon)
+	if (bIsWeaponSwapInProgress)
 	{
-		EquipSecondary();
 		return;
 	}
 
-	EquipPrimary();
+	StopAutomaticFire();
+	ReleaseActivePrimaryAction();
+	StopAim();
+
+	const FGameplayTag TargetWeaponSlotTag = EquippedWeapon == PrimaryWeapon
+		? BlackoutGameplayTags::Weapon_Secondary
+		: BlackoutGameplayTags::Weapon_Primary;
+
+	if (!BeginWeaponSwapInternal(TargetWeaponSlotTag))
+	{
+		if (TargetWeaponSlotTag == BlackoutGameplayTags::Weapon_Secondary)
+		{
+			EquipSecondary();
+			return;
+		}
+
+		EquipPrimary();
+	}
 }
 
 void UBlackoutCombatComponent::StartFire()
 {
+	if (bIsWeaponSwapInProgress)
+	{
+		return;
+	}
+
 	HandleAbilityInputPressed(EBlackoutAbilityInputID::Fire);
 }
 
@@ -130,6 +148,11 @@ void UBlackoutCombatComponent::StopFire()
 
 void UBlackoutCombatComponent::HandlePrimaryActionPressed()
 {
+	if (bIsWeaponSwapInProgress)
+	{
+		return;
+	}
+
 	const EBlackoutAbilityInputID ResolvedInputID = ResolvePrimaryActionInputID();
 	if (ResolvedInputID == EBlackoutAbilityInputID::None)
 	{
@@ -159,6 +182,11 @@ void UBlackoutCombatComponent::HandlePrimaryActionReleased()
 
 void UBlackoutCombatComponent::StartAim()
 {
+	if (bIsWeaponSwapInProgress)
+	{
+		return;
+	}
+
 	if (!CanStartAim())
 	{
 		return;
@@ -190,6 +218,11 @@ void UBlackoutCombatComponent::StopAim()
 
 void UBlackoutCombatComponent::TryReload()
 {
+	if (bIsWeaponSwapInProgress)
+	{
+		return;
+	}
+
 	HandleAbilityInputPressed(EBlackoutAbilityInputID::Reload);
 	HandleAbilityInputReleased(EBlackoutAbilityInputID::Reload);
 }
@@ -200,6 +233,30 @@ void UBlackoutCombatComponent::PerformMeleeHit()
 	{
 		MeleeWeapon->PerformSweep(GetOwner()->GetActorForwardVector());
 	}
+}
+
+void UBlackoutCombatComponent::CommitPendingWeaponSwap()
+{
+	if (!PendingWeaponSwapSlotTag.IsValid())
+	{
+		return;
+	}
+
+	const FGameplayTag TargetWeaponSlotTag = PendingWeaponSwapSlotTag;
+
+	if (GetOwner() && GetOwner()->HasAuthority())
+	{
+		if (ABOWeaponBase* TargetWeapon = ResolveWeaponBySlotTag(TargetWeaponSlotTag))
+		{
+			Server_EquipWeapon_Implementation(TargetWeapon);
+		}
+
+		PendingWeaponSwapSlotTag = FGameplayTag();
+		return;
+	}
+
+	Server_CommitPendingWeaponSwap(TargetWeaponSlotTag);
+	PendingWeaponSwapSlotTag = FGameplayTag();
 }
 
 void UBlackoutCombatComponent::BeginMeleeWeaponAttachmentOverride()
@@ -305,6 +362,43 @@ void UBlackoutCombatComponent::Server_SetAiming_Implementation(bool bNewAiming)
 	ApplyAimingState(bNewAiming);
 }
 
+void UBlackoutCombatComponent::Server_BeginWeaponSwap_Implementation(FGameplayTag TargetWeaponSlotTag)
+{
+	if (!ResolveWeaponBySlotTag(TargetWeaponSlotTag) || GetEquippedWeaponSlotTag() == TargetWeaponSlotTag)
+	{
+		return;
+	}
+
+	PendingWeaponSwapSlotTag = TargetWeaponSlotTag;
+	bIsWeaponSwapInProgress = PendingWeaponSwapSlotTag.IsValid();
+
+	if (ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(GetOwner()))
+	{
+		PlayerCharacter->Multicast_PlayWeaponSwapMontage(TargetWeaponSlotTag, 1.f);
+	}
+}
+
+void UBlackoutCombatComponent::Server_CommitPendingWeaponSwap_Implementation(FGameplayTag TargetWeaponSlotTag)
+{
+	if (!PendingWeaponSwapSlotTag.IsValid() || PendingWeaponSwapSlotTag != TargetWeaponSlotTag)
+	{
+		return;
+	}
+
+	if (ABOWeaponBase* TargetWeapon = ResolveWeaponBySlotTag(TargetWeaponSlotTag))
+	{
+		Server_EquipWeapon_Implementation(TargetWeapon);
+	}
+
+	PendingWeaponSwapSlotTag = FGameplayTag();
+}
+
+void UBlackoutCombatComponent::Server_CancelPendingWeaponSwap_Implementation()
+{
+	PendingWeaponSwapSlotTag = FGameplayTag();
+	bIsWeaponSwapInProgress = false;
+}
+
 void UBlackoutCombatComponent::OnRep_EquippedWeapon()
 {
 	RefreshWeaponAttachments();
@@ -323,6 +417,26 @@ void UBlackoutCombatComponent::OnRep_IsAiming()
 void UBlackoutCombatComponent::OnRep_MeleeWeaponAttachmentOverride()
 {
 	RefreshWeaponAttachments();
+}
+
+void UBlackoutCombatComponent::HandleWeaponSwapMontageEnded(bool bInterrupted)
+{
+	if (!bInterrupted && PendingWeaponSwapSlotTag.IsValid())
+	{
+		CommitPendingWeaponSwap();
+	}
+
+	if (bInterrupted && PendingWeaponSwapSlotTag.IsValid() && GetOwner() && !GetOwner()->HasAuthority())
+	{
+		Server_CancelPendingWeaponSwap();
+	}
+
+	if (bInterrupted)
+	{
+		PendingWeaponSwapSlotTag = FGameplayTag();
+	}
+
+	bIsWeaponSwapInProgress = false;
 }
 
 ABOWeaponBase* UBlackoutCombatComponent::SpawnWeaponActor(TSubclassOf<ABOWeaponBase> WeaponClass)
@@ -378,6 +492,50 @@ void UBlackoutCombatComponent::RefreshWeaponAttachments() const
 	AttachWeapon(PrimaryWeapon, !bMeleeEquipped && bPrimaryEquipped);
 	AttachWeapon(SecondaryWeapon, !bMeleeEquipped && bSecondaryEquipped);
 	AttachWeapon(MeleeWeapon, bMeleeEquipped);
+}
+
+ABOWeaponBase* UBlackoutCombatComponent::ResolveWeaponBySlotTag(FGameplayTag WeaponSlotTag) const
+{
+	if (WeaponSlotTag == BlackoutGameplayTags::Weapon_Primary)
+	{
+		return PrimaryWeapon;
+	}
+
+	if (WeaponSlotTag == BlackoutGameplayTags::Weapon_Secondary)
+	{
+		return SecondaryWeapon;
+	}
+
+	return nullptr;
+}
+
+bool UBlackoutCombatComponent::BeginWeaponSwapInternal(FGameplayTag TargetWeaponSlotTag)
+{
+	ABOWeaponBase* TargetWeapon = ResolveWeaponBySlotTag(TargetWeaponSlotTag);
+	if (!TargetWeapon || TargetWeapon == EquippedWeapon)
+	{
+		return false;
+	}
+
+	ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(GetOwner());
+	if (!PlayerCharacter || !PlayerCharacter->PlayWeaponSwapMontage(TargetWeaponSlotTag, 1.f))
+	{
+		return false;
+	}
+
+	PendingWeaponSwapSlotTag = TargetWeaponSlotTag;
+	bIsWeaponSwapInProgress = true;
+
+	if (GetOwner() && GetOwner()->HasAuthority())
+	{
+		PlayerCharacter->Multicast_PlayWeaponSwapMontage(TargetWeaponSlotTag, 1.f);
+	}
+	else
+	{
+		Server_BeginWeaponSwap(TargetWeaponSlotTag);
+	}
+
+	return true;
 }
 
 void UBlackoutCombatComponent::ApplyInitialAmmoLoadout() const
