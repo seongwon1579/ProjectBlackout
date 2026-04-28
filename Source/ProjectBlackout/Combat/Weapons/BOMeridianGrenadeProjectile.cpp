@@ -18,6 +18,7 @@
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "Interfaces/BlackoutDamageable.h"
 #include "UObject/ConstructorHelpers.h"
+#include "UObject/UnrealType.h"
 
 ABOMeridianGrenadeProjectile::ABOMeridianGrenadeProjectile()
 {
@@ -37,25 +38,20 @@ ABOMeridianGrenadeProjectile::ABOMeridianGrenadeProjectile()
 	if (DefaultSphereMesh.Succeeded())
 	{
 		ProjectileMesh->SetStaticMesh(DefaultSphereMesh.Object);
-		ProjectileMesh->SetRelativeScale3D(FVector(ProjectileRadius / 50.0f));
 	}
 
-	Movement->bShouldBounce = true;
 	Movement->InitialSpeed = 1800.0f;
 	Movement->MaxSpeed = 2500.0f;
-	Movement->Bounciness = Bounciness;
-	Movement->Friction = Friction;
-	Movement->ProjectileGravityScale = GravityScale;
-	Movement->bBounceAngleAffectsFriction = true;
 
 	ExplosionCueTag = BlackoutGameplayTags::GameplayCue_Weapon_MeridianGrenade_Explosion;
+	ApplyProjectileSettingsToComponents();
 }
 
 void ABOMeridianGrenadeProjectile::OnSpawnFromPool_Implementation()
 {
 	Super::OnSpawnFromPool_Implementation();
+	ApplyProjectileSettingsToComponents();
 	ResetGrenadeState();
-	Collision->SetSphereRadius(ProjectileRadius);
 	Collision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	SetActorTickEnabled(true);
 }
@@ -87,10 +83,7 @@ void ABOMeridianGrenadeProjectile::Launch(const FVector& Direction)
 {
 	ResetGrenadeState();
 	PreviousLocation = GetActorLocation();
-	Movement->bShouldBounce = true;
-	Movement->Bounciness = Bounciness;
-	Movement->Friction = Friction;
-	Movement->ProjectileGravityScale = GravityScale;
+	ApplyProjectileSettingsToComponents();
 	if (AActor* OwnerActor = GetOwner())
 	{
 		Collision->IgnoreActorWhenMoving(OwnerActor, true);
@@ -100,6 +93,43 @@ void ABOMeridianGrenadeProjectile::Launch(const FVector& Direction)
 		Collision->IgnoreActorWhenMoving(InstigatorPawn, true);
 	}
 	Super::Launch(Direction);
+}
+
+void ABOMeridianGrenadeProjectile::OnConstruction(const FTransform& Transform)
+{
+	Super::OnConstruction(Transform);
+	ApplyProjectileSettingsToComponents();
+}
+
+#if WITH_EDITOR
+void ABOMeridianGrenadeProjectile::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+	ApplyProjectileSettingsToComponents();
+}
+#endif
+
+void ABOMeridianGrenadeProjectile::ApplyProjectileSettingsToComponents()
+{
+	if (Collision)
+	{
+		Collision->SetSphereRadius(FMath::Max(ProjectileRadius, 0.0f), true);
+	}
+
+	if (ProjectileMesh)
+	{
+		const float MeshScale = FMath::Max(ProjectileRadius, 0.0f) / 50.0f;
+		ProjectileMesh->SetRelativeScale3D(FVector(MeshScale));
+	}
+
+	if (Movement)
+	{
+		Movement->bShouldBounce = true;
+		Movement->Bounciness = Bounciness;
+		Movement->Friction = Friction;
+		Movement->ProjectileGravityScale = GravityScale;
+		Movement->bBounceAngleAffectsFriction = true;
+	}
 }
 
 void ABOMeridianGrenadeProjectile::SetProjectileMesh(UStaticMesh* InMesh)

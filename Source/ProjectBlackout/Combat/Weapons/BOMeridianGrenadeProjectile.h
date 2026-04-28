@@ -8,6 +8,10 @@
 class UStaticMesh;
 class UStaticMeshComponent;
 
+#if WITH_EDITOR
+struct FPropertyChangedEvent;
+#endif
+
 UCLASS(Blueprintable)
 class PROJECTBLACKOUT_API ABOMeridianGrenadeProjectile : public ABOProjectile
 {
@@ -28,9 +32,15 @@ public:
 	bool IsFuseArmed() const { return bFuseArmed; }
 
 protected:
+	virtual void OnConstruction(const FTransform& Transform) override;
 	virtual void Tick(float DeltaSeconds) override;
 	virtual void OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit) override;
 
+#if WITH_EDITOR
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+#endif
+
+	void ApplyProjectileSettingsToComponents();
 	void ResetGrenadeState();
 	void UpdateFuseState();
 	FGameplayEffectSpecHandle MakeImpactDamageSpec(const FGameplayEffectSpecHandle& SourceSpec) const;
