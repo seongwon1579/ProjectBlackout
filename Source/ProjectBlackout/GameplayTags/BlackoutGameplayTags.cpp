@@ -52,7 +52,7 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(Character_Enemy_Attack2, "Character.Enemy.Attack2");
 	
 	// ─── Wraith Abilities ──────────────────────────────────────────────────────
-	UE_DEFINE_GAMEPLAY_TAG(Ability_Wraith_FireTwinArrow , "Ability.Wraith.FireTwinArrow");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Wraith_FireTwinArrows, "Ability.Wraith.FireTwinArrows");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Wraith_Teleport,"Ability.Wraith.Teleport");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Wraith_BowShove,"Ability.Wraith.BowShove");
 	
