@@ -17,6 +17,8 @@ class PROJECTBLACKOUT_API UGA_BossTest : public UBlackoutBossGameplayAbility
 	
 public:
 	UGA_BossTest();
+	UPROPERTY(EditDefaultsOnly, Category = "Animation")
+	TObjectPtr<UAnimMontage> Montage;
 
 protected:
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
@@ -24,4 +26,20 @@ protected:
 	
 	UFUNCTION()
 	void OnMontageEnded();
+	
+	UFUNCTION()
+	void OnMontageInterrupted();
+	
+	UFUNCTION()
+	void OnMontageCancelled();
+	
+	UPROPERTY(EditDefaultsOnly, Category = "MotionWarping")
+	FName WarpTargetName = TEXT("Atk_Bite_Single");
+	
+	UPROPERTY(EditDefaultsOnly, Category = "MotionWarping")
+	float WarpReferenceDistance = 400.f;
+	
+	UPROPERTY(EditDefaultsOnly, Category = "MotionWarping")
+	float WarpMinPlayRate = 0.3f;
+	
 };

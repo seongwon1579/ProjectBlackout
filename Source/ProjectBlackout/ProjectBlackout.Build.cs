@@ -31,7 +31,9 @@ public class ProjectBlackout : ModuleRules
 			"Json",
 			"JsonUtilities",
 			"WebSockets",
-			"DeveloperSettings"
+			"DeveloperSettings",
+			// Plugin
+			"MotionWarping"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { });
