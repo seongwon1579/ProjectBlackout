@@ -3,9 +3,9 @@
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "Components/SkeletalMeshComponent.h"
 
-void UBOAnimNotify_CommitWeaponSwap::Notify(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation)
+void UBOAnimNotify_CommitWeaponSwap::Notify(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, const FAnimNotifyEventReference& EventReference)
 {
-	Super::Notify(MeshComp, Animation);
+	Super::Notify(MeshComp, Animation, EventReference);
 
 	if (!MeshComp)
 	{
