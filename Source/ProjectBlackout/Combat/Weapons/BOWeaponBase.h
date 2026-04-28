@@ -27,6 +27,12 @@ public:
 	float GetBaseDamage() const;
 
 	UFUNCTION(BlueprintPure, Category = "Blackout|Combat")
+	FGameplayTag GetDamageDataTag() const { return CachedStats.DamageDataTag; }
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|Combat")
+	FGameplayTag GetDamageTypeTag() const { return CachedStats.DamageTypeTag; }
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|Combat")
 	FName GetEquippedSocketName() const;
 
 	UFUNCTION(BlueprintPure, Category = "Blackout|Combat")

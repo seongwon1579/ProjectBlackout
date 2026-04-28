@@ -11,6 +11,7 @@ class ABOWeaponBase;
 class ABOFirearm;
 class ABOMeleeWeapon;
 class UBOCharacterData;
+class UGameplayEffect;
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class PROJECTBLACKOUT_API UBlackoutCombatComponent : public UActorComponent
@@ -59,7 +60,16 @@ public:
 	void TryReload();
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
-	void PerformMeleeHit();
+	void PerformMeleeHit(TSubclassOf<UGameplayEffect> DamageEffectClass, float EffectLevel = 1.0f);
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	void BeginMeleeHitWindow(TSubclassOf<UGameplayEffect> DamageEffectClass, float EffectLevel = 1.0f);
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	void EndMeleeHitWindow();
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|Combat")
+	bool IsMeleeHitWindowActive() const;
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	void CommitPendingWeaponSwap();

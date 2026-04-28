@@ -23,6 +23,11 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(Data_Stamina,       "Data.Stat.Stamina");
 	UE_DEFINE_GAMEPLAY_TAG(Data_MovementSpeed, "Data.Stat.MovementSpeed");
 
+	// ─── Damage Types ──────────────────────────────────────────────────────────
+	UE_DEFINE_GAMEPLAY_TAG(Damage_Type_Melee,       "Damage.Type.Melee");
+	UE_DEFINE_GAMEPLAY_TAG(Damage_Type_Melee_Slash, "Damage.Type.Melee.Slash");
+	UE_DEFINE_GAMEPLAY_TAG(Damage_Type_Melee_Blunt, "Damage.Type.Melee.Blunt");
+
 	// ─── Hitbox Parts ──────────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Body_WeakSpot,    "Body.WeakSpot");
 	UE_DEFINE_GAMEPLAY_TAG(Body_ArmoredLimb, "Body.ArmoredLimb");

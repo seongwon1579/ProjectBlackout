@@ -13,6 +13,7 @@
 #include "GAS/Attributes/BlackoutAmmoAttributeSet.h"
 #include "GameFramework/Controller.h"
 #include "GameFramework/Pawn.h"
+#include "GameplayEffect.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "Net/UnrealNetwork.h"
 
@@ -227,12 +228,33 @@ void UBlackoutCombatComponent::TryReload()
 	HandleAbilityInputReleased(EBlackoutAbilityInputID::Reload);
 }
 
-void UBlackoutCombatComponent::PerformMeleeHit()
+void UBlackoutCombatComponent::PerformMeleeHit(TSubclassOf<UGameplayEffect> DamageEffectClass, float EffectLevel)
 {
 	if (MeleeWeapon && GetOwner())
 	{
-		MeleeWeapon->PerformSweep(GetOwner()->GetActorForwardVector());
+		MeleeWeapon->PerformSweepHit(GetOwner()->GetActorForwardVector(), DamageEffectClass, EffectLevel);
 	}
+}
+
+void UBlackoutCombatComponent::BeginMeleeHitWindow(TSubclassOf<UGameplayEffect> DamageEffectClass, float EffectLevel)
+{
+	if (MeleeWeapon)
+	{
+		MeleeWeapon->BeginHitWindow(DamageEffectClass, EffectLevel);
+	}
+}
+
+void UBlackoutCombatComponent::EndMeleeHitWindow()
+{
+	if (MeleeWeapon)
+	{
+		MeleeWeapon->EndHitWindow();
+	}
+}
+
+bool UBlackoutCombatComponent::IsMeleeHitWindowActive() const
+{
+	return MeleeWeapon && MeleeWeapon->IsHitWindowActive();
 }
 
 void UBlackoutCombatComponent::CommitPendingWeaponSwap()

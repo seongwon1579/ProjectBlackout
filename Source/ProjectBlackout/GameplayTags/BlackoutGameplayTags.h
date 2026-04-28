@@ -26,6 +26,11 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Stamina);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_MovementSpeed);
 
+	// ─── Damage Types ──────────────────────────────────────────────────────────
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Damage_Type_Melee);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Damage_Type_Melee_Slash);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Damage_Type_Melee_Blunt);
+
 	// ─── Hitbox Parts ──────────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Body_WeakSpot);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Body_ArmoredLimb);

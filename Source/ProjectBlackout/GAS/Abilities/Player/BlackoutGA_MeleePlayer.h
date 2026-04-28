@@ -6,6 +6,7 @@
 
 class UAnimMontage;
 class UAnimInstance;
+class UGameplayEffect;
 
 /**
  * 플레이어 근접 공격 게임플레이 어빌리티 (TDD v5 §4.1)
@@ -29,6 +30,12 @@ public:
 	/** 몽타주 히트 노티파이에서 호출됩니다. */
 	void HandleMeleeHitNotify();
 
+	/** 몽타주에서 근접 히트박스를 활성화할 때 호출됩니다. */
+	void HandleMeleeCollisionEnabled();
+
+	/** 몽타주에서 근접 히트박스를 비활성화할 때 호출됩니다. */
+	void HandleMeleeCollisionDisabled();
+
 	/** 콤보 입력 윈도우 시작 노티파이에서 호출됩니다. */
 	void HandleComboWindowOpened();
 
@@ -36,6 +43,9 @@ public:
 	void HandleComboWindowClosed();
 
 protected:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
+	TSubclassOf<UGameplayEffect> DamageEffectClass;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
 	TObjectPtr<UAnimMontage> MeleeMontage;
 

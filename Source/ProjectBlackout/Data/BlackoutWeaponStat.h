@@ -20,6 +20,14 @@ struct PROJECTBLACKOUT_API FBlackoutWeaponStat : public FTableRowBase
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Weapon", meta = (ClampMin = 0.f))
 	float BaseDamage = 20.f;
 
+	/** 피해량 전달에 사용할 SetByCaller 태그 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Weapon")
+	FGameplayTag DamageDataTag;
+
+	/** 무기 피해의 성격을 나타내는 태그 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Weapon")
+	FGameplayTag DamageTypeTag;
+
 	/** 장착 중인 무기를 부착할 캐릭터 메시 소켓 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Weapon")
 	FName EquippedSocketName = TEXT("WeaponSocket");
