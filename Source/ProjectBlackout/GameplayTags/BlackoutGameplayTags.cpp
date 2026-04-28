@@ -47,6 +47,7 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Character_Hit, "GameplayCue.Character.Hit");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_Fire,   "GameplayCue.Weapon.Fire");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_Reload, "GameplayCue.Weapon.Reload");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_MeridianGrenade_Explosion, "GameplayCue.Weapon.MeridianGrenade.Explosion");
 	
 	UE_DEFINE_GAMEPLAY_TAG(Character_Enemy_Attack1, "Character.Enemy.Attack1");
 	UE_DEFINE_GAMEPLAY_TAG(Character_Enemy_Attack2, "Character.Enemy.Attack2");

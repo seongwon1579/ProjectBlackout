@@ -60,7 +60,12 @@ void ABOProjectile::OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor,
 			Damageable->ReceiveDamageFromHitbox(DamageSpec, Hit.BoneName);
 		}
 	}
-	
+
+	ReturnToPool();
+}
+
+void ABOProjectile::ReturnToPool()
+{
 	if (UWorld* World = GetWorld())
 	{
 		if (UBlackoutPoolSubsystem* Pool = World->GetSubsystem<UBlackoutPoolSubsystem>())
