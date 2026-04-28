@@ -3,9 +3,11 @@
 #include "CoreMinimal.h"
 #include "Characters/BlackoutEnemyCharacter.h"
 #include "GameplayEffectTypes.h"
+#include "MotionWarpingComponent.h"
 #include "BlackoutBossCharacter.generated.h"
 
 class UBOBossData;
+class UMotionWarpingComponent;
 struct FGameplayEffectSpec;
 
 UENUM(BlueprintType)
@@ -37,6 +39,9 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category = "Blackout|Boss")
 	FOnBossPhaseChangedSignature OnPhaseChangedDelegate;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|MotionWarping")
+	TObjectPtr<UMotionWarpingComponent> MotionWarpingComponent;
 
 protected:
 	virtual void BeginPlay() override;

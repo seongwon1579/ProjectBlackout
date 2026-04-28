@@ -8,6 +8,8 @@ ABlackoutBossCharacter::ABlackoutBossCharacter()
 	PrimaryActorTick.bCanEverTick = true;
 	CurrentPhase = EBossPhase::None;
 	PhaseIndex = 0;
+
+	MotionWarpingComponent = CreateDefaultSubobject<UMotionWarpingComponent>(TEXT("MotionWarpingComponent"));
 }
 
 void ABlackoutBossCharacter::BeginPlay()
