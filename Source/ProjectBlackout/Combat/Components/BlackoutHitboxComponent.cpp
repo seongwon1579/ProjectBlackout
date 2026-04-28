@@ -1,5 +1,6 @@
 #include "Combat/Components/BlackoutHitboxComponent.h"
 
+#include "GameplayEffect.h"
 #include "Core/BlackoutCollisionChannels.h"
 #include "Interfaces/BlackoutDamageable.h"
 
