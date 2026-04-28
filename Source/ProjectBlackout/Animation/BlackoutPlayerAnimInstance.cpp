@@ -4,6 +4,9 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
 #include "Combat/Weapons/BOWeaponBase.h"
+#include "Core/BlackoutCollisionChannels.h"
+#include "Engine/World.h"
+#include "GameFramework/Controller.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "Kismet/KismetMathLibrary.h"
 
@@ -71,13 +74,100 @@ void UBlackoutPlayerAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 		}
 	}
 
-	// 에임 오프셋 계산 (조준 시 상체 회전을 위함)
-	// 컨트롤 회전(카메라)과 캐릭터 정면 사이의 차이 계산
-	const FRotator ControlRotation = PlayerCharacter->GetControlRotation();
-	const FRotator ActorRotation = PlayerCharacter->GetActorRotation();
-	const FRotator Delta = UKismetMathLibrary::NormalizedDeltaRotator(ControlRotation, ActorRotation);
+	UpdateAimOffset(DeltaSeconds);
+}
 
-	// 부드러운 애니메이션을 위해 보간(Interpolation) 적용
-	AO_Yaw = FMath::FInterpTo(AO_Yaw, Delta.Yaw, DeltaSeconds, AO_InterpSpeed);
-	AO_Pitch = FMath::FInterpTo(AO_Pitch, Delta.Pitch, DeltaSeconds, AO_InterpSpeed);
+void UBlackoutPlayerAnimInstance::UpdateAimOffset(float DeltaSeconds)
+{
+	if (!PlayerCharacter)
+	{
+		return;
+	}
+
+	if (!bIsAiming)
+	{
+		ResetAimOffset();
+		return;
+	}
+
+	UpdateAimTarget();
+
+	const FRotator AimRotation = UKismetMathLibrary::FindLookAtRotation(PlayerCharacter->GetPawnViewLocation(), AimTargetLocation);
+	const FRotator ActorRotation = PlayerCharacter->GetActorRotation();
+	const FRotator Delta = UKismetMathLibrary::NormalizedDeltaRotator(AimRotation, ActorRotation);
+	const float TargetYaw = FMath::Clamp(Delta.Yaw, -180.f, 180.f);
+	const float TargetPitch = FMath::Clamp(Delta.Pitch, -90.f, 90.f);
+
+	AO_Yaw = FMath::FInterpTo(AO_Yaw, TargetYaw, DeltaSeconds, AO_InterpSpeed);
+	AO_Pitch = FMath::FInterpTo(AO_Pitch, TargetPitch, DeltaSeconds, AO_InterpSpeed);
+}
+
+void UBlackoutPlayerAnimInstance::ResetAimOffset()
+{
+	AO_Yaw = 0.f;
+	AO_Pitch = 0.f;
+	AimTargetLocation = FVector::ZeroVector;
+	AimTargetActor = nullptr;
+	bHasAimTarget = false;
+}
+
+void UBlackoutPlayerAnimInstance::UpdateAimTarget()
+{
+	FVector ViewLocation = FVector::ZeroVector;
+	FRotator ViewRotation = FRotator::ZeroRotator;
+	if (!GetAimTraceViewPoint(ViewLocation, ViewRotation))
+	{
+		AimTargetActor = nullptr;
+		bHasAimTarget = false;
+		AimTargetLocation = PlayerCharacter->GetPawnViewLocation() + PlayerCharacter->GetControlRotation().Vector() * AimTraceDistance;
+		return;
+	}
+
+	const FVector TraceStart = ViewLocation;
+	const FVector TraceEnd = TraceStart + ViewRotation.Vector() * AimTraceDistance;
+	AimTargetLocation = TraceEnd;
+	AimTargetActor = nullptr;
+	bHasAimTarget = false;
+
+	UWorld* World = PlayerCharacter->GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(BlackoutPlayerAnimInstance_UpdateAimTarget), false, PlayerCharacter);
+	if (const UBlackoutCombatComponent* CombatComponent = PlayerCharacter->GetCombatComponent())
+	{
+		if (ABOWeaponBase* EquippedWeapon = CombatComponent->GetEquippedWeapon())
+		{
+			QueryParams.AddIgnoredActor(EquippedWeapon);
+		}
+	}
+
+	FHitResult HitResult;
+	if (World->LineTraceSingleByChannel(HitResult, TraceStart, TraceEnd, BlackoutCollisionChannels::WeaponTrace, QueryParams)
+		&& HitResult.bBlockingHit)
+	{
+		AimTargetLocation = HitResult.ImpactPoint;
+		AimTargetActor = HitResult.GetActor();
+		bHasAimTarget = true;
+	}
+}
+
+bool UBlackoutPlayerAnimInstance::GetAimTraceViewPoint(FVector& OutViewLocation, FRotator& OutViewRotation) const
+{
+	if (!PlayerCharacter)
+	{
+		return false;
+	}
+
+	if (AController* Controller = PlayerCharacter->GetController())
+	{
+		Controller->GetPlayerViewPoint(OutViewLocation, OutViewRotation);
+		return true;
+	}
+
+	OutViewLocation = PlayerCharacter->GetPawnViewLocation();
+	OutViewRotation = PlayerCharacter->GetControlRotation();
+	return true;
 }

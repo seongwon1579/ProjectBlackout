@@ -5,6 +5,7 @@
 #include "BlackoutPlayerAnimInstance.generated.h"
 
 class ABlackoutPlayerCharacter;
+class AActor;
 
 /**
  * 플레이어 캐릭터 전용 애니메이션 인스턴스.
@@ -20,6 +21,18 @@ public:
 	virtual void NativeUpdateAnimation(float DeltaSeconds) override;
 
 protected:
+	/** 에임 오프셋 값을 갱신합니다. */
+	void UpdateAimOffset(float DeltaSeconds);
+
+	/** 에임 오프셋 값을 비활성 상태로 초기화합니다. */
+	void ResetAimOffset();
+
+	/** 카메라 중앙 기준 에임 목표 지점을 갱신합니다. */
+	void UpdateAimTarget();
+
+	/** 에임 트레이스 시작 위치와 방향을 가져옵니다. */
+	bool GetAimTraceViewPoint(FVector& OutViewLocation, FRotator& OutViewRotation) const;
+
 	/** 플레이어 캐릭터 참조 (캐싱) */
 	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Animation")
 	TObjectPtr<ABlackoutPlayerCharacter> PlayerCharacter;
@@ -63,4 +76,20 @@ protected:
 	/** 에임 오프셋 보간 속도 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Animation")
 	float AO_InterpSpeed = 15.f;
+
+	/** 카메라 중앙에서 에임 목표를 찾는 최대 거리 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Animation")
+	float AimTraceDistance = 10000.f;
+
+	/** 현재 에임 오프셋이 바라볼 월드 위치 */
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Animation")
+	FVector AimTargetLocation = FVector::ZeroVector;
+
+	/** 현재 카메라 중앙 트레이스에 명중한 대상 */
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Animation")
+	TObjectPtr<AActor> AimTargetActor;
+
+	/** 카메라 중앙 트레이스가 유효한 대상을 명중했는지 여부 */
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Animation")
+	bool bHasAimTarget = false;
 };
