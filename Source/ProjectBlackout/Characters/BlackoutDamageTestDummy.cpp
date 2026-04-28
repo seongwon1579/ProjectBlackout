@@ -1,6 +1,7 @@
 #include "Characters/BlackoutDamageTestDummy.h"
 
 #include "AbilitySystemComponent.h"
+#include "BlackoutAbilitySystemComponent.h"
 #include "Core/BlackoutLog.h"
 #include "Engine/Engine.h"
 #include "GAS/Attributes/BlackoutBaseAttributeSet.h"
