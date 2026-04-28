@@ -18,6 +18,7 @@
 #include "GameplayEffect.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "Interfaces/BlackoutDamageable.h"
+#include "TimerManager.h"
 #include "UObject/ConstructorHelpers.h"
 #include "UObject/UnrealType.h"
 
@@ -51,6 +52,7 @@ ABOMeridianGrenadeProjectile::ABOMeridianGrenadeProjectile()
 void ABOMeridianGrenadeProjectile::OnSpawnFromPool_Implementation()
 {
 	Super::OnSpawnFromPool_Implementation();
+	ClearAutoReturnTimer();
 	ApplyProjectileSettingsToComponents();
 	ResetGrenadeState();
 	Collision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
@@ -59,6 +61,8 @@ void ABOMeridianGrenadeProjectile::OnSpawnFromPool_Implementation()
 
 void ABOMeridianGrenadeProjectile::OnReturnToPool_Implementation()
 {
+	ClearAutoReturnTimer();
+
 	if (AActor* OwnerActor = GetOwner())
 	{
 		Collision->IgnoreActorWhenMoving(OwnerActor, false);
@@ -94,6 +98,7 @@ void ABOMeridianGrenadeProjectile::Launch(const FVector& Direction)
 		Collision->IgnoreActorWhenMoving(InstigatorPawn, true);
 	}
 	Super::Launch(Direction);
+	StartAutoReturnTimer();
 }
 
 void ABOMeridianGrenadeProjectile::OnConstruction(const FTransform& Transform)
@@ -239,6 +244,7 @@ void ABOMeridianGrenadeProjectile::ApplyImpactDamage(AActor* OtherActor, UPrimit
 void ABOMeridianGrenadeProjectile::Explode(const FHitResult& Hit)
 {
 	bExploded = true;
+	ClearAutoReturnTimer();
 	Movement->Deactivate();
 	Collision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
@@ -363,4 +369,49 @@ void ABOMeridianGrenadeProjectile::ExecuteExplosionCue(const FHitResult& Hit)
 	BO_LOG_CORE(Error, "ExecuteExplosionCue failed: GameplayCueManager가 유효하지 않음 (Projectile=%s, Cue=%s)",
 	            *GetNameSafe(this),
 	            *ExplosionCueTag.ToString());
+}
+
+void ABOMeridianGrenadeProjectile::StartAutoReturnTimer()
+{
+	ClearAutoReturnTimer();
+
+	if (!HasAuthority() || AutoReturnDelay <= 0.0f)
+	{
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		BO_LOG_CORE(Error, "StartAutoReturnTimer failed: World가 유효하지 않음 (Projectile=%s)", *GetNameSafe(this));
+		return;
+	}
+
+	World->GetTimerManager().SetTimer(
+		AutoReturnTimerHandle,
+		this,
+		&ABOMeridianGrenadeProjectile::ReturnToPoolByLifetime,
+		AutoReturnDelay,
+		false);
+}
+
+void ABOMeridianGrenadeProjectile::ClearAutoReturnTimer()
+{
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(AutoReturnTimerHandle);
+	}
+}
+
+void ABOMeridianGrenadeProjectile::ReturnToPoolByLifetime()
+{
+	if (!HasAuthority() || bExploded)
+	{
+		return;
+	}
+
+	bExploded = true;
+	Movement->Deactivate();
+	Collision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	ReturnToPool();
 }

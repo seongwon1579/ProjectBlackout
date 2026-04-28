@@ -19,12 +19,14 @@ ABOProjectile::ABOProjectile()
 
 void ABOProjectile::OnSpawnFromPool_Implementation()
 {
+	SetActorHiddenInGame(false);
 	Collision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	Movement->Velocity = FVector::ZeroVector;
 }
 
 void ABOProjectile::OnReturnToPool_Implementation()
 {
+	SetActorHiddenInGame(true);
 	Movement->Deactivate();
 	Collision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	DamageSpec = FGameplayEffectSpecHandle();

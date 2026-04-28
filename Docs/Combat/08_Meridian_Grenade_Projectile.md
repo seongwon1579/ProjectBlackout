@@ -75,6 +75,7 @@ classDiagram
 | 5m 비행 후 신관 활성화 | `ArmDistance = 500.0f`(cm). `LaunchLocation`부터 현재 위치까지의 거리로 `bFuseArmed` 전환 |
 | 신관 비활성 충돌 | `ApplyImpactDamage()`로 낮은 충격 피해만 적용하고 풀에 반환하지 않음. `Movement` 바운스는 유지 |
 | 신관 활성 충돌 | 충격 피해는 생략하고 `Explode()`에서 반경 피해 적용, 선택적으로 DebugSphere 표시, `ExplosionCueTag`로 GCN 실행, 이후 즉시 풀 반환 |
+| 수명 만료 | `AutoReturnDelay`가 지나면 폭발/피해/GCN 없이 즉시 풀 반환 |
 
 ## 구현 노트
 

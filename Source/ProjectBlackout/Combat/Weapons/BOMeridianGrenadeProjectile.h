@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Combat/Weapons/BOProjectile.h"
 #include "GameplayTagContainer.h"
+#include "TimerManager.h"
 #include "BOMeridianGrenadeProjectile.generated.h"
 
 class UStaticMesh;
@@ -74,6 +75,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat", meta = (ClampMin = "0.0", ClampMax = "1.0"))
 	float Friction = 0.25f;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat", meta = (ClampMin = "0.0", Units = "s"))
+	float AutoReturnDelay = 8.0f;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
 	FGameplayTag ExplosionCueTag;
 
@@ -88,7 +92,12 @@ protected:
 
 	FGameplayEffectSpecHandle ExplosionDamageSpec;
 	FVector PreviousLocation = FVector::ZeroVector;
+	FTimerHandle AutoReturnTimerHandle;
 	float TraveledDistance = 0.0f;
 	bool bFuseArmed = false;
 	bool bExploded = false;
+
+	void StartAutoReturnTimer();
+	void ClearAutoReturnTimer();
+	void ReturnToPoolByLifetime();
 };
