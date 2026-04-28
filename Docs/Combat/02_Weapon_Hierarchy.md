@@ -10,6 +10,8 @@ classDiagram
     ABOWeaponBase <|-- ABOFirearm
     ABOWeaponBase <|-- ABOMeleeWeapon
     AActor <|-- ABOProjectile
+    ABOFirearm <|-- ABlackoutMeridian
+    ABOProjectile <|-- ABOMeridianGrenadeProjectile
 
     IBlackoutPoolableInterface <|.. ABOProjectile
 
@@ -52,7 +54,21 @@ classDiagram
         +OnReturnToPool_Implementation() void
     }
 
+    class ABlackoutMeridian {
+        +ABlackoutMeridian()
+    }
+
+    class ABOMeridianGrenadeProjectile {
+        -UStaticMeshComponent* ProjectileMesh
+        -float ArmDistance
+        -float ImpactDamageMultiplier
+        -FGameplayTag ExplosionCueTag
+        +SetProjectileMesh(UStaticMesh*) void
+        +IsFuseArmed() bool
+    }
+
     ABOFirearm ..> ABOProjectile : Spawn
+    ABlackoutMeridian ..> ABOMeridianGrenadeProjectile : 기본 발사체
     ABOFirearm ..> UBlackoutPoolSubsystem : 풀링 스폰
     ABOProjectile ..> IBlackoutDamageableInterface : ReceiveDamageFromHitbox
 ```
@@ -66,3 +82,4 @@ classDiagram
   - `OnReturnToPool`: Movement 정지, Collision 비활성화, `DamageSpec` 초기화
 - **근접 무기**: `ABOMeleeWeapon::PerformSweep` 결과는 `GA_Melee_Player` 가 수신 → `GE_Damage` 적용.
 - **투사체 데미지 전달**: `ABOProjectile`은 `SpecHandle`만 보관하고, `OnHit` 시점에 `IBlackoutDamageableInterface::ReceiveDamageFromHitbox(SpecHandle, BoneName)` 를 호출.
+- **메리디안 유탄발사기**: `ABlackoutMeridian`은 `ABOFirearm` 기반의 비히트스캔 보조무기이며, 기본 `ProjectileClass`로 `ABOMeridianGrenadeProjectile`을 사용.

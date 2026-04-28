@@ -19,12 +19,14 @@ ABOProjectile::ABOProjectile()
 
 void ABOProjectile::OnSpawnFromPool_Implementation()
 {
+	SetActorHiddenInGame(false);
 	Collision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	Movement->Velocity = FVector::ZeroVector;
 }
 
 void ABOProjectile::OnReturnToPool_Implementation()
 {
+	SetActorHiddenInGame(true);
 	Movement->Deactivate();
 	Collision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	DamageSpec = FGameplayEffectSpecHandle();
@@ -60,7 +62,12 @@ void ABOProjectile::OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor,
 			Damageable->ReceiveDamageFromHitbox(DamageSpec, Hit.BoneName);
 		}
 	}
-	
+
+	ReturnToPool();
+}
+
+void ABOProjectile::ReturnToPool()
+{
 	if (UWorld* World = GetWorld())
 	{
 		if (UBlackoutPoolSubsystem* Pool = World->GetSubsystem<UBlackoutPoolSubsystem>())

@@ -20,12 +20,14 @@ public:
 	virtual void OnSpawnFromPool_Implementation() override;
 	virtual void OnReturnToPool_Implementation() override;
 
-	void InitFromSpec(const FGameplayEffectSpecHandle& InDamageSpec, float Radius);
-	void Launch(const FVector& Direction);
+	virtual void InitFromSpec(const FGameplayEffectSpecHandle& InDamageSpec, float Radius);
+	virtual void Launch(const FVector& Direction);
 
 protected:
 	UFUNCTION()
-	void OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+	virtual void OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+
+	void ReturnToPool();
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Combat")
 	TObjectPtr<USphereComponent> Collision;
