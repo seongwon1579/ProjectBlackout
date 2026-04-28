@@ -1,7 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-#include "AI/FActionData.h"
 #include "AI/ValidateActionHandler.h"
+#include "AI/FActionData.h"
 #include "AI/BOAICalcHelper.h"
 
 bool UValidateActionHandler::CanExecute(const FActionData& Data) const
