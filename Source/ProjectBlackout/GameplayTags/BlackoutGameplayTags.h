@@ -54,4 +54,18 @@ namespace BlackoutGameplayTags
 	// ─── Character Enemy Attack ─────────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_Enemy_Attack1);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_Enemy_Attack2);
+	
+	// ─── Wraith Abilities ─────────────────────────────────────────────────────────
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Wraith_FireTwinArrows);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Wraith_Teleport);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Wraith_BowShove);
+	
+	// ─── Wraith Gameplay Cues ───────────────────────────────────────────────────────── 
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Wraith_Fire);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Wraith_Teleport_Start);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Wraith_Teleport_End);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Wraith_BowShove);
+	
+	// ─── Wraith State ───────────────────────────────────────────────────────── 
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Wraith_Invulnerable);
 }

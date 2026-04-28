@@ -1,4 +1,6 @@
 #include "BlackoutEnemyCharacter.h"
+
+#include "AudioMixerBlueprintLibrary.h"
 #include "BlackoutAbilitySystemComponent.h"
 #include "Attributes/BlackoutBaseAttributeSet.h"
 #include "Data/BOMinionData.h"
@@ -8,11 +10,14 @@
 ABlackoutEnemyCharacter::ABlackoutEnemyCharacter()
 {
 	// 적은 자기 자신이 ASC를 소유
-	AbilitySystemComponent = CreateDefaultSubobject<UBlackoutAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
+	AbilitySystemComponent = CreateDefaultSubobject<
+		UBlackoutAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
 	AbilitySystemComponent->SetIsReplicated(true);
-	AbilitySystemComponent->SetReplicationMode(EGameplayEffectReplicationMode::Minimal);
+	AbilitySystemComponent->SetReplicationMode(
+		EGameplayEffectReplicationMode::Minimal);
 
-	BaseAttributeSet = CreateDefaultSubobject<UBlackoutBaseAttributeSet>(TEXT("BaseAttributeSet"));
+	BaseAttributeSet = CreateDefaultSubobject<UBlackoutBaseAttributeSet>(
+		TEXT("BaseAttributeSet"));
 	AbilitySystemComponent->AddAttributeSetSubobject(BaseAttributeSet.Get());
 }
 
@@ -28,9 +33,18 @@ void ABlackoutEnemyCharacter::BeginPlay()
 		if (BaseAttributeSet && MinionData)
 		{
 			AbilitySystemComponent->SetNumericAttributeBase(
-				UBlackoutBaseAttributeSet::GetMaxHealthAttribute(), MinionData->MaxHealth);
+				UBlackoutBaseAttributeSet::GetMaxHealthAttribute(),
+				MinionData->MaxHealth);
 			AbilitySystemComponent->SetNumericAttributeBase(
-				UBlackoutBaseAttributeSet::GetHealthAttribute(), MinionData->MaxHealth);
+				UBlackoutBaseAttributeSet::GetHealthAttribute(),
+				MinionData->MaxHealth);
+		}
+
+		// 데이터 에셋에 추가된 GA 일괄 부여 (서버 권한 가드는 GiveDefaultAbilities 내부 처리)
+		if (MinionData && MinionData->GrantedAbilities.Num() > 0)
+		{
+			AbilitySystemComponent->GiveDefaultAbilities(
+				MinionData->GrantedAbilities);
 		}
 	}
 }
@@ -41,14 +55,25 @@ void ABlackoutEnemyCharacter::OnSpawnFromPool_Implementation()
 	SetActorEnableCollision(true);
 	SetActorTickEnabled(true);
 
-	// HP를 최대치로 복구
-	if (AbilitySystemComponent && BaseAttributeSet && MinionData)
+	// HP / GA 둘다 재초기화
+	if (AbilitySystemComponent && MinionData)
 	{
-		AbilitySystemComponent->SetNumericAttributeBase(
-			UBlackoutBaseAttributeSet::GetMaxHealthAttribute(), MinionData->MaxHealth);
-		AbilitySystemComponent->SetNumericAttributeBase(
-			UBlackoutBaseAttributeSet::GetHealthAttribute(), MinionData->MaxHealth);
+		if (BaseAttributeSet)
+		{
+			AbilitySystemComponent->SetNumericAttributeBase(
+				UBlackoutBaseAttributeSet::GetMaxHealthAttribute(),
+				MinionData->MaxHealth);
+			AbilitySystemComponent->SetNumericAttributeBase(
+				UBlackoutBaseAttributeSet::GetHealthAttribute(),
+				MinionData->MaxHealth);
+		}
+		if (MinionData->GrantedAbilities.Num() > 0)
+		{
+			AbilitySystemComponent->GiveDefaultAbilities(
+				MinionData->GrantedAbilities);
+		}
 	}
+
 
 	BO_LOG_POOL(Verbose, "SpawnFromPool: %s", *GetName());
 }
