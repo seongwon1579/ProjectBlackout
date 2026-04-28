@@ -1,6 +1,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Characters/BlackoutEnemyCharacter.h"
+#include "GAS/Abilities/BlackoutEnemyGameplayAbility.h"
 #include "GAS/Abilities/BlackoutGameplayAbility.h"
 #include "BlackoutBossGameplayAbility.generated.h"
 
@@ -16,10 +18,8 @@
  *   이 클래스 한 곳에서 추가한다.
  */
 UCLASS(Abstract)
-class PROJECTBLACKOUT_API UBlackoutBossGameplayAbility : public UBlackoutGameplayAbility
+class PROJECTBLACKOUT_API UBlackoutBossGameplayAbility : public UBlackoutEnemyGameplayAbility
 {
 	GENERATED_BODY()
 
-public:
-	UBlackoutBossGameplayAbility();
 };
