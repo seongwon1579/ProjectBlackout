@@ -28,8 +28,14 @@ public:
 	/** 현재 액터에서 활성 중인 근접 어빌리티 인스턴스를 찾습니다. */
 	static UBlackoutGA_MeleePlayer* GetActiveMeleeAbilityFromActor(const AActor* OwnerActor);
 
-	/** 몽타주 히트 노티파이에서 호출됩니다. */
-	void HandleMeleeHitNotify();
+	/** 근접 공격창 시작 시 노티파이 스테이트에서 호출됩니다. */
+	void HandleMeleeAttackWindowBegin();
+
+	/** 근접 공격창 유지 중 노티파이 스테이트에서 매 프레임 호출됩니다. */
+	void HandleMeleeAttackWindowTick();
+
+	/** 근접 공격창 종료 시 노티파이 스테이트에서 호출됩니다. */
+	void HandleMeleeAttackWindowEnd();
 
 	/** 콤보 입력 윈도우 시작 노티파이에서 호출됩니다. */
 	void HandleComboWindowOpened();

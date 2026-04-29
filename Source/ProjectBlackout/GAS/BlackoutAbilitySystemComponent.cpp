@@ -67,7 +67,7 @@ void UBlackoutAbilitySystemComponent::HandleAbilityInputPressed(EBlackoutAbility
 			}
 
 			AbilitySpecInputPressed(AbilitySpec);
-			InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::InputPressed, AbilitySpec.Handle, AbilitySpec.ActivationInfo.GetActivationPredictionKey());
+			//InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::InputPressed, AbilitySpec.Handle, AbilitySpec.ActivationInfo.GetActivationPredictionKey());
 			continue;
 		}
 
@@ -109,7 +109,7 @@ void UBlackoutAbilitySystemComponent::HandleAbilityInputReleased(EBlackoutAbilit
 			}
 
 			AbilitySpecInputReleased(AbilitySpec);
-			InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::InputReleased, AbilitySpec.Handle, AbilitySpec.ActivationInfo.GetActivationPredictionKey());
+			//InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::InputReleased, AbilitySpec.Handle, AbilitySpec.ActivationInfo.GetActivationPredictionKey());
 		}
 	}
 }

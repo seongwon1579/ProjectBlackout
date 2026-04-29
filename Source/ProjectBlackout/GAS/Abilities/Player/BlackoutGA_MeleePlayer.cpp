@@ -61,7 +61,7 @@ void UBlackoutGA_MeleePlayer::ActivateAbility(const FGameplayAbilitySpecHandle H
 	if (!MeleeMontage)
 	{
 		BO_LOG_GAS(Warning, "GA_MeleePlayer failed: MeleeMontage가 비어 있음");
-		HandleMeleeHitNotify();
+		//HandleMeleeHitNotify();
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
 		return;
 	}
@@ -153,6 +153,8 @@ void UBlackoutGA_MeleePlayer::EndAbility(const FGameplayAbilitySpecHandle Handle
 		}
 	}
 
+	
+	
 	if (ActorInfo && ActorInfo->AvatarActor.IsValid())
 	{
 		if (ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()))
@@ -164,6 +166,7 @@ void UBlackoutGA_MeleePlayer::EndAbility(const FGameplayAbilitySpecHandle Handle
 
 			if (UBlackoutCombatComponent* CombatComponent = PlayerCharacter->GetCombatComponent())
 			{
+				CombatComponent->EndMeleeAttackWindow();
 				CombatComponent->EndMeleeWeaponAttachmentOverride();
 			}
 		}
@@ -221,6 +224,70 @@ UBlackoutGA_MeleePlayer* UBlackoutGA_MeleePlayer::GetActiveMeleeAbilityFromActor
 	return nullptr;
 }
 
+void UBlackoutGA_MeleePlayer::HandleMeleeAttackWindowBegin()
+{
+	BO_LOG_GAS(Log, "GA_MeleePlayer attack window begin");
+	
+	const ABlackoutPlayerCharacter* PlayerCharacter =
+		CurrentActorInfo ? Cast<ABlackoutPlayerCharacter>(CurrentActorInfo->AvatarActor.Get()) : nullptr;
+	
+	if (!PlayerCharacter || !PlayerCharacter->HasAuthority())
+	{
+		return;
+	}
+
+	if (UBlackoutCombatComponent* CombatComponent = PlayerCharacter->GetCombatComponent())
+	{
+		// 이번 공격창에서 사용할 데미지 스펙은 시작 시점에 1회 생성
+		const FGameplayEffectSpecHandle DamageSpecHandle = BuildDamageSpec();
+		if (!DamageSpecHandle.IsValid())
+		{
+			BO_LOG_GAS(Warning, "GA_MeleePlayer attack window begin skipped: 근접 데미지 스펙 생성 실패");
+			return;
+		}
+
+		// 전투 컴포넌트에 공격창 시작을 위임
+		CombatComponent->BeginMeleeAttackWindow(DamageSpecHandle);
+	}
+}
+
+void UBlackoutGA_MeleePlayer::HandleMeleeAttackWindowTick()
+{
+	const ABlackoutPlayerCharacter* PlayerCharacter =
+	CurrentActorInfo ? Cast<ABlackoutPlayerCharacter>(CurrentActorInfo->AvatarActor.Get()) : nullptr;
+	
+	if (!PlayerCharacter || !PlayerCharacter->HasAuthority())
+	{
+		return;
+	}
+	
+	if (UBlackoutCombatComponent* CombatComponent = PlayerCharacter->GetCombatComponent())
+	{
+		// 공격창 유지 동안 반복 스윕을 수행
+		CombatComponent->UpdateMeleeAttackWindow();
+	}
+}
+
+void UBlackoutGA_MeleePlayer::HandleMeleeAttackWindowEnd()
+{
+	BO_LOG_GAS(Log, "GA_MeleePlayer attack window end");
+	
+	const ABlackoutPlayerCharacter* PlayerCharacter =
+		CurrentActorInfo ? Cast<ABlackoutPlayerCharacter>(CurrentActorInfo->AvatarActor.Get()) : nullptr;
+	
+	if (!PlayerCharacter || !PlayerCharacter->HasAuthority())
+	{
+		return;
+	}
+
+	if (UBlackoutCombatComponent* CombatComponent = PlayerCharacter->GetCombatComponent())
+	{
+		// 전투 컴포넌트에 공격창 종료를 위임
+		CombatComponent->EndMeleeAttackWindow();
+	}
+}
+
+/*
 void UBlackoutGA_MeleePlayer::HandleMeleeHitNotify()
 {
 	BO_LOG_GAS(Log, "GA_MeleePlayer hit notify");
@@ -243,6 +310,7 @@ void UBlackoutGA_MeleePlayer::HandleMeleeHitNotify()
 		CombatComponent->PerformMeleeHit(DamageSpecHandle);
 	}
 }
+*/
 
 void UBlackoutGA_MeleePlayer::HandleComboWindowOpened()
 {
