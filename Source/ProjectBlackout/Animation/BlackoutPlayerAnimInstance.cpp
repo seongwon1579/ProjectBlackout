@@ -88,6 +88,13 @@ void UBlackoutPlayerAnimInstance::UpdateAimOffset(float DeltaSeconds)
 	if (!bIsAiming || !CombatComponent || !CombatComponent->GetEquippedFirearm())
 	{
 		ResetAimOffset();
+		ReplicateAimOffset(DeltaSeconds);
+		return;
+	}
+
+	if (!PlayerCharacter->IsLocallyControlled())
+	{
+		ApplyReplicatedAimOffset(DeltaSeconds);
 		return;
 	}
 
@@ -102,6 +109,8 @@ void UBlackoutPlayerAnimInstance::UpdateAimOffset(float DeltaSeconds)
 
 	AO_Yaw = FMath::FInterpTo(AO_Yaw, TargetYaw, DeltaSeconds, AO_InterpSpeed);
 	AO_Pitch = FMath::FInterpTo(AO_Pitch, TargetPitch, DeltaSeconds, AO_InterpSpeed);
+
+	ReplicateAimOffset(DeltaSeconds);
 }
 
 void UBlackoutPlayerAnimInstance::ResetAimOffset()
@@ -111,6 +120,39 @@ void UBlackoutPlayerAnimInstance::ResetAimOffset()
 	AimTargetLocation = FVector::ZeroVector;
 	AimTargetActor = nullptr;
 	bHasAimTarget = false;
+}
+
+void UBlackoutPlayerAnimInstance::ApplyReplicatedAimOffset(float DeltaSeconds)
+{
+	const FVector2D ReplicatedAimOffset = PlayerCharacter ? PlayerCharacter->GetReplicatedAimOffset() : FVector2D::ZeroVector;
+	AO_Yaw = FMath::FInterpTo(AO_Yaw, ReplicatedAimOffset.X, DeltaSeconds, AO_InterpSpeed);
+	AO_Pitch = FMath::FInterpTo(AO_Pitch, ReplicatedAimOffset.Y, DeltaSeconds, AO_InterpSpeed);
+}
+
+void UBlackoutPlayerAnimInstance::ReplicateAimOffset(float DeltaSeconds)
+{
+	if (!PlayerCharacter || !PlayerCharacter->IsLocallyControlled() || PlayerCharacter->HasAuthority())
+	{
+		return;
+	}
+
+	AimOffsetReplicationElapsed += DeltaSeconds;
+	const FVector2D CurrentAimOffset(AO_Yaw, AO_Pitch);
+	if (AimOffsetReplicationElapsed < AimOffsetReplicationInterval)
+	{
+		return;
+	}
+
+	const bool bAimOffsetChanged = (CurrentAimOffset - LastReplicatedAimOffset).SizeSquared() >= FMath::Square(AimOffsetReplicationTolerance);
+	if (!bAimOffsetChanged)
+	{
+		AimOffsetReplicationElapsed = 0.f;
+		return;
+	}
+
+	AimOffsetReplicationElapsed = 0.f;
+	LastReplicatedAimOffset = CurrentAimOffset;
+	PlayerCharacter->Server_SetAimOffset(CurrentAimOffset);
 }
 
 void UBlackoutPlayerAnimInstance::UpdateAimTarget()
