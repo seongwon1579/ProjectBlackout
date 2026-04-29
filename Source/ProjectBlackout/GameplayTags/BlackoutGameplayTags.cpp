@@ -50,8 +50,7 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_MeridianGrenade_Explosion, "GameplayCue.Weapon.MeridianGrenade.Explosion");
 	
 	// ─── Ravager Abilities ──────────────────────────────────────────────────────
-	UE_DEFINE_GAMEPLAY_TAG(Character_Enemy_Attack1, "Character.Enemy.Attack1");
-	UE_DEFINE_GAMEPLAY_TAG(Character_Enemy_Attack2, "Character.Enemy.Attack2");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Bite_Single, "Ability.Ravager.Bite.Single");
 	
 	// ─── Wraith Abilities ──────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Wraith_FireTwinArrows, "Ability.Wraith.FireTwinArrows");
