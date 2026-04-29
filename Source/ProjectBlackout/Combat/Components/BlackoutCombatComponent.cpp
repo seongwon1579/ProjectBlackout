@@ -4,6 +4,7 @@
 #include "AbilitySystemInterface.h"
 #include "BlackoutAbilitySystemComponent.h"
 #include "Characters/BlackoutPlayerCharacter.h"
+#include "Combat/Components/BlackoutHitboxComponent.h"
 #include "Combat/Weapons/BOFirearm.h"
 #include "Combat/Weapons/BOMeleeWeapon.h"
 #include "Combat/Weapons/BOWeaponBase.h"
@@ -14,6 +15,7 @@
 #include "GameFramework/Controller.h"
 #include "GameFramework/Pawn.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
+#include "Interfaces/BlackoutDamageable.h"
 #include "Net/UnrealNetwork.h"
 
 UBlackoutCombatComponent::UBlackoutCombatComponent()
@@ -227,11 +229,63 @@ void UBlackoutCombatComponent::TryReload()
 	HandleAbilityInputReleased(EBlackoutAbilityInputID::Reload);
 }
 
-void UBlackoutCombatComponent::PerformMeleeHit()
+void UBlackoutCombatComponent::PerformMeleeHit(const FGameplayEffectSpecHandle& DamageSpecHandle)
 {
-	if (MeleeWeapon && GetOwner())
+	if (!GetOwner() || !GetOwner()->HasAuthority())
 	{
-		MeleeWeapon->PerformSweep(GetOwner()->GetActorForwardVector());
+		return;
+	}
+
+	if (!MeleeWeapon)
+	{
+		return;
+	}
+
+	if (!DamageSpecHandle.IsValid())
+	{
+		return;
+	}
+
+	const TArray<FHitResult> HitResults = MeleeWeapon->PerformSweep(GetOwner()->GetActorForwardVector());
+	TSet<TWeakObjectPtr<UPrimitiveComponent>> ProcessedComponents;
+	TSet<TWeakObjectPtr<AActor>> ProcessedActors;
+
+	for (const FHitResult& HitResult : HitResults)
+	{
+		UPrimitiveComponent* HitComponent = HitResult.GetComponent();
+		AActor* HitActor = HitResult.GetActor();
+		if (!HitComponent && !HitActor)
+		{
+			continue;
+		}
+
+		if (UBlackoutHitboxComponent* HitboxComponent = Cast<UBlackoutHitboxComponent>(HitComponent))
+		{
+			AActor* HitboxOwner = HitboxComponent->GetOwner();
+			if (ProcessedComponents.Contains(HitboxComponent) || (HitboxOwner && ProcessedActors.Contains(HitboxOwner)))
+			{
+				continue;
+			}
+
+			ProcessedComponents.Add(HitboxComponent);
+			if (HitboxOwner)
+			{
+				ProcessedActors.Add(HitboxOwner);
+			}
+			HitboxComponent->ReceiveDamageSpec(DamageSpecHandle);
+			continue;
+		}
+
+		if (!HitActor || ProcessedActors.Contains(HitActor))
+		{
+			continue;
+		}
+
+		if (IBlackoutDamageable* Damageable = Cast<IBlackoutDamageable>(HitActor))
+		{
+			ProcessedActors.Add(HitActor);
+			Damageable->ReceiveDamageFromHitbox(DamageSpecHandle, HitResult.BoneName);
+		}
 	}
 }
 

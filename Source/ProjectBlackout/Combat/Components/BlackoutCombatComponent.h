@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "Core/BlackoutTypes.h"
+#include "GameplayEffectTypes.h"
 #include "GameplayTagContainer.h"
 #include "TimerManager.h"
 #include "BlackoutCombatComponent.generated.h"
@@ -59,7 +60,7 @@ public:
 	void TryReload();
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
-	void PerformMeleeHit();
+	void PerformMeleeHit(const FGameplayEffectSpecHandle& DamageSpecHandle);
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	void CommitPendingWeaponSwap();

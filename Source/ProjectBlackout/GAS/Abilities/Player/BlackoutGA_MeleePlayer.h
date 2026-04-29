@@ -2,10 +2,12 @@
 
 #include "CoreMinimal.h"
 #include "GAS/Abilities/BlackoutGameplayAbility.h"
+#include "GameplayEffectTypes.h"
 #include "BlackoutGA_MeleePlayer.generated.h"
 
 class UAnimMontage;
 class UAnimInstance;
+class UGameplayEffect;
 
 /**
  * 플레이어 근접 공격 게임플레이 어빌리티 (TDD v5 §4.1)
@@ -42,10 +44,15 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
 	TArray<FName> ComboSectionNames;
 
+	/** 근접 타격 시 적용할 데미지 GameplayEffect 클래스 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
+	TSubclassOf<UGameplayEffect> DamageEffectClass;
+
 	UFUNCTION()
 	void OnMeleeMontageEnded(UAnimMontage* Montage, bool bInterrupted);
 
 private:
+	FGameplayEffectSpecHandle BuildDamageSpec() const;
 	bool JumpToNextComboSection();
 	void ResetComboState();
 	UAnimInstance* GetAvatarAnimInstance() const;

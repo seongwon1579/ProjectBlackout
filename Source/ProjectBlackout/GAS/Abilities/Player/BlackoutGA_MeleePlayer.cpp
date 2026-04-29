@@ -6,6 +6,7 @@
 #include "Animation/AnimMontage.h"
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
+#include "Combat/Weapons/BOMeleeWeapon.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Core/BlackoutLog.h"
 #include "GameFramework/Character.h"
@@ -225,9 +226,21 @@ void UBlackoutGA_MeleePlayer::HandleMeleeHitNotify()
 	BO_LOG_GAS(Log, "GA_MeleePlayer hit notify");
 
 	const ABlackoutPlayerCharacter* PlayerCharacter = CurrentActorInfo ? Cast<ABlackoutPlayerCharacter>(CurrentActorInfo->AvatarActor.Get()) : nullptr;
+	if (!PlayerCharacter || !PlayerCharacter->HasAuthority())
+	{
+		return;
+	}
+
 	if (UBlackoutCombatComponent* CombatComponent = PlayerCharacter ? PlayerCharacter->GetCombatComponent() : nullptr)
 	{
-		CombatComponent->PerformMeleeHit();
+		const FGameplayEffectSpecHandle DamageSpecHandle = BuildDamageSpec();
+		if (!DamageSpecHandle.IsValid())
+		{
+			BO_LOG_GAS(Warning, "GA_MeleePlayer hit notify skipped: 근접 데미지 스펙 생성 실패");
+			return;
+		}
+
+		CombatComponent->PerformMeleeHit(DamageSpecHandle);
 	}
 }
 
@@ -366,4 +379,40 @@ UAnimInstance* UBlackoutGA_MeleePlayer::GetAvatarAnimInstance() const
 	const ACharacter* Character = CurrentActorInfo ? Cast<ACharacter>(CurrentActorInfo->AvatarActor.Get()) : nullptr;
 	USkeletalMeshComponent* MeshComponent = Character ? Character->GetMesh() : nullptr;
 	return MeshComponent ? MeshComponent->GetAnimInstance() : nullptr;
+}
+
+FGameplayEffectSpecHandle UBlackoutGA_MeleePlayer::BuildDamageSpec() const
+{
+	FGameplayEffectSpecHandle SpecHandle;
+
+	if (!DamageEffectClass)
+	{
+		BO_LOG_GAS(Warning, "GA_MeleePlayer BuildDamageSpec failed: DamageEffectClass가 비어 있음");
+		return SpecHandle;
+	}
+
+	const ABlackoutPlayerCharacter* PlayerCharacter = CurrentActorInfo ? Cast<ABlackoutPlayerCharacter>(CurrentActorInfo->AvatarActor.Get()) : nullptr;
+	const UBlackoutCombatComponent* CombatComponent = PlayerCharacter ? PlayerCharacter->GetCombatComponent() : nullptr;
+	const ABOMeleeWeapon* MeleeWeapon = CombatComponent ? CombatComponent->GetMeleeWeapon() : nullptr;
+	if (!MeleeWeapon)
+	{
+		BO_LOG_GAS(Warning, "GA_MeleePlayer BuildDamageSpec failed: 근접 무기가 없음");
+		return SpecHandle;
+	}
+
+	if (!GetAbilitySystemComponentFromActorInfo())
+	{
+		BO_LOG_GAS(Warning, "GA_MeleePlayer BuildDamageSpec failed: ASC가 비어 있음");
+		return SpecHandle;
+	}
+
+	SpecHandle = MakeOutgoingGameplayEffectSpec(DamageEffectClass, GetAbilityLevel());
+	if (!SpecHandle.IsValid())
+	{
+		BO_LOG_GAS(Warning, "GA_MeleePlayer BuildDamageSpec failed: GameplayEffectSpec 생성 실패");
+		return SpecHandle;
+	}
+
+	SpecHandle.Data->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Damage, MeleeWeapon->GetBaseDamage());
+	return SpecHandle;
 }
