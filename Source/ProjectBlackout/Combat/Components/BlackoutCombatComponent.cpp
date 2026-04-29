@@ -493,6 +493,120 @@ void UBlackoutCombatComponent::HandleWeaponSwapMontageEnded(bool bInterrupted)
 	bIsWeaponSwapInProgress = false;
 }
 
+void UBlackoutCombatComponent::BeginMeleeAttackWindow(const FGameplayEffectSpecHandle& DamageSpecHandle)
+{
+	// 혹시 이전 공격창 상태가 남아 있으면 먼저 정리
+	EndMeleeAttackWindow();
+	
+	if (!GetOwner() || !GetOwner()->HasAuthority())
+	{
+		return;
+	}
+	
+	if (!MeleeWeapon)
+	{
+		return;
+	}
+
+	
+	if (!DamageSpecHandle.IsValid())
+	{
+		return;
+	}
+
+	// 이번 공격창에서 재사용할 데미지 스펙 저장
+	ActiveMeleeDamageSpecHandle = DamageSpecHandle;
+
+	// 이번 공격창 중복 피격 방지 집합 초기화
+	ProcessedMeleeHitComponents.Reset();
+	ProcessedMeleeHitActors.Reset();
+
+	// 공격창 활성화
+	bMeleeAttackWindowActive = true;
+	
+}
+
+void UBlackoutCombatComponent::UpdateMeleeAttackWindow()
+{
+	if (!bMeleeAttackWindowActive)
+	{
+		return;
+	}
+
+	// 서버만 실제 데미지 판정을 수행
+	if (!GetOwner() || !GetOwner()->HasAuthority())
+	{
+		return;
+	}
+
+	// 공격창이 열려 있어도 무기나 스펙이 없으면 진행 불가
+	if (!MeleeWeapon || !ActiveMeleeDamageSpecHandle.IsValid())
+	{
+		return;
+	}
+
+	// 현재 프레임 기준으로 근접 무기 스윕 수행
+	const TArray<FHitResult> HitResults = MeleeWeapon->PerformSweep(GetOwner()->GetActorForwardVector());
+
+	for (const FHitResult& HitResult : HitResults)
+	{
+		UPrimitiveComponent* HitComponent = HitResult.GetComponent();
+		AActor* HitActor = HitResult.GetActor();
+
+		// 히트박스 컴포넌트가 잡힌 경우
+		if (UBlackoutHitboxComponent* HitboxComponent = Cast<UBlackoutHitboxComponent>(HitComponent))
+		{
+			AActor* HitboxOwner = HitboxComponent->GetOwner();
+
+			// 같은 공격창 안에서 이미 처리한 히트박스/액터면 중복 피해 방지
+			if (ProcessedMeleeHitComponents.Contains(HitboxComponent)
+				|| (HitboxOwner && ProcessedMeleeHitActors.Contains(HitboxOwner)))
+			{
+				continue;
+			}
+
+			// 이번 공격창에서 이미 맞은 대상 목록에 기록
+			ProcessedMeleeHitComponents.Add(HitboxComponent);
+			if (HitboxOwner)
+			{
+				ProcessedMeleeHitActors.Add(HitboxOwner);
+			}
+
+			// 히트박스 컴포넌트 경유 데미지 전달
+			HitboxComponent->ReceiveDamageSpec(ActiveMeleeDamageSpecHandle);
+			continue;
+		}
+
+		// 히트박스가 아닌 일반 액터인 경우
+		if (!HitActor || ProcessedMeleeHitActors.Contains(HitActor))
+		{
+			continue;
+		}
+
+		if (IBlackoutDamageable* Damageable = Cast<IBlackoutDamageable>(HitActor))
+		{
+			// 같은 공격창 안에서 동일 액터 중복 피해 방지
+			ProcessedMeleeHitActors.Add(HitActor);
+
+			// 본 정보가 있으면 함께 전달
+			Damageable->ReceiveDamageFromHitbox(ActiveMeleeDamageSpecHandle, HitResult.BoneName);
+		}
+	}
+	
+}
+
+void UBlackoutCombatComponent::EndMeleeAttackWindow()
+{
+	// 공격창 비활성화
+	bMeleeAttackWindowActive = false;
+
+	// 이번 공격창용 임시 상태 정리
+	ActiveMeleeDamageSpecHandle = FGameplayEffectSpecHandle();
+	ProcessedMeleeHitComponents.Reset();
+	ProcessedMeleeHitActors.Reset();
+	
+}
+
 ABOWeaponBase* UBlackoutCombatComponent::SpawnWeaponActor(TSubclassOf<ABOWeaponBase> WeaponClass)
 {
 	if (!WeaponClass || !GetWorld() || !GetOwner())
@@ -636,7 +750,8 @@ bool UBlackoutCombatComponent::CanStartAim() const
 
 	return !AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Sprinting)
 		&& !AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Downed)
-		&& !AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Locked);
+		&& !AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Locked)
+		&& !AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Attacking);
 }
 
 float UBlackoutCombatComponent::GetEquippedClipAmmo() const

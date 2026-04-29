@@ -109,6 +109,16 @@ public:
 
 	void HandleWeaponSwapMontageEnded(bool bInterrupted);
 
+	// 근접 공격 윈도우 
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	void BeginMeleeAttackWindow(const FGameplayEffectSpecHandle& DamageSpecHandle);
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	void UpdateMeleeAttackWindow();
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	void EndMeleeAttackWindow();
+	
 protected:
 	UFUNCTION()
 	void OnRep_EquippedWeapon();
@@ -166,6 +176,19 @@ private:
 	void HandleAbilityInputPressed(EBlackoutAbilityInputID InputID) const;
 	void HandleAbilityInputReleased(EBlackoutAbilityInputID InputID) const;
 
+	
+	// 현재 열려 있는 근접 공격창에서 사용할 데미지 스펙
+	FGameplayEffectSpecHandle ActiveMeleeDamageSpecHandle;
+
+	// 같은 공격창 안에서 동일 히트박스 중복 피격을 막기 위한 집합
+	TSet<TWeakObjectPtr<UPrimitiveComponent>> ProcessedMeleeHitComponents;
+
+	// 같은 공격창 안에서 동일 액터 중복 피격을 막기 위한 집합
+	TSet<TWeakObjectPtr<AActor>> ProcessedMeleeHitActors;
+
+	// 현재 근접 공격창이 열려 있는지 여부
+	bool bMeleeAttackWindowActive = false;
+	
 	UPROPERTY(Transient)
 	EBlackoutAbilityInputID ActivePrimaryActionInputID = EBlackoutAbilityInputID::None;
 
