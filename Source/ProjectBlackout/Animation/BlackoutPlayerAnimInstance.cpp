@@ -29,40 +29,16 @@ void UBlackoutPlayerAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 
 	// GAS 태그 상태 업데이트
 	bIsTwoHanded = false;
-	bHasLeftHandIKTarget = false;
-	LeftHandIKLocation = FVector::ZeroVector;
-	LeftHandIKRotation = FRotator::ZeroRotator;
 
-	if (const UBlackoutCombatComponent* CombatComponent = PlayerCharacter->GetCombatComponent())
+	const UBlackoutCombatComponent* CombatComponent = PlayerCharacter->GetCombatComponent();
+	if (CombatComponent)
 	{
 		bIsAiming = CombatComponent->IsAiming();
 		const FGameplayTag EquippedWeaponSlotTag = CombatComponent->GetEquippedWeaponSlotTag();
 		bIsTwoHanded = EquippedWeaponSlotTag == BlackoutGameplayTags::Weapon_Primary;
-
-		const ABOWeaponBase* EquippedWeapon = CombatComponent->GetEquippedWeapon();
-		USkeletalMeshComponent* CharacterMesh = PlayerCharacter->GetMesh();
-		const bool bWeaponHasLeftHandIKTarget = EquippedWeapon && EquippedWeapon->HasLeftHandIKTarget();
-
-		if (bWeaponHasLeftHandIKTarget && CharacterMesh)
-		{
-			const FTransform LeftHandIKWorldTransform = EquippedWeapon->GetLeftHandIKTransform();
-			if (CharacterMesh->GetBoneIndex(LeftHandIKReferenceBoneName) != INDEX_NONE)
-			{
-				const FTransform ReferenceBoneWorldTransform = CharacterMesh->GetSocketTransform(LeftHandIKReferenceBoneName, RTS_World);
-				CharacterMesh->TransformToBoneSpace(
-					LeftHandIKReferenceBoneName,
-					LeftHandIKWorldTransform.GetLocation(),
-					LeftHandIKWorldTransform.Rotator(),
-					LeftHandIKLocation,
-					LeftHandIKRotation);
-
-				const FQuat LeftHandIKRelativeRotation = ReferenceBoneWorldTransform.GetRotation().Inverse() * LeftHandIKWorldTransform.GetRotation();
-				LeftHandIKRotation = LeftHandIKRelativeRotation.Rotator();
-
-				bHasLeftHandIKTarget = true;
-			}
-		}
 	}
+
+	UpdateLeftHandIK(CombatComponent);
 
 	if (UAbilitySystemComponent* ASC = PlayerCharacter->GetAbilitySystemComponent())
 	{
@@ -153,6 +129,44 @@ void UBlackoutPlayerAnimInstance::ReplicateAimOffset(float DeltaSeconds)
 	AimOffsetReplicationElapsed = 0.f;
 	LastReplicatedAimOffset = CurrentAimOffset;
 	PlayerCharacter->Server_SetAimOffset(CurrentAimOffset);
+}
+
+void UBlackoutPlayerAnimInstance::UpdateLeftHandIK(const UBlackoutCombatComponent* CombatComponent)
+{
+	bHasLeftHandIKTarget = false;
+	LeftHandIKLocation = FVector::ZeroVector;
+	LeftHandIKRotation = FRotator::ZeroRotator;
+
+	if (!PlayerCharacter || !CombatComponent)
+	{
+		return;
+	}
+
+	const ABOWeaponBase* EquippedWeapon = CombatComponent->GetEquippedWeapon();
+	USkeletalMeshComponent* CharacterMesh = PlayerCharacter->GetMesh();
+	if (!EquippedWeapon || !EquippedWeapon->HasLeftHandIKTarget() || !CharacterMesh)
+	{
+		return;
+	}
+
+	if (CharacterMesh->GetBoneIndex(LeftHandIKReferenceBoneName) == INDEX_NONE)
+	{
+		return;
+	}
+
+	const FTransform LeftHandIKWorldTransform = EquippedWeapon->GetLeftHandIKTransform();
+	const FTransform ReferenceBoneWorldTransform = CharacterMesh->GetSocketTransform(LeftHandIKReferenceBoneName, RTS_World);
+	CharacterMesh->TransformToBoneSpace(
+		LeftHandIKReferenceBoneName,
+		LeftHandIKWorldTransform.GetLocation(),
+		LeftHandIKWorldTransform.Rotator(),
+		LeftHandIKLocation,
+		LeftHandIKRotation);
+
+	const FQuat LeftHandIKRelativeRotation = ReferenceBoneWorldTransform.GetRotation().Inverse() * LeftHandIKWorldTransform.GetRotation();
+	LeftHandIKRotation = LeftHandIKRelativeRotation.Rotator();
+
+	bHasLeftHandIKTarget = true;
 }
 
 void UBlackoutPlayerAnimInstance::UpdateAimTarget()

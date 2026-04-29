@@ -6,6 +6,7 @@
 
 class ABlackoutPlayerCharacter;
 class AActor;
+class UBlackoutCombatComponent;
 
 /**
  * 플레이어 캐릭터 전용 애니메이션 인스턴스.
@@ -32,6 +33,9 @@ protected:
 
 	/** 로컬 에임 오프셋 값을 서버에 송신합니다. */
 	void ReplicateAimOffset(float DeltaSeconds);
+
+	/** 현재 장착 무기 기준 왼손 IK 값을 갱신합니다. */
+	void UpdateLeftHandIK(const UBlackoutCombatComponent* CombatComponent);
 
 	/** 카메라 중앙 기준 에임 목표 지점을 갱신합니다. */
 	void UpdateAimTarget();
