@@ -1,4 +1,5 @@
 #include "BlackoutBossCharacter.h"
+#include "AI/BOAggroComponent.h"
 #include "Data/BOBossData.h"
 #include "GAS/BlackoutAbilitySystemComponent.h"
 #include "GameplayEffect.h"
@@ -10,6 +11,7 @@ ABlackoutBossCharacter::ABlackoutBossCharacter()
 	PhaseIndex = 0;
 
 	MotionWarpingComponent = CreateDefaultSubobject<UMotionWarpingComponent>(TEXT("MotionWarpingComponent"));
+	AggroComponent = CreateDefaultSubobject<UBOAggroComponent>(TEXT("AggroComponent"));
 }
 
 void ABlackoutBossCharacter::BeginPlay()
@@ -18,15 +20,13 @@ void ABlackoutBossCharacter::BeginPlay()
 
 	if (HasAuthority() && GetAbilitySystemComponent())
 	{
-		// 델리게이트 바인딩 (ASC 측 구현에 맞게 조정 필요)
-		// GetAbilitySystemComponent()->OnGameplayEffectAppliedDelegateToSelf.AddUObject(
-		//     this, &ABlackoutBossCharacter::OnDamageReceived);
+		GetAbilitySystemComponent()->OnGameplayEffectAppliedDelegateToSelf.AddUObject(
+			this, &ABlackoutBossCharacter::OnDamageReceived);
 	}
 }
 
 void ABlackoutBossCharacter::OnReturnToPool_Implementation()
 {
-	// 보스는 풀링 대상이 아님. 풀 반환 대신 즉시 제거.
 	Destroy();
 }
 
@@ -35,6 +35,24 @@ void ABlackoutBossCharacter::OnDamageReceived(UAbilitySystemComponent* Source,
                                               FActiveGameplayEffectHandle Handle)
 {
 	EvaluatePhaseTransition();
+
+	if (AggroComponent)
+	{
+		AActor* SourceActor = Spec.GetContext().GetInstigator();
+		APawn* InstigatorPawn = Cast<APawn>(SourceActor);
+		if (!InstigatorPawn)
+		{
+			if (AController* SourceController = Cast<AController>(SourceActor))
+			{
+				InstigatorPawn = SourceController->GetPawn();
+			}
+		}
+
+		if (InstigatorPawn)
+		{
+			AggroComponent->AddThreat(InstigatorPawn, 1.f);
+		}
+	}
 }
 
 void ABlackoutBossCharacter::EvaluatePhaseTransition()
@@ -51,8 +69,8 @@ void ABlackoutBossCharacter::EvaluatePhaseTransition()
 	//     if (HealthRatio <= BossData->PhaseHealthCutlines[PhaseIndex])
 	//     {
 	//         PhaseIndex++;
-	//         // EBossPhase NextPhase = DetermineNextPhase(PhaseIndex);
-	//         // OnPhaseChanged(NextPhase);
+	//         EBossPhase NextPhase = DetermineNextPhase(PhaseIndex);
+	//         OnPhaseChanged(NextPhase);
 	//     }
 	// }
 }

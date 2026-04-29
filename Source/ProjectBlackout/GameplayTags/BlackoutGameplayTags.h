@@ -53,8 +53,7 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Weapon_MeridianGrenade_Explosion);
 	
 	// ─── Ravager Abilities ─────────────────────────────────────────────────────────
-	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_Enemy_Attack1);
-	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_Enemy_Attack2);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_Bite_Single);
 	
 	// ─── Wraith Abilities ─────────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Wraith_FireTwinArrows);

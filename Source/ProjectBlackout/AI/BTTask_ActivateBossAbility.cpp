@@ -36,12 +36,14 @@ EBTNodeResult::Type UBTTask_ActivateBossAbility::ExecuteTask(UBehaviorTreeCompon
 
 	if (!Pipeline->Execute(Data)) return EBTNodeResult::Failed;
 
-	// ── 3. GA 실행 ───────────────────────────────────────────────────────
+	// ── 3. GA 실행 (타겟을 EventData에 담아 HandleGameplayEvent로 전달) ──
 	UAbilitySystemComponent* ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(AI->GetPawn());
 	if (!ASC) return EBTNodeResult::Failed;
 
-	const bool bActivated = ASC->TryActivateAbilitiesByTag(FGameplayTagContainer(AbilityTag));
-	if (!bActivated) return EBTNodeResult::Failed;
+	FGameplayEventData EventData;
+	EventData.Target = BBTarget;
+	const int32 TriggeredCount = ASC->HandleGameplayEvent(AbilityTag, &EventData);
+	if (TriggeredCount == 0) return EBTNodeResult::Failed;
 	if (!bWaitForEnd) return EBTNodeResult::Succeeded;
 
 	// ── 4. GA 종료 대기 (델리게이트 바인딩) ──────────────────────────────────

@@ -8,6 +8,7 @@
 
 class UBOBossData;
 class UMotionWarpingComponent;
+class UBOAggroComponent;
 struct FGameplayEffectSpec;
 
 UENUM(BlueprintType)
@@ -25,7 +26,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnBossPhaseChangedSignature, EBossP
 
 /**
  * 보스 캐릭터(Shrewd, Ravager) 베이스 클래스.
- * 수신된 피해를 기반으로 페이즈 전환을 관리.
+ * 수신된 피해를 기반으로 페이즈 전환 및 어그로를 관리한다.
  */
 UCLASS(Abstract)
 class PROJECTBLACKOUT_API ABlackoutBossCharacter : public ABlackoutEnemyCharacter
@@ -39,25 +40,22 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category = "Blackout|Boss")
 	FOnBossPhaseChangedSignature OnPhaseChangedDelegate;
-	
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|MotionWarping")
 	TObjectPtr<UMotionWarpingComponent> MotionWarpingComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Aggro")
+	TObjectPtr<UBOAggroComponent> AggroComponent;
 
 protected:
 	virtual void BeginPlay() override;
 
-	/** 피해 수신 시 페이즈 전환 조건을 확인하기 위해 호출됨 */
 	virtual void OnDamageReceived(UAbilitySystemComponent* Source,
 	                              const FGameplayEffectSpec& Spec,
 	                              FActiveGameplayEffectHandle Handle);
 
-	/** 체력 컷라인 기준으로 페이즈 전환 여부를 평가 */
 	virtual void EvaluatePhaseTransition();
-
-	/** 자식 클래스에서 오버라이드하여 페이즈 전환 전용 로직 처리 */
 	virtual void OnPhaseChanged(EBossPhase NewPhase);
-
-	/** 페이즈 변경 이벤트를 브로드캐스트 */
 	void BroadcastOnPhaseChanged();
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Boss")
