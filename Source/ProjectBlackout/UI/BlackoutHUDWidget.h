@@ -42,6 +42,9 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Equipped Weapon Changed"), Category = "Blackout|HUD")
 	void ReceiveEquippedWeaponChanged(ABOWeaponBase* EquippedWeapon, FGameplayTag WeaponSlotTag);
 
+	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Aiming Changed"), Category = "Blackout|HUD")
+	void ReceiveAimingChanged(bool bIsAiming);
+
 private:
 	void UnbindWidgetControllerCallbacks();
 
@@ -56,4 +59,7 @@ private:
 
 	UFUNCTION()
 	void HandleEquippedWeaponChanged(ABOWeaponBase* EquippedWeapon, FGameplayTag WeaponSlotTag);
+
+	UFUNCTION()
+	void HandleAimingChanged(bool bIsAiming);
 };

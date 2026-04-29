@@ -671,6 +671,8 @@ void UBlackoutCombatComponent::ApplyAimingState(bool bNewAiming)
 	{
 		PlayerCharacter->HandleAimStateChanged(bIsAiming);
 	}
+
+	OnAimingChanged.Broadcast(bIsAiming);
 }
 
 EBlackoutAbilityInputID UBlackoutCombatComponent::ResolvePrimaryActionInputID() const

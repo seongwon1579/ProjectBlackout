@@ -20,6 +20,7 @@ class UBlackoutPlayerAttributeSet;
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FBlackoutHUDValueChangedSignature, float, CurrentValue, float, MaxValue);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FBlackoutHUDAmmoChangedSignature, int32, ClipAmmo, int32, MaxClipAmmo, int32, ReserveAmmo);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FBlackoutHUDWeaponChangedSignature, ABOWeaponBase*, EquippedWeapon, FGameplayTag, WeaponSlotTag);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FBlackoutHUDBoolChangedSignature, bool, bNewValue);
 
 UCLASS(BlueprintType)
 class PROJECTBLACKOUT_API UBlackoutHUDWidgetController : public UObject
@@ -48,9 +49,15 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Blackout|HUD")
 	FBlackoutHUDWeaponChangedSignature OnEquippedWeaponChanged;
 
+	UPROPERTY(BlueprintAssignable, Category = "Blackout|HUD")
+	FBlackoutHUDBoolChangedSignature OnAimingChanged;
+
 protected:
 	UFUNCTION()
 	void HandleEquippedWeaponChanged(ABOWeaponBase* EquippedWeapon, FGameplayTag WeaponSlotTag);
+
+	UFUNCTION()
+	void HandleAimingChanged(bool bIsAiming);
 
 private:
 	bool ResolveDependencies(APlayerController* InPlayerController);
@@ -58,6 +65,7 @@ private:
 	void BroadcastStamina() const;
 	void BroadcastAmmo() const;
 	void BroadcastEquippedWeapon() const;
+	void BroadcastAiming() const;
 	float GetAttributeValue(const FGameplayAttribute& Attribute) const;
 	FGameplayTag GetEquippedWeaponSlotTag() const;
 

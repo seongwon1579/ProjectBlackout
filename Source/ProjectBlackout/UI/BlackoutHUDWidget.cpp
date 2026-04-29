@@ -30,6 +30,7 @@ void UBlackoutHUDWidget::SetWidgetController(UBlackoutHUDWidgetController* InWid
 	WidgetController->OnStaminaChanged.AddDynamic(this, &UBlackoutHUDWidget::HandleStaminaChanged);
 	WidgetController->OnAmmoChanged.AddDynamic(this, &UBlackoutHUDWidget::HandleAmmoChanged);
 	WidgetController->OnEquippedWeaponChanged.AddDynamic(this, &UBlackoutHUDWidget::HandleEquippedWeaponChanged);
+	WidgetController->OnAimingChanged.AddDynamic(this, &UBlackoutHUDWidget::HandleAimingChanged);
 
 	ReceiveWidgetControllerSet();
 }
@@ -45,6 +46,7 @@ void UBlackoutHUDWidget::UnbindWidgetControllerCallbacks()
 	WidgetController->OnStaminaChanged.RemoveAll(this);
 	WidgetController->OnAmmoChanged.RemoveAll(this);
 	WidgetController->OnEquippedWeaponChanged.RemoveAll(this);
+	WidgetController->OnAimingChanged.RemoveAll(this);
 }
 
 void UBlackoutHUDWidget::HandleHealthChanged(float CurrentHealth, float MaxHealth)
@@ -65,4 +67,9 @@ void UBlackoutHUDWidget::HandleAmmoChanged(int32 ClipAmmo, int32 MaxClipAmmo, in
 void UBlackoutHUDWidget::HandleEquippedWeaponChanged(ABOWeaponBase* EquippedWeapon, FGameplayTag WeaponSlotTag)
 {
 	ReceiveEquippedWeaponChanged(EquippedWeapon, WeaponSlotTag);
+}
+
+void UBlackoutHUDWidget::HandleAimingChanged(bool bIsAiming)
+{
+	ReceiveAimingChanged(bIsAiming);
 }

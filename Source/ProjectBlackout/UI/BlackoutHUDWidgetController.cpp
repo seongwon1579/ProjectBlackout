@@ -61,6 +61,7 @@ void UBlackoutHUDWidgetController::BindCallbacksToDependencies()
 	if (UBlackoutCombatComponent* BlackoutCombatComponent = CombatComponent.Get())
 	{
 		BlackoutCombatComponent->OnEquippedWeaponChanged.AddDynamic(this, &UBlackoutHUDWidgetController::HandleEquippedWeaponChanged);
+		BlackoutCombatComponent->OnAimingChanged.AddDynamic(this, &UBlackoutHUDWidgetController::HandleAimingChanged);
 	}
 	else
 	{
@@ -76,12 +77,18 @@ void UBlackoutHUDWidgetController::BroadcastInitialValues()
 	BroadcastStamina();
 	BroadcastAmmo();
 	BroadcastEquippedWeapon();
+	BroadcastAiming();
 }
 
 void UBlackoutHUDWidgetController::HandleEquippedWeaponChanged(ABOWeaponBase* EquippedWeapon, FGameplayTag WeaponSlotTag)
 {
 	OnEquippedWeaponChanged.Broadcast(EquippedWeapon, WeaponSlotTag);
 	BroadcastAmmo();
+}
+
+void UBlackoutHUDWidgetController::HandleAimingChanged(bool bIsAiming)
+{
+	OnAimingChanged.Broadcast(bIsAiming);
 }
 
 bool UBlackoutHUDWidgetController::ResolveDependencies(APlayerController* InPlayerController)
@@ -188,6 +195,12 @@ void UBlackoutHUDWidgetController::BroadcastEquippedWeapon() const
 	}
 
 	OnEquippedWeaponChanged.Broadcast(EquippedWeapon, GetEquippedWeaponSlotTag());
+}
+
+void UBlackoutHUDWidgetController::BroadcastAiming() const
+{
+	const UBlackoutCombatComponent* BlackoutCombatComponent = CombatComponent.Get();
+	OnAimingChanged.Broadcast(BlackoutCombatComponent ? BlackoutCombatComponent->IsAiming() : false);
 }
 
 float UBlackoutHUDWidgetController::GetAttributeValue(const FGameplayAttribute& Attribute) const
