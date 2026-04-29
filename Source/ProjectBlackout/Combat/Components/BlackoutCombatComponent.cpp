@@ -750,7 +750,8 @@ bool UBlackoutCombatComponent::CanStartAim() const
 
 	return !AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Sprinting)
 		&& !AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Downed)
-		&& !AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Locked);
+		&& !AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Locked)
+		&& !AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Attacking);
 }
 
 float UBlackoutCombatComponent::GetEquippedClipAmmo() const
