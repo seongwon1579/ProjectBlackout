@@ -52,7 +52,7 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Weapon_Reload);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Weapon_MeridianGrenade_Explosion);
 	
-	// ─── Character Enemy Attack ─────────────────────────────────────────────────────────
+	// ─── Ravager Abilities ─────────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_Enemy_Attack1);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_Enemy_Attack2);
 	
@@ -67,6 +67,10 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Wraith_Teleport_End);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Wraith_BowShove);
 	
-	// ─── Wraith State ───────────────────────────────────────────────────────── 
+	// ─── Wraith State ─────────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Wraith_Invulnerable);
+
+	// ─── Attack Events ────────────────────────────────────────────────────
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Enemy_Attack_SweepStart);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Enemy_Attack_SweepEnd);
 }
