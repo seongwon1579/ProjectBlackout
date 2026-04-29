@@ -29,6 +29,7 @@ public:
 	ABlackoutPlayerCharacter();
 	
 	virtual void BeginPlay() override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	virtual void PossessedBy(AController* NewController) override;
 	virtual void OnRep_PlayerState() override;
@@ -77,6 +78,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
 	bool StopMeleeMontage(UAnimMontage* Montage, float BlendOutTime = 0.1f);
 
+	UFUNCTION(Server, Unreliable, Category = "Blackout|Animation")
+	void Server_SetAimOffset(FVector2D NewAimOffset);
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|Animation")
+	FVector2D GetReplicatedAimOffset() const { return ReplicatedAimOffset; }
+
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
 	void CommitPendingWeaponSwap();
 
@@ -100,6 +107,10 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Components")
 	TObjectPtr<UBlackoutCombatComponent> CombatComponent;
+
+	/** 원격 클라이언트에서 플레이어 에임 오프셋을 재생하기 위한 복제 값입니다. */
+	UPROPERTY(Transient, Replicated, BlueprintReadOnly, Category = "Blackout|Animation")
+	FVector2D ReplicatedAimOffset = FVector2D::ZeroVector;
 
 	/** 병과별 스탯·어빌리티 데이터. BP 서브클래스(BP_Assault 등)에서 지정. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Data")

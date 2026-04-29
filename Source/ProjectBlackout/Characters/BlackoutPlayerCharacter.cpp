@@ -13,6 +13,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "BlackoutLog.h"
 #include "EnhancedInputComponent.h"
+#include "Net/UnrealNetwork.h"
 
 ABlackoutPlayerCharacter::ABlackoutPlayerCharacter()
 {
@@ -43,6 +44,13 @@ void ABlackoutPlayerCharacter::BeginPlay()
 
 	CacheAimDefaults();
 	UpdateAimMovementMode();
+}
+
+void ABlackoutPlayerCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME_CONDITION(ABlackoutPlayerCharacter, ReplicatedAimOffset, COND_SkipOwner);
 }
 
 void ABlackoutPlayerCharacter::Tick(float DeltaSeconds)
@@ -142,6 +150,13 @@ void ABlackoutPlayerCharacter::OnRep_PlayerState()
 void ABlackoutPlayerCharacter::Server_SetPendingDodgeInput_Implementation(FVector2D NewInput)
 {
 	PendingDodgeInput = NewInput;
+}
+
+void ABlackoutPlayerCharacter::Server_SetAimOffset_Implementation(FVector2D NewAimOffset)
+{
+	ReplicatedAimOffset = FVector2D(
+		FMath::Clamp(NewAimOffset.X, -180.f, 180.f),
+		FMath::Clamp(NewAimOffset.Y, -90.f, 90.f));
 }
 
 void ABlackoutPlayerCharacter::Multicast_PlayDodgeMontage_Implementation(UAnimMontage* Montage, float PlayRate)
