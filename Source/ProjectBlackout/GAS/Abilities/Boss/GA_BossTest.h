@@ -34,7 +34,7 @@ protected:
 	void OnMontageCancelled();
 	
 	UPROPERTY(EditDefaultsOnly, Category = "MotionWarping")
-	FName WarpTargetName = TEXT("Atk_Bite_Single");
+	FName WarpTargetName = TEXT("MW_Target");
 	
 	UPROPERTY(EditDefaultsOnly, Category = "MotionWarping")
 	float WarpReferenceDistance = 400.f;

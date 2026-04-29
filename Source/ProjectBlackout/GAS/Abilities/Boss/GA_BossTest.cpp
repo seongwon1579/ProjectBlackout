@@ -22,22 +22,21 @@ void UGA_BossTest::ActivateAbility(const FGameplayAbilitySpecHandle Handle, cons
 	// WarpTarget 설정: 몽타주 재생 전에 반드시 먼저 설정
 	ABlackoutBossCharacter* Boss = Cast<ABlackoutBossCharacter>(ActorInfo->AvatarActor.Get());
 
-	// float PlayRate = 1.0f;
-	// if (Boss && Boss->MotionWarpingComponent)
-	// {
-	// 	APawn* Target = Boss->GetWorld()->GetFirstPlayerController()->GetPawn();
-	// 	if (Target)
-	// 	{
-	// 		// bFollowComponent=true: 매 프레임 타겟 위치를 추적 — 플레이어가 움직여도 따라감
-	// 		Boss->MotionWarpingComponent->AddOrUpdateWarpTargetFromComponent(
-	// 			WarpTargetName,
-	// 			Target->GetRootComponent(),
-	// 			NAME_None,
-	// 			true,
-	// 			FVector::ZeroVector
-	// 		);
-	// 	}
-	// }
+	if (Boss && Boss->MotionWarpingComponent)
+	{
+		APawn* Target = Boss->GetWorld()->GetFirstPlayerController()->GetPawn();
+		if (Target)
+		{
+			// bFollowComponent=true: 매 프레임 타겟 위치를 추적 — 플레이어가 움직여도 따라감
+			Boss->MotionWarpingComponent->AddOrUpdateWarpTargetFromComponent(
+				WarpTargetName,
+				Target->GetRootComponent(),
+				NAME_None,
+				true,
+				FVector::ZeroVector
+			);
+		}
+	}
 
 	UAbilityTask_PlayMontageAndWait* Task = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
 		this,
