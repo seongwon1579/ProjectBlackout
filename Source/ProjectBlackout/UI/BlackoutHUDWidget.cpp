@@ -1,13 +1,21 @@
 #include "UI/BlackoutHUDWidget.h"
 
 #include "Core/BlackoutLog.h"
+#include "UI/BlackoutHUDWidgetController.h"
 
 void UBlackoutHUDWidget::NativeOnInitialized()
 {
 	Super::NativeOnInitialized();
 }
 
-void UBlackoutHUDWidget::SetWidgetController(UObject* InWidgetController)
+void UBlackoutHUDWidget::NativeDestruct()
+{
+	UnbindWidgetControllerCallbacks();
+
+	Super::NativeDestruct();
+}
+
+void UBlackoutHUDWidget::SetWidgetController(UBlackoutHUDWidgetController* InWidgetController)
 {
 	if (!InWidgetController)
 	{
@@ -15,6 +23,46 @@ void UBlackoutHUDWidget::SetWidgetController(UObject* InWidgetController)
 		return;
 	}
 
+	UnbindWidgetControllerCallbacks();
 	WidgetController = InWidgetController;
+
+	WidgetController->OnHealthChanged.AddDynamic(this, &UBlackoutHUDWidget::HandleHealthChanged);
+	WidgetController->OnStaminaChanged.AddDynamic(this, &UBlackoutHUDWidget::HandleStaminaChanged);
+	WidgetController->OnAmmoChanged.AddDynamic(this, &UBlackoutHUDWidget::HandleAmmoChanged);
+	WidgetController->OnEquippedWeaponChanged.AddDynamic(this, &UBlackoutHUDWidget::HandleEquippedWeaponChanged);
+
 	ReceiveWidgetControllerSet();
+}
+
+void UBlackoutHUDWidget::UnbindWidgetControllerCallbacks()
+{
+	if (!WidgetController)
+	{
+		return;
+	}
+
+	WidgetController->OnHealthChanged.RemoveAll(this);
+	WidgetController->OnStaminaChanged.RemoveAll(this);
+	WidgetController->OnAmmoChanged.RemoveAll(this);
+	WidgetController->OnEquippedWeaponChanged.RemoveAll(this);
+}
+
+void UBlackoutHUDWidget::HandleHealthChanged(float CurrentHealth, float MaxHealth)
+{
+	ReceiveHealthChanged(CurrentHealth, MaxHealth);
+}
+
+void UBlackoutHUDWidget::HandleStaminaChanged(float CurrentStamina, float MaxStamina)
+{
+	ReceiveStaminaChanged(CurrentStamina, MaxStamina);
+}
+
+void UBlackoutHUDWidget::HandleAmmoChanged(int32 ClipAmmo, int32 MaxClipAmmo, int32 ReserveAmmo)
+{
+	ReceiveAmmoChanged(ClipAmmo, MaxClipAmmo, ReserveAmmo);
+}
+
+void UBlackoutHUDWidget::HandleEquippedWeaponChanged(ABOWeaponBase* EquippedWeapon, FGameplayTag WeaponSlotTag)
+{
+	ReceiveEquippedWeaponChanged(EquippedWeapon, WeaponSlotTag);
 }

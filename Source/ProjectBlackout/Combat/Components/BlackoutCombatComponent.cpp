@@ -456,6 +456,7 @@ void UBlackoutCombatComponent::Server_CancelPendingWeaponSwap_Implementation()
 void UBlackoutCombatComponent::OnRep_EquippedWeapon()
 {
 	RefreshWeaponAttachments();
+	OnEquippedWeaponChanged.Broadcast(EquippedWeapon, GetEquippedWeaponSlotTag());
 }
 
 void UBlackoutCombatComponent::OnRep_LoadoutWeapon()

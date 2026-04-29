@@ -4,6 +4,7 @@
 #include "Core/BlackoutLog.h"
 #include "GameFramework/PlayerController.h"
 #include "UI/BlackoutHUDWidget.h"
+#include "UI/BlackoutHUDWidgetController.h"
 
 void ABlackoutHUD::BeginPlay()
 {
@@ -26,6 +27,7 @@ void ABlackoutHUD::InitHUD()
 	}
 
 	CreateHUDWidget();
+	CreateWidgetController();
 }
 
 void ABlackoutHUD::CreateHUDWidget()
@@ -49,4 +51,34 @@ void ABlackoutHUD::CreateHUDWidget()
 	}
 
 	HUDWidget->AddToViewport();
+}
+
+void ABlackoutHUD::CreateWidgetController()
+{
+	if (HUDWidgetController)
+	{
+		return;
+	}
+
+	if (!HUDWidget)
+	{
+		BO_LOG_CORE(Error, "WidgetController 생성 실패: HUDWidget이 유효하지 않습니다.");
+		return;
+	}
+
+	HUDWidgetController = NewObject<UBlackoutHUDWidgetController>(this);
+	if (!HUDWidgetController)
+	{
+		BO_LOG_CORE(Error, "WidgetController 생성에 실패했습니다.");
+		return;
+	}
+
+	if (!HUDWidgetController->Initialize(PlayerOwner))
+	{
+		HUDWidgetController = nullptr;
+		return;
+	}
+
+	HUDWidget->SetWidgetController(HUDWidgetController);
+	HUDWidgetController->BroadcastInitialValues();
 }
