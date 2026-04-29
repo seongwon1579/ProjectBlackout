@@ -84,7 +84,8 @@ void UBlackoutPlayerAnimInstance::UpdateAimOffset(float DeltaSeconds)
 		return;
 	}
 
-	if (!bIsAiming)
+	const UBlackoutCombatComponent* CombatComponent = PlayerCharacter->GetCombatComponent();
+	if (!bIsAiming || !CombatComponent || !CombatComponent->GetEquippedFirearm())
 	{
 		ResetAimOffset();
 		return;
@@ -92,7 +93,8 @@ void UBlackoutPlayerAnimInstance::UpdateAimOffset(float DeltaSeconds)
 
 	UpdateAimTarget();
 
-	const FRotator AimRotation = UKismetMathLibrary::FindLookAtRotation(PlayerCharacter->GetPawnViewLocation(), AimTargetLocation);
+	const FVector AimOrigin = CombatComponent->GetMuzzleTransform().GetLocation();
+	const FRotator AimRotation = UKismetMathLibrary::FindLookAtRotation(AimOrigin, AimTargetLocation);
 	const FRotator ActorRotation = PlayerCharacter->GetActorRotation();
 	const FRotator Delta = UKismetMathLibrary::NormalizedDeltaRotator(AimRotation, ActorRotation);
 	const float TargetYaw = FMath::Clamp(Delta.Yaw, -180.f, 180.f);
