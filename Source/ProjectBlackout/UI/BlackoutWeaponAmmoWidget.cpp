@@ -22,6 +22,6 @@ void UBlackoutWeaponAmmoWidget::SetWeaponAmmoData(const FBlackoutWeaponAmmoSlotD
 
 	if (bPlaySwapAnimation)
 	{
-		ReceiveWeaponSwapAnimationRequested();
+		ReceiveWeaponSwapAnimationRequested(PrimarySlotData.bIsEquipped);
 	}
 }

@@ -44,5 +44,5 @@ protected:
 		const FBlackoutWeaponAmmoSlotData& SecondaryWeaponData);
 
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Weapon Swap Animation Requested"), Category = "Blackout|HUD|Weapon")
-	void ReceiveWeaponSwapAnimationRequested();
+	void ReceiveWeaponSwapAnimationRequested(bool bIsPrimaryEquipped);
 };
