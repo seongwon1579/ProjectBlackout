@@ -3,9 +3,7 @@
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemGlobals.h"
 #include "BehaviorTree/BlackboardComponent.h"
-#include "AI/ActionPipeline.h"
-#include "AI/ActionPipelineOwner.h"
-#include "AI/FActionData.h"
+#include "GameplayTagsManager.h"
 #include "Abilities/GameplayAbility.h"
 
 UBTTask_ActivateBossAbility::UBTTask_ActivateBossAbility()
@@ -17,53 +15,53 @@ UBTTask_ActivateBossAbility::UBTTask_ActivateBossAbility()
 EBTNodeResult::Type UBTTask_ActivateBossAbility::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
 	AAIController* AI = OwnerComp.GetAIOwner();
-	if (!AI || !AI->GetPawn() || !AbilityTag.IsValid()) return EBTNodeResult::Failed;
+	if (!AI || !AI->GetPawn()) return EBTNodeResult::Failed;
 
-	IActionPipelineOwner* PipelineOwner = Cast<IActionPipelineOwner>(AI);
-	if (!PipelineOwner) return EBTNodeResult::Failed;
+	// ── 1. 태그 소스 결정 ────────────────────────────────────────────────────
+	const FGameplayTag Tag = ResolveAbilityTag(OwnerComp);
+	if (!Tag.IsValid()) return EBTNodeResult::Failed;
 
-	UActionPipeline* Pipeline = PipelineOwner->GetActionPipeline();
-	if (!Pipeline) return EBTNodeResult::Failed;
-
-	// ── 1. 블랙보드에서 타겟 읽기 ────────────────────────────────────────────
+	// ── 2. 블랙보드에서 타겟 읽기 ────────────────────────────────────────────
 	UBlackboardComponent* BB = OwnerComp.GetBlackboardComponent();
 	APawn* BBTarget = BB ? Cast<APawn>(BB->GetValueAsObject(TEXT("BB_CurrentTarget"))) : nullptr;
 
-	// ── 2. Pre-GA 파이프라인 (유효성 검사) ───────────────────────────────────
-	FActionData Data;
-	Data.Instigator = AI->GetPawn();
-	Data.Target     = BBTarget;
-
-	if (!Pipeline->Execute(Data)) return EBTNodeResult::Failed;
-
-	// ── 3. GA 실행 (타겟을 EventData에 담아 HandleGameplayEvent로 전달) ──
+	// ── 3. GA 실행 (타겟을 EventData에 담아 HandleGameplayEvent로 전달) ──────
 	UAbilitySystemComponent* ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(AI->GetPawn());
 	if (!ASC) return EBTNodeResult::Failed;
 
 	FGameplayEventData EventData;
 	EventData.Target = BBTarget;
-	const int32 TriggeredCount = ASC->HandleGameplayEvent(AbilityTag, &EventData);
-	if (TriggeredCount == 0) return EBTNodeResult::Failed;
-	if (!bWaitForEnd) return EBTNodeResult::Succeeded;
 
-	// ── 4. GA 종료 대기 (델리게이트 바인딩) ──────────────────────────────────
-	TArray<FGameplayAbilitySpec*> MatchingSpecs;
-	ASC->GetActivatableGameplayAbilitySpecsByAllMatchingTags(FGameplayTagContainer(AbilityTag), MatchingSpecs);
-
-	for (FGameplayAbilitySpec* Spec : MatchingSpecs)
+	// ── 4. GA 종료 대기 설정 (트리거 전에 바인딩) ────────────────────────────
+	if (bWaitForEnd)
 	{
-		if (!Spec || !Spec->IsActive()) continue;
-
-		UGameplayAbility* Instance = Spec->GetPrimaryInstance();
-		if (!Instance) break;
-
 		CachedOwnerComp = &OwnerComp;
-		BoundAbility    = Instance;
-		Instance->OnGameplayAbilityEnded.AddUObject(this, &UBTTask_ActivateBossAbility::HandleAbilityEnded);
-		return EBTNodeResult::InProgress;
+		CachedASC       = ASC;
+		ASC->AbilityActivatedCallbacks.AddUObject(this, &UBTTask_ActivateBossAbility::HandleAbilityActivated);
 	}
 
-	return EBTNodeResult::Succeeded;
+	const int32 TriggeredCount = ASC->HandleGameplayEvent(Tag, &EventData);
+	if (TriggeredCount == 0)
+	{
+		UnbindDelegate();
+		CachedOwnerComp = nullptr;
+		return EBTNodeResult::Failed;
+	}
+
+	if (!bWaitForEnd) return EBTNodeResult::Succeeded;
+	return EBTNodeResult::InProgress;
+}
+
+void UBTTask_ActivateBossAbility::HandleAbilityActivated(UGameplayAbility* Ability)
+{
+	// 일회성 — 첫 번째 활성화만 잡고 즉시 제거
+	if (CachedASC.IsValid())
+	{
+		CachedASC->AbilityActivatedCallbacks.RemoveAll(this);
+	}
+
+	BoundAbility = Ability;
+	Ability->OnGameplayAbilityEnded.AddUObject(this, &UBTTask_ActivateBossAbility::HandleAbilityEnded);
 }
 
 void UBTTask_ActivateBossAbility::HandleAbilityEnded(UGameplayAbility* Ability)
@@ -85,6 +83,12 @@ EBTNodeResult::Type UBTTask_ActivateBossAbility::AbortTask(UBehaviorTreeComponen
 
 void UBTTask_ActivateBossAbility::UnbindDelegate()
 {
+	if (CachedASC.IsValid())
+	{
+		CachedASC->AbilityActivatedCallbacks.RemoveAll(this);
+	}
+	CachedASC.Reset();
+
 	if (BoundAbility.IsValid())
 	{
 		BoundAbility->OnGameplayAbilityEnded.RemoveAll(this);
@@ -94,5 +98,43 @@ void UBTTask_ActivateBossAbility::UnbindDelegate()
 
 FString UBTTask_ActivateBossAbility::GetStaticDescription() const
 {
+	if (bReadTagFromBlackboard)
+	{
+		return FString::Printf(TEXT("Activate GA from BB: %s"), *AbilityTagKey.SelectedKeyName.ToString());
+	}
 	return FString::Printf(TEXT("Activate GA: %s"), *AbilityTag.ToString());
+}
+
+FGameplayTag UBTTask_ActivateBossAbility::ResolveAbilityTag(UBehaviorTreeComponent& OwnerComp) const
+{
+	if (!bReadTagFromBlackboard)
+	{
+		return AbilityTag;
+	}
+
+	if (AbilityTagKey.SelectedKeyName.IsNone())
+	{
+		UE_LOG(LogTemp, Error, TEXT("ActivateBossAbility: AbilityTagKey가 설정되지 않았습니다. 에디터에서 BB 키를 선택하세요."));
+		return FGameplayTag::EmptyTag;
+	}
+
+	UBlackboardComponent* BB = OwnerComp.GetBlackboardComponent();
+	if (!BB) return FGameplayTag::EmptyTag;
+
+	const FName TagName = BB->GetValueAsName(AbilityTagKey.SelectedKeyName);
+	if (TagName.IsNone())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ActivateBossAbility: BB 키[%s]에서 읽은 태그 이름이 None입니다. BTTask_SelectPattern이 먼저 실행됐는지 확인하세요."),
+			*AbilityTagKey.SelectedKeyName.ToString());
+		return FGameplayTag::EmptyTag;
+	}
+
+	const FGameplayTag Tag = UGameplayTagsManager::Get().RequestGameplayTag(TagName, false);
+	if (!Tag.IsValid())
+	{
+		UE_LOG(LogTemp, Error, TEXT("ActivateBossAbility: [%s]는 등록된 GameplayTag가 아닙니다. 태그 테이블을 확인하세요."),
+			*TagName.ToString());
+	}
+
+	return Tag;
 }
