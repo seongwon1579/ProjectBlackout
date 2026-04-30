@@ -28,6 +28,7 @@ bool ABOWeaponBase::InitializeStatsFromDataTable()
 void ABOWeaponBase::ApplyCommonStats(const FBlackoutWeaponStat& WeaponStats)
 {
 	CachedStats = WeaponStats;
+	CachedStats.CrosshairType = FMath::Clamp(CachedStats.CrosshairType, 0, 5);
 
 	WeaponIcon = CachedStats.WeaponIcon;
 
@@ -50,6 +51,11 @@ ABlackoutCharacterBase* ABOWeaponBase::GetOwningCharacter() const
 float ABOWeaponBase::GetBaseDamage() const
 {
 	return CachedStats.BaseDamage;
+}
+
+int32 ABOWeaponBase::GetCrosshairType() const
+{
+	return FMath::Clamp(CachedStats.CrosshairType, 0, 5);
 }
 
 FName ABOWeaponBase::GetEquippedSocketName() const

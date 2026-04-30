@@ -98,6 +98,8 @@ bool UBlackoutImpactIndicatorComponent::GetImpactIndicatorData(FBlackoutImpactIn
 	OutIndicatorData.bTargetMismatch = !bUsesProjectilePrediction
 		&& AimHitResult.bBlockingHit
 		&& ResolveTargetActor(AimHitResult) != ResolveTargetActor(TrueImpactHitResult);
+	OutIndicatorData.bIsOccludedFromCamera = bUsesProjectilePrediction
+		&& IsProjectileImpactOccludedFromCamera(Firearm, ImpactPoint);
 	OutIndicatorData.WorldLocation = ImpactPoint;
 	OutIndicatorData.TraceEndLocation = TraceEnd;
 	OutIndicatorData.DistanceFromMuzzle = FVector::Dist(Firearm->GetMuzzleTransform().GetLocation(), ImpactPoint);
@@ -301,6 +303,35 @@ bool UBlackoutImpactIndicatorComponent::PerformWeaponTrace(const FVector& TraceS
 
 	World->LineTraceSingleByChannel(OutHitResult, TraceStart, TraceEnd, BlackoutCollisionChannels::WeaponTrace, QueryParams);
 	return true;
+}
+
+bool UBlackoutImpactIndicatorComponent::IsProjectileImpactOccludedFromCamera(const ABOFirearm* Firearm, const FVector& ImpactPoint) const
+{
+	const APawn* OwnerPawn = Cast<APawn>(GetOwner());
+	const AController* OwnerController = OwnerPawn ? OwnerPawn->GetController() : nullptr;
+	if (!OwnerController || !Firearm)
+	{
+		return false;
+	}
+
+	FVector ViewLocation = FVector::ZeroVector;
+	FRotator ViewRotation = FRotator::ZeroRotator;
+	OwnerController->GetPlayerViewPoint(ViewLocation, ViewRotation);
+
+	const float ViewToImpactDistance = FVector::Dist(ViewLocation, ImpactPoint);
+	if (ViewToImpactDistance <= KINDA_SMALL_NUMBER)
+	{
+		return false;
+	}
+
+	FHitResult CameraHitResult;
+	if (!PerformWeaponTrace(ViewLocation, ImpactPoint, Firearm, CameraHitResult) || !CameraHitResult.bBlockingHit)
+	{
+		return false;
+	}
+
+	constexpr float ImpactSurfaceTolerance = 10.0f;
+	return CameraHitResult.Distance < ViewToImpactDistance - ImpactSurfaceTolerance;
 }
 
 AActor* UBlackoutImpactIndicatorComponent::ResolveTargetActor(const FHitResult& HitResult) const

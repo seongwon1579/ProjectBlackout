@@ -117,13 +117,14 @@ bool UBlackoutHUDWidgetController::GetImpactIndicatorData(FBlackoutImpactIndicat
 void UBlackoutHUDWidgetController::HandleEquippedWeaponChanged(ABOWeaponBase* EquippedWeapon, FGameplayTag WeaponSlotTag)
 {
 	OnEquippedWeaponChanged.Broadcast(EquippedWeapon, WeaponSlotTag);
+	BroadcastAiming();
 	BroadcastAmmo();
 	BroadcastWeaponAmmoDisplay(true);
 }
 
 void UBlackoutHUDWidgetController::HandleAimingChanged(bool bIsAiming)
 {
-	OnAimingChanged.Broadcast(bIsAiming);
+	OnAimingChanged.Broadcast(bIsAiming, GetEquippedCrosshairType());
 }
 
 bool UBlackoutHUDWidgetController::ResolveDependencies(APlayerController* InPlayerController)
@@ -241,7 +242,7 @@ void UBlackoutHUDWidgetController::BroadcastEquippedWeapon() const
 void UBlackoutHUDWidgetController::BroadcastAiming() const
 {
 	const UBlackoutCombatComponent* BlackoutCombatComponent = CombatComponent.Get();
-	OnAimingChanged.Broadcast(BlackoutCombatComponent ? BlackoutCombatComponent->IsAiming() : false);
+	OnAimingChanged.Broadcast(BlackoutCombatComponent ? BlackoutCombatComponent->IsAiming() : false, GetEquippedCrosshairType());
 }
 
 void UBlackoutHUDWidgetController::BroadcastWeaponAmmoDisplay(bool bPlaySwapAnimation) const
@@ -326,6 +327,13 @@ FGameplayTag UBlackoutHUDWidgetController::GetEquippedWeaponSlotTag() const
 	}
 
 	return BlackoutGameplayTags::Weapon_Primary;
+}
+
+int32 UBlackoutHUDWidgetController::GetEquippedCrosshairType() const
+{
+	const UBlackoutCombatComponent* BlackoutCombatComponent = CombatComponent.Get();
+	const ABOWeaponBase* EquippedWeapon = BlackoutCombatComponent ? BlackoutCombatComponent->GetEquippedWeapon() : nullptr;
+	return EquippedWeapon ? EquippedWeapon->GetCrosshairType() : 0;
 }
 
 void UBlackoutHUDWidgetController::HandleHealthChanged(const FOnAttributeChangeData& ChangeData)

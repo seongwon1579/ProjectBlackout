@@ -27,6 +27,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Weapon")
 	UTexture2D* GetWeaponIcon() const { return WeaponIcon; }
 
+	UFUNCTION(BlueprintCallable, Category = "Blackout|UI")
+	int32 GetCrosshairType() const;
+
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	float GetBaseDamage() const;
 

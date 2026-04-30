@@ -86,9 +86,18 @@ void UBlackoutHUDWidget::UpdateImpactIndicator(const FBlackoutImpactIndicatorDat
 		return;
 	}
 
-	ApplyImpactIndicatorColor(ImpactIndicatorData.bTargetMismatch
-		? ImpactIndicatorMismatchColor
-		: ImpactIndicatorDefaultColor);
+	FLinearColor IndicatorColor = ImpactIndicatorDefaultColor;
+	if (ImpactIndicatorData.bIsOccludedFromCamera)
+	{
+		IndicatorColor = ImpactIndicatorOccludedColor;
+	}
+	else if (ImpactIndicatorData.bTargetMismatch)
+	{
+		IndicatorColor = ImpactIndicatorMismatchColor;
+	}
+
+	ApplyImpactIndicatorColor(IndicatorColor);
+	ImpactIndicatorWidget->SetRenderOpacity(1.0f);
 
 	if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(ImpactIndicatorWidget->Slot))
 	{
@@ -145,9 +154,9 @@ void UBlackoutHUDWidget::HandleEquippedWeaponChanged(ABOWeaponBase* EquippedWeap
 	ReceiveEquippedWeaponChanged(EquippedWeapon, WeaponSlotTag);
 }
 
-void UBlackoutHUDWidget::HandleAimingChanged(bool bIsAiming)
+void UBlackoutHUDWidget::HandleAimingChanged(bool bIsAiming, int32 CrosshairType)
 {
-	ReceiveAimingChanged(bIsAiming);
+	ReceiveAimingChanged(bIsAiming, CrosshairType);
 }
 
 void UBlackoutHUDWidget::HandleWeaponAmmoDisplayChanged(

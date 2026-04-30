@@ -278,7 +278,7 @@ GDD §8.3의 미니멀리즘 HUD 전체 구성 요소를 UI 위젯 레이어로 
 모든 수치를 데이터 에셋화하여 기획자가 언리얼 에디터 레벨에서 조정할 수 있게 합니다.
 
 - **`UBOCharacterData` (PrimaryDataAsset)**: 플레이어 클래스별 초기 체력, 스태미나 배율, 소모품 기본 지급량, 시작 기본 무기 종류, `GrantedAbilities` 배열.
-- **`DT_WeaponStats` (DataTable)**: 무기별 `BaseDamage`, `FireRate`, `MagazineSize`, `SplashRadius`.
+- **`DT_WeaponStats` (DataTable)**: 무기별 `BaseDamage`, `FireRate`, `MagazineSize`, `SplashRadius`, `CrosshairType`(0~5).
 - **`UBOMinionData` (PrimaryDataAsset)**: 미니언 스탯(`MaxHealth`, 이동속도), `TMap<GameplayTag, float> AbilityDamageMap`.
 - **`UBOBossData` (PrimaryDataAsset)**: 페이즈 체력 컷라인, 미니언 스폰 가중치, 패턴별 데미지 `TMap<GameplayTag, float>`, 어그로 튜닝(`AggroSwitchCooldown`, `AggroDamageThreshold`, `AggroDecayRate`).
 

@@ -51,6 +51,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD")
 	FLinearColor ImpactIndicatorMismatchColor = FLinearColor::Red;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD")
+	FLinearColor ImpactIndicatorOccludedColor = FLinearColor(1.0f, 0.7f, 0.0f, 1.0f);
+
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Widget Controller Set"), Category = "Blackout|HUD")
 	void ReceiveWidgetControllerSet();
 
@@ -67,7 +70,7 @@ protected:
 	void ReceiveEquippedWeaponChanged(ABOWeaponBase* EquippedWeapon, FGameplayTag WeaponSlotTag);
 
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Aiming Changed"), Category = "Blackout|HUD")
-	void ReceiveAimingChanged(bool bIsAiming);
+	void ReceiveAimingChanged(bool bIsAiming, int32 CrosshairType);
 
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Weapon Ammo Display Changed"), Category = "Blackout|HUD")
 	void ReceiveWeaponAmmoDisplayChanged(
@@ -93,7 +96,7 @@ private:
 	void HandleEquippedWeaponChanged(ABOWeaponBase* EquippedWeapon, FGameplayTag WeaponSlotTag);
 
 	UFUNCTION()
-	void HandleAimingChanged(bool bIsAiming);
+	void HandleAimingChanged(bool bIsAiming, int32 CrosshairType);
 
 	UFUNCTION()
 	void HandleWeaponAmmoDisplayChanged(

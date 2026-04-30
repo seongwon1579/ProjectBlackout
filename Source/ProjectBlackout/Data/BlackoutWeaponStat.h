@@ -26,6 +26,10 @@ struct PROJECTBLACKOUT_API FBlackoutWeaponStat : public FTableRowBase
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|UI")
 	TObjectPtr<UTexture2D> WeaponIcon = nullptr;
 
+	/** 조준 시 HUD에 표시할 크로스헤어 종류. 외부 크로스헤어 에셋의 0~5 타입과 대응합니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|UI", meta = (ClampMin = 0, ClampMax = 5, UIMin = 0, UIMax = 5))
+	int32 CrosshairType = 0;
+
 	/** 장착 중인 무기를 부착할 캐릭터 메시 소켓 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Weapon")
 	FName EquippedSocketName = TEXT("WeaponSocket");

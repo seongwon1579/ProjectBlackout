@@ -38,6 +38,7 @@ classDiagram
         +SetWidgetController(UBlackoutHUDWidgetController*) void
         +NativeOnInitialized() void
         +NativeTick(FGeometry, float) void
+        #ReceiveAimingChanged(bool bIsAiming, int32 CrosshairType) void
         -UpdateImpactIndicator(FBlackoutImpactIndicatorData) void
     }
 
@@ -54,6 +55,7 @@ classDiagram
         +BindCallbacksToDependencies() void
         +BroadcastInitialValues() void
         +GetImpactIndicatorData(FBlackoutImpactIndicatorData&) bool
+        +OnAimingChanged(bool bIsAiming, int32 CrosshairType)
         -HandleHealthChanged(FOnAttributeChangeData) void
         -HandleMaxHealthChanged(FOnAttributeChangeData) void
         -HandleStaminaChanged(FOnAttributeChangeData) void
@@ -141,6 +143,7 @@ classDiagram
     class ABOWeaponBase {
         +FText DisplayName
         +UTexture2D* Icon
+        +int32 CrosshairType
         +FGameplayTag WeaponSlotTag
         +bool bUsesAmmo
     }
@@ -199,6 +202,7 @@ sequenceDiagram
 - **Attribute Delegate 대상**: `Health`, `MaxHealth`, `Stamina`, `MaxStamina`, 주/보조 `ClipAmmo`, `MaxClip`, `ReserveAmmo`.
 - **GameplayTag 대상 예시**: `State.Reloading`, `State.Sprinting`, `State.Exhausted`, `Weapon.Primary`, `Weapon.Secondary`.
 - **현재 무기 표시**: 장착 무기 이름, 아이콘, 무기 슬롯은 `UBlackoutCombatComponent::OnEquippedWeaponChanged`에서 갱신합니다.
+- **크로스헤어 선택**: `DT_WeaponStats`의 `CrosshairType`(0~5)을 `ABOWeaponBase`가 캐시하고, `UBlackoutHUDWidgetController::OnAimingChanged`가 조준 상태와 함께 현재 장착 무기의 타입을 `UBlackoutHUDWidget::ReceiveAimingChanged`로 전달합니다.
 - **탄약 표시 전환**: 현재 슬롯이 주무기면 Primary 어트리뷰트, 보조무기면 Secondary 어트리뷰트를 표시합니다. 근접무기처럼 탄약이 없으면 `UW_AmmoDisplay`를 숨기거나 비활성화합니다.
 - **Tick 예외**: `UBlackoutHUDWidget`은 착탄 인디케이터 위치/색상 갱신을 위해 Tick에서 `UBlackoutImpactIndicatorComponent`의 결과를 조회할 수 있습니다. 실제 라인트레이스/투사체 예측 계산은 전투 전용 컴포넌트가 담당하며, 다른 HUD 요소는 Tick을 사용하지 않습니다.
 - **초기값 브로드캐스트**: Delegate 바인딩 직후 현재 Attribute 값을 한 번 브로드캐스트하여 첫 프레임 빈 UI를 방지합니다.

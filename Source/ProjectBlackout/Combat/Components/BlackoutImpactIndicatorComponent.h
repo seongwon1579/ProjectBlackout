@@ -51,6 +51,7 @@ private:
 	bool GetProjectileImpactHitResult(const ABOFirearm* Firearm, FHitResult& OutHitResult, FVector& OutImpactPoint, FVector& OutTraceEnd) const;
 	bool BuildProjectilePathParams(const ABOFirearm* Firearm, const FVector& LaunchDirection, FPredictProjectilePathParams& OutParams) const;
 	bool PerformWeaponTrace(const FVector& TraceStart, const FVector& TraceEnd, const AActor* IgnoredActor, FHitResult& OutHitResult) const;
+	bool IsProjectileImpactOccludedFromCamera(const ABOFirearm* Firearm, const FVector& ImpactPoint) const;
 	AActor* ResolveTargetActor(const FHitResult& HitResult) const;
 	FVector ResolveFireDirection(const ABOFirearm* Firearm) const;
 

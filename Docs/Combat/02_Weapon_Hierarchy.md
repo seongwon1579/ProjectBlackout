@@ -22,6 +22,7 @@ classDiagram
         #FBlackoutWeaponStat CachedStats
         +GetOwningCharacter() ABlackoutCharacterBase*
         +GetWeaponTag() FGameplayTag
+        +GetCrosshairType() int32
         +GetBaseDamage() float
         +AttachToOwner(FName Socket) void
     }
@@ -83,7 +84,7 @@ classDiagram
 
 ## 구현 노트
 
-- **데이터 소싱**: 생성자/BeginPlay에서 `WeaponTag`를 키로 `DT_WeaponStats` 조회 → `CachedStats` 에 복사.
+- **데이터 소싱**: 생성자/BeginPlay에서 `WeaponTag`를 키로 `DT_WeaponStats` 조회 → `CachedStats` 에 복사. HUD 크로스헤어 종류(`CrosshairType`, 0~5)도 공통 무기 스탯으로 함께 제공.
 - **Hitscan vs Projectile**: `bUseHitscan = true`면 `LineTraceByChannel`, false면 `ABOProjectile` 을 풀에서 스폰.
 - **투사체 풀링**: `ABOProjectile`은 `IBlackoutPoolableInterface` 구현. `UBlackoutPoolSubsystem::SpawnFromPool`로 획득.
   - `OnSpawnFromPool`: Collision/Movement 리셋, `DamageSpec` 주입
