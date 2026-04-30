@@ -4,6 +4,7 @@
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
 #include "Combat/Components/BlackoutImpactIndicatorComponent.h"
+#include "Combat/Weapons/BOFirearm.h"
 #include "Combat/Weapons/BOWeaponBase.h"
 #include "Core/BlackoutLog.h"
 #include "Framework/BlackoutPlayerController.h"
