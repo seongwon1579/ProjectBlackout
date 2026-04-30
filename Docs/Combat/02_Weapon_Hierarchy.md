@@ -34,6 +34,11 @@ classDiagram
         +Fire(const FVector& Direction) FHitResult
         +SpawnProjectile(const FVector& Direction) ABOProjectile*
         +GetMuzzleTransform() FTransform
+        +UsesHitscan() bool
+        +GetProjectileClass() TSubclassOf~ABOProjectile~
+        +GetProjectileLaunchSpeed() float
+        +GetProjectileGravityScale() float
+        +GetProjectileCollisionRadius() float
     }
 
     class ABOMeleeWeapon {
@@ -50,6 +55,9 @@ classDiagram
         -float SplashRadius
         +InitFromSpec(const FGameplayEffectSpecHandle&, float Radius) void
         +OnHit(const FHitResult&) void
+        +GetInitialSpeed() float
+        +GetGravityScale() float
+        +GetCollisionRadius() float
         +OnSpawnFromPool_Implementation() void
         +OnReturnToPool_Implementation() void
     }
@@ -83,3 +91,4 @@ classDiagram
 - **근접 무기**: `ABOMeleeWeapon::PerformSweep` 결과는 `GA_Melee_Player` 가 수신 → `GE_Damage` 적용.
 - **투사체 데미지 전달**: `ABOProjectile`은 `SpecHandle`만 보관하고, `OnHit` 시점에 `IBlackoutDamageableInterface::ReceiveDamageFromHitbox(SpecHandle, BoneName)` 를 호출.
 - **메리디안 유탄발사기**: `ABlackoutMeridian`은 `ABOFirearm` 기반의 비히트스캔 보조무기이며, 기본 `ProjectileClass`로 `ABOMeridianGrenadeProjectile`을 사용.
+- **착탄 예측 데이터 제공**: `UBlackoutImpactIndicatorComponent`가 투사체 예측 착탄점을 계산할 수 있도록 `ABOFirearm`/`ABOProjectile`은 초기 속도, 중력 스케일, 충돌 반경을 조회할 수 있는 읽기 전용 API를 제공합니다.

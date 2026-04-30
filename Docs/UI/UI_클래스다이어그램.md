@@ -5,4 +5,4 @@
 
 | # | 파일 | 내용 |
 |---|------|------|
-| 01 | [01_InGame_HUD_GAS_Binding.md](01_InGame_HUD_GAS_Binding.md) | ABlackoutHUD / UBlackoutHUDWidget / UBlackoutHUDWidgetController — GAS 기반 인게임 HUD |
+| 01 | [01_InGame_HUD_GAS_Binding.md](01_InGame_HUD_GAS_Binding.md) | ABlackoutHUD / UBlackoutHUDWidget / UBlackoutHUDWidgetController — GAS 기반 인게임 HUD 및 착탄 인디케이터 표시 |

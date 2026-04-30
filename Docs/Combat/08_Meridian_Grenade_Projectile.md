@@ -30,6 +30,9 @@ classDiagram
         +InitFromSpec(const FGameplayEffectSpecHandle&, float Radius) void
         +Launch(const FVector& Direction) void
         +OnHit(...) void
+        +GetInitialSpeed() float
+        +GetGravityScale() float
+        +GetCollisionRadius() float
         +OnSpawnFromPool_Implementation() void
         +OnReturnToPool_Implementation() void
     }
@@ -84,3 +87,4 @@ classDiagram
 - 신관 거리 판정은 네트워크 권한 서버에서 확정하고, 시각 효과는 GameplayCue로 복제 흐름에 태웁니다. GCN은 C++ 클래스가 아니라 `GameplayCue.Weapon.MeridianGrenade.Explosion` 태그를 받는 블루프린트 `GameplayCueNotify` 에셋으로 제작합니다.
 - 폭발 반경 피해는 기존 `FGameplayEffectSpecHandle` 기반 피해 전달 방식을 따르되, 다중 대상 처리는 `OverlapMultiByChannel` 또는 별도 전투 유틸로 분리할 수 있습니다.
 - `ABlackoutMeridian`은 무기 메시가 준비되기 전에도 `ABOFirearm::ProjectileClass` 기본값으로 유탄 클래스를 지정해 테스트할 수 있습니다.
+- `UBlackoutImpactIndicatorComponent`의 예측 착탄 인디케이터가 실제 유탄 궤적과 맞도록 `UProjectileMovementComponent`의 초기 속도, 중력 스케일, 충돌 반경은 읽기 전용 API로 노출합니다.
