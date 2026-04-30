@@ -21,7 +21,7 @@ struct PROJECTBLACKOUT_API FBSTEval_WraithAggroTargetInstanceData
 	
 	// 거리 정규화 기준 - 이 거리 안에서 점수 1~0 밖이면 0
 	UPROPERTY(EditAnywhere, Category="Tuning|Weights" ,meta=(ClampMin=100.0f))
-	float MaxRange = 5000.0f;
+	float MaxRange = 99999.0f;
 	
 	UPROPERTY(EditAnywhere,Category="Output")
 	TObjectPtr<APawn> OutTarget;
