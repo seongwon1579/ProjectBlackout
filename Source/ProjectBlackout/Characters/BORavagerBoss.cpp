@@ -76,12 +76,16 @@ void ABORavagerBoss::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	UAbilitySystemComponent* ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(this);
+	if (!HasAuthority()) return;
 
-	// 2. ASC가 있고, 에디터에서 DefaultAbility를 넣어줬다면 실행
-	if (ASC && DefaultAbility)
+	UAbilitySystemComponent* ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(this);
+	if (!ASC) return;
+
+	for (const TSubclassOf<UGameplayAbility>& AbilityClass : GrantedAbilities)
 	{
-		// 서버 체크 없이 그냥 부여
-		ASC->GiveAbility(FGameplayAbilitySpec(DefaultAbility, 1));
+		if (AbilityClass)
+		{
+			ASC->GiveAbility(FGameplayAbilitySpec(AbilityClass, 1));
+		}
 	}
 }

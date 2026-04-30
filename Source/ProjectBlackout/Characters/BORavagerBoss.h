@@ -7,6 +7,7 @@
 
 class UStateTree;
 class UBOAggroComponent;
+class UGameplayAbility;
 
 /**
  * Corrupted Ravager Boss (메인 보스)
@@ -36,8 +37,8 @@ public:
 	virtual APawn* GetHighestAggroTarget() const override;
 	virtual void   AddThreat(APawn* Source, float Amount) override;
 
-	UPROPERTY(EditAnywhere, Category = "GAS")
-	TSubclassOf<class UGameplayAbility> DefaultAbility;
+	UPROPERTY(EditDefaultsOnly, Category = "Blackout|Abilities")
+	TArray<TSubclassOf<UGameplayAbility>> GrantedAbilities;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Aggro")
 	TObjectPtr<UBOAggroComponent> AggroComp;
