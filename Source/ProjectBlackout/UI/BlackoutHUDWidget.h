@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
 #include "GameplayTagContainer.h"
+#include "UI/BlackoutHUDTypes.h"
 #include "UI/BlackoutWeaponAmmoTypes.h"
 #include "BlackoutHUDWidget.generated.h"
 
@@ -10,6 +11,7 @@ class ABOWeaponBase;
 class UBlackoutHUDWidgetController;
 class UBlackoutValueBarWidget;
 class UBlackoutWeaponAmmoWidget;
+class UWidget;
 
 UCLASS(BlueprintType, Blueprintable)
 class PROJECTBLACKOUT_API UBlackoutHUDWidget : public UUserWidget
@@ -25,6 +27,7 @@ public:
 
 protected:
 	virtual void NativeOnInitialized() override;
+	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
 	virtual void NativeDestruct() override;
 
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|HUD")
@@ -38,6 +41,9 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
 	TObjectPtr<UBlackoutWeaponAmmoWidget> AmmoWidget;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
+	TObjectPtr<UWidget> ImpactIndicatorWidget;
 
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Widget Controller Set"), Category = "Blackout|HUD")
 	void ReceiveWidgetControllerSet();
@@ -65,6 +71,7 @@ protected:
 
 private:
 	void UnbindWidgetControllerCallbacks();
+	void UpdateImpactIndicator(const FBlackoutImpactIndicatorData& ImpactIndicatorData) const;
 
 	UFUNCTION()
 	void HandleHealthChanged(float CurrentHealth, float MaxHealth);

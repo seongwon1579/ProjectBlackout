@@ -399,6 +399,49 @@ FVector UBlackoutCombatComponent::GetAimImpactPoint() const
 	return FVector::ZeroVector;
 }
 
+bool UBlackoutCombatComponent::GetTrueImpactPoint(FHitResult& OutHitResult, FVector& OutImpactPoint, FVector& OutTraceEnd) const
+{
+	OutHitResult = FHitResult();
+	OutImpactPoint = FVector::ZeroVector;
+	OutTraceEnd = FVector::ZeroVector;
+
+	const ABOFirearm* Firearm = GetEquippedFirearm();
+	UWorld* World = GetWorld();
+	if (!Firearm || !Firearm->UsesHitscan() || !World)
+	{
+		return false;
+	}
+
+	const FVector MuzzleLocation = Firearm->GetMuzzleTransform().GetLocation();
+	const FVector AimImpactPoint = GetAimImpactPoint();
+	FVector FireDirection = (AimImpactPoint - MuzzleLocation).GetSafeNormal();
+	if (FireDirection.IsNearlyZero())
+	{
+		const AActor* OwnerActor = GetOwner();
+		if (!OwnerActor)
+		{
+			return false;
+		}
+
+		FireDirection = OwnerActor->GetActorForwardVector();
+	}
+
+	OutTraceEnd = MuzzleLocation + FireDirection * AimTraceDistance;
+
+	FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(BlackoutCombat_TrueImpactTrace), false, GetOwner());
+	QueryParams.AddIgnoredActor(Firearm);
+
+	const bool bBlockingHit = World->LineTraceSingleByChannel(
+		OutHitResult,
+		MuzzleLocation,
+		OutTraceEnd,
+		BlackoutCollisionChannels::WeaponTrace,
+		QueryParams);
+
+	OutImpactPoint = bBlockingHit ? OutHitResult.ImpactPoint : OutTraceEnd;
+	return true;
+}
+
 void UBlackoutCombatComponent::Server_EquipWeapon_Implementation(ABOWeaponBase* NewWeapon)
 {
 	EquippedWeapon = NewWeapon;

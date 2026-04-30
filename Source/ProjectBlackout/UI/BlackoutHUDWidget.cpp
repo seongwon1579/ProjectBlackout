@@ -1,6 +1,8 @@
 #include "UI/BlackoutHUDWidget.h"
 
 #include "Core/BlackoutLog.h"
+#include "Components/CanvasPanelSlot.h"
+#include "Components/Widget.h"
 #include "UI/BlackoutHUDWidgetController.h"
 #include "UI/BlackoutValueBarWidget.h"
 #include "UI/BlackoutWeaponAmmoWidget.h"
@@ -8,6 +10,19 @@
 void UBlackoutHUDWidget::NativeOnInitialized()
 {
 	Super::NativeOnInitialized();
+}
+
+void UBlackoutHUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
+{
+	Super::NativeTick(MyGeometry, InDeltaTime);
+
+	FBlackoutImpactIndicatorData ImpactIndicatorData;
+	if (WidgetController)
+	{
+		WidgetController->GetImpactIndicatorData(ImpactIndicatorData);
+	}
+
+	UpdateImpactIndicator(ImpactIndicatorData);
 }
 
 void UBlackoutHUDWidget::NativeDestruct()
@@ -51,6 +66,33 @@ void UBlackoutHUDWidget::UnbindWidgetControllerCallbacks()
 	WidgetController->OnEquippedWeaponChanged.RemoveAll(this);
 	WidgetController->OnAimingChanged.RemoveAll(this);
 	WidgetController->OnWeaponAmmoDisplayChanged.RemoveAll(this);
+}
+
+void UBlackoutHUDWidget::UpdateImpactIndicator(const FBlackoutImpactIndicatorData& ImpactIndicatorData) const
+{
+	if (!ImpactIndicatorWidget)
+	{
+		return;
+	}
+
+	ImpactIndicatorWidget->SetVisibility(ImpactIndicatorData.bIsVisible
+		? ESlateVisibility::HitTestInvisible
+		: ESlateVisibility::Hidden);
+
+	if (!ImpactIndicatorData.bIsVisible)
+	{
+		return;
+	}
+
+	if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(ImpactIndicatorWidget->Slot))
+	{
+		CanvasSlot->SetAlignment(FVector2D(0.5f, 0.5f));
+		CanvasSlot->SetPosition(ImpactIndicatorData.ScreenPosition);
+		return;
+	}
+
+	ImpactIndicatorWidget->SetRenderTransformPivot(FVector2D(0.5f, 0.5f));
+	ImpactIndicatorWidget->SetRenderTranslation(ImpactIndicatorData.ScreenPosition);
 }
 
 void UBlackoutHUDWidget::HandleHealthChanged(float CurrentHealth, float MaxHealth)

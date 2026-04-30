@@ -107,6 +107,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	FVector GetAimImpactPoint() const;
 
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	bool GetTrueImpactPoint(FHitResult& OutHitResult, FVector& OutImpactPoint, FVector& OutTraceEnd) const;
+
 	UFUNCTION(Server, Reliable)
 	void Server_EquipWeapon(ABOWeaponBase* NewWeapon);
 

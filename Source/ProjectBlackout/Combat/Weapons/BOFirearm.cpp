@@ -202,6 +202,11 @@ bool ABOFirearm::IsAutomatic() const
 	return CachedFirearmStats.bIsAutomatic;
 }
 
+bool ABOFirearm::UsesHitscan() const
+{
+	return bUseHitscan;
+}
+
 int32 ABOFirearm::GetMagazineSize() const
 {
 	return CachedFirearmStats.MagazineSize;

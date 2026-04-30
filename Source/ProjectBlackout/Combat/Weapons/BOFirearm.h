@@ -34,6 +34,9 @@ public:
 	bool IsAutomatic() const;
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	bool UsesHitscan() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	int32 GetMagazineSize() const;
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")

@@ -12,6 +12,7 @@
 #include "GAS/Attributes/BlackoutBaseAttributeSet.h"
 #include "GAS/Attributes/BlackoutPlayerAttributeSet.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
+#include "Blueprint/WidgetLayoutLibrary.h"
 
 bool UBlackoutHUDWidgetController::Initialize(APlayerController* InPlayerController)
 {
@@ -80,6 +81,52 @@ void UBlackoutHUDWidgetController::BroadcastInitialValues()
 	BroadcastEquippedWeapon();
 	BroadcastAiming();
 	BroadcastWeaponAmmoDisplay(false);
+}
+
+bool UBlackoutHUDWidgetController::GetImpactIndicatorData(FBlackoutImpactIndicatorData& OutIndicatorData) const
+{
+	OutIndicatorData = FBlackoutImpactIndicatorData();
+
+	ABlackoutPlayerController* BlackoutPlayerController = PlayerController.Get();
+	const UBlackoutCombatComponent* BlackoutCombatComponent = CombatComponent.Get();
+	if (!BlackoutPlayerController || !BlackoutPlayerController->IsLocalController() || !BlackoutCombatComponent)
+	{
+		return false;
+	}
+
+	if (!BlackoutCombatComponent->IsAiming() || !BlackoutCombatComponent->GetEquippedFirearm())
+	{
+		return false;
+	}
+
+	FHitResult HitResult;
+	FVector ImpactPoint = FVector::ZeroVector;
+	FVector TraceEnd = FVector::ZeroVector;
+	if (!BlackoutCombatComponent->GetTrueImpactPoint(HitResult, ImpactPoint, TraceEnd))
+	{
+		return false;
+	}
+
+	FVector2D ScreenPosition = FVector2D::ZeroVector;
+	if (!UWidgetLayoutLibrary::ProjectWorldLocationToWidgetPosition(
+		BlackoutPlayerController,
+		ImpactPoint,
+		ScreenPosition,
+		true))
+	{
+		return false;
+	}
+
+	OutIndicatorData.bIsVisible = true;
+	OutIndicatorData.bHasBlockingHit = HitResult.bBlockingHit;
+	OutIndicatorData.WorldLocation = ImpactPoint;
+	OutIndicatorData.TraceEndLocation = TraceEnd;
+	OutIndicatorData.ScreenPosition = ScreenPosition;
+	OutIndicatorData.DistanceFromMuzzle = FVector::Dist(
+		BlackoutCombatComponent->GetMuzzleTransform().GetLocation(),
+		ImpactPoint);
+
+	return true;
 }
 
 void UBlackoutHUDWidgetController::HandleEquippedWeaponChanged(ABOWeaponBase* EquippedWeapon, FGameplayTag WeaponSlotTag)
