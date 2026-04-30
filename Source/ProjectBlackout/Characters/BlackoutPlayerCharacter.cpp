@@ -14,6 +14,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "BlackoutLog.h"
 #include "EnhancedInputComponent.h"
+#include "GAS/Attributes/BlackoutBaseAttributeSet.h"
 #include "Net/UnrealNetwork.h"
 
 ABlackoutPlayerCharacter::ABlackoutPlayerCharacter()
@@ -155,6 +156,51 @@ void ABlackoutPlayerCharacter::Server_SetPendingDodgeInput_Implementation(FVecto
 	PendingDodgeInput = NewInput;
 }
 
+void ABlackoutPlayerCharacter::Server_RequestDebugSelfDamage_Implementation(float DamageAmount)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	if (DamageAmount <= 0.f)
+	{
+		BO_LOG_GAS(Warning, "Server_RequestDebugSelfDamage failed: DamageAmount가 0 이하임");
+		return;
+	}
+
+	if (!AbilitySystemComponent)
+	{
+		BO_LOG_GAS(Warning, "Server_RequestDebugSelfDamage failed: AbilitySystemComponent가 비어 있음");
+		return;
+	}
+
+	if (!DebugSelfDamageEffect)
+	{
+		BO_LOG_GAS(Warning, "Server_RequestDebugSelfDamage failed: DebugSelfDamageEffect가 비어 있음");
+		return;
+	}
+
+	FGameplayEffectContextHandle ContextHandle = AbilitySystemComponent->MakeEffectContext();
+	ContextHandle.AddSourceObject(this);
+
+	const FGameplayEffectSpecHandle SpecHandle = AbilitySystemComponent->MakeOutgoingSpec(DebugSelfDamageEffect, 1.f, ContextHandle);
+	if (!SpecHandle.IsValid())
+	{
+		BO_LOG_GAS(Warning, "Server_RequestDebugSelfDamage failed: Damage Spec 생성에 실패함");
+		return;
+	}
+
+	SpecHandle.Data.Get()->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Damage, DamageAmount);
+
+	const bool bApplied = ApplyIncomingDamageSpec(SpecHandle, NAME_None);
+	BO_LOG_GAS(Log,
+		"Server_RequestDebugSelfDamage: Target=%s Damage=%.1f Applied=%s",
+		*GetName(),
+		DamageAmount,
+		bApplied ? TEXT("true") : TEXT("false"));
+}
+
 void ABlackoutPlayerCharacter::Server_SetAimOffset_Implementation(FVector2D NewAimOffset)
 {
 	ReplicatedAimOffset = FVector2D(
@@ -165,6 +211,11 @@ void ABlackoutPlayerCharacter::Server_SetAimOffset_Implementation(FVector2D NewA
 void ABlackoutPlayerCharacter::Multicast_PlayDodgeMontage_Implementation(UAnimMontage* Montage, float PlayRate)
 {
 	PlayDodgeMontage(Montage, PlayRate);
+}
+
+void ABlackoutPlayerCharacter::Multicast_PlayHitReactMontage_Implementation(UAnimMontage* Montage, float PlayRate)
+{
+	PlayHitReactMontage(Montage, PlayRate);
 }
 
 bool ABlackoutPlayerCharacter::PlayDodgeMontage(UAnimMontage* Montage, float PlayRate)
@@ -215,6 +266,61 @@ bool ABlackoutPlayerCharacter::PlayDodgeMontage(UAnimMontage* Montage, float Pla
 
 	BO_LOG_GAS(Log,
 		"PlayDodgeMontage result=%.2f Local=%s Authority=%s Montage=%s",
+		PlayResult,
+		IsLocallyControlled() ? TEXT("true") : TEXT("false"),
+		HasAuthority() ? TEXT("true") : TEXT("false"),
+		*GetNameSafe(Montage));
+
+	return PlayResult > 0.f;
+}
+
+bool ABlackoutPlayerCharacter::PlayHitReactMontage(UAnimMontage* Montage, float PlayRate)
+{
+	if (!Montage)
+	{
+		BO_LOG_GAS(Warning, "PlayHitReactMontage failed: Montage가 비어 있음");
+		bIsHitReactMontagePlaying = false;
+		return false;
+	}
+
+	USkeletalMeshComponent* MeshComponent = GetMesh();
+	if (!MeshComponent)
+	{
+		BO_LOG_GAS(Warning, "PlayHitReactMontage failed: MeshComponent가 비어 있음");
+		bIsHitReactMontagePlaying = false;
+		return false;
+	}
+
+	UAnimInstance* AnimInstance = MeshComponent->GetAnimInstance();
+	if (!AnimInstance)
+	{
+		BO_LOG_GAS(Warning, "PlayHitReactMontage failed: AnimInstance가 비어 있음");
+		bIsHitReactMontagePlaying = false;
+		return false;
+	}
+
+	if (AnimInstance->GetCurrentActiveMontage() == Montage && AnimInstance->Montage_IsPlaying(Montage))
+	{
+		bIsHitReactMontagePlaying = true;
+		BO_LOG_GAS(Verbose, "PlayHitReactMontage skipped: 이미 같은 히트 몽타주가 재생 중임");
+		return true;
+	}
+
+	const float PlayResult = PlayAnimMontage(Montage, PlayRate);
+	if (PlayResult > 0.f)
+	{
+		FOnMontageEnded MontageEndedDelegate;
+		MontageEndedDelegate.BindUObject(this, &ABlackoutPlayerCharacter::HandleHitReactMontageEnded);
+		AnimInstance->Montage_SetEndDelegate(MontageEndedDelegate, Montage);
+		bIsHitReactMontagePlaying = true;
+	}
+	else
+	{
+		bIsHitReactMontagePlaying = false;
+	}
+
+	BO_LOG_GAS(Log,
+		"PlayHitReactMontage result=%.2f Local=%s Authority=%s Montage=%s",
 		PlayResult,
 		IsLocallyControlled() ? TEXT("true") : TEXT("false"),
 		HasAuthority() ? TEXT("true") : TEXT("false"),
@@ -428,6 +534,15 @@ void ABlackoutPlayerCharacter::HandleDodgeMontageEnded(UAnimMontage* Montage, bo
 		*GetNameSafe(Montage));
 }
 
+void ABlackoutPlayerCharacter::HandleHitReactMontageEnded(UAnimMontage* Montage, bool bInterrupted)
+{
+	bIsHitReactMontagePlaying = false;
+	BO_LOG_GAS(Log,
+		"Hit react montage ended: Interrupted=%s Montage=%s",
+		bInterrupted ? TEXT("true") : TEXT("false"),
+		*GetNameSafe(Montage));
+}
+
 void ABlackoutPlayerCharacter::HandleWeaponSwapMontageEnded(UAnimMontage* Montage, bool bInterrupted)
 {
 	bIsWeaponSwapMontagePlaying = false;
@@ -446,6 +561,193 @@ void ABlackoutPlayerCharacter::HandleWeaponSwapMontageEnded(UAnimMontage* Montag
 void ABlackoutPlayerCharacter::HandleAimStateChanged(bool bNewAiming)
 {
 	ApplyAimMovementMode(bNewAiming);
+}
+
+void ABlackoutPlayerCharacter::OnHitReact()
+{
+	Super::OnHitReact();
+
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	if (!HitReactMontage)
+	{
+		BO_LOG_GAS(Verbose, "OnHitReact skipped: HitReactMontage가 비어 있음");
+		return;
+	}
+
+	Multicast_PlayHitReactMontage(HitReactMontage, 1.f);
+}
+
+void ABlackoutPlayerCharacter::OnDowned()
+{
+	if (IsDead() || IsDowned())
+	{
+		return;
+	}
+
+	Super::OnDowned();
+
+	bIsHitReactMontagePlaying = false;
+	bIsDodgeMontagePlaying = false;
+	bIsWeaponSwapMontagePlaying = false;
+
+	if (CombatComponent)
+	{
+		CombatComponent->StopFire();
+		CombatComponent->HandlePrimaryActionReleased();
+		CombatComponent->StopAim();
+	}
+
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		MoveComp->SetMovementMode(MOVE_Walking);
+		MoveComp->MaxWalkSpeed = DownedMaxWalkSpeed;
+		MoveComp->bOrientRotationToMovement = true;
+		MoveComp->bUseControllerDesiredRotation = false;
+	}
+
+	if (DownedEnterMontage)
+	{
+		Multicast_PlayDownedEnterMontage(DownedEnterMontage, 1.f);
+	}
+}
+
+bool ABlackoutPlayerCharacter::CanEnterDownedState() const
+{
+	return !IsDead() && !IsDowned();
+}
+
+void ABlackoutPlayerCharacter::OnDeath()
+{
+	if (IsDead())
+	{
+		return;
+	}
+
+	Super::OnDeath();
+
+	bIsHitReactMontagePlaying = false;
+	bIsDodgeMontagePlaying = false;
+	bIsWeaponSwapMontagePlaying = false;
+
+	if (CombatComponent)
+	{
+		CombatComponent->StopFire();
+		CombatComponent->HandlePrimaryActionReleased();
+		CombatComponent->StopAim();
+	}
+
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		MoveComp->DisableMovement();
+	}
+
+	if (DeathMontage)
+	{
+		Multicast_PlayDeathMontage(DeathMontage, 1.f);
+	}
+}
+
+void ABlackoutPlayerCharacter::Server_ReviveFromDowned_Implementation(float RevivedHealth)
+{
+	if (!HasAuthority() || !AbilitySystemComponent || !IsDowned() || IsDead())
+	{
+		return;
+	}
+
+	const float MaxHealth = AbilitySystemComponent->GetNumericAttribute(UBlackoutBaseAttributeSet::GetMaxHealthAttribute());
+	const float ClampedHealth = FMath::Clamp(RevivedHealth, 1.f, MaxHealth);
+
+	AbilitySystemComponent->RemoveLooseGameplayTag(BlackoutGameplayTags::State_Downed);
+	bIsDowned = false;
+	AbilitySystemComponent->SetNumericAttributeBase(UBlackoutBaseAttributeSet::GetHealthAttribute(), ClampedHealth);
+
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		MoveComp->SetMovementMode(MOVE_Walking);
+	}
+
+	UpdateAimMovementMode();
+	BO_LOG_GAS(Log, "ReviveFromDowned: Target=%s Health=%.1f", *GetName(), ClampedHealth);
+}
+
+bool ABlackoutPlayerCharacter::PlayDeathMontage(UAnimMontage* Montage, float PlayRate)
+{
+	if (!Montage)
+	{
+		BO_LOG_GAS(Warning, "PlayDeathMontage failed: Montage가 비어 있음");
+		return false;
+	}
+
+	USkeletalMeshComponent* MeshComponent = GetMesh();
+	if (!MeshComponent)
+	{
+		BO_LOG_GAS(Warning, "PlayDeathMontage failed: MeshComponent가 비어 있음");
+		return false;
+	}
+
+	UAnimInstance* AnimInstance = MeshComponent->GetAnimInstance();
+	if (!AnimInstance)
+	{
+		BO_LOG_GAS(Warning, "PlayDeathMontage failed: AnimInstance가 비어 있음");
+		return false;
+	}
+
+	const float PlayResult = PlayAnimMontage(Montage, PlayRate);
+	BO_LOG_GAS(Log,
+		"PlayDeathMontage result=%.2f Local=%s Authority=%s Montage=%s",
+		PlayResult,
+		IsLocallyControlled() ? TEXT("true") : TEXT("false"),
+		HasAuthority() ? TEXT("true") : TEXT("false"),
+		*GetNameSafe(Montage));
+
+	return PlayResult > 0.f;
+}
+
+void ABlackoutPlayerCharacter::Multicast_PlayDeathMontage_Implementation(UAnimMontage* Montage, float PlayRate)
+{
+	PlayDeathMontage(Montage, PlayRate);
+}
+
+bool ABlackoutPlayerCharacter::PlayDownedEnterMontage(UAnimMontage* Montage, float PlayRate)
+{
+	if (!Montage)
+	{
+		BO_LOG_GAS(Warning, "PlayDownedEnterMontage failed: Montage가 비어 있음");
+		return false;
+	}
+
+	USkeletalMeshComponent* MeshComponent = GetMesh();
+	if (!MeshComponent)
+	{
+		BO_LOG_GAS(Warning, "PlayDownedEnterMontage failed: MeshComponent가 비어 있음");
+		return false;
+	}
+
+	UAnimInstance* AnimInstance = MeshComponent->GetAnimInstance();
+	if (!AnimInstance)
+	{
+		BO_LOG_GAS(Warning, "PlayDownedEnterMontage failed: AnimInstance가 비어 있음");
+		return false;
+	}
+
+	const float PlayResult = PlayAnimMontage(Montage, PlayRate);
+	BO_LOG_GAS(Log,
+		"PlayDownedEnterMontage result=%.2f Local=%s Authority=%s Montage=%s",
+		PlayResult,
+		IsLocallyControlled() ? TEXT("true") : TEXT("false"),
+		HasAuthority() ? TEXT("true") : TEXT("false"),
+		*GetNameSafe(Montage));
+
+	return PlayResult > 0.f;
+}
+
+void ABlackoutPlayerCharacter::Multicast_PlayDownedEnterMontage_Implementation(UAnimMontage* Montage, float PlayRate)
+{
+	PlayDownedEnterMontage(Montage, PlayRate);
 }
 
 UAnimMontage* ABlackoutPlayerCharacter::GetWeaponSwapMontage(FGameplayTag TargetWeaponSlotTag) const
@@ -489,7 +791,7 @@ void ABlackoutPlayerCharacter::UpdateAimCamera(float DeltaSeconds)
 		return;
 	}
 
-	const bool bIsAiming = CombatComponent->IsAiming();
+	const bool bIsAiming = CombatComponent->IsAiming() && !IsDowned() && !IsDead();
 
 	const float TargetArmLength = bIsAiming ? AimArmLength : DefaultArmLength;
 	const FVector TargetSocketOffset = bIsAiming ? AimSocketOffset : DefaultSocketOffset;
@@ -530,6 +832,14 @@ void ABlackoutPlayerCharacter::ApplyAimMovementMode(bool bIsAiming)
 {
 	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
 	{
+		if (IsDowned())
+		{
+			MoveComp->bOrientRotationToMovement = true;
+			MoveComp->bUseControllerDesiredRotation = false;
+			MoveComp->MaxWalkSpeed = DownedMaxWalkSpeed;
+			return;
+		}
+
 		MoveComp->bOrientRotationToMovement = !bIsAiming;
 		MoveComp->bUseControllerDesiredRotation = bIsAiming;
 		MoveComp->MaxWalkSpeed = bIsAiming ? AimMaxWalkSpeed : DefaultMaxWalkSpeed;
@@ -599,7 +909,17 @@ void ABlackoutPlayerCharacter::DoMove(float Right, float Forward)
 		return;
 	}
 
+	if (IsDead())
+	{
+		return;
+	}
+
 	if (AbilitySystemComponent && AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Locked))
+	{
+		return;
+	}
+
+	if (bIsHitReactMontagePlaying)
 	{
 		return;
 	}
@@ -621,6 +941,16 @@ void ABlackoutPlayerCharacter::DoMove(float Right, float Forward)
 
 void ABlackoutPlayerCharacter::DoLook(float Yaw, float Pitch)
 {
+	if (IsDead())
+	{
+		return;
+	}
+
+	/*if (bIsHitReactMontagePlaying)
+	{
+		return;
+	}*/
+
 	if (GetController() != nullptr)
 	{
 		AddControllerYawInput(Yaw);

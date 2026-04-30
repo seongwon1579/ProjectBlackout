@@ -58,8 +58,8 @@ void UBlackoutBaseAttributeSet::PostGameplayEffectExecute(const FGameplayEffectM
 
 		if (ClampedHealth <= 0.f)
 		{
-			BO_LOG_GAS(Log, "OnDeath triggered: %s", *GetOwningActor()->GetName());
-			// 사망 처리는 ABlackoutCharacterBase::OnDeath()에서 델리게이트로 수신
+			BO_LOG_GAS(Log, "Health reached zero: %s", *GetOwningActor()->GetName());
+			// 실제 Downed/Death 분기는 ABlackoutCharacterBase::ApplyIncomingDamageSpec()에서 처리합니다.
 		}
 	}
 }
