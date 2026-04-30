@@ -16,7 +16,10 @@ UBlackoutGA_Dodge::UBlackoutGA_Dodge()
 {
 	InputID = EBlackoutAbilityInputID::Dodge;
 
-	ActivationOwnedTags.AddTag(BlackoutGameplayTags::State_Invulnerable);
+	// i-frame 을 위한 임시 제거 
+	//ActivationOwnedTags.AddTag(BlackoutGameplayTags::State_Invulnerable);
+
+	
 	ActivationOwnedTags.AddTag(BlackoutGameplayTags::State_Locked);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Downed);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Locked);

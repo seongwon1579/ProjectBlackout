@@ -41,6 +41,11 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Ability")
 	TObjectPtr<UAnimMontage> DodgeMontage;
+	
+	/*
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Ability")
+	TObjectPtr<UAnimMontage> DodgeMontage2R;
+	*/
 
 private:
 	UFUNCTION()

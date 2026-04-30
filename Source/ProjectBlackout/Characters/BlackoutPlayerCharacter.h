@@ -48,11 +48,23 @@ public:
 	UFUNCTION(Server, Reliable, Category = "Blackout|Input")
 	void Server_SetPendingDodgeInput(FVector2D NewInput);
 
+	UFUNCTION(Server, Reliable, Category = "Blackout|Debug")
+	void Server_RequestDebugSelfDamage(float DamageAmount);
+
+	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "Blackout|State")
+	void Server_ReviveFromDowned(float RevivedHealth);
+
 	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
 	void Multicast_PlayDodgeMontage(UAnimMontage* Montage, float PlayRate = 1.f);
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
 	bool PlayDodgeMontage(UAnimMontage* Montage, float PlayRate = 1.f);
+
+	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
+	void Multicast_PlayHitReactMontage(UAnimMontage* Montage, float PlayRate = 1.f);
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
+	bool PlayHitReactMontage(UAnimMontage* Montage, float PlayRate = 1.f);
 
 	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
 	void Multicast_PlayWeaponSwapMontage(FGameplayTag TargetWeaponSlotTag, float PlayRate = 1.f);
@@ -93,7 +105,12 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Blackout|Animation")
 	bool IsWeaponSwapMontagePlaying() const { return bIsWeaponSwapMontagePlaying; }
 
+	UFUNCTION(BlueprintPure, Category = "Blackout|Animation")
+	bool IsHitReactMontagePlaying() const { return bIsHitReactMontagePlaying; }
+
 	void HandleAimStateChanged(bool bNewAiming);
+	
+	
 	
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Input")
 	FVector2D PendingDodgeInput = FVector2D::ZeroVector;
@@ -120,8 +137,38 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|GAS")
 	TSubclassOf<UGameplayEffect> DefaultAttributeEffect;
 
+	/** 디버그 자가 피격 테스트에 사용할 Gameplay Effect. GE_Damage를 연결합니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Debug")
+	TSubclassOf<UGameplayEffect> DebugSelfDamageEffect;
+
 	/** CharacterData를 기반으로 초기 어트리뷰트 값 설정 (GE 적용) */
 	virtual void InitializeAttributes();
+
+	/** 피격 시 플레이어 전용 히트 리액션 몽타주를 재생합니다. */
+	virtual void OnHitReact() override;
+	virtual void OnDowned() override;
+	virtual bool CanEnterDownedState() const override;
+	virtual void OnDeath() override;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
+	TObjectPtr<UAnimMontage> DeathMontage;
+
+	/** 다운 상태 진입 직후 1회 재생할 몽타주입니다. 비어 있으면 태그만 적용합니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
+	TObjectPtr<UAnimMontage> DownedEnterMontage;
+
+	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
+	void Multicast_PlayDeathMontage(UAnimMontage* Montage, float PlayRate = 1.f);
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
+	bool PlayDeathMontage(UAnimMontage* Montage, float PlayRate = 1.f);
+
+	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
+	void Multicast_PlayDownedEnterMontage(UAnimMontage* Montage, float PlayRate = 1.f);
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
+	bool PlayDownedEnterMontage(UAnimMontage* Montage, float PlayRate = 1.f);
+	
 	
 	
 	// 플레이어 캐릭터 인풋 매핑 세팅 //
@@ -163,6 +210,15 @@ protected:
 
 	UFUNCTION()
 	void HandleDodgeMontageEnded(UAnimMontage* Montage, bool bInterrupted);
+
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Animation")
+	bool bIsHitReactMontagePlaying = false;
+
+	UFUNCTION()
+	void HandleHitReactMontageEnded(UAnimMontage* Montage, bool bInterrupted);
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
+	TObjectPtr<UAnimMontage> HitReactMontage;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
 	TObjectPtr<UAnimMontage> EquipPrimaryMontage;
@@ -208,6 +264,10 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Movement")
 	float AimMaxWalkSpeed = 420.f;
+
+	/** 다운 상태에서 기어다닐 때 사용할 이동 속도입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Movement")
+	float DownedMaxWalkSpeed = 150.f;
 	
 	
 	

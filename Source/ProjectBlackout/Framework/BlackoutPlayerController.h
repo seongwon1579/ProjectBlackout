@@ -66,6 +66,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input")
 	TObjectPtr<UInputAction> SprintAction;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input")
+	TObjectPtr<UInputAction> DebugSelfDamageAction;
+
 	void OnFirePressed();
 	void OnFireReleased();
 	void OnAimPressed();
@@ -75,6 +78,8 @@ protected:
 	void OnDodgePressed();
 	void OnSprintPressed();
 	void OnSprintReleased();
+	void OnDebugSelfDamagePressed();
+	bool IsHitReactInputBlocked() const;
 
 	void HandleAbilityInputPressed(EBlackoutAbilityInputID InputID);
 	void HandleAbilityInputReleased(EBlackoutAbilityInputID InputID);
