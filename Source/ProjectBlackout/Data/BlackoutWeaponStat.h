@@ -66,6 +66,34 @@ struct PROJECTBLACKOUT_API FBlackoutFirearmStat : public FBlackoutWeaponStat
 	/** 산탄/유탄류 스플래시 반경 (cm). 비적용 무기는 0. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Weapon", meta = (ClampMin = 0.f))
 	float SplashRadius = 0.f;
+
+	/** 발사하지 않을 때의 기본 탄퍼짐 각도 (도). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Spread", meta = (ClampMin = 0.f))
+	float BaseSpreadDegrees = 0.5f;
+
+	/** 연사 시 도달할 수 있는 최대 탄퍼짐 각도 (도). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Spread", meta = (ClampMin = 0.f))
+	float MaxSpreadDegrees = 5.0f;
+
+	/** 발사 1회당 증가하는 탄퍼짐 각도 (도). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Spread", meta = (ClampMin = 0.f))
+	float SpreadPerShot = 0.8f;
+
+	/** 초당 탄퍼짐 회복량 (도/초). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Spread", meta = (ClampMin = 0.f))
+	float SpreadRecoveryRate = 4.0f;
+
+	/** 발사 1회당 적용되는 수직 반동 최솟값 (도). 카메라가 위로 올라갑니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Recoil", meta = (ClampMin = 0.f))
+	float VerticalRecoilMin = 0.5f;
+
+	/** 발사 1회당 적용되는 수직 반동 최댓값 (도). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Recoil", meta = (ClampMin = 0.f))
+	float VerticalRecoilMax = 1.2f;
+
+	/** 발사 1회당 적용되는 수평 반동의 최대 절댓값 (도). 이 값의 ±범위 안에서 무작위 적용됩니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Recoil", meta = (ClampMin = 0.f))
+	float HorizontalRecoilRange = 0.4f;
 };
 
 /**

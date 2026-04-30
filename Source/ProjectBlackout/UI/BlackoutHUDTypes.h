@@ -34,4 +34,8 @@ struct FBlackoutImpactIndicatorData
 
 	UPROPERTY(BlueprintReadOnly, Category = "Blackout|HUD")
 	float DistanceFromMuzzle = 0.0f;
+
+	/** 현재 탄퍼짐을 0(기본)~1(최대) 범위로 정규화한 값. 인디케이터 크기·크로스헤어 확장에 사용합니다. */
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|HUD")
+	float SpreadNormalized = 0.0f;
 };

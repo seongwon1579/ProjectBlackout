@@ -62,11 +62,15 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 	// 3. 트레이스 수행 또는 발사체 스폰 (무기 컴포넌트 정보 기반)
 	const FVector MuzzleLocation = CombatComponent->GetMuzzleTransform().GetLocation();
 	const FVector AimTarget = ImpactIndicatorComponent->GetAimTargetPoint();
-	const FVector FireDirection = (AimTarget - MuzzleLocation).GetSafeNormal();
+	const FVector BaseFireDirection = (AimTarget - MuzzleLocation).GetSafeNormal();
+	const FVector FireDirection = CombatComponent->GetSpreadDeviatedDirection(BaseFireDirection);
 	const FGameplayEffectSpecHandle DamageSpecHandle = BuildDamageSpec(EquippedFirearm);
 	EquippedFirearm->Fire(FireDirection, DamageSpecHandle);
 
-	// 4. 사격 GameplayCue 트리거
+	// 4. 탄퍼짐 누적 및 반동 적용
+	CombatComponent->OnShotFired();
+
+	// 5. 사격 GameplayCue 트리거
 	if (UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo())
 	{
 		AbilitySystemComponent->ExecuteGameplayCue(BlackoutGameplayTags::GameplayCue_Weapon_Fire);

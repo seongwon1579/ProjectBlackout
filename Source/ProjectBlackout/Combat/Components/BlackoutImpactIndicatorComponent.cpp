@@ -64,6 +64,10 @@ bool UBlackoutImpactIndicatorComponent::GetImpactIndicatorData(FBlackoutImpactIn
 	OutIndicatorData = FBlackoutImpactIndicatorData();
 
 	const UBlackoutCombatComponent* ResolvedCombatComponent = ResolveCombatComponent();
+
+	// 조준 여부와 무관하게 현재 스프레드는 항상 전달
+	OutIndicatorData.SpreadNormalized = ResolvedCombatComponent ? ResolvedCombatComponent->GetNormalizedSpread() : 0.0f;
+
 	if (!ResolvedCombatComponent || !ResolvedCombatComponent->IsAiming())
 	{
 		return false;

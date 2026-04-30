@@ -104,6 +104,25 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	FTransform GetMuzzleTransform() const;
 
+	/** 발사 1회 시 호출. 탄퍼짐을 누적하고 반동을 카메라에 적용합니다. */
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	void OnShotFired();
+
+	/**
+	 * 기본 발사 방향에 현재 탄퍼짐을 적용한 방향을 반환합니다.
+	 * 탄퍼짐 콘 안에서 무작위 편향된 방향이 반환됩니다.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	FVector GetSpreadDeviatedDirection(const FVector& BaseDirection) const;
+
+	/** 현재 탄퍼짐 각도를 반환합니다 (도). */
+	UFUNCTION(BlueprintPure, Category = "Blackout|Combat")
+	float GetCurrentSpreadDegrees() const { return CurrentSpreadDegrees; }
+
+	/** 현재 탄퍼짐을 0(기본)~1(최대) 범위로 정규화하여 반환합니다. */
+	UFUNCTION(BlueprintPure, Category = "Blackout|Combat")
+	float GetNormalizedSpread() const;
+
 	UFUNCTION(Server, Reliable)
 	void Server_EquipWeapon(ABOWeaponBase* NewWeapon);
 
@@ -205,4 +224,12 @@ private:
 	bool bIsWeaponSwapInProgress = false;
 
 	FTimerHandle AutomaticFireTimerHandle;
+
+	void AccumulateSpread();
+	void ApplyRecoil();
+	void TickSpreadRecovery();
+	void ResetSpread();
+
+	float CurrentSpreadDegrees = 0.0f;
+	FTimerHandle SpreadRecoveryTimerHandle;
 };

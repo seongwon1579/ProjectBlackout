@@ -421,6 +421,7 @@ void UBlackoutCombatComponent::Server_CancelPendingWeaponSwap_Implementation()
 void UBlackoutCombatComponent::OnRep_EquippedWeapon()
 {
 	RefreshWeaponAttachments();
+	ResetSpread();
 	OnEquippedWeaponChanged.Broadcast(EquippedWeapon, GetEquippedWeaponSlotTag());
 }
 
@@ -851,4 +852,122 @@ void UBlackoutCombatComponent::HandleAbilityInputReleased(EBlackoutAbilityInputI
 	{
 		AbilitySystemComponent->HandleAbilityInputReleased(InputID);
 	}
+}
+
+void UBlackoutCombatComponent::OnShotFired()
+{
+	AccumulateSpread();
+	ApplyRecoil();
+}
+
+FVector UBlackoutCombatComponent::GetSpreadDeviatedDirection(const FVector& BaseDirection) const
+{
+	if (CurrentSpreadDegrees <= 0.0f)
+	{
+		return BaseDirection.GetSafeNormal();
+	}
+
+	return FMath::VRandCone(BaseDirection.GetSafeNormal(), FMath::DegreesToRadians(CurrentSpreadDegrees));
+}
+
+float UBlackoutCombatComponent::GetNormalizedSpread() const
+{
+	const ABOFirearm* Firearm = GetEquippedFirearm();
+	if (!Firearm)
+	{
+		return 0.0f;
+	}
+
+	const float BaseSpread = Firearm->GetBaseSpreadDegrees();
+	const float SpreadRange = Firearm->GetMaxSpreadDegrees() - BaseSpread;
+	if (SpreadRange <= 0.0f)
+	{
+		return 0.0f;
+	}
+
+	return FMath::Clamp((CurrentSpreadDegrees - BaseSpread) / SpreadRange, 0.0f, 1.0f);
+}
+
+void UBlackoutCombatComponent::AccumulateSpread()
+{
+	const ABOFirearm* Firearm = GetEquippedFirearm();
+	if (!Firearm)
+	{
+		return;
+	}
+
+	CurrentSpreadDegrees = FMath::Min(
+		CurrentSpreadDegrees + Firearm->GetSpreadPerShot(),
+		Firearm->GetMaxSpreadDegrees());
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	constexpr float RecoveryTickInterval = 1.0f / 60.0f;
+	World->GetTimerManager().SetTimer(
+		SpreadRecoveryTimerHandle,
+		this,
+		&UBlackoutCombatComponent::TickSpreadRecovery,
+		RecoveryTickInterval,
+		true);
+}
+
+void UBlackoutCombatComponent::ApplyRecoil()
+{
+	const ABOFirearm* Firearm = GetEquippedFirearm();
+	APawn* OwnerPawn = Cast<APawn>(GetOwner());
+	if (!Firearm || !OwnerPawn)
+	{
+		return;
+	}
+
+	// 수직: 음수 = 카메라 위로 (Unreal에서 Pitch 감소 = 위 방향)
+	const float VerticalRecoil = FMath::RandRange(Firearm->GetVerticalRecoilMin(), Firearm->GetVerticalRecoilMax());
+	const float HorizontalRecoil = FMath::RandRange(-Firearm->GetHorizontalRecoilRange(), Firearm->GetHorizontalRecoilRange());
+
+	OwnerPawn->AddControllerPitchInput(-VerticalRecoil);
+	OwnerPawn->AddControllerYawInput(HorizontalRecoil);
+}
+
+void UBlackoutCombatComponent::TickSpreadRecovery()
+{
+	const ABOFirearm* Firearm = GetEquippedFirearm();
+	if (!Firearm)
+	{
+		if (UWorld* World = GetWorld())
+		{
+			World->GetTimerManager().ClearTimer(SpreadRecoveryTimerHandle);
+		}
+		return;
+	}
+
+	const float BaseSpread = Firearm->GetBaseSpreadDegrees();
+	if (CurrentSpreadDegrees <= BaseSpread)
+	{
+		CurrentSpreadDegrees = BaseSpread;
+		if (UWorld* World = GetWorld())
+		{
+			World->GetTimerManager().ClearTimer(SpreadRecoveryTimerHandle);
+		}
+		return;
+	}
+
+	constexpr float RecoveryTickInterval = 1.0f / 60.0f;
+	CurrentSpreadDegrees = FMath::Max(
+		CurrentSpreadDegrees - Firearm->GetSpreadRecoveryRate() * RecoveryTickInterval,
+		BaseSpread);
+}
+
+void UBlackoutCombatComponent::ResetSpread()
+{
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(SpreadRecoveryTimerHandle);
+	}
+
+	const ABOFirearm* Firearm = GetEquippedFirearm();
+	CurrentSpreadDegrees = Firearm ? Firearm->GetBaseSpreadDegrees() : 0.0f;
 }
