@@ -929,10 +929,20 @@ void UBlackoutCombatComponent::ApplyRecoil()
 		return;
 	}
 
+	if (!bHasRecoilBaseline)
+	{
+		const APawn* OwnerPawn = Cast<APawn>(GetOwner());
+		const AController* Controller = OwnerPawn ? OwnerPawn->GetController() : nullptr;
+		if (Controller)
+		{
+			RecoilBaselinePitch = Controller->GetControlRotation().Pitch;
+			bHasRecoilBaseline = true;
+		}
+	}
+
 	if (bIsRecoveringRecoil)
 	{
-		AccumulatedRecoilPitch += RecoverableRecoilPitch;
-		RecoverableRecoilPitch = 0.0f;
+		RecoveryPitchRemaining = 0.0f;
 		bIsRecoveringRecoil = false;
 	}
 
@@ -974,15 +984,27 @@ void UBlackoutCombatComponent::TickSpreadRecovery()
 
 void UBlackoutCombatComponent::TickRecoil(float DeltaTime)
 {
-	const bool bHasPendingRecoil = !FMath::IsNearlyZero(PendingRecoilPitch, 0.01f) || !FMath::IsNearlyZero(PendingRecoilYaw, 0.01f);
+	if (!bHasRecoilBaseline)
+	{
+		return;
+	}
+
+	APawn* OwnerPawn = Cast<APawn>(GetOwner());
+	const AController* Controller = OwnerPawn ? OwnerPawn->GetController() : nullptr;
+	if (!OwnerPawn || !Controller)
+	{
+		return;
+	}
+
+	AccumulatedRecoilPitch = FMath::Min(AccumulatedRecoilPitch, GetRecoilPitchDisplacement(*Controller));
+
+	const bool bHasPendingRecoil = !FMath::IsNearlyZero(PendingRecoilPitch, 0.01f)
+		|| !FMath::IsNearlyZero(PendingRecoilYaw, 0.01f);
 
 	if (bHasPendingRecoil)
 	{
-		APawn* OwnerPawn = Cast<APawn>(GetOwner());
-		if (!OwnerPawn)
-		{
-			return;
-		}
+		bIsRecoveringRecoil = false;
+		RecoveryPitchRemaining = 0.0f;
 
 		const float Alpha = FMath::Clamp(RecoilInterpSpeed * DeltaTime, 0.0f, 1.0f);
 
@@ -992,10 +1014,14 @@ void UBlackoutCombatComponent::TickRecoil(float DeltaTime)
 		const ABOFirearm* Firearm = GetEquippedFirearm();
 		const float MaxPitch = Firearm ? Firearm->GetMaxRecoilPitchDegrees() : 15.0f;
 		const float RemainingRoom = FMath::Max(0.0f, MaxPitch - AccumulatedRecoilPitch);
-		const float AbsPitchStep = FMath::Abs(PitchStep);
-		if (AbsPitchStep > RemainingRoom)
+
+		if (PitchStep < 0.0f)
 		{
-			PitchStep = -RemainingRoom;
+			PitchStep = -FMath::Min(RemainingRoom, FMath::Abs(PitchStep));
+		}
+		else
+		{
+			PitchStep = FMath::Min(RemainingRoom, PitchStep);
 		}
 
 		OwnerPawn->AddControllerPitchInput(PitchStep);
@@ -1011,32 +1037,49 @@ void UBlackoutCombatComponent::TickRecoil(float DeltaTime)
 			PendingRecoilYaw = 0.0f;
 
 			const float RecoveryFraction = Firearm ? Firearm->GetRecoilRecoveryFraction() : 0.0f;
-			RecoverableRecoilPitch = AccumulatedRecoilPitch * RecoveryFraction;
-			AccumulatedRecoilPitch -= RecoverableRecoilPitch;
-			bIsRecoveringRecoil = RecoverableRecoilPitch > 0.01f;
+			RecoveryPitchRemaining = AccumulatedRecoilPitch * RecoveryFraction;
+			bIsRecoveringRecoil = RecoveryPitchRemaining > 0.01f;
 		}
 
 		return;
 	}
 
-	if (bIsRecoveringRecoil && RecoverableRecoilPitch > 0.01f)
+	if (bIsRecoveringRecoil && RecoveryPitchRemaining > 0.01f)
 	{
-		APawn* OwnerPawn = Cast<APawn>(GetOwner());
-		if (!OwnerPawn)
+		const float RecoveryStep = RecoveryPitchRemaining * FMath::Clamp(RecoilRecoveryInterpSpeed * DeltaTime, 0.0f, 1.0f);
+
+		const float CurrentDisplacement = GetRecoilPitchDisplacement(*Controller);
+		const float ClampedStep = FMath::Min(RecoveryStep, CurrentDisplacement);
+
+		if (ClampedStep > 0.001f)
 		{
-			return;
+			OwnerPawn->AddControllerPitchInput(ClampedStep);
+			AccumulatedRecoilPitch = FMath::Max(0.0f, AccumulatedRecoilPitch - ClampedStep);
+			RecoveryPitchRemaining -= ClampedStep;
+		}
+		else if (CurrentDisplacement <= 0.001f)
+		{
+			RecoveryPitchRemaining = 0.0f;
+			AccumulatedRecoilPitch = 0.0f;
 		}
 
-		const float RecoveryStep = RecoverableRecoilPitch * FMath::Clamp(RecoilRecoveryInterpSpeed * DeltaTime, 0.0f, 1.0f);
-		OwnerPawn->AddControllerPitchInput(RecoveryStep);
-		RecoverableRecoilPitch -= RecoveryStep;
-
-		if (RecoverableRecoilPitch <= 0.01f)
+		if (RecoveryPitchRemaining <= 0.01f)
 		{
-			RecoverableRecoilPitch = 0.0f;
+			RecoveryPitchRemaining = 0.0f;
 			bIsRecoveringRecoil = false;
+			AccumulatedRecoilPitch = FMath::Min(AccumulatedRecoilPitch, GetRecoilPitchDisplacement(*Controller));
+			bHasRecoilBaseline = false;
 		}
+
+		return;
 	}
+
+	bHasRecoilBaseline = false;
+}
+
+float UBlackoutCombatComponent::GetRecoilPitchDisplacement(const AController& Controller) const
+{
+	return FMath::Max(0.0f, FRotator::NormalizeAxis(Controller.GetControlRotation().Pitch - RecoilBaselinePitch));
 }
 
 void UBlackoutCombatComponent::ResetSpread()
@@ -1051,7 +1094,9 @@ void UBlackoutCombatComponent::ResetSpread()
 
 	PendingRecoilPitch = 0.0f;
 	PendingRecoilYaw = 0.0f;
+	RecoilBaselinePitch = 0.0f;
 	AccumulatedRecoilPitch = 0.0f;
-	RecoverableRecoilPitch = 0.0f;
+	RecoveryPitchRemaining = 0.0f;
+	bHasRecoilBaseline = false;
 	bIsRecoveringRecoil = false;
 }

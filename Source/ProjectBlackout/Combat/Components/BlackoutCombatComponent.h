@@ -11,6 +11,7 @@
 class ABOWeaponBase;
 class ABOFirearm;
 class ABOMeleeWeapon;
+class AController;
 class UBOCharacterData;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FBlackoutEquippedWeaponChangedSignature, ABOWeaponBase*, EquippedWeapon, FGameplayTag, WeaponSlotTag);
@@ -239,13 +240,16 @@ private:
 	void TickSpreadRecovery();
 	void TickRecoil(float DeltaTime);
 	void ResetSpread();
+	float GetRecoilPitchDisplacement(const AController& Controller) const;
 
 	float CurrentSpreadDegrees = 0.0f;
 	FTimerHandle SpreadRecoveryTimerHandle;
 
 	float PendingRecoilPitch = 0.0f;
 	float PendingRecoilYaw = 0.0f;
+	float RecoilBaselinePitch = 0.0f;
 	float AccumulatedRecoilPitch = 0.0f;
-	float RecoverableRecoilPitch = 0.0f;
+	float RecoveryPitchRemaining = 0.0f;
+	bool bHasRecoilBaseline = false;
 	bool bIsRecoveringRecoil = false;
 };
