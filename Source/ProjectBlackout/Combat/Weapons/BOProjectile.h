@@ -23,6 +23,15 @@ public:
 	virtual void InitFromSpec(const FGameplayEffectSpecHandle& InDamageSpec, float Radius);
 	virtual void Launch(const FVector& Direction);
 
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	float GetInitialSpeed() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	float GetGravityScale() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	float GetCollisionRadius() const;
+
 protected:
 	UFUNCTION()
 	virtual void OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);

@@ -18,6 +18,9 @@ struct FBlackoutImpactIndicatorData
 	bool bTargetMismatch = false;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Blackout|HUD")
+	bool bUsesProjectilePrediction = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|HUD")
 	FVector WorldLocation = FVector::ZeroVector;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Blackout|HUD")

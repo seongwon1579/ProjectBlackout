@@ -45,6 +45,18 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	float GetSplashRadius() const;
 
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	TSubclassOf<ABOProjectile> GetProjectileClass() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	float GetProjectileLaunchSpeed() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	float GetProjectileGravityScale() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	float GetProjectileCollisionRadius() const;
+
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Combat")
 	TObjectPtr<UNiagaraComponent> MuzzleFlash;

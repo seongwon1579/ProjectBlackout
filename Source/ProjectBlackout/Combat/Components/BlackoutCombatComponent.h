@@ -104,15 +104,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	FTransform GetMuzzleTransform() const;
 
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
-	FVector GetAimImpactPoint() const;
-
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
-	bool GetAimTargetHitResult(FHitResult& OutHitResult, FVector& OutTraceEnd) const;
-
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
-	bool GetTrueImpactPoint(FHitResult& OutHitResult, FVector& OutImpactPoint, FVector& OutTraceEnd) const;
-
 	UFUNCTION(Server, Reliable)
 	void Server_EquipWeapon(ABOWeaponBase* NewWeapon);
 
@@ -172,12 +163,6 @@ protected:
 	bool bMeleeWeaponAttachmentOverride = false;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
-	float AimParallaxOffset = 100.0f;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
-	float AimTraceDistance = 10000.0f;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
 	FName EquippedWeaponSocketName = TEXT("WeaponSocket");
 
 private:
@@ -196,7 +181,6 @@ private:
 	void ReleaseActivePrimaryAction();
 	void HandleAbilityInputPressed(EBlackoutAbilityInputID InputID) const;
 	void HandleAbilityInputReleased(EBlackoutAbilityInputID InputID) const;
-	bool PerformWeaponTrace(const FVector& TraceStart, const FVector& TraceEnd, const AActor* IgnoredActor, FHitResult& OutHitResult) const;
 
 	
 	// 현재 열려 있는 근접 공격창에서 사용할 데미지 스펙

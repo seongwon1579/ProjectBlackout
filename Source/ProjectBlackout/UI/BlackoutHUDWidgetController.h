@@ -17,6 +17,7 @@ class UAbilitySystemComponent;
 class UBlackoutAmmoAttributeSet;
 class UBlackoutBaseAttributeSet;
 class UBlackoutCombatComponent;
+class UBlackoutImpactIndicatorComponent;
 class UBlackoutPlayerAttributeSet;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FBlackoutHUDValueChangedSignature, float, CurrentValue, float, MaxValue);
@@ -93,6 +94,7 @@ private:
 	TWeakObjectPtr<const UBlackoutPlayerAttributeSet> PlayerAttributeSet;
 	TWeakObjectPtr<const UBlackoutAmmoAttributeSet> AmmoAttributeSet;
 	TWeakObjectPtr<UBlackoutCombatComponent> CombatComponent;
+	TWeakObjectPtr<UBlackoutImpactIndicatorComponent> ImpactIndicatorComponent;
 
 	bool bCallbacksBound = false;
 };

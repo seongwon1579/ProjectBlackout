@@ -9,6 +9,7 @@ class USpringArmComponent;
 class UCameraComponent;
 class UBOCharacterData;
 class UBlackoutCombatComponent;
+class UBlackoutImpactIndicatorComponent;
 class UGameplayEffect;
 class UInputAction;
 class UAnimMontage;
@@ -36,6 +37,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat|Accessors")
 	UBlackoutCombatComponent* GetCombatComponent() const { return CombatComponent; }
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat|Accessors")
+	UBlackoutImpactIndicatorComponent* GetImpactIndicatorComponent() const { return ImpactIndicatorComponent; }
 	
 	UFUNCTION(BlueprintPure, Category = "Blackout|Input")
 	FVector2D GetCachedMoveInput() const { return CachedMoveInput; }
@@ -107,6 +111,9 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Components")
 	TObjectPtr<UBlackoutCombatComponent> CombatComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Components")
+	TObjectPtr<UBlackoutImpactIndicatorComponent> ImpactIndicatorComponent;
 
 	/** 원격 클라이언트에서 플레이어 에임 오프셋을 재생하기 위한 복제 값입니다. */
 	UPROPERTY(Transient, Replicated, BlueprintReadOnly, Category = "Blackout|Animation")

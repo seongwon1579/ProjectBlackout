@@ -3,6 +3,7 @@
 #include "AbilitySystemComponent.h"
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
+#include "Combat/Components/BlackoutImpactIndicatorComponent.h"
 #include "Combat/Weapons/BOFirearm.h"
 #include "Core/BlackoutLog.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
@@ -26,10 +27,14 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 
 	const ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
 	UBlackoutCombatComponent* CombatComponent = PlayerCharacter ? PlayerCharacter->GetCombatComponent() : nullptr;
+	const UBlackoutImpactIndicatorComponent* ImpactIndicatorComponent = PlayerCharacter ? PlayerCharacter->GetImpactIndicatorComponent() : nullptr;
 	ABOFirearm* EquippedFirearm = CombatComponent ? CombatComponent->GetEquippedFirearm() : nullptr;
-	if (!EquippedFirearm)
+	if (!EquippedFirearm || !ImpactIndicatorComponent)
 	{
-		BO_LOG_GAS(Warning, "GA_FireWeapon failed: 장착된 총기가 없음");
+		BO_LOG_GAS(Warning,
+		           "GA_FireWeapon failed: Firearm=%s ImpactIndicatorComponent=%s",
+		           *GetNameSafe(EquippedFirearm),
+		           *GetNameSafe(ImpactIndicatorComponent));
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
@@ -56,7 +61,7 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 
 	// 3. 트레이스 수행 또는 발사체 스폰 (무기 컴포넌트 정보 기반)
 	const FVector MuzzleLocation = CombatComponent->GetMuzzleTransform().GetLocation();
-	const FVector AimTarget = CombatComponent->GetAimImpactPoint();
+	const FVector AimTarget = ImpactIndicatorComponent->GetAimTargetPoint();
 	const FVector FireDirection = (AimTarget - MuzzleLocation).GetSafeNormal();
 	const FGameplayEffectSpecHandle DamageSpecHandle = BuildDamageSpec(EquippedFirearm);
 	EquippedFirearm->Fire(FireDirection, DamageSpecHandle);

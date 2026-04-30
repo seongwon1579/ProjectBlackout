@@ -1,6 +1,7 @@
 #include "BlackoutPlayerCharacter.h"
 #include "BlackoutAbilitySystemComponent.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
+#include "Combat/Components/BlackoutImpactIndicatorComponent.h"
 #include "Data/BOCharacterData.h"
 #include "AbilitySystemInterface.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
@@ -30,6 +31,8 @@ ABlackoutPlayerCharacter::ABlackoutPlayerCharacter()
 	Camera->bUsePawnControlRotation = false;
 
 	CombatComponent = CreateDefaultSubobject<UBlackoutCombatComponent>(TEXT("CombatComponent"));
+	ImpactIndicatorComponent = CreateDefaultSubobject<UBlackoutImpactIndicatorComponent>(TEXT("ImpactIndicatorComponent"));
+	ImpactIndicatorComponent->Initialize(CombatComponent);
 
 	// TPS: 컨트롤러 회전은 카메라에만 적용하고, 기본 이동 회전은 CharacterMovement가 담당
 	bUseControllerRotationYaw = false;

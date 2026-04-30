@@ -3,9 +3,8 @@
 #include "AbilitySystemComponent.h"
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
-#include "Combat/Weapons/BOFirearm.h"
+#include "Combat/Components/BlackoutImpactIndicatorComponent.h"
 #include "Combat/Weapons/BOWeaponBase.h"
-#include "Components/PrimitiveComponent.h"
 #include "Core/BlackoutLog.h"
 #include "Framework/BlackoutPlayerController.h"
 #include "Framework/BlackoutPlayerState.h"
@@ -14,25 +13,6 @@
 #include "GAS/Attributes/BlackoutPlayerAttributeSet.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "Blueprint/WidgetLayoutLibrary.h"
-
-namespace
-{
-	AActor* ResolveIndicatorTargetActor(const FHitResult& HitResult)
-	{
-		if (!HitResult.bBlockingHit)
-		{
-			return nullptr;
-		}
-
-		if (AActor* HitActor = HitResult.GetActor())
-		{
-			return HitActor;
-		}
-
-		const UPrimitiveComponent* HitComponent = HitResult.GetComponent();
-		return HitComponent ? HitComponent->GetOwner() : nullptr;
-	}
-}
 
 bool UBlackoutHUDWidgetController::Initialize(APlayerController* InPlayerController)
 {
@@ -108,28 +88,13 @@ bool UBlackoutHUDWidgetController::GetImpactIndicatorData(FBlackoutImpactIndicat
 	OutIndicatorData = FBlackoutImpactIndicatorData();
 
 	ABlackoutPlayerController* BlackoutPlayerController = PlayerController.Get();
-	const UBlackoutCombatComponent* BlackoutCombatComponent = CombatComponent.Get();
-	if (!BlackoutPlayerController || !BlackoutPlayerController->IsLocalController() || !BlackoutCombatComponent)
+	const UBlackoutImpactIndicatorComponent* BlackoutImpactIndicatorComponent = ImpactIndicatorComponent.Get();
+	if (!BlackoutPlayerController || !BlackoutPlayerController->IsLocalController() || !BlackoutImpactIndicatorComponent)
 	{
 		return false;
 	}
 
-	if (!BlackoutCombatComponent->IsAiming() || !BlackoutCombatComponent->GetEquippedFirearm())
-	{
-		return false;
-	}
-
-	FHitResult AimHitResult;
-	FVector AimTraceEnd = FVector::ZeroVector;
-	if (!BlackoutCombatComponent->GetAimTargetHitResult(AimHitResult, AimTraceEnd))
-	{
-		return false;
-	}
-
-	FHitResult TrueImpactHitResult;
-	FVector ImpactPoint = FVector::ZeroVector;
-	FVector TraceEnd = FVector::ZeroVector;
-	if (!BlackoutCombatComponent->GetTrueImpactPoint(TrueImpactHitResult, ImpactPoint, TraceEnd))
+	if (!BlackoutImpactIndicatorComponent->GetImpactIndicatorData(OutIndicatorData))
 	{
 		return false;
 	}
@@ -137,23 +102,14 @@ bool UBlackoutHUDWidgetController::GetImpactIndicatorData(FBlackoutImpactIndicat
 	FVector2D ScreenPosition = FVector2D::ZeroVector;
 	if (!UWidgetLayoutLibrary::ProjectWorldLocationToWidgetPosition(
 		BlackoutPlayerController,
-		ImpactPoint,
+		OutIndicatorData.WorldLocation,
 		ScreenPosition,
 		true))
 	{
 		return false;
 	}
 
-	OutIndicatorData.bIsVisible = true;
-	OutIndicatorData.bHasBlockingHit = TrueImpactHitResult.bBlockingHit;
-	OutIndicatorData.bTargetMismatch = AimHitResult.bBlockingHit
-		&& ResolveIndicatorTargetActor(AimHitResult) != ResolveIndicatorTargetActor(TrueImpactHitResult);
-	OutIndicatorData.WorldLocation = ImpactPoint;
-	OutIndicatorData.TraceEndLocation = TraceEnd;
 	OutIndicatorData.ScreenPosition = ScreenPosition;
-	OutIndicatorData.DistanceFromMuzzle = FVector::Dist(
-		BlackoutCombatComponent->GetMuzzleTransform().GetLocation(),
-		ImpactPoint);
 
 	return true;
 }
@@ -221,11 +177,17 @@ bool UBlackoutHUDWidgetController::ResolveDependencies(APlayerController* InPlay
 	if (ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(BlackoutPlayerController->GetPawn()))
 	{
 		CombatComponent = PlayerCharacter->GetCombatComponent();
+		ImpactIndicatorComponent = PlayerCharacter->GetImpactIndicatorComponent();
 	}
 
 	if (!CombatComponent.IsValid())
 	{
 		BO_LOG_CORE(Warning, "HUD 초기화: CombatComponent를 아직 찾을 수 없습니다. 무기 UI는 재초기화 전까지 갱신되지 않을 수 있습니다.");
+	}
+
+	if (!ImpactIndicatorComponent.IsValid())
+	{
+		BO_LOG_CORE(Warning, "HUD 초기화: ImpactIndicatorComponent를 아직 찾을 수 없습니다. 착탄 인디케이터는 재초기화 전까지 갱신되지 않을 수 있습니다.");
 	}
 
 	return true;

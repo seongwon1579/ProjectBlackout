@@ -49,6 +49,21 @@ void ABOProjectile::Launch(const FVector& Direction)
 	Movement->SetActive(true, true);
 }
 
+float ABOProjectile::GetInitialSpeed() const
+{
+	return Movement ? Movement->InitialSpeed : 0.0f;
+}
+
+float ABOProjectile::GetGravityScale() const
+{
+	return Movement ? Movement->ProjectileGravityScale : 1.0f;
+}
+
+float ABOProjectile::GetCollisionRadius() const
+{
+	return Collision ? Collision->GetScaledSphereRadius() : 0.0f;
+}
+
 void ABOProjectile::OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
 	if (HasAuthority() && DamageSpec.IsValid())
