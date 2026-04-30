@@ -25,6 +25,7 @@ void UBlackoutHUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTi
 	}
 
 	UpdateImpactIndicator(ImpactIndicatorData);
+	ReceiveSpreadUpdated(ImpactIndicatorData.SpreadNormalized);
 }
 
 void UBlackoutHUDWidget::NativeDestruct()
@@ -83,6 +84,7 @@ void UBlackoutHUDWidget::UpdateImpactIndicator(const FBlackoutImpactIndicatorDat
 
 	if (!ImpactIndicatorData.bIsVisible)
 	{
+		ImpactIndicatorWidget->SetRenderScale(FVector2D::UnitVector);
 		return;
 	}
 
@@ -98,6 +100,9 @@ void UBlackoutHUDWidget::UpdateImpactIndicator(const FBlackoutImpactIndicatorDat
 
 	ApplyImpactIndicatorColor(IndicatorColor);
 	ImpactIndicatorWidget->SetRenderOpacity(1.0f);
+
+	const float SpreadScale = FMath::Lerp(1.0f, MaxSpreadIndicatorScale, ImpactIndicatorData.SpreadNormalized);
+	ImpactIndicatorWidget->SetRenderScale(FVector2D(SpreadScale, SpreadScale));
 
 	if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(ImpactIndicatorWidget->Slot))
 	{

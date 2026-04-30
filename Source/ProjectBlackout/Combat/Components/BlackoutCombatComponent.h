@@ -11,6 +11,7 @@
 class ABOWeaponBase;
 class ABOFirearm;
 class ABOMeleeWeapon;
+class AController;
 class UBOCharacterData;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FBlackoutEquippedWeaponChangedSignature, ABOWeaponBase*, EquippedWeapon, FGameplayTag, WeaponSlotTag);
@@ -25,6 +26,7 @@ public:
 	UBlackoutCombatComponent();
 	
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	void InitializeLoadoutFromCharacterData(const UBOCharacterData* CharacterData);
@@ -104,6 +106,25 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	FTransform GetMuzzleTransform() const;
 
+	/** 발사 1회 시 호출. 탄퍼짐을 누적하고 반동을 카메라에 적용합니다. */
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	void OnShotFired();
+
+	/**
+	 * 기본 발사 방향에 현재 탄퍼짐을 적용한 방향을 반환합니다.
+	 * 탄퍼짐 콘 안에서 무작위 편향된 방향이 반환됩니다.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	FVector GetSpreadDeviatedDirection(const FVector& BaseDirection) const;
+
+	/** 현재 탄퍼짐 각도를 반환합니다 (도). */
+	UFUNCTION(BlueprintPure, Category = "Blackout|Combat")
+	float GetCurrentSpreadDegrees() const { return CurrentSpreadDegrees; }
+
+	/** 현재 탄퍼짐을 0(기본)~1(최대) 범위로 정규화하여 반환합니다. */
+	UFUNCTION(BlueprintPure, Category = "Blackout|Combat")
+	float GetNormalizedSpread() const;
+
 	UFUNCTION(Server, Reliable)
 	void Server_EquipWeapon(ABOWeaponBase* NewWeapon);
 
@@ -165,6 +186,14 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
 	FName EquippedWeaponSocketName = TEXT("WeaponSocket");
 
+	/** 반동이 목표 값에 도달하는 보간 속도. 클수록 즉각적. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat|Recoil", meta = (ClampMin = 1.f))
+	float RecoilInterpSpeed = 15.0f;
+
+	/** 반동 종료 후 카메라가 되돌아오는 보간 속도. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat|Recoil", meta = (ClampMin = 1.f))
+	float RecoilRecoveryInterpSpeed = 8.0f;
+
 private:
 	ABOWeaponBase* SpawnWeaponActor(TSubclassOf<ABOWeaponBase> WeaponClass);
 	void RefreshWeaponAttachments() const;
@@ -205,4 +234,22 @@ private:
 	bool bIsWeaponSwapInProgress = false;
 
 	FTimerHandle AutomaticFireTimerHandle;
+
+	void AccumulateSpread();
+	void ApplyRecoil();
+	void TickSpreadRecovery();
+	void TickRecoil(float DeltaTime);
+	void ResetSpread();
+	float GetRecoilPitchDisplacement(const AController& Controller) const;
+
+	float CurrentSpreadDegrees = 0.0f;
+	FTimerHandle SpreadRecoveryTimerHandle;
+
+	float PendingRecoilPitch = 0.0f;
+	float PendingRecoilYaw = 0.0f;
+	float RecoilBaselinePitch = 0.0f;
+	float AccumulatedRecoilPitch = 0.0f;
+	float RecoveryPitchRemaining = 0.0f;
+	bool bHasRecoilBaseline = false;
+	bool bIsRecoveringRecoil = false;
 };

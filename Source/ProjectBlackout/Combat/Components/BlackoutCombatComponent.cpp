@@ -19,8 +19,14 @@
 
 UBlackoutCombatComponent::UBlackoutCombatComponent()
 {
-	PrimaryComponentTick.bCanEverTick = false;
+	PrimaryComponentTick.bCanEverTick = true;
 	SetIsReplicatedByDefault(true);
+}
+
+void UBlackoutCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+	TickRecoil(DeltaTime);
 }
 
 void UBlackoutCombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -421,6 +427,7 @@ void UBlackoutCombatComponent::Server_CancelPendingWeaponSwap_Implementation()
 void UBlackoutCombatComponent::OnRep_EquippedWeapon()
 {
 	RefreshWeaponAttachments();
+	ResetSpread();
 	OnEquippedWeaponChanged.Broadcast(EquippedWeapon, GetEquippedWeaponSlotTag());
 }
 
@@ -851,4 +858,245 @@ void UBlackoutCombatComponent::HandleAbilityInputReleased(EBlackoutAbilityInputI
 	{
 		AbilitySystemComponent->HandleAbilityInputReleased(InputID);
 	}
+}
+
+void UBlackoutCombatComponent::OnShotFired()
+{
+	AccumulateSpread();
+	ApplyRecoil();
+}
+
+FVector UBlackoutCombatComponent::GetSpreadDeviatedDirection(const FVector& BaseDirection) const
+{
+	if (CurrentSpreadDegrees <= 0.0f)
+	{
+		return BaseDirection.GetSafeNormal();
+	}
+
+	return FMath::VRandCone(BaseDirection.GetSafeNormal(), FMath::DegreesToRadians(CurrentSpreadDegrees));
+}
+
+float UBlackoutCombatComponent::GetNormalizedSpread() const
+{
+	const ABOFirearm* Firearm = GetEquippedFirearm();
+	if (!Firearm)
+	{
+		return 0.0f;
+	}
+
+	const float BaseSpread = Firearm->GetBaseSpreadDegrees();
+	const float SpreadRange = Firearm->GetMaxSpreadDegrees() - BaseSpread;
+	if (SpreadRange <= 0.0f)
+	{
+		return 0.0f;
+	}
+
+	return FMath::Clamp((CurrentSpreadDegrees - BaseSpread) / SpreadRange, 0.0f, 1.0f);
+}
+
+void UBlackoutCombatComponent::AccumulateSpread()
+{
+	const ABOFirearm* Firearm = GetEquippedFirearm();
+	if (!Firearm)
+	{
+		return;
+	}
+
+	CurrentSpreadDegrees = FMath::Min(
+		CurrentSpreadDegrees + Firearm->GetSpreadPerShot(),
+		Firearm->GetMaxSpreadDegrees());
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	constexpr float RecoveryTickInterval = 1.0f / 60.0f;
+	World->GetTimerManager().SetTimer(
+		SpreadRecoveryTimerHandle,
+		this,
+		&UBlackoutCombatComponent::TickSpreadRecovery,
+		RecoveryTickInterval,
+		true);
+}
+
+void UBlackoutCombatComponent::ApplyRecoil()
+{
+	const ABOFirearm* Firearm = GetEquippedFirearm();
+	if (!Firearm)
+	{
+		return;
+	}
+
+	if (!bHasRecoilBaseline)
+	{
+		const APawn* OwnerPawn = Cast<APawn>(GetOwner());
+		const AController* Controller = OwnerPawn ? OwnerPawn->GetController() : nullptr;
+		if (Controller)
+		{
+			RecoilBaselinePitch = Controller->GetControlRotation().Pitch;
+			bHasRecoilBaseline = true;
+		}
+	}
+
+	if (bIsRecoveringRecoil)
+	{
+		RecoveryPitchRemaining = 0.0f;
+		bIsRecoveringRecoil = false;
+	}
+
+	const float VerticalRecoil = FMath::RandRange(Firearm->GetVerticalRecoilMin(), Firearm->GetVerticalRecoilMax());
+	const float HorizontalRecoil = FMath::RandRange(-Firearm->GetHorizontalRecoilRange(), Firearm->GetHorizontalRecoilRange());
+
+	PendingRecoilPitch += -VerticalRecoil;
+	PendingRecoilYaw += HorizontalRecoil;
+}
+
+void UBlackoutCombatComponent::TickSpreadRecovery()
+{
+	const ABOFirearm* Firearm = GetEquippedFirearm();
+	if (!Firearm)
+	{
+		if (UWorld* World = GetWorld())
+		{
+			World->GetTimerManager().ClearTimer(SpreadRecoveryTimerHandle);
+		}
+		return;
+	}
+
+	const float BaseSpread = Firearm->GetBaseSpreadDegrees();
+	if (CurrentSpreadDegrees <= BaseSpread)
+	{
+		CurrentSpreadDegrees = BaseSpread;
+		if (UWorld* World = GetWorld())
+		{
+			World->GetTimerManager().ClearTimer(SpreadRecoveryTimerHandle);
+		}
+		return;
+	}
+
+	constexpr float RecoveryTickInterval = 1.0f / 60.0f;
+	CurrentSpreadDegrees = FMath::Max(
+		CurrentSpreadDegrees - Firearm->GetSpreadRecoveryRate() * RecoveryTickInterval,
+		BaseSpread);
+}
+
+void UBlackoutCombatComponent::TickRecoil(float DeltaTime)
+{
+	if (!bHasRecoilBaseline)
+	{
+		return;
+	}
+
+	APawn* OwnerPawn = Cast<APawn>(GetOwner());
+	const AController* Controller = OwnerPawn ? OwnerPawn->GetController() : nullptr;
+	if (!OwnerPawn || !Controller)
+	{
+		return;
+	}
+
+	AccumulatedRecoilPitch = FMath::Min(AccumulatedRecoilPitch, GetRecoilPitchDisplacement(*Controller));
+
+	const bool bHasPendingRecoil = !FMath::IsNearlyZero(PendingRecoilPitch, 0.01f)
+		|| !FMath::IsNearlyZero(PendingRecoilYaw, 0.01f);
+
+	if (bHasPendingRecoil)
+	{
+		bIsRecoveringRecoil = false;
+		RecoveryPitchRemaining = 0.0f;
+
+		const float Alpha = FMath::Clamp(RecoilInterpSpeed * DeltaTime, 0.0f, 1.0f);
+
+		float PitchStep = PendingRecoilPitch * Alpha;
+		const float YawStep = PendingRecoilYaw * Alpha;
+
+		const ABOFirearm* Firearm = GetEquippedFirearm();
+		const float MaxPitch = Firearm ? Firearm->GetMaxRecoilPitchDegrees() : 15.0f;
+		const float RemainingRoom = FMath::Max(0.0f, MaxPitch - AccumulatedRecoilPitch);
+
+		if (PitchStep < 0.0f)
+		{
+			PitchStep = -FMath::Min(RemainingRoom, FMath::Abs(PitchStep));
+		}
+		else
+		{
+			PitchStep = FMath::Min(RemainingRoom, PitchStep);
+		}
+
+		OwnerPawn->AddControllerPitchInput(PitchStep);
+		OwnerPawn->AddControllerYawInput(YawStep);
+
+		PendingRecoilPitch -= PendingRecoilPitch * Alpha;
+		PendingRecoilYaw -= PendingRecoilYaw * Alpha;
+		AccumulatedRecoilPitch += FMath::Abs(PitchStep);
+
+		if (FMath::IsNearlyZero(PendingRecoilPitch, 0.01f) && FMath::IsNearlyZero(PendingRecoilYaw, 0.01f))
+		{
+			PendingRecoilPitch = 0.0f;
+			PendingRecoilYaw = 0.0f;
+
+			const float RecoveryFraction = Firearm ? Firearm->GetRecoilRecoveryFraction() : 0.0f;
+			RecoveryPitchRemaining = AccumulatedRecoilPitch * RecoveryFraction;
+			bIsRecoveringRecoil = RecoveryPitchRemaining > 0.01f;
+		}
+
+		return;
+	}
+
+	if (bIsRecoveringRecoil && RecoveryPitchRemaining > 0.01f)
+	{
+		const float RecoveryStep = RecoveryPitchRemaining * FMath::Clamp(RecoilRecoveryInterpSpeed * DeltaTime, 0.0f, 1.0f);
+
+		const float CurrentDisplacement = GetRecoilPitchDisplacement(*Controller);
+		const float ClampedStep = FMath::Min(RecoveryStep, CurrentDisplacement);
+
+		if (ClampedStep > 0.001f)
+		{
+			OwnerPawn->AddControllerPitchInput(ClampedStep);
+			AccumulatedRecoilPitch = FMath::Max(0.0f, AccumulatedRecoilPitch - ClampedStep);
+			RecoveryPitchRemaining -= ClampedStep;
+		}
+		else if (CurrentDisplacement <= 0.001f)
+		{
+			RecoveryPitchRemaining = 0.0f;
+			AccumulatedRecoilPitch = 0.0f;
+		}
+
+		if (RecoveryPitchRemaining <= 0.01f)
+		{
+			RecoveryPitchRemaining = 0.0f;
+			bIsRecoveringRecoil = false;
+			AccumulatedRecoilPitch = FMath::Min(AccumulatedRecoilPitch, GetRecoilPitchDisplacement(*Controller));
+			bHasRecoilBaseline = false;
+		}
+
+		return;
+	}
+
+	bHasRecoilBaseline = false;
+}
+
+float UBlackoutCombatComponent::GetRecoilPitchDisplacement(const AController& Controller) const
+{
+	return FMath::Max(0.0f, FRotator::NormalizeAxis(Controller.GetControlRotation().Pitch - RecoilBaselinePitch));
+}
+
+void UBlackoutCombatComponent::ResetSpread()
+{
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(SpreadRecoveryTimerHandle);
+	}
+
+	const ABOFirearm* Firearm = GetEquippedFirearm();
+	CurrentSpreadDegrees = Firearm ? Firearm->GetBaseSpreadDegrees() : 0.0f;
+
+	PendingRecoilPitch = 0.0f;
+	PendingRecoilYaw = 0.0f;
+	RecoilBaselinePitch = 0.0f;
+	AccumulatedRecoilPitch = 0.0f;
+	RecoveryPitchRemaining = 0.0f;
+	bHasRecoilBaseline = false;
+	bIsRecoveringRecoil = false;
 }

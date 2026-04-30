@@ -54,6 +54,13 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD")
 	FLinearColor ImpactIndicatorOccludedColor = FLinearColor(1.0f, 0.7f, 0.0f, 1.0f);
 
+	/**
+	 * 탄퍼짐이 최대일 때 인디케이터 위젯에 적용되는 RenderScale 배율.
+	 * 1.0 = 원본 크기, 값이 클수록 최대 탄퍼짐 시 인디케이터가 더 커집니다.
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD", meta = (ClampMin = 1.0f))
+	float MaxSpreadIndicatorScale = 3.0f;
+
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Widget Controller Set"), Category = "Blackout|HUD")
 	void ReceiveWidgetControllerSet();
 
@@ -71,6 +78,13 @@ protected:
 
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Aiming Changed"), Category = "Blackout|HUD")
 	void ReceiveAimingChanged(bool bIsAiming, int32 CrosshairType);
+
+	/**
+	 * 매 틱 호출됩니다. 외부 크로스헤어 에셋에 현재 탄퍼짐을 전달할 때 사용하세요.
+	 * @param NormalizedSpread 0(기본 탄퍼짐) ~ 1(최대 탄퍼짐)
+	 */
+	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Spread Updated"), Category = "Blackout|HUD")
+	void ReceiveSpreadUpdated(float NormalizedSpread);
 
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Weapon Ammo Display Changed"), Category = "Blackout|HUD")
 	void ReceiveWeaponAmmoDisplayChanged(
