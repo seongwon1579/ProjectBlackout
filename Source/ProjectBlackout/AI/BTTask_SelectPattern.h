@@ -38,15 +38,15 @@ protected:
 	 * 서비스가 없으면 직접 계산한다.
 	 */
 	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard")
-	FBlackboardKeySelector DistanceKey;
+	FBlackboardKeySelector DistanceBTWActorsKey;
 
 	/** 선택된 어빌리티 태그 이름을 저장할 블랙보드 키 (Name). */
 	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard")
-	FBlackboardKeySelector SelectedTagKey;
+	FBlackboardKeySelector SelectedGamePlayTagKey;
 
 	/** 타겟 액터를 읽어올 블랙보드 키 (Object). 거리 직접 계산 폴백에 사용. */
 	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard")
-	FBlackboardKeySelector TargetKey;
+	FBlackboardKeySelector CurrentTargetKey;
 
 	/**
 	 * 접근 목표 거리를 저장할 블랙보드 키 (Float).

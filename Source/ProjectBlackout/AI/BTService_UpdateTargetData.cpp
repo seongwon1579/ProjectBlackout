@@ -17,35 +17,29 @@ UBTService_UpdateTargetData::UBTService_UpdateTargetData()
 void UBTService_UpdateTargetData::TickNode(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, float DeltaSeconds)
 {
 	Super::TickNode(OwnerComp, NodeMemory, DeltaSeconds);
-
-	UBlackboardComponent* BB = OwnerComp.GetBlackboardComponent();
-	AAIController* AI = OwnerComp.GetAIOwner();
-	if (!BB || !AI) return;
-
-	APawn* AIPawn = AI->GetPawn();
-	if (!AIPawn) return;
-
+	
+	UBlackboardComponent* BB = UBTNodeHelper::GetBlackboard(OwnerComp);
+	if (!BB) return;
+	
 	// AggroComponent에서 최고 위협 타겟 가져오기
-	ABlackoutBossCharacter* Boss = Cast<ABlackoutBossCharacter>(AIPawn);
-	APawn* AggroTarget = Boss && Boss->AggroComponent
-		? Boss->AggroComponent->GetHighestAggroTarget()
-		: nullptr;
-
-	if (AggroTarget)
-	{
-		BB->SetValueAsObject(CurrentTargetKey.SelectedKeyName, AggroTarget);
-	}
-
-	// 현재 타겟 기준으로 위치/거리/방향 갱신
-	AActor* Target = Cast<AActor>(BB->GetValueAsObject(CurrentTargetKey.SelectedKeyName));
-	if (!Target) return;
-
-	const FVector AILocation     = AIPawn->GetActorLocation();
-	const FVector TargetLocation = Target->GetActorLocation();
+	ABlackoutBossCharacter* Enemy = UBTNodeHelper::GetAIPawn<ABlackoutBossCharacter>(OwnerComp);
+	if (!Enemy) return;
+	
+	// APawn* CurrentTarget = Enemy && Enemy->AggroComponent
+	// 	? Enemy->AggroComponent->GetHighestAggroTarget()
+	// 	: nullptr;
+	
+	APawn* CurrentTarget  = GetWorld()->GetFirstPlayerController()->GetPawn();
+	
+	if (!CurrentTarget) return;
+	
+	const FVector AILocation     = Enemy->GetActorLocation();
+	const FVector TargetLocation = CurrentTarget->GetActorLocation();
 	const FVector ToTarget       = TargetLocation - AILocation;
 
-	BB->SetValueAsVector(OutLocationKey.SelectedKeyName,     TargetLocation);
-	BB->SetValueAsFloat(OutDistanceKey.SelectedKeyName,      ToTarget.Size2D());
-	BB->SetValueAsFloat(OutDirectionAngleKey.SelectedKeyName,
-		UKismetAnimationLibrary::CalculateDirection(ToTarget, AIPawn->GetActorRotation()));
+	BB->SetValueAsObject(CurrentTargetKey.SelectedKeyName, CurrentTarget);
+	BB->SetValueAsVector(CurrentTargetLocationKey.SelectedKeyName,     TargetLocation);
+	BB->SetValueAsFloat(DistanceBTWActorsKey.SelectedKeyName,      ToTarget.Size2D());
+	BB->SetValueAsFloat(AngleBTWActorsKey.SelectedKeyName,
+		UKismetAnimationLibrary::CalculateDirection(ToTarget, Enemy->GetActorRotation()));
 }

@@ -30,7 +30,7 @@ public:
 protected:
 	/** 추적할 타겟 액터 블랙보드 키 (Object). */
 	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard")
-	FBlackboardKeySelector TargetKey;
+	FBlackboardKeySelector CurrentTargetKey;
 
 	/** BTTask_SelectPattern이 기록한 접근 목표 거리 키 (Float). */
 	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard")
@@ -43,9 +43,11 @@ protected:
 
 private:
 	void OnMoveCompleted(FAIRequestID RequestID, const FPathFollowingResult& Result);
-	void StopAndSucceed(UBehaviorTreeComponent& OwnerComp);
-
-	UBehaviorTreeComponent*                  CachedOwnerComp = nullptr;
+	void StopAndSucceed();
+	void ClearMovement();
+	void ClearPtr();
+	
+	TWeakObjectPtr<UBehaviorTreeComponent>   CachedComp;
 	TWeakObjectPtr<AAIController>            CachedAI;
 	FAIRequestID                             CachedRequestID;
 };
