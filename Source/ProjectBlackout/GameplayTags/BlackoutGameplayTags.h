@@ -57,6 +57,7 @@ namespace BlackoutGameplayTags
 	
 	// ─── Wraith Abilities ─────────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Wraith_FireTwinArrows);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Cooldown_Wraith_FireTwinArrows);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Wraith_Teleport);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Wraith_BowShove);
 	
