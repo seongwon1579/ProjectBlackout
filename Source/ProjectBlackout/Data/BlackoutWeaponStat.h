@@ -105,6 +105,39 @@ struct PROJECTBLACKOUT_API FBlackoutFirearmStat : public FBlackoutWeaponStat
 };
 
 /**
+ * 산탄 총기 전용 스탯 행 구조체.
+ */
+USTRUCT(BlueprintType)
+struct PROJECTBLACKOUT_API FBlackoutShotgunFirearmStat : public FBlackoutFirearmStat
+{
+	GENERATED_BODY()
+
+	/** 한 번의 사격에서 생성되는 펠릿 수 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Shotgun", meta = (ClampMin = 1))
+	int32 PelletCount = 8;
+
+	/** 펠릿이 퍼지는 원뿔 각도 (도) */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Shotgun", meta = (ClampMin = 0.f))
+	float PelletSpreadDegrees = 6.0f;
+
+	/** 펠릿별 라인트레이스 거리 (cm) */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Shotgun", meta = (ClampMin = 0.f))
+	float PelletTraceDistance = 5000.0f;
+
+	/** 펠릿 한 발의 기본 피해량. 0 이하이면 BaseDamage / PelletCount를 사용합니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Shotgun", meta = (ClampMin = 0.f))
+	float DamagePerPellet = 0.0f;
+
+	/** 단일 타겟에 적용되는 펠릿 수를 제한할지 여부 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Shotgun")
+	bool bSingleTargetPelletCap = false;
+
+	/** 단일 타겟에 피해를 적용할 최대 펠릿 수 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Shotgun", meta = (ClampMin = 1, EditCondition = "bSingleTargetPelletCap"))
+	int32 MaxPelletsPerTarget = 4;
+};
+
+/**
  * 근접 무기 전용 스탯 행 구조체.
  */
 USTRUCT(BlueprintType)

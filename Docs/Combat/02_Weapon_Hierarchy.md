@@ -70,6 +70,7 @@ classDiagram
         +GetPelletTraceDistance() float
         +GetDamagePerPellet() float
         +ShouldApplySingleTargetPelletCap() bool
+        +GetMaxPelletsPerTarget() int32
     }
 
     class ABOMeleeWeapon {
