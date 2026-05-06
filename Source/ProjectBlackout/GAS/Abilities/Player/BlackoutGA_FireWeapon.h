@@ -6,6 +6,7 @@
 
 class UGameplayEffect;
 class ABOFirearm;
+class ABOShotgunFirearm;
 
 /**
  * 플레이어 사격 게임플레이 어빌리티 (TDD v5 §4.1)
@@ -34,6 +35,9 @@ protected:
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	FGameplayEffectSpecHandle BuildDamageSpec(const ABOFirearm* Firearm);
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	FGameplayEffectSpecHandle BuildPelletDamageSpec(const ABOShotgunFirearm* Firearm);
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	bool ApplyAmmoCost();

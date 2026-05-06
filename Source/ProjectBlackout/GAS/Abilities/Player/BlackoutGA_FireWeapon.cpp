@@ -5,6 +5,7 @@
 #include "Combat/Components/BlackoutCombatComponent.h"
 #include "Combat/Components/BlackoutImpactIndicatorComponent.h"
 #include "Combat/Weapons/BOFirearm.h"
+#include "Combat/Weapons/BOShotgunFirearm.h"
 #include "Core/BlackoutLog.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "GAS/Attributes/BlackoutAmmoAttributeSet.h"
@@ -64,8 +65,16 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 	const FVector AimTarget = ImpactIndicatorComponent->GetAimTargetPoint();
 	const FVector BaseFireDirection = (AimTarget - MuzzleLocation).GetSafeNormal();
 	const FVector FireDirection = CombatComponent->GetSpreadDeviatedDirection(BaseFireDirection);
-	const FGameplayEffectSpecHandle DamageSpecHandle = BuildDamageSpec(EquippedFirearm);
-	EquippedFirearm->Fire(FireDirection, DamageSpecHandle);
+	if (ABOShotgunFirearm* ShotgunFirearm = Cast<ABOShotgunFirearm>(EquippedFirearm))
+	{
+		const FGameplayEffectSpecHandle PelletDamageSpecHandle = BuildPelletDamageSpec(ShotgunFirearm);
+		ShotgunFirearm->FireShotgun(FireDirection, PelletDamageSpecHandle);
+	}
+	else
+	{
+		const FGameplayEffectSpecHandle DamageSpecHandle = BuildDamageSpec(EquippedFirearm);
+		EquippedFirearm->Fire(FireDirection, DamageSpecHandle);
+	}
 
 	// 4. 탄퍼짐 누적 및 반동 적용
 	CombatComponent->OnShotFired();
@@ -113,6 +122,33 @@ FGameplayEffectSpecHandle UBlackoutGA_FireWeapon::BuildDamageSpec(const ABOFirea
 	{
 		BO_LOG_GAS(Warning,
 		           "BuildDamageSpec failed: Firearm=%s ASC=%s",
+		           *GetNameSafe(Firearm),
+		           *GetNameSafe(GetAbilitySystemComponentFromActorInfo()));
+	}
+	return SpecHandle;
+}
+
+FGameplayEffectSpecHandle UBlackoutGA_FireWeapon::BuildPelletDamageSpec(const ABOShotgunFirearm* Firearm)
+{
+	FGameplayEffectSpecHandle SpecHandle;
+	if (!DamageEffectClass)
+	{
+		BO_LOG_GAS(Error, "BuildPelletDamageSpec failed: DamageEffectClass가 설정되지 않음 (Ability=%s)", *GetNameSafe(this));
+		return SpecHandle;
+	}
+
+	if (Firearm && GetAbilitySystemComponentFromActorInfo())
+	{
+		SpecHandle = MakeOutgoingGameplayEffectSpec(DamageEffectClass, GetAbilityLevel());
+		if (SpecHandle.IsValid())
+		{
+			SpecHandle.Data->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Damage, Firearm->GetDamagePerPellet());
+		}
+	}
+	else
+	{
+		BO_LOG_GAS(Warning,
+		           "BuildPelletDamageSpec failed: Firearm=%s ASC=%s",
 		           *GetNameSafe(Firearm),
 		           *GetNameSafe(GetAbilitySystemComponentFromActorInfo()));
 	}

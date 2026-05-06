@@ -10,13 +10,18 @@ classDiagram
     UBlackoutGameplayAbility <|-- UGA_Reload
     UBlackoutGameplayAbility <|-- UGA_Melee_Player
 
+    class ABOShotgunFirearm {
+        +FireShotgun(const FVector& BaseDirection, const FGameplayEffectSpecHandle& DamageSpec) TArray~FBlackoutShotgunPelletHit~
+    }
+
     class UGA_FireWeapon {
         -TSubclassOf~UGameplayEffect~ DamageEffectClass
         -float ParallaxMaxDistance
         +ActivateAbility(...) void
         +EndAbility(...) void
         #PerformTrace(const FVector& Start, const FVector& End) FHitResult
-        #BuildDamageSpec(const FHitResult&) FGameplayEffectSpecHandle
+        #BuildDamageSpec(const ABOFirearm* Firearm) FGameplayEffectSpecHandle
+        #BuildPelletDamageSpec(const ABOShotgunFirearm* Firearm) FGameplayEffectSpecHandle
         #ApplyAmmoCost() bool
         #PlayFireMontage() void
     }
@@ -39,6 +44,7 @@ classDiagram
 
     UGA_FireWeapon ..> UBlackoutCombatComponent : GetMuzzleTransform / GetAimImpactPoint
     UGA_FireWeapon ..> ABOFirearm : Fire / SpawnProjectile
+    UGA_FireWeapon ..> ABOShotgunFirearm : FireShotgun
     UGA_FireWeapon ..> UBlackoutAmmoAttributeSet : Cost(ClipAmmo -1)
     UGA_Reload ..> UBlackoutAmmoAttributeSet : ReserveAmmo → ClipAmmo
     UGA_Melee_Player ..> ABOMeleeWeapon : PerformSweep
@@ -49,6 +55,7 @@ classDiagram
 - **`UGA_FireWeapon`**:
   - Cost: `PrimaryClipAmmo` 또는 `SecondaryClipAmmo` 1 차감 (`EquippedWeapon` 슬롯 태그로 분기).
   - `Body.WeakSpot` / `Body.ArmoredLimb` 태그 배율은 `BuildDamageSpec`에서 `SetByCaller` 키로 주입.
+  - 산탄 무기(`ABOShotgunFirearm`)는 탄약 Cost를 1회만 적용한 뒤 `FireShotgun`으로 펠릿별 히트스캔을 수행합니다. `BuildPelletDamageSpec`은 펠릿당 피해량을 `Data.Damage`로 주입하고, `FireShotgun` 결과의 `FBlackoutShotgunPelletHit` 배열은 디버그 표시와 멀티타겟 보상 집계의 입력으로 사용합니다.
   - 로비에서는 `LobbyTag.InfiniteAmmo` 분기로 Cost 체크 스킵(TDD §7.1).
   - Cue: `GCN_Weapon_Fire [Static]` 일회성 호출.
 - **`UGA_Reload`**:

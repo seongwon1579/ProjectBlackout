@@ -1,7 +1,5 @@
 #include "Combat/Weapons/BOFirearm.h"
 
-#include "AbilitySystemComponent.h"
-#include "AbilitySystemInterface.h"
 #include "DrawDebugHelpers.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
@@ -10,27 +8,11 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Combat/Components/BlackoutHitboxComponent.h"
 #include "Combat/Weapons/BOProjectile.h"
+#include "Combat/Weapons/BOWeaponDebugUtils.h"
 #include "Core/BlackoutCollisionChannels.h"
 #include "Core/BlackoutLog.h"
-#include "GAS/Attributes/BlackoutBaseAttributeSet.h"
 #include "Interfaces/BlackoutDamageable.h"
 #include "Pool/BlackoutPoolSubsystem.h"
-
-namespace
-{
-	bool TryGetHealthForDebug(const AActor* TargetActor, float& OutHealth)
-	{
-		const IAbilitySystemInterface* AbilitySystemInterface = Cast<IAbilitySystemInterface>(TargetActor);
-		const UAbilitySystemComponent* AbilitySystemComponent = AbilitySystemInterface ? AbilitySystemInterface->GetAbilitySystemComponent() : nullptr;
-		if (!AbilitySystemComponent)
-		{
-			return false;
-		}
-
-		OutHealth = AbilitySystemComponent->GetNumericAttribute(UBlackoutBaseAttributeSet::GetHealthAttribute());
-		return true;
-	}
-}
 
 ABOFirearm::ABOFirearm()
 {
@@ -71,18 +53,18 @@ FHitResult ABOFirearm::Fire(const FVector& Direction, const FGameplayEffectSpecH
 			World->LineTraceSingleByChannel(HitResult, TraceStart, TraceEnd, BlackoutCollisionChannels::WeaponTrace, QueryParams);
 			AActor* HitActor = HitResult.GetActor();
 			UPrimitiveComponent* HitComponent = HitResult.GetComponent();
-			AActor* DamageTargetActor = HitActor;
+			AActor* DamageTargetActor = BlackoutWeaponDebug::ResolveDamageTargetActor(HitResult);
 
 			if (bDrawDebugHitscanRay)
 			{
 				const bool bHit = HitResult.bBlockingHit;
 				const FVector DebugEnd = bHit ? HitResult.ImpactPoint : TraceEnd;
-				const FColor DebugColor = bHit ? FColor::Red : FColor::Green;
+				const FColor DebugColor = BlackoutWeaponDebug::GetHitscanDebugColor(bHit, DamageTargetActor);
 				DrawDebugLine(World, TraceStart, DebugEnd, DebugColor, false, DebugHitscanRayDuration, 0, DebugHitscanRayThickness);
 			}
 
 			float HealthBefore = 0.0f;
-			bool bCapturedHealthBefore = bDrawDebugHitscanRay && TryGetHealthForDebug(DamageTargetActor, HealthBefore);
+			bool bCapturedHealthBefore = bDrawDebugHitscanRay && BlackoutWeaponDebug::TryGetHealth(DamageTargetActor, HealthBefore);
 			bool bAppliedDamage = false;
 
 			if (HasAuthority() && HitResult.bBlockingHit && DamageSpecHandle.IsValid())
@@ -90,10 +72,6 @@ FHitResult ABOFirearm::Fire(const FVector& Direction, const FGameplayEffectSpecH
 				if (UBlackoutHitboxComponent* HitboxComponent = Cast<UBlackoutHitboxComponent>(HitComponent))
 				{
 					DamageTargetActor = HitboxComponent->GetOwner();
-					if (bDrawDebugHitscanRay && !bCapturedHealthBefore)
-					{
-						bCapturedHealthBefore = TryGetHealthForDebug(DamageTargetActor, HealthBefore);
-					}
 					HitboxComponent->ReceiveDamageSpec(DamageSpecHandle);
 					bAppliedDamage = true;
 				}
@@ -110,7 +88,7 @@ FHitResult ABOFirearm::Fire(const FVector& Direction, const FGameplayEffectSpecH
 			if (bDrawDebugHitscanRay)
 			{
 				float HealthAfter = 0.0f;
-				const bool bCapturedHealthAfter = bAppliedDamage && TryGetHealthForDebug(DamageTargetActor, HealthAfter);
+				const bool bCapturedHealthAfter = bAppliedDamage && BlackoutWeaponDebug::TryGetHealth(DamageTargetActor, HealthAfter);
 				FString DamageText = TEXT("None");
 				if (bCapturedHealthBefore && bCapturedHealthAfter)
 				{
