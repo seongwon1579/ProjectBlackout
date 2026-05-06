@@ -4,6 +4,7 @@
 #include "GA_Wraith_FireTwinArrows.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "Abilities/Tasks/AbilityTask_WaitDelay.h"
+#include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 #include "AbilitySystemComponent.h"
 #include "Combat/Weapons/BOProjectile.h"
 #include "Pool/BlackoutPoolSubsystem.h"
@@ -29,14 +30,38 @@ void UGA_Wraith_FireTwinArrows::ActivateAbility(
 		return;
 	}
 
+	// 활시위 당김 Montage 재생 — 시각 단서. 발사 타이밍은 기존 WaitDelay 유지 (AnimNotify 정렬은 다음 단계)
+	if (BowshotMontage)
+	{
+		UAbilityTask_PlayMontageAndWait* MontageTask =
+			UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this, NAME_None, BowshotMontage);
+		if (MontageTask)
+		{
+			MontageTask->ReadyForActivation();
+		}
+	}
+
+	// 조준 선딜 (AimDelay) 후 첫 발사 — Montage 의 활시위 당김 모션과 시각 동기화
+	UAbilityTask_WaitDelay* AimTask = UAbilityTask_WaitDelay::WaitDelay(this, AimDelay);
+	if (!AimTask)
+	{
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
+		return;
+	}
+	AimTask->OnFinish.AddDynamic(this, &UGA_Wraith_FireTwinArrows::OnAimDelayFinished);
+	AimTask->ReadyForActivation();
+}
+
+void UGA_Wraith_FireTwinArrows::OnAimDelayFinished()
+{
 	// 첫 발사
 	FireOneArrow();
 
-	// 인터벌 후 두 번째 발사 + 종료 — Task 생성 실패 시 즉시 종료
+	// 인터벌 후 두 번째 발사 + 종료
 	UAbilityTask_WaitDelay* DelayTask = UAbilityTask_WaitDelay::WaitDelay(this, SecondShotDelay);
 	if (!DelayTask)
 	{
-		EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
+		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
 		return;
 	}
 	DelayTask->OnFinish.AddDynamic(this, &UGA_Wraith_FireTwinArrows::OnSecondShotDelayFinished);
