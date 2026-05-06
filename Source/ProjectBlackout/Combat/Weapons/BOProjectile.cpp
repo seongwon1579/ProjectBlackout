@@ -27,8 +27,7 @@ void ABOProjectile::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(ABOProjectile, ReplicatedLaunchState);
-	DOREPLIFETIME(ABOProjectile, bReplicatedActive);
+	DOREPLIFETIME(ABOProjectile, ReplicatedNetState);
 }
 
 void ABOProjectile::OnSpawnFromPool_Implementation()
@@ -37,23 +36,17 @@ void ABOProjectile::OnSpawnFromPool_Implementation()
 	{
 		SetNetDormancy(DORM_Awake);
 		FlushNetDormancy();
-		bReplicatedActive = true;
 	}
 
-	ApplyActiveState();
+	ApplyActiveState(true);
 	Movement->Velocity = FVector::ZeroVector;
-
-	if (HasAuthority())
-	{
-		ForceNetUpdate();
-	}
 }
 
 void ABOProjectile::BeginPlay()
 {
 	Super::BeginPlay();
 
-	ApplyActiveState();
+	ApplyProjectileNetState();
 }
 
 void ABOProjectile::OnReturnToPool_Implementation()
@@ -61,10 +54,11 @@ void ABOProjectile::OnReturnToPool_Implementation()
 	SetActorHiddenInGame(true);
 	if (HasAuthority())
 	{
-		bReplicatedActive = false;
+		++ReplicatedNetState.StateId;
+		ReplicatedNetState.bActive = false;
 	}
 
-	ApplyActiveState();
+	ApplyActiveState(false);
 	DamageSpec = FGameplayEffectSpecHandle();
 
 	if (HasAuthority())
@@ -94,12 +88,12 @@ void ABOProjectile::Launch(const FVector& Direction)
 	{
 		SetNetDormancy(DORM_Awake);
 		FlushNetDormancy();
-		bReplicatedActive = true;
-		ApplyActiveState();
-		ReplicatedLaunchState.Location = GetActorLocation();
-		ReplicatedLaunchState.Direction = Direction.GetSafeNormal();
-		ReplicatedLaunchState.Speed = Movement->InitialSpeed;
-		++ReplicatedLaunchState.LaunchId;
+		++ReplicatedNetState.StateId;
+		ReplicatedNetState.bActive = true;
+		ReplicatedNetState.Location = GetActorLocation();
+		ReplicatedNetState.Direction = Direction.GetSafeNormal();
+		ReplicatedNetState.Speed = Movement->InitialSpeed;
+		ApplyProjectileNetState();
 		ForceNetUpdate();
 	}
 }
@@ -119,43 +113,46 @@ float ABOProjectile::GetCollisionRadius() const
 	return Collision ? Collision->GetScaledSphereRadius() : 0.0f;
 }
 
-void ABOProjectile::OnRep_LaunchState()
+void ABOProjectile::OnRep_ProjectileNetState()
 {
-	ApplyLaunchState();
+	ApplyProjectileNetState();
 }
 
-void ABOProjectile::OnRep_IsActive()
+void ABOProjectile::ApplyProjectileNetState()
 {
-	ApplyActiveState();
-}
+	if (!HasAuthority() && ReplicatedNetState.StateId < LastAppliedStateId)
+	{
+		return;
+	}
 
-void ABOProjectile::ApplyLaunchState()
-{
-	if (HasAuthority() || !Movement || ReplicatedLaunchState.Speed <= 0.0f)
+	LastAppliedStateId = ReplicatedNetState.StateId;
+	ApplyActiveState(ReplicatedNetState.bActive);
+
+	if (HasAuthority() || !ReplicatedNetState.bActive || !Movement || ReplicatedNetState.Speed <= 0.0f)
 	{
 		return;
 	}
 
 	SetActorLocationAndRotation(
-		ReplicatedLaunchState.Location,
-		ReplicatedLaunchState.Direction.Rotation(),
+		ReplicatedNetState.Location,
+		ReplicatedNetState.Direction.Rotation(),
 		false,
 		nullptr,
 		ETeleportType::TeleportPhysics);
-	Movement->Velocity = FVector(ReplicatedLaunchState.Direction) * ReplicatedLaunchState.Speed;
+	Movement->Velocity = FVector(ReplicatedNetState.Direction) * ReplicatedNetState.Speed;
 	Movement->SetActive(true, true);
 }
 
-void ABOProjectile::ApplyActiveState()
+void ABOProjectile::ApplyActiveState(bool bIsActive)
 {
-	SetActorHiddenInGame(!bReplicatedActive);
+	SetActorHiddenInGame(!bIsActive);
 
 	if (Collision)
 	{
-		Collision->SetCollisionEnabled(bReplicatedActive ? ECollisionEnabled::QueryOnly : ECollisionEnabled::NoCollision);
+		Collision->SetCollisionEnabled(bIsActive ? ECollisionEnabled::QueryOnly : ECollisionEnabled::NoCollision);
 	}
 
-	if (!bReplicatedActive && Movement)
+	if (!bIsActive && Movement)
 	{
 		Movement->Deactivate();
 		Movement->Velocity = FVector::ZeroVector;

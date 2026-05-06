@@ -10,9 +10,15 @@ class UProjectileMovementComponent;
 class USphereComponent;
 
 USTRUCT()
-struct FBOProjectileLaunchState
+struct FBOProjectileNetState
 {
 	GENERATED_BODY()
+
+	UPROPERTY()
+	uint32 StateId = 0;
+
+	UPROPERTY()
+	bool bActive = false;
 
 	UPROPERTY()
 	FVector_NetQuantize10 Location = FVector::ZeroVector;
@@ -22,9 +28,6 @@ struct FBOProjectileLaunchState
 
 	UPROPERTY()
 	float Speed = 0.0f;
-
-	UPROPERTY()
-	uint8 LaunchId = 0;
 };
 
 UCLASS()
@@ -55,16 +58,13 @@ protected:
 	virtual void BeginPlay() override;
 
 	UFUNCTION()
-	void OnRep_LaunchState();
-
-	UFUNCTION()
-	void OnRep_IsActive();
+	void OnRep_ProjectileNetState();
 
 	UFUNCTION()
 	virtual void OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
 
-	void ApplyLaunchState();
-	void ApplyActiveState();
+	void ApplyProjectileNetState();
+	void ApplyActiveState(bool bIsActive);
 	void ReturnToPool();
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Combat")
@@ -76,11 +76,10 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
 	float SplashRadius = 0.0f;
 
-	UPROPERTY(ReplicatedUsing = OnRep_LaunchState)
-	FBOProjectileLaunchState ReplicatedLaunchState;
+	UPROPERTY(ReplicatedUsing = OnRep_ProjectileNetState)
+	FBOProjectileNetState ReplicatedNetState;
 
-	UPROPERTY(ReplicatedUsing = OnRep_IsActive)
-	bool bReplicatedActive = false;
+	uint32 LastAppliedStateId = 0;
 
 	FGameplayEffectSpecHandle DamageSpec;
 };
