@@ -17,8 +17,7 @@ bool ABOShotgunFirearm::InitializeStatsFromDataTable()
 	if (const FBlackoutShotgunFirearmStat* FoundStats = ShotgunStatsRow.GetRow<FBlackoutShotgunFirearmStat>(TEXT("BOShotgunFirearm::InitializeStatsFromDataTable")))
 	{
 		CachedShotgunStats = *FoundStats;
-		CachedFirearmStats = CachedShotgunStats;
-		ApplyCommonStats(CachedShotgunStats);
+		ApplyFirearmStats(CachedShotgunStats);
 		return true;
 	}
 

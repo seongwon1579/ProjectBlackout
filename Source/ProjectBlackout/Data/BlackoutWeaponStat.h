@@ -2,7 +2,6 @@
 
 #include "CoreMinimal.h"
 #include "Engine/DataTable.h"
-#include "GameplayTagContainer.h"
 #include "BlackoutWeaponStat.generated.h"
 
 class UTexture2D;
@@ -14,10 +13,6 @@ USTRUCT(BlueprintType)
 struct PROJECTBLACKOUT_API FBlackoutWeaponStat : public FTableRowBase
 {
 	GENERATED_BODY()
-
-	/** 무기 식별 태그 (e.g. Weapon.Primary.Rifle) */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Weapon")
-	FGameplayTag WeaponTag;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Weapon", meta = (ClampMin = 0.f))
 	float BaseDamage = 20.f;
@@ -54,6 +49,10 @@ struct PROJECTBLACKOUT_API FBlackoutFirearmStat : public FBlackoutWeaponStat
 	/** 입력을 누르고 있을 때 FireRate 간격으로 계속 발사할지 여부 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Weapon")
 	bool bIsAutomatic = false;
+
+	/** AnimBP에서 양손 총기 애니메이션 세트를 사용할지 여부 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Animation")
+	bool bUseTwoHandedAnimation = true;
 
 	/** 한 탄창에 들어가는 최대 장탄수 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Weapon", meta = (ClampMin = 0))

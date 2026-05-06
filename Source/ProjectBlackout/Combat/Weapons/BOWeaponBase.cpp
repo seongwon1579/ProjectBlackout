@@ -31,15 +31,6 @@ void ABOWeaponBase::ApplyCommonStats(const FBlackoutWeaponStat& WeaponStats)
 	CachedStats.CrosshairType = FMath::Clamp(CachedStats.CrosshairType, 0, 5);
 
 	WeaponIcon = CachedStats.WeaponIcon;
-
-	if (CachedStats.WeaponTag.IsValid())
-	{
-		WeaponTag = CachedStats.WeaponTag;
-	}
-	else
-	{
-		CachedStats.WeaponTag = WeaponTag;
-	}
 }
 
 ABlackoutCharacterBase* ABOWeaponBase::GetOwningCharacter() const

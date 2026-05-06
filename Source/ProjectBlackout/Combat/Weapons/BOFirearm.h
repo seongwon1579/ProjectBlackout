@@ -36,6 +36,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	bool UsesHitscan() const;
 
+	UFUNCTION(BlueprintPure, Category = "Blackout|Animation")
+	bool UsesTwoHandedAnimation() const;
+
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	int32 GetMagazineSize() const;
 
@@ -85,6 +88,8 @@ public:
 	float GetRecoilRecoveryFraction() const;
 
 protected:
+	void ApplyFirearmStats(const FBlackoutFirearmStat& FirearmStats);
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Combat")
 	TObjectPtr<UNiagaraComponent> MuzzleFlash;
 
@@ -102,6 +107,9 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
 	bool bUseHitscan = true;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
+	bool bUseTwoHandedAnimation = true;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Debug")
 	bool bDrawDebugHitscanRay = false;

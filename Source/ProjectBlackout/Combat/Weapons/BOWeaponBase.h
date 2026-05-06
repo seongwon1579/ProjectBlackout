@@ -2,7 +2,6 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "GameplayTagContainer.h"
 #include "Data/BlackoutWeaponStat.h"
 #include "BOWeaponBase.generated.h"
 
@@ -20,9 +19,6 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	ABlackoutCharacterBase* GetOwningCharacter() const;
-
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
-	FGameplayTag GetWeaponTag() const { return WeaponTag; }
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Weapon")
 	UTexture2D* GetWeaponIcon() const { return WeaponIcon; }
@@ -57,9 +53,6 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Combat")
 	TObjectPtr<USkeletalMeshComponent> WeaponMesh;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
-	FGameplayTag WeaponTag;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|UI")
 	TObjectPtr<UTexture2D> WeaponIcon;

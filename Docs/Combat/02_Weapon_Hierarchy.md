@@ -22,10 +22,8 @@ classDiagram
     class ABOWeaponBase {
         <<Abstract>>
         #USkeletalMeshComponent* WeaponMesh
-        #FGameplayTag WeaponTag
         #FBlackoutWeaponStat CachedStats
         +GetOwningCharacter() ABlackoutCharacterBase*
-        +GetWeaponTag() FGameplayTag
         +GetCrosshairType() int32
         +GetBaseDamage() float
         +AttachToOwner(FName Socket) void
@@ -148,7 +146,7 @@ classDiagram
 
 ## 구현 노트
 
-- **데이터 소싱**: 생성자/BeginPlay에서 `WeaponTag`를 키로 `DT_WeaponStats` 조회 → `CachedStats` / `CachedFirearmStats` 에 복사. HUD 크로스헤어 종류(`CrosshairType`, 0~5)도 공통 무기 스탯으로 함께 제공.
+- **데이터 소싱**: 각 무기 클래스의 `FDataTableRowHandle`이 지정한 스탯 행을 `BeginPlay` 시점에 조회 → `CachedStats` / `CachedFirearmStats` 에 복사. HUD 크로스헤어 종류(`CrosshairType`, 0~5)도 공통 무기 스탯으로 함께 제공.
 - **Hitscan vs Projectile**: `bUseHitscan = true`면 `LineTraceByChannel`, false면 `ABOProjectile` 을 풀에서 스폰.
 - **산탄 전용 분기**: `ABOShotgunFirearm`은 `ABOFirearm`의 히트스캔 계열 하위 클래스입니다. 탄약은 발사 1회당 1발만 차감하고, `PelletCount`만큼 원뿔 분포 방향을 생성해 각 펠릿별 라인트레이스를 수행합니다.
   - `FBlackoutShotgunPelletHit`은 펠릿 인덱스, 히트 결과, 부위 태그, 실제 적용 피해량을 묶어 `UGA_FireWeapon`과 디버그/보상 집계가 같은 이벤트를 추적할 수 있게 합니다.

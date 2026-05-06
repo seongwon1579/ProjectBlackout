@@ -31,7 +31,7 @@ struct PROJECTBLACKOUT_API FBlackoutShotgunPelletHit
 /**
  * 포자피개, 더블 배럴처럼 다중 펠릿 히트스캔을 사용하는 총기 베이스 클래스.
  */
-UCLASS()
+UCLASS(HideCategories = ("Blackout|Weapon"))
 class PROJECTBLACKOUT_API ABOShotgunFirearm : public ABOFirearm
 {
 	GENERATED_BODY()
@@ -66,9 +66,9 @@ public:
 	int32 GetMaxPelletsPerTarget() const;
 
 protected:
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Weapon", meta = (RowType = "/Script/ProjectBlackout.BlackoutShotgunFirearmStat"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Shotgun", meta = (RowType = "/Script/ProjectBlackout.BlackoutShotgunFirearmStat"))
 	FDataTableRowHandle ShotgunStatsRow;
 
-	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Weapon")
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Shotgun")
 	FBlackoutShotgunFirearmStat CachedShotgunStats;
 };
