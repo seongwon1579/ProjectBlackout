@@ -113,10 +113,13 @@ classDiagram
         -UBlackoutPlayerAttributeSet* PlayerAttributes
         -UBlackoutAmmoAttributeSet* AmmoAttributes
         +FGameplayTag SelectedClassTag
-        +uint8 BloodRootCount
-        +uint8 GulSerumCount
+        +int32 BloodRootCount
+        +int32 GulSerumCount
         +bool bIsReady
         +ApplyBattleTransitionPolicy(EBattleTransitionType) void
+        +SetConsumableCounts(int32 BloodRoot, int32 GulSerum) void
+        +InitializeConsumablesFromCharacterData(UBOCharacterData*) void
+        +OnConsumableCountsChanged(int32 BloodRoot, int32 GulSerum)
         +OnRep_SelectedClassTag() void
         +OnRep_BloodRootCount() void
         +OnRep_GulSerumCount() void
@@ -179,6 +182,7 @@ classDiagram
     UPrimaryDataAsset <|-- UBOCharacterData
     UPrimaryDataAsset <|-- UBOMinionData
     UPrimaryDataAsset <|-- UBOBossData
+    UDataTable ..> FBlackoutConsumableStat : row type
 
     class UBOCharacterData {
         +float InitialHealth
@@ -212,9 +216,21 @@ classDiagram
         +float SplashRadius
     }
 
+    class FBlackoutConsumableStat {
+        <<DT_ConsumableStats Row>>
+        +FGameplayTag ConsumableTag
+        +TSoftObjectPtr~UTexture2D~ Icon
+        +int32 InitialCount
+        +int32 MaxCount
+        +float HealAmount
+        +float Duration
+        +float Cooldown
+    }
+
     note for UBOCharacterData "GrantedAbilities: TArray<TSubclassOf<UGameplayAbility>>"
     note for UBOMinionData "AbilityDamageMap: TMap<FGameplayTag, float>"
     note for UBOBossData "AbilityDamageMap: TMap<FGameplayTag, float>"
+    note for FBlackoutConsumableStat "정적 소모품 표시/효과 수치. 현재 소지량은 PlayerState가 복제"
 ```
 
 ---

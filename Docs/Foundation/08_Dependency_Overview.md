@@ -21,6 +21,7 @@ flowchart TB
         MData[UBOMinionData]
         BData[UBOBossData]
         WStat[FBlackoutWeaponStat / DT_WeaponStats]
+        CStat[FBlackoutConsumableStat / DT_ConsumableStats]
     end
 
     subgraph GAS["03. GAS Infrastructure"]
@@ -63,7 +64,7 @@ flowchart TB
     GA --> Enum
 
     classDef layer fill:#2d3748,stroke:#4299e1,color:#e2e8f0
-    class Tags,Logs,Enum,IPool,IInt,IDmg,CData,MData,BData,WStat,ASC,Attr,GA,GEBase,Calc,CBase,PCh,ECh,GM,GS,PS,PC,PoolSys layer
+    class Tags,Logs,Enum,IPool,IInt,IDmg,CData,MData,BData,WStat,CStat,ASC,Attr,GA,GEBase,Calc,CBase,PCh,ECh,GM,GS,PS,PC,PoolSys layer
 ```
 
 ## 권장 구현 순서
