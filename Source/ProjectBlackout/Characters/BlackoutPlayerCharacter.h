@@ -156,6 +156,7 @@ protected:
 	virtual void OnDowned() override;
 	virtual bool CanEnterDownedState() const override;
 	virtual void OnDeath() override;
+	virtual void HandleDownedStateChanged() override;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
 	TObjectPtr<UAnimMontage> DeathMontage;
@@ -175,6 +176,9 @@ protected:
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
 	bool PlayDownedEnterMontage(UAnimMontage* Montage, float PlayRate = 1.f);
+
+	void ApplyDownedStateLocally();
+	void ClearDownedStateLocally();
 	
 	
 	

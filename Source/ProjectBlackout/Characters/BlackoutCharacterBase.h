@@ -27,6 +27,7 @@ public:
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 	virtual FGameplayTag GetHitPartTag(FName BoneName) const override;
 	virtual void ReceiveDamageFromHitbox(const FGameplayEffectSpecHandle& SpecHandle, FName BoneName) override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	
 	bool IsDead() const { return bIsDead; }
 	bool IsDowned() const { return bIsDowned; }
@@ -39,7 +40,7 @@ protected:
 	bool bIsDead = false;
 
 	/** 플레이어 전용 다운 상태 여부. 향후 부활 상호작용의 기준으로 사용합니다. */
-	UPROPERTY()
+	UPROPERTY(ReplicatedUsing = OnRep_DownedState)
 	bool bIsDowned = false;
 	
 	/** 공통 데미지 GE Spec 적용 경로. 무적 태그와 피격 반응도 여기서 함께 처리합니다. */
@@ -63,4 +64,11 @@ protected:
 
 	/** 기절(State.Stun) 태그 부여 시 이동/액션 봉쇄 처리. */
 	virtual void OnStun();
+
+	/** 다운 상태 복제 시 클라이언트에서 로컬 반응을 맞추기 위한 진입점입니다. */
+	UFUNCTION()
+	void OnRep_DownedState();
+
+	/** 다운 상태 변경 시 서브클래스가 로컬 전용 후처리를 구현할 수 있는 훅입니다. */
+	virtual void HandleDownedStateChanged();
 };

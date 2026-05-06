@@ -8,6 +8,7 @@
 #include "Core/BlackoutCollisionChannels.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "GAS/Attributes/BlackoutBaseAttributeSet.h"
+#include "Net/UnrealNetwork.h"
 
 namespace
 {
@@ -40,6 +41,13 @@ void ABlackoutCharacterBase::BeginPlay()
 
 	GetCapsuleComponent()->SetCollisionResponseToChannel(BlackoutCollisionChannels::WeaponTrace, ECR_Block);
 	GetMesh()->SetCollisionResponseToChannel(BlackoutCollisionChannels::WeaponTrace, ECR_Block);
+}
+
+void ABlackoutCharacterBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ABlackoutCharacterBase, bIsDowned);
 }
 
 UAbilitySystemComponent* ABlackoutCharacterBase::GetAbilitySystemComponent() const
@@ -153,5 +161,19 @@ void ABlackoutCharacterBase::OnHitReact()
 }
 
 void ABlackoutCharacterBase::OnStun()
+{
+}
+
+void ABlackoutCharacterBase::OnRep_DownedState()
+{
+	BO_LOG_CORE(Log,
+		"OnRep_DownedState: %s Downed=%s",
+		*GetNameSafe(this),
+		bIsDowned ? TEXT("true") : TEXT("false"));
+
+	HandleDownedStateChanged();
+}
+
+void ABlackoutCharacterBase::HandleDownedStateChanged()
 {
 }

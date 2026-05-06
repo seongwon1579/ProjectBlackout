@@ -45,9 +45,16 @@ void UBlackoutAnimInstanceBase::NativeUpdateAnimation(float DeltaSeconds)
 	bIsAccelerating = OwnerMovementComponent->GetCurrentAcceleration().SizeSquared() > 0.f;
 
 	// GAS 태그 상태 업데이트
+	bIsDowned = OwnerCharacter->IsDowned();
+	bIsLocked = false;
+
 	if (UAbilitySystemComponent* ASC = OwnerCharacter->GetAbilitySystemComponent())
 	{
-		bIsDowned = ASC->HasMatchingGameplayTag(BlackoutGameplayTags::State_Downed);
+		if (!bIsDowned)
+		{
+			bIsDowned = ASC->HasMatchingGameplayTag(BlackoutGameplayTags::State_Downed);
+		}
+
 		bIsLocked = ASC->HasMatchingGameplayTag(BlackoutGameplayTags::State_Locked);
 	}
 }

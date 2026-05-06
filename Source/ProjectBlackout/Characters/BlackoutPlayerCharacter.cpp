@@ -581,15 +581,19 @@ void ABlackoutPlayerCharacter::OnHitReact()
 	Multicast_PlayHitReactMontage(HitReactMontage, 1.f);
 }
 
-void ABlackoutPlayerCharacter::OnDowned()
+void ABlackoutPlayerCharacter::HandleDownedStateChanged()
 {
-	if (IsDead() || IsDowned())
+	if (IsDowned())
 	{
+		ApplyDownedStateLocally();
 		return;
 	}
 
-	Super::OnDowned();
+	ClearDownedStateLocally();
+}
 
+void ABlackoutPlayerCharacter::ApplyDownedStateLocally()
+{
 	bIsHitReactMontagePlaying = false;
 	bIsDodgeMontagePlaying = false;
 	bIsWeaponSwapMontagePlaying = false;
@@ -608,6 +612,35 @@ void ABlackoutPlayerCharacter::OnDowned()
 		MoveComp->bOrientRotationToMovement = true;
 		MoveComp->bUseControllerDesiredRotation = false;
 	}
+
+	UpdateAimMovementMode();
+}
+
+void ABlackoutPlayerCharacter::ClearDownedStateLocally()
+{
+	if (IsDead())
+	{
+		return;
+	}
+
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		MoveComp->SetMovementMode(MOVE_Walking);
+	}
+
+	UpdateAimMovementMode();
+}
+
+void ABlackoutPlayerCharacter::OnDowned()
+{
+	if (IsDead() || IsDowned())
+	{
+		return;
+	}
+
+	Super::OnDowned();
+
+	ApplyDownedStateLocally();
 
 	if (DownedEnterMontage)
 	{
@@ -664,13 +697,7 @@ void ABlackoutPlayerCharacter::Server_ReviveFromDowned_Implementation(float Revi
 	AbilitySystemComponent->RemoveLooseGameplayTag(BlackoutGameplayTags::State_Downed);
 	bIsDowned = false;
 	AbilitySystemComponent->SetNumericAttributeBase(UBlackoutBaseAttributeSet::GetHealthAttribute(), ClampedHealth);
-
-	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
-	{
-		MoveComp->SetMovementMode(MOVE_Walking);
-	}
-
-	UpdateAimMovementMode();
+	ClearDownedStateLocally();
 	BO_LOG_GAS(Log, "ReviveFromDowned: Target=%s Health=%.1f", *GetName(), ClampedHealth);
 }
 
