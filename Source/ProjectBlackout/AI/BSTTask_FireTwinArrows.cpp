@@ -1,7 +1,5 @@
 #include "AI/BSTTask_FireTwinArrows.h"
 #include "StateTreeExecutionContext.h"
-#include "Characters/BlackoutEnemyCharacter.h"
-#include "Combat/Weapons/BOProjectile.h"
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemGlobals.h"
 #include "BlackoutGameplayTags.h"
@@ -9,32 +7,31 @@
 EStateTreeRunStatus FBSTTask_FireTwinArrows::EnterState(FStateTreeExecutionContext& Context, const FStateTreeTransitionResult& Transition) const
 {
 	FInstanceDataType& InstanceData = Context.GetInstanceData(*this);
-	if (!InstanceData.OwnerCharacter)
+	if (!InstanceData.OwnerPawn)
 	{
 		return EStateTreeRunStatus::Failed;
 	}
 
-	UAbilitySystemComponent* ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(InstanceData.OwnerCharacter);
+	UAbilitySystemComponent* ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(InstanceData.OwnerPawn);
 	if (!ASC)
 	{
 		return EStateTreeRunStatus::Failed;
 	}
 	
-	const bool bActivated = ASC->TryActivateAbilitiesByTag(FGameplayTagContainer(BlackoutGameplayTags::Ability_Wraith_FireTwinArrows));
-	
-
-	return bActivated ? EStateTreeRunStatus::Running : EStateTreeRunStatus::Failed;
+	// 활성화 결과 무관하게 Running — Tick 이 재시도 책임 (Cooldown 진행 중에 Combat 진입 시에도 stuck 안 됨)
+	ASC->TryActivateAbilitiesByTag(FGameplayTagContainer(BlackoutGameplayTags::Ability_Wraith_FireTwinArrows));
+	return EStateTreeRunStatus::Running;
 }
 
 EStateTreeRunStatus FBSTTask_FireTwinArrows::Tick(FStateTreeExecutionContext& Context, const float DeltaTime) const
 {
 	
 	FInstanceDataType& InstanceData = Context.GetInstanceData(*this);
-	if (!InstanceData.OwnerCharacter)
+	if (!InstanceData.OwnerPawn)
 	{
 		return EStateTreeRunStatus::Failed;
 	}
-	UAbilitySystemComponent* ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(InstanceData.OwnerCharacter);
+	UAbilitySystemComponent* ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(InstanceData.OwnerPawn);
 	if (!ASC)
 	{
 		return EStateTreeRunStatus::Failed;
@@ -43,13 +40,21 @@ EStateTreeRunStatus FBSTTask_FireTwinArrows::Tick(FStateTreeExecutionContext& Co
 	TArray<FGameplayAbilitySpec*> Specs;
 	ASC->GetActivatableGameplayAbilitySpecsByAllMatchingTags(FGameplayTagContainer(BlackoutGameplayTags::Ability_Wraith_FireTwinArrows), Specs);
 	
+	bool bAnyActive = false;
 	for (const FGameplayAbilitySpec* Spec : Specs)
 	{
-		if ( Spec && Spec->IsActive())
+		if (Spec && Spec->IsActive())
 		{
-			return EStateTreeRunStatus::Running;
+			bAnyActive = true;
+			break;
 		}
 	}
-	
-	return EStateTreeRunStatus::Succeeded;
+
+	// 비활성이면 재활성화 시도 — Cooldown GE 가 페이싱 결정 (쿨다운 중이면 ASC 거부)
+	if (!bAnyActive)
+	{
+		ASC->TryActivateAbilitiesByTag(FGameplayTagContainer(BlackoutGameplayTags::Ability_Wraith_FireTwinArrows));
+	}
+
+	return EStateTreeRunStatus::Running;
 }

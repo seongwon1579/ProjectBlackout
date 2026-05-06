@@ -2,11 +2,9 @@
 
 #include "CoreMinimal.h"
 #include "StateTreeTaskBase.h"
-#include "Templates/SubclassOf.h"
 #include "BSTTask_FireTwinArrows.generated.h"
 
-class ABlackoutEnemyCharacter;
-class ABOProjectile;
+class APawn;
 
 USTRUCT()
 struct PROJECTBLACKOUT_API FBSTTask_FireTwinArrowsInstanceData
@@ -14,13 +12,7 @@ struct PROJECTBLACKOUT_API FBSTTask_FireTwinArrowsInstanceData
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, Category = "Context")
-	TObjectPtr<ABlackoutEnemyCharacter> OwnerCharacter;
-
-	UPROPERTY(EditAnywhere, Category = "Parameter")
-	TSubclassOf<ABOProjectile> ProjectileClass;
-
-	UPROPERTY(EditAnywhere, Category = "Parameter")
-	float IntervalSeconds = 0.5f;
+	TObjectPtr<APawn> OwnerPawn;
 };
 
 USTRUCT(meta = (DisplayName = "Fire Twin Arrows", Category = "Blackout|Minion"))
