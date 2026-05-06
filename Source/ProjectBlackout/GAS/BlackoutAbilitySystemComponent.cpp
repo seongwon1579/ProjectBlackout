@@ -61,7 +61,13 @@ void UBlackoutAbilitySystemComponent::HandleAbilityInputPressed(EBlackoutAbility
 
 		if (AbilitySpec.IsActive())
 		{
+			if (!IsOwnerActorAuthoritative())
+			{
+				ServerSetInputPressed(AbilitySpec.Handle);
+			}
+
 			AbilitySpecInputPressed(AbilitySpec);
+			//InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::InputPressed, AbilitySpec.Handle, AbilitySpec.ActivationInfo.GetActivationPredictionKey());
 			continue;
 		}
 
@@ -97,7 +103,13 @@ void UBlackoutAbilitySystemComponent::HandleAbilityInputReleased(EBlackoutAbilit
 
 		if (AbilitySpec.IsActive())
 		{
+			if (!IsOwnerActorAuthoritative())
+			{
+				ServerSetInputReleased(AbilitySpec.Handle);
+			}
+
 			AbilitySpecInputReleased(AbilitySpec);
+			//InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::InputReleased, AbilitySpec.Handle, AbilitySpec.ActivationInfo.GetActivationPredictionKey());
 		}
 	}
 }

@@ -1,10 +1,35 @@
 #include "Characters/BORavagerBoss.h"
 
+#include "AbilitySystemComponent.h"
+#include "AbilitySystemGlobals.h"
+#include "GameplayAbilitySpec.h"
+#include "AI/BOAggroComponent.h"
+
 ABORavagerBoss::ABORavagerBoss()
 {
 	PrimaryActorTick.bCanEverTick = true;
 	AnimPlayRateMultiplier = 1.0f;
 	SummonedMinionCount = 0;
+
+	AggroComp = CreateDefaultSubobject<UBOAggroComponent>(TEXT("AggroComp"));
+}
+
+APawn* ABORavagerBoss::GetHighestAggroTarget() const
+{
+	//return AggroComp ? AggroComp->GetHighestAggroTarget() : nullptr;
+	if (UWorld* World = GetWorld())
+	{
+		if (APlayerController* PC = World->GetFirstPlayerController())
+		{
+			return PC->GetPawn();
+		}
+	}
+	return nullptr;
+}
+
+void ABORavagerBoss::AddThreat(APawn* Source, float Amount)
+{
+	if (AggroComp) AggroComp->AddThreat(Source, Amount);
 }
 
 void ABORavagerBoss::EnterPhaseA()
@@ -45,4 +70,22 @@ void ABORavagerBoss::OnPhaseChanged(EBossPhase NewPhase)
 	Super::OnPhaseChanged(NewPhase);
 
 	// TODO: 페이즈별 초기화 (예: Phase B 진입 시 Enrage 이펙트 등)
+}
+
+void ABORavagerBoss::BeginPlay()
+{
+	Super::BeginPlay();
+	
+	if (!HasAuthority()) return;
+
+	UAbilitySystemComponent* ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(this);
+	if (!ASC) return;
+
+	for (const TSubclassOf<UGameplayAbility>& AbilityClass : GrantedAbilities)
+	{
+		if (AbilityClass)
+		{
+			ASC->GiveAbility(FGameplayAbilitySpec(AbilityClass, 1));
+		}
+	}
 }

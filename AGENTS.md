@@ -13,8 +13,10 @@
 | 게임 기획서 (GDD) | [`Docs/게임_기획서_GDD_초안.md`](Docs/게임_기획서_GDD_초안.md) | 게임 플로우, 캐릭터 상성, 보스 설계, UI/UX 기획 |
 | 기술 설계서 (TDD) | [`Docs/기술_설계서_TDD_v5.md`](Docs/기술_설계서_TDD_v5.md) | 클래스 계층, GAS, AI BT, 네트워크, 최적화 명세 |
 | 개발 컨벤션 | [`Docs/CONVENTIONS.md`](Docs/CONVENTIONS.md) | 에셋/코드 네이밍, Git 브랜치, 커밋, PR 규칙 |
-| 클래스 다이어그램 | [`Docs/Project_Blackout_클래스다이어그램.md`](Docs/Project_Blackout_클래스다이어그램.md) | 클래스 관계 시각화 |
+| 클래스 다이어그램 | [`Docs/Project_Blackout_클래스다이어그램.md`](Docs/Project_Blackout_클래스다이어그램.md) + `Docs/*/` 하위 다이어그램 | 클래스 관계 시각화. 루트 문서는 전체 개요이며, 작업 영역별 최신 상세 설계는 관련 하위 폴더(예: `Docs/Combat/`, `Docs/Foundation/`, `Docs/AI_Boss/`, `Docs/NET/`)의 인덱스와 세부 다이어그램을 함께 확인 |
 | 시퀀스 다이어그램 | [`Docs/Project_Blackout_시퀀스다이어그램.md`](Docs/Project_Blackout_시퀀스다이어그램.md) | 주요 플로우 시퀀스 |
+
+> **클래스 다이어그램 참조 규칙**: 클래스 구조를 확인하거나 갱신할 때는 루트 `Project_Blackout_클래스다이어그램.md`만 기준으로 삼지 말고, 반드시 작업 도메인에 해당하는 `Docs/<Domain>/` 하위 인덱스와 세부 다이어그램을 함께 읽으세요. 루트 문서는 과거 개요가 남아 있을 수 있으며, 실제 최신 책임 분리는 하위 문서에 더 자세히 정리됩니다.
 
 ### 작업 유형별 참조 가이드
 
@@ -101,6 +103,7 @@ ABlackoutGameMode (서버 베이스)
 - UPROPERTY Category 대분류: `"Blackout|..."` 필수
 - 에셋: `Prefix_Name` (PascalCase, 접두사 표 참조)
 - Git: `feature/` 브랜치 → `develop` PR. 태그(`Feat`/`Fix`/`Design`/`Refactor`/`Docs`/`Chore`)
+- 커밋 및 PR 생성 시 `Docs/CONVENTIONS.md`의 커밋 메시지/PR 양식과 `.github/PULL_REQUEST_TEMPLATE.md`를 준수
 
 ## Key Rules for AI Agents
 
@@ -112,6 +115,7 @@ ABlackoutGameMode (서버 베이스)
 6. **커밋 메시지는 반드시 태그 형식**(`Feat`, `Fix`, `Design`, `Refactor`, `Docs`, `Chore`)을 사용하세요. PR의 base는 항상 `develop` 입니다. `main` 에 직접 PR 금지.
 7. **코드 변경 전 위 "작업 유형별 참조 가이드" 표를 먼저 확인하고, 해당 섹션만 로드하세요.** 무조건 전체 문서를 읽지 마세요.
 8. **전체 빌드/에디터 컴파일/실행 검증은 기본적으로 사용자가 직접 수행합니다.** AI 에이전트는 빌드를 임의로 실행하지 말고, 사용자가 명시적으로 요청한 경우에만 진행하세요. 코드 변경 후에는 에이전트가 직접 빌드했다고 가정하지 말고, 사용자가 확인해야 할 빌드·컴파일 포인트를 함께 안내하세요.
+9. **`nullptr` 체크 실패 등 코드 내 오류가 발생한 경우 오류를 삼키거나 우회 시도하지 마세요.** 명시적으로 실패 처리하고, 원인을 파악할 수 있는 로그 메시지로 알려야 합니다.
 
 ## Build & Verification
 

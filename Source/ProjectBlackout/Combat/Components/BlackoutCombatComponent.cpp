@@ -4,6 +4,7 @@
 #include "AbilitySystemInterface.h"
 #include "BlackoutAbilitySystemComponent.h"
 #include "Characters/BlackoutPlayerCharacter.h"
+#include "Combat/Components/BlackoutHitboxComponent.h"
 #include "Combat/Weapons/BOFirearm.h"
 #include "Combat/Weapons/BOMeleeWeapon.h"
 #include "Combat/Weapons/BOWeaponBase.h"
@@ -13,12 +14,19 @@
 #include "GameFramework/Controller.h"
 #include "GameFramework/Pawn.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
+#include "Interfaces/BlackoutDamageable.h"
 #include "Net/UnrealNetwork.h"
 
 UBlackoutCombatComponent::UBlackoutCombatComponent()
 {
-	PrimaryComponentTick.bCanEverTick = false;
+	PrimaryComponentTick.bCanEverTick = true;
 	SetIsReplicatedByDefault(true);
+}
+
+void UBlackoutCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+	TickRecoil(DeltaTime);
 }
 
 void UBlackoutCombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -30,6 +38,7 @@ void UBlackoutCombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProper
 	DOREPLIFETIME(UBlackoutCombatComponent, SecondaryWeapon);
 	DOREPLIFETIME(UBlackoutCombatComponent, MeleeWeapon);
 	DOREPLIFETIME(UBlackoutCombatComponent, bIsAiming);
+	DOREPLIFETIME(UBlackoutCombatComponent, bMeleeWeaponAttachmentOverride);
 }
 
 void UBlackoutCombatComponent::InitializeLoadoutFromCharacterData(const UBOCharacterData* CharacterData)
@@ -104,20 +113,38 @@ void UBlackoutCombatComponent::EquipSecondary()
 
 void UBlackoutCombatComponent::SwapWeapon()
 {
-	StopAutomaticFire();
-	ReleaseActivePrimaryAction();
-
-	if (EquippedWeapon == PrimaryWeapon)
+	if (bIsWeaponSwapInProgress)
 	{
-		EquipSecondary();
 		return;
 	}
 
-	EquipPrimary();
+	StopAutomaticFire();
+	ReleaseActivePrimaryAction();
+	StopAim();
+
+	const FGameplayTag TargetWeaponSlotTag = EquippedWeapon == PrimaryWeapon
+		? BlackoutGameplayTags::Weapon_Secondary
+		: BlackoutGameplayTags::Weapon_Primary;
+
+	if (!BeginWeaponSwapInternal(TargetWeaponSlotTag))
+	{
+		if (TargetWeaponSlotTag == BlackoutGameplayTags::Weapon_Secondary)
+		{
+			EquipSecondary();
+			return;
+		}
+
+		EquipPrimary();
+	}
 }
 
 void UBlackoutCombatComponent::StartFire()
 {
+	if (bIsWeaponSwapInProgress)
+	{
+		return;
+	}
+
 	HandleAbilityInputPressed(EBlackoutAbilityInputID::Fire);
 }
 
@@ -128,6 +155,11 @@ void UBlackoutCombatComponent::StopFire()
 
 void UBlackoutCombatComponent::HandlePrimaryActionPressed()
 {
+	if (bIsWeaponSwapInProgress)
+	{
+		return;
+	}
+
 	const EBlackoutAbilityInputID ResolvedInputID = ResolvePrimaryActionInputID();
 	if (ResolvedInputID == EBlackoutAbilityInputID::None)
 	{
@@ -157,6 +189,11 @@ void UBlackoutCombatComponent::HandlePrimaryActionReleased()
 
 void UBlackoutCombatComponent::StartAim()
 {
+	if (bIsWeaponSwapInProgress)
+	{
+		return;
+	}
+
 	if (!CanStartAim())
 	{
 		return;
@@ -188,16 +225,119 @@ void UBlackoutCombatComponent::StopAim()
 
 void UBlackoutCombatComponent::TryReload()
 {
+	if (bIsWeaponSwapInProgress)
+	{
+		return;
+	}
+
 	HandleAbilityInputPressed(EBlackoutAbilityInputID::Reload);
 	HandleAbilityInputReleased(EBlackoutAbilityInputID::Reload);
 }
 
-void UBlackoutCombatComponent::PerformMeleeHit()
+void UBlackoutCombatComponent::PerformMeleeHit(const FGameplayEffectSpecHandle& DamageSpecHandle)
 {
-	if (MeleeWeapon && GetOwner())
+	if (!GetOwner() || !GetOwner()->HasAuthority())
 	{
-		MeleeWeapon->PerformSweep(GetOwner()->GetActorForwardVector());
+		return;
 	}
+
+	if (!MeleeWeapon)
+	{
+		return;
+	}
+
+	if (!DamageSpecHandle.IsValid())
+	{
+		return;
+	}
+
+	const TArray<FHitResult> HitResults = MeleeWeapon->PerformSweep(GetOwner()->GetActorForwardVector());
+	TSet<TWeakObjectPtr<UPrimitiveComponent>> ProcessedComponents;
+	TSet<TWeakObjectPtr<AActor>> ProcessedActors;
+
+	for (const FHitResult& HitResult : HitResults)
+	{
+		UPrimitiveComponent* HitComponent = HitResult.GetComponent();
+		AActor* HitActor = HitResult.GetActor();
+		if (!HitComponent && !HitActor)
+		{
+			continue;
+		}
+
+		if (UBlackoutHitboxComponent* HitboxComponent = Cast<UBlackoutHitboxComponent>(HitComponent))
+		{
+			AActor* HitboxOwner = HitboxComponent->GetOwner();
+			if (ProcessedComponents.Contains(HitboxComponent) || (HitboxOwner && ProcessedActors.Contains(HitboxOwner)))
+			{
+				continue;
+			}
+
+			ProcessedComponents.Add(HitboxComponent);
+			if (HitboxOwner)
+			{
+				ProcessedActors.Add(HitboxOwner);
+			}
+			HitboxComponent->ReceiveDamageSpec(DamageSpecHandle);
+			continue;
+		}
+
+		if (!HitActor || ProcessedActors.Contains(HitActor))
+		{
+			continue;
+		}
+
+		if (IBlackoutDamageable* Damageable = Cast<IBlackoutDamageable>(HitActor))
+		{
+			ProcessedActors.Add(HitActor);
+			Damageable->ReceiveDamageFromHitbox(DamageSpecHandle, HitResult.BoneName);
+		}
+	}
+}
+
+void UBlackoutCombatComponent::CommitPendingWeaponSwap()
+{
+	if (!PendingWeaponSwapSlotTag.IsValid())
+	{
+		return;
+	}
+
+	const FGameplayTag TargetWeaponSlotTag = PendingWeaponSwapSlotTag;
+
+	if (GetOwner() && GetOwner()->HasAuthority())
+	{
+		if (ABOWeaponBase* TargetWeapon = ResolveWeaponBySlotTag(TargetWeaponSlotTag))
+		{
+			Server_EquipWeapon_Implementation(TargetWeapon);
+		}
+
+		PendingWeaponSwapSlotTag = FGameplayTag();
+		return;
+	}
+
+	Server_CommitPendingWeaponSwap(TargetWeaponSlotTag);
+	PendingWeaponSwapSlotTag = FGameplayTag();
+}
+
+void UBlackoutCombatComponent::BeginMeleeWeaponAttachmentOverride()
+{
+	if (!MeleeWeapon)
+	{
+		return;
+	}
+
+	bMeleeWeaponAttachmentOverride = true;
+	RefreshWeaponAttachments();
+}
+
+void UBlackoutCombatComponent::EndMeleeWeaponAttachmentOverride()
+{
+	if (!bMeleeWeaponAttachmentOverride)
+	{
+		return;
+	}
+
+	bMeleeWeaponAttachmentOverride = false;
+	RefreshWeaponAttachments();
 }
 
 ABOFirearm* UBlackoutCombatComponent::GetEquippedFirearm() const
@@ -230,40 +370,6 @@ FTransform UBlackoutCombatComponent::GetMuzzleTransform() const
 	return FTransform::Identity;
 }
 
-FVector UBlackoutCombatComponent::GetAimImpactPoint() const
-{
-	if (const APawn* OwnerPawn = Cast<APawn>(GetOwner()))
-	{
-		if (AController* OwnerController = OwnerPawn->GetController())
-		{
-			FVector ViewLocation = FVector::ZeroVector;
-			FRotator ViewRotation = FRotator::ZeroRotator;
-			OwnerController->GetPlayerViewPoint(ViewLocation, ViewRotation);
-
-			const FVector TraceStart = ViewLocation;
-			const FVector TraceEnd = TraceStart + ViewRotation.Vector() * AimTraceDistance;
-
-			FHitResult HitResult;
-			FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(BlackoutCombat_AimTrace), false, GetOwner());
-			QueryParams.AddIgnoredActor(EquippedWeapon);
-
-			if (GetWorld() && GetWorld()->LineTraceSingleByChannel(HitResult, TraceStart, TraceEnd, ECC_Visibility, QueryParams))
-			{
-				return HitResult.ImpactPoint;
-			}
-
-			return TraceEnd;
-		}
-	}
-
-	if (GetOwner())
-	{
-		return GetMuzzleTransform().GetLocation() + GetOwner()->GetActorForwardVector() * AimTraceDistance;
-	}
-
-	return FVector::ZeroVector;
-}
-
 void UBlackoutCombatComponent::Server_EquipWeapon_Implementation(ABOWeaponBase* NewWeapon)
 {
 	EquippedWeapon = NewWeapon;
@@ -281,7 +387,51 @@ void UBlackoutCombatComponent::Server_SetAiming_Implementation(bool bNewAiming)
 	ApplyAimingState(bNewAiming);
 }
 
+void UBlackoutCombatComponent::Server_BeginWeaponSwap_Implementation(FGameplayTag TargetWeaponSlotTag)
+{
+	if (!ResolveWeaponBySlotTag(TargetWeaponSlotTag) || GetEquippedWeaponSlotTag() == TargetWeaponSlotTag)
+	{
+		return;
+	}
+
+	PendingWeaponSwapSlotTag = TargetWeaponSlotTag;
+	bIsWeaponSwapInProgress = PendingWeaponSwapSlotTag.IsValid();
+
+	if (ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(GetOwner()))
+	{
+		PlayerCharacter->Multicast_PlayWeaponSwapMontage(TargetWeaponSlotTag, 1.f);
+	}
+}
+
+void UBlackoutCombatComponent::Server_CommitPendingWeaponSwap_Implementation(FGameplayTag TargetWeaponSlotTag)
+{
+	if (!PendingWeaponSwapSlotTag.IsValid() || PendingWeaponSwapSlotTag != TargetWeaponSlotTag)
+	{
+		return;
+	}
+
+	if (ABOWeaponBase* TargetWeapon = ResolveWeaponBySlotTag(TargetWeaponSlotTag))
+	{
+		Server_EquipWeapon_Implementation(TargetWeapon);
+	}
+
+	PendingWeaponSwapSlotTag = FGameplayTag();
+}
+
+void UBlackoutCombatComponent::Server_CancelPendingWeaponSwap_Implementation()
+{
+	PendingWeaponSwapSlotTag = FGameplayTag();
+	bIsWeaponSwapInProgress = false;
+}
+
 void UBlackoutCombatComponent::OnRep_EquippedWeapon()
+{
+	RefreshWeaponAttachments();
+	ResetSpread();
+	OnEquippedWeaponChanged.Broadcast(EquippedWeapon, GetEquippedWeaponSlotTag());
+}
+
+void UBlackoutCombatComponent::OnRep_LoadoutWeapon()
 {
 	RefreshWeaponAttachments();
 }
@@ -289,6 +439,145 @@ void UBlackoutCombatComponent::OnRep_EquippedWeapon()
 void UBlackoutCombatComponent::OnRep_IsAiming()
 {
 	ApplyAimingState(bIsAiming);
+}
+
+void UBlackoutCombatComponent::OnRep_MeleeWeaponAttachmentOverride()
+{
+	RefreshWeaponAttachments();
+}
+
+void UBlackoutCombatComponent::HandleWeaponSwapMontageEnded(bool bInterrupted)
+{
+	if (!bInterrupted && PendingWeaponSwapSlotTag.IsValid())
+	{
+		CommitPendingWeaponSwap();
+	}
+
+	if (bInterrupted && PendingWeaponSwapSlotTag.IsValid() && GetOwner() && !GetOwner()->HasAuthority())
+	{
+		Server_CancelPendingWeaponSwap();
+	}
+
+	if (bInterrupted)
+	{
+		PendingWeaponSwapSlotTag = FGameplayTag();
+	}
+
+	bIsWeaponSwapInProgress = false;
+}
+
+void UBlackoutCombatComponent::BeginMeleeAttackWindow(const FGameplayEffectSpecHandle& DamageSpecHandle)
+{
+	// 혹시 이전 공격창 상태가 남아 있으면 먼저 정리
+	EndMeleeAttackWindow();
+	
+	if (!GetOwner() || !GetOwner()->HasAuthority())
+	{
+		return;
+	}
+	
+	if (!MeleeWeapon)
+	{
+		return;
+	}
+
+	
+	if (!DamageSpecHandle.IsValid())
+	{
+		return;
+	}
+
+	// 이번 공격창에서 재사용할 데미지 스펙 저장
+	ActiveMeleeDamageSpecHandle = DamageSpecHandle;
+
+	// 이번 공격창 중복 피격 방지 집합 초기화
+	ProcessedMeleeHitComponents.Reset();
+	ProcessedMeleeHitActors.Reset();
+
+	// 공격창 활성화
+	bMeleeAttackWindowActive = true;
+	
+}
+
+void UBlackoutCombatComponent::UpdateMeleeAttackWindow()
+{
+	if (!bMeleeAttackWindowActive)
+	{
+		return;
+	}
+
+	// 서버만 실제 데미지 판정을 수행
+	if (!GetOwner() || !GetOwner()->HasAuthority())
+	{
+		return;
+	}
+
+	// 공격창이 열려 있어도 무기나 스펙이 없으면 진행 불가
+	if (!MeleeWeapon || !ActiveMeleeDamageSpecHandle.IsValid())
+	{
+		return;
+	}
+
+	// 현재 프레임 기준으로 근접 무기 스윕 수행
+	const TArray<FHitResult> HitResults = MeleeWeapon->PerformSweep(GetOwner()->GetActorForwardVector());
+
+	for (const FHitResult& HitResult : HitResults)
+	{
+		UPrimitiveComponent* HitComponent = HitResult.GetComponent();
+		AActor* HitActor = HitResult.GetActor();
+
+		// 히트박스 컴포넌트가 잡힌 경우
+		if (UBlackoutHitboxComponent* HitboxComponent = Cast<UBlackoutHitboxComponent>(HitComponent))
+		{
+			AActor* HitboxOwner = HitboxComponent->GetOwner();
+
+			// 같은 공격창 안에서 이미 처리한 히트박스/액터면 중복 피해 방지
+			if (ProcessedMeleeHitComponents.Contains(HitboxComponent)
+				|| (HitboxOwner && ProcessedMeleeHitActors.Contains(HitboxOwner)))
+			{
+				continue;
+			}
+
+			// 이번 공격창에서 이미 맞은 대상 목록에 기록
+			ProcessedMeleeHitComponents.Add(HitboxComponent);
+			if (HitboxOwner)
+			{
+				ProcessedMeleeHitActors.Add(HitboxOwner);
+			}
+
+			// 히트박스 컴포넌트 경유 데미지 전달
+			HitboxComponent->ReceiveDamageSpec(ActiveMeleeDamageSpecHandle);
+			continue;
+		}
+
+		// 히트박스가 아닌 일반 액터인 경우
+		if (!HitActor || ProcessedMeleeHitActors.Contains(HitActor))
+		{
+			continue;
+		}
+
+		if (IBlackoutDamageable* Damageable = Cast<IBlackoutDamageable>(HitActor))
+		{
+			// 같은 공격창 안에서 동일 액터 중복 피해 방지
+			ProcessedMeleeHitActors.Add(HitActor);
+
+			// 본 정보가 있으면 함께 전달
+			Damageable->ReceiveDamageFromHitbox(ActiveMeleeDamageSpecHandle, HitResult.BoneName);
+		}
+	}
+	
+}
+
+void UBlackoutCombatComponent::EndMeleeAttackWindow()
+{
+	// 공격창 비활성화
+	bMeleeAttackWindowActive = false;
+
+	// 이번 공격창용 임시 상태 정리
+	ActiveMeleeDamageSpecHandle = FGameplayEffectSpecHandle();
+	ProcessedMeleeHitComponents.Reset();
+	ProcessedMeleeHitActors.Reset();
+	
 }
 
 ABOWeaponBase* UBlackoutCombatComponent::SpawnWeaponActor(TSubclassOf<ABOWeaponBase> WeaponClass)
@@ -307,6 +596,7 @@ ABOWeaponBase* UBlackoutCombatComponent::SpawnWeaponActor(TSubclassOf<ABOWeaponB
 	if (SpawnedWeapon)
 	{
 		SpawnedWeapon->SetOwner(GetOwner());
+		SpawnedWeapon->SetActorHiddenInGame(true);
 		SpawnedWeapon->InitializeStatsFromDataTable();
 	}
 
@@ -315,20 +605,78 @@ ABOWeaponBase* UBlackoutCombatComponent::SpawnWeaponActor(TSubclassOf<ABOWeaponB
 
 void UBlackoutCombatComponent::RefreshWeaponAttachments() const
 {
-	auto AttachWeapon = [](ABOWeaponBase* Weapon, const FName SocketName)
+	auto AttachWeapon = [this](ABOWeaponBase* Weapon, const bool bAttachAsEquipped)
 	{
 		if (!Weapon)
 		{
 			return;
 		}
 
-		Weapon->SetActorHiddenInGame(false);
-		Weapon->AttachToOwner(SocketName);
+		Weapon->InitializeStatsFromDataTable();
+
+		const FName SocketName = bAttachAsEquipped ? EquippedWeaponSocketName : Weapon->GetHolsterSocketName();
+		if (SocketName.IsNone())
+		{
+			return;
+		}
+
+		if (Weapon->AttachToOwner(SocketName))
+		{
+			Weapon->SetActorHiddenInGame(false);
+		}
 	};
 
-	AttachWeapon(PrimaryWeapon, EquippedWeapon == PrimaryWeapon ? EquippedWeaponSocketName : PrimaryHolsterSocketName);
-	AttachWeapon(SecondaryWeapon, EquippedWeapon == SecondaryWeapon ? EquippedWeaponSocketName : SecondaryHolsterSocketName);
-	AttachWeapon(MeleeWeapon, MeleeHolsterSocketName);
+	const bool bPrimaryEquipped = EquippedWeapon == PrimaryWeapon;
+	const bool bSecondaryEquipped = EquippedWeapon == SecondaryWeapon;
+	const bool bMeleeEquipped = bMeleeWeaponAttachmentOverride && MeleeWeapon;
+
+	AttachWeapon(PrimaryWeapon, !bMeleeEquipped && bPrimaryEquipped);
+	AttachWeapon(SecondaryWeapon, !bMeleeEquipped && bSecondaryEquipped);
+	AttachWeapon(MeleeWeapon, bMeleeEquipped);
+}
+
+ABOWeaponBase* UBlackoutCombatComponent::ResolveWeaponBySlotTag(FGameplayTag WeaponSlotTag) const
+{
+	if (WeaponSlotTag == BlackoutGameplayTags::Weapon_Primary)
+	{
+		return PrimaryWeapon;
+	}
+
+	if (WeaponSlotTag == BlackoutGameplayTags::Weapon_Secondary)
+	{
+		return SecondaryWeapon;
+	}
+
+	return nullptr;
+}
+
+bool UBlackoutCombatComponent::BeginWeaponSwapInternal(FGameplayTag TargetWeaponSlotTag)
+{
+	ABOWeaponBase* TargetWeapon = ResolveWeaponBySlotTag(TargetWeaponSlotTag);
+	if (!TargetWeapon || TargetWeapon == EquippedWeapon)
+	{
+		return false;
+	}
+
+	ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(GetOwner());
+	if (!PlayerCharacter || !PlayerCharacter->PlayWeaponSwapMontage(TargetWeaponSlotTag, 1.f))
+	{
+		return false;
+	}
+
+	PendingWeaponSwapSlotTag = TargetWeaponSlotTag;
+	bIsWeaponSwapInProgress = true;
+
+	if (GetOwner() && GetOwner()->HasAuthority())
+	{
+		PlayerCharacter->Multicast_PlayWeaponSwapMontage(TargetWeaponSlotTag, 1.f);
+	}
+	else
+	{
+		Server_BeginWeaponSwap(TargetWeaponSlotTag);
+	}
+
+	return true;
 }
 
 void UBlackoutCombatComponent::ApplyInitialAmmoLoadout() const
@@ -375,7 +723,8 @@ bool UBlackoutCombatComponent::CanStartAim() const
 
 	return !AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Sprinting)
 		&& !AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Downed)
-		&& !AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Locked);
+		&& !AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Locked)
+		&& !AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Attacking);
 }
 
 float UBlackoutCombatComponent::GetEquippedClipAmmo() const
@@ -409,6 +758,8 @@ void UBlackoutCombatComponent::ApplyAimingState(bool bNewAiming)
 	{
 		PlayerCharacter->HandleAimStateChanged(bIsAiming);
 	}
+
+	OnAimingChanged.Broadcast(bIsAiming);
 }
 
 EBlackoutAbilityInputID UBlackoutCombatComponent::ResolvePrimaryActionInputID() const
@@ -507,4 +858,245 @@ void UBlackoutCombatComponent::HandleAbilityInputReleased(EBlackoutAbilityInputI
 	{
 		AbilitySystemComponent->HandleAbilityInputReleased(InputID);
 	}
+}
+
+void UBlackoutCombatComponent::OnShotFired()
+{
+	AccumulateSpread();
+	ApplyRecoil();
+}
+
+FVector UBlackoutCombatComponent::GetSpreadDeviatedDirection(const FVector& BaseDirection) const
+{
+	if (CurrentSpreadDegrees <= 0.0f)
+	{
+		return BaseDirection.GetSafeNormal();
+	}
+
+	return FMath::VRandCone(BaseDirection.GetSafeNormal(), FMath::DegreesToRadians(CurrentSpreadDegrees));
+}
+
+float UBlackoutCombatComponent::GetNormalizedSpread() const
+{
+	const ABOFirearm* Firearm = GetEquippedFirearm();
+	if (!Firearm)
+	{
+		return 0.0f;
+	}
+
+	const float BaseSpread = Firearm->GetBaseSpreadDegrees();
+	const float SpreadRange = Firearm->GetMaxSpreadDegrees() - BaseSpread;
+	if (SpreadRange <= 0.0f)
+	{
+		return 0.0f;
+	}
+
+	return FMath::Clamp((CurrentSpreadDegrees - BaseSpread) / SpreadRange, 0.0f, 1.0f);
+}
+
+void UBlackoutCombatComponent::AccumulateSpread()
+{
+	const ABOFirearm* Firearm = GetEquippedFirearm();
+	if (!Firearm)
+	{
+		return;
+	}
+
+	CurrentSpreadDegrees = FMath::Min(
+		CurrentSpreadDegrees + Firearm->GetSpreadPerShot(),
+		Firearm->GetMaxSpreadDegrees());
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	constexpr float RecoveryTickInterval = 1.0f / 60.0f;
+	World->GetTimerManager().SetTimer(
+		SpreadRecoveryTimerHandle,
+		this,
+		&UBlackoutCombatComponent::TickSpreadRecovery,
+		RecoveryTickInterval,
+		true);
+}
+
+void UBlackoutCombatComponent::ApplyRecoil()
+{
+	const ABOFirearm* Firearm = GetEquippedFirearm();
+	if (!Firearm)
+	{
+		return;
+	}
+
+	if (!bHasRecoilBaseline)
+	{
+		const APawn* OwnerPawn = Cast<APawn>(GetOwner());
+		const AController* Controller = OwnerPawn ? OwnerPawn->GetController() : nullptr;
+		if (Controller)
+		{
+			RecoilBaselinePitch = Controller->GetControlRotation().Pitch;
+			bHasRecoilBaseline = true;
+		}
+	}
+
+	if (bIsRecoveringRecoil)
+	{
+		RecoveryPitchRemaining = 0.0f;
+		bIsRecoveringRecoil = false;
+	}
+
+	const float VerticalRecoil = FMath::RandRange(Firearm->GetVerticalRecoilMin(), Firearm->GetVerticalRecoilMax());
+	const float HorizontalRecoil = FMath::RandRange(-Firearm->GetHorizontalRecoilRange(), Firearm->GetHorizontalRecoilRange());
+
+	PendingRecoilPitch += -VerticalRecoil;
+	PendingRecoilYaw += HorizontalRecoil;
+}
+
+void UBlackoutCombatComponent::TickSpreadRecovery()
+{
+	const ABOFirearm* Firearm = GetEquippedFirearm();
+	if (!Firearm)
+	{
+		if (UWorld* World = GetWorld())
+		{
+			World->GetTimerManager().ClearTimer(SpreadRecoveryTimerHandle);
+		}
+		return;
+	}
+
+	const float BaseSpread = Firearm->GetBaseSpreadDegrees();
+	if (CurrentSpreadDegrees <= BaseSpread)
+	{
+		CurrentSpreadDegrees = BaseSpread;
+		if (UWorld* World = GetWorld())
+		{
+			World->GetTimerManager().ClearTimer(SpreadRecoveryTimerHandle);
+		}
+		return;
+	}
+
+	constexpr float RecoveryTickInterval = 1.0f / 60.0f;
+	CurrentSpreadDegrees = FMath::Max(
+		CurrentSpreadDegrees - Firearm->GetSpreadRecoveryRate() * RecoveryTickInterval,
+		BaseSpread);
+}
+
+void UBlackoutCombatComponent::TickRecoil(float DeltaTime)
+{
+	if (!bHasRecoilBaseline)
+	{
+		return;
+	}
+
+	APawn* OwnerPawn = Cast<APawn>(GetOwner());
+	const AController* Controller = OwnerPawn ? OwnerPawn->GetController() : nullptr;
+	if (!OwnerPawn || !Controller)
+	{
+		return;
+	}
+
+	AccumulatedRecoilPitch = FMath::Min(AccumulatedRecoilPitch, GetRecoilPitchDisplacement(*Controller));
+
+	const bool bHasPendingRecoil = !FMath::IsNearlyZero(PendingRecoilPitch, 0.01f)
+		|| !FMath::IsNearlyZero(PendingRecoilYaw, 0.01f);
+
+	if (bHasPendingRecoil)
+	{
+		bIsRecoveringRecoil = false;
+		RecoveryPitchRemaining = 0.0f;
+
+		const float Alpha = FMath::Clamp(RecoilInterpSpeed * DeltaTime, 0.0f, 1.0f);
+
+		float PitchStep = PendingRecoilPitch * Alpha;
+		const float YawStep = PendingRecoilYaw * Alpha;
+
+		const ABOFirearm* Firearm = GetEquippedFirearm();
+		const float MaxPitch = Firearm ? Firearm->GetMaxRecoilPitchDegrees() : 15.0f;
+		const float RemainingRoom = FMath::Max(0.0f, MaxPitch - AccumulatedRecoilPitch);
+
+		if (PitchStep < 0.0f)
+		{
+			PitchStep = -FMath::Min(RemainingRoom, FMath::Abs(PitchStep));
+		}
+		else
+		{
+			PitchStep = FMath::Min(RemainingRoom, PitchStep);
+		}
+
+		OwnerPawn->AddControllerPitchInput(PitchStep);
+		OwnerPawn->AddControllerYawInput(YawStep);
+
+		PendingRecoilPitch -= PendingRecoilPitch * Alpha;
+		PendingRecoilYaw -= PendingRecoilYaw * Alpha;
+		AccumulatedRecoilPitch += FMath::Abs(PitchStep);
+
+		if (FMath::IsNearlyZero(PendingRecoilPitch, 0.01f) && FMath::IsNearlyZero(PendingRecoilYaw, 0.01f))
+		{
+			PendingRecoilPitch = 0.0f;
+			PendingRecoilYaw = 0.0f;
+
+			const float RecoveryFraction = Firearm ? Firearm->GetRecoilRecoveryFraction() : 0.0f;
+			RecoveryPitchRemaining = AccumulatedRecoilPitch * RecoveryFraction;
+			bIsRecoveringRecoil = RecoveryPitchRemaining > 0.01f;
+		}
+
+		return;
+	}
+
+	if (bIsRecoveringRecoil && RecoveryPitchRemaining > 0.01f)
+	{
+		const float RecoveryStep = RecoveryPitchRemaining * FMath::Clamp(RecoilRecoveryInterpSpeed * DeltaTime, 0.0f, 1.0f);
+
+		const float CurrentDisplacement = GetRecoilPitchDisplacement(*Controller);
+		const float ClampedStep = FMath::Min(RecoveryStep, CurrentDisplacement);
+
+		if (ClampedStep > 0.001f)
+		{
+			OwnerPawn->AddControllerPitchInput(ClampedStep);
+			AccumulatedRecoilPitch = FMath::Max(0.0f, AccumulatedRecoilPitch - ClampedStep);
+			RecoveryPitchRemaining -= ClampedStep;
+		}
+		else if (CurrentDisplacement <= 0.001f)
+		{
+			RecoveryPitchRemaining = 0.0f;
+			AccumulatedRecoilPitch = 0.0f;
+		}
+
+		if (RecoveryPitchRemaining <= 0.01f)
+		{
+			RecoveryPitchRemaining = 0.0f;
+			bIsRecoveringRecoil = false;
+			AccumulatedRecoilPitch = FMath::Min(AccumulatedRecoilPitch, GetRecoilPitchDisplacement(*Controller));
+			bHasRecoilBaseline = false;
+		}
+
+		return;
+	}
+
+	bHasRecoilBaseline = false;
+}
+
+float UBlackoutCombatComponent::GetRecoilPitchDisplacement(const AController& Controller) const
+{
+	return FMath::Max(0.0f, FRotator::NormalizeAxis(Controller.GetControlRotation().Pitch - RecoilBaselinePitch));
+}
+
+void UBlackoutCombatComponent::ResetSpread()
+{
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(SpreadRecoveryTimerHandle);
+	}
+
+	const ABOFirearm* Firearm = GetEquippedFirearm();
+	CurrentSpreadDegrees = Firearm ? Firearm->GetBaseSpreadDegrees() : 0.0f;
+
+	PendingRecoilPitch = 0.0f;
+	PendingRecoilYaw = 0.0f;
+	RecoilBaselinePitch = 0.0f;
+	AccumulatedRecoilPitch = 0.0f;
+	RecoveryPitchRemaining = 0.0f;
+	bHasRecoilBaseline = false;
+	bIsRecoveringRecoil = false;
 }

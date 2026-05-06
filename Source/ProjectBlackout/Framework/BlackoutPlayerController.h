@@ -17,6 +17,8 @@ class PROJECTBLACKOUT_API ABlackoutPlayerController : public APlayerController
 	GENERATED_BODY()
 
 public:
+	virtual void AcknowledgePossession(APawn* P) override;
+
 	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "Blackout|Controller")
 	void Server_SelectClass(FGameplayTag ClassTag);
 	
@@ -40,6 +42,8 @@ public:
 	
 #pragma region InputSetup
 protected:
+	virtual void OnPossess(APawn* InPawn) override;
+	virtual void OnRep_PlayerState() override;
 	virtual void SetupInputComponent() override;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input")
@@ -66,6 +70,12 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input")
 	TObjectPtr<UInputAction> SprintAction;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input")
+	TObjectPtr<UInputAction> DebugSelfDamageAction;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input")
+	TObjectPtr<UInputAction> InteractAction;
+
 	void OnFirePressed();
 	void OnFireReleased();
 	void OnAimPressed();
@@ -75,9 +85,15 @@ protected:
 	void OnDodgePressed();
 	void OnSprintPressed();
 	void OnSprintReleased();
+	void OnDebugSelfDamagePressed();
+	void OnInteractPressed();
+	void OnInteractReleased();
+	
+	bool IsHitReactInputBlocked() const;
 
 	void HandleAbilityInputPressed(EBlackoutAbilityInputID InputID);
 	void HandleAbilityInputReleased(EBlackoutAbilityInputID InputID);
+	void TryInitHUD() const;
 	UBlackoutAbilitySystemComponent* GetBlackoutAbilitySystemComponent() const;
 	UBlackoutCombatComponent* GetBlackoutCombatComponent() const;
 

@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Combat/Weapons/BOWeaponBase.h"
+#include "GameplayEffectTypes.h"
 #include "BOFirearm.generated.h"
 
 class UNiagaraComponent;
@@ -16,10 +17,10 @@ public:
 	ABOFirearm();
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
-	FHitResult Fire(const FVector& Direction);
+	FHitResult Fire(const FVector& Direction, const FGameplayEffectSpecHandle& DamageSpecHandle);
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
-	ABOProjectile* SpawnProjectile(const FVector& Direction);
+	ABOProjectile* SpawnProjectile(const FVector& Direction, const FGameplayEffectSpecHandle& DamageSpecHandle);
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	FTransform GetMuzzleTransform() const;
@@ -33,6 +34,12 @@ public:
 	bool IsAutomatic() const;
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	bool UsesHitscan() const;
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|Animation")
+	bool UsesTwoHandedAnimation() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	int32 GetMagazineSize() const;
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
@@ -41,7 +48,48 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	float GetSplashRadius() const;
 
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	TSubclassOf<ABOProjectile> GetProjectileClass() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	float GetProjectileLaunchSpeed() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	float GetProjectileGravityScale() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	float GetProjectileCollisionRadius() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	float GetBaseSpreadDegrees() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	float GetMaxSpreadDegrees() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	float GetSpreadPerShot() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	float GetSpreadRecoveryRate() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	float GetVerticalRecoilMin() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	float GetVerticalRecoilMax() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	float GetHorizontalRecoilRange() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	float GetMaxRecoilPitchDegrees() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	float GetRecoilRecoveryFraction() const;
+
 protected:
+	void ApplyFirearmStats(const FBlackoutFirearmStat& FirearmStats);
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Combat")
 	TObjectPtr<UNiagaraComponent> MuzzleFlash;
 
@@ -59,4 +107,16 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
 	bool bUseHitscan = true;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
+	bool bUseTwoHandedAnimation = true;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Debug")
+	bool bDrawDebugHitscanRay = false;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Debug", meta = (EditCondition = "bDrawDebugHitscanRay", ClampMin = 0.f))
+	float DebugHitscanRayDuration = 1.0f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Debug", meta = (EditCondition = "bDrawDebugHitscanRay", ClampMin = 0.f))
+	float DebugHitscanRayThickness = 1.5f;
 };

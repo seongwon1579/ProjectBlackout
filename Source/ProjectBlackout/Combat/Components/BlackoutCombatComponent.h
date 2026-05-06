@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "Core/BlackoutTypes.h"
+#include "GameplayEffectTypes.h"
 #include "GameplayTagContainer.h"
 #include "TimerManager.h"
 #include "BlackoutCombatComponent.generated.h"
@@ -10,7 +11,11 @@
 class ABOWeaponBase;
 class ABOFirearm;
 class ABOMeleeWeapon;
+class AController;
 class UBOCharacterData;
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FBlackoutEquippedWeaponChangedSignature, ABOWeaponBase*, EquippedWeapon, FGameplayTag, WeaponSlotTag);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FBlackoutAimingChangedSignature, bool, bIsAiming);
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class PROJECTBLACKOUT_API UBlackoutCombatComponent : public UActorComponent
@@ -21,6 +26,7 @@ public:
 	UBlackoutCombatComponent();
 	
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	void InitializeLoadoutFromCharacterData(const UBOCharacterData* CharacterData);
@@ -59,10 +65,34 @@ public:
 	void TryReload();
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
-	void PerformMeleeHit();
+	void PerformMeleeHit(const FGameplayEffectSpecHandle& DamageSpecHandle);
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	void CommitPendingWeaponSwap();
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|Combat")
+	bool IsWeaponSwapInProgress() const { return bIsWeaponSwapInProgress; }
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	void BeginMeleeWeaponAttachmentOverride();
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	void EndMeleeWeaponAttachmentOverride();
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	ABOWeaponBase* GetEquippedWeapon() const { return EquippedWeapon; }
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	ABOFirearm* GetPrimaryWeapon() const { return PrimaryWeapon; }
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	ABOFirearm* GetSecondaryWeapon() const { return SecondaryWeapon; }
+
+	UPROPERTY(BlueprintAssignable, Category = "Blackout|Combat")
+	FBlackoutEquippedWeaponChangedSignature OnEquippedWeaponChanged;
+
+	UPROPERTY(BlueprintAssignable, Category = "Blackout|Combat")
+	FBlackoutAimingChangedSignature OnAimingChanged;
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	ABOFirearm* GetEquippedFirearm() const;
@@ -76,8 +106,24 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	FTransform GetMuzzleTransform() const;
 
+	/** 발사 1회 시 호출. 탄퍼짐을 누적하고 반동을 카메라에 적용합니다. */
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
-	FVector GetAimImpactPoint() const;
+	void OnShotFired();
+
+	/**
+	 * 기본 발사 방향에 현재 탄퍼짐을 적용한 방향을 반환합니다.
+	 * 탄퍼짐 콘 안에서 무작위 편향된 방향이 반환됩니다.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	FVector GetSpreadDeviatedDirection(const FVector& BaseDirection) const;
+
+	/** 현재 탄퍼짐 각도를 반환합니다 (도). */
+	UFUNCTION(BlueprintPure, Category = "Blackout|Combat")
+	float GetCurrentSpreadDegrees() const { return CurrentSpreadDegrees; }
+
+	/** 현재 탄퍼짐을 0(기본)~1(최대) 범위로 정규화하여 반환합니다. */
+	UFUNCTION(BlueprintPure, Category = "Blackout|Combat")
+	float GetNormalizedSpread() const;
 
 	UFUNCTION(Server, Reliable)
 	void Server_EquipWeapon(ABOWeaponBase* NewWeapon);
@@ -85,45 +131,68 @@ public:
 	UFUNCTION(Server, Reliable)
 	void Server_SetAiming(bool bNewAiming);
 
+	UFUNCTION(Server, Reliable)
+	void Server_BeginWeaponSwap(FGameplayTag TargetWeaponSlotTag);
+
+	UFUNCTION(Server, Reliable)
+	void Server_CommitPendingWeaponSwap(FGameplayTag TargetWeaponSlotTag);
+
+	UFUNCTION(Server, Reliable)
+	void Server_CancelPendingWeaponSwap();
+
+	void HandleWeaponSwapMontageEnded(bool bInterrupted);
+
+	// 근접 공격 윈도우 
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	void BeginMeleeAttackWindow(const FGameplayEffectSpecHandle& DamageSpecHandle);
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	void UpdateMeleeAttackWindow();
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	void EndMeleeAttackWindow();
+	
 protected:
 	UFUNCTION()
 	void OnRep_EquippedWeapon();
 
 	UFUNCTION()
+	void OnRep_LoadoutWeapon();
+
+	UFUNCTION()
 	void OnRep_IsAiming();
+
+	UFUNCTION()
+	void OnRep_MeleeWeaponAttachmentOverride();
 
 	UPROPERTY(Transient, ReplicatedUsing = OnRep_EquippedWeapon, BlueprintReadOnly, Category = "Blackout|Combat")
 	TObjectPtr<ABOWeaponBase> EquippedWeapon;
 
-	UPROPERTY(Transient, Replicated, BlueprintReadOnly, Category = "Blackout|Combat")
+	UPROPERTY(Transient, ReplicatedUsing = OnRep_LoadoutWeapon, BlueprintReadOnly, Category = "Blackout|Combat")
 	TObjectPtr<ABOFirearm> PrimaryWeapon;
 
-	UPROPERTY(Transient, Replicated, BlueprintReadOnly, Category = "Blackout|Combat")
+	UPROPERTY(Transient, ReplicatedUsing = OnRep_LoadoutWeapon, BlueprintReadOnly, Category = "Blackout|Combat")
 	TObjectPtr<ABOFirearm> SecondaryWeapon;
 
-	UPROPERTY(Transient, Replicated, BlueprintReadOnly, Category = "Blackout|Combat")
+	UPROPERTY(Transient, ReplicatedUsing = OnRep_LoadoutWeapon, BlueprintReadOnly, Category = "Blackout|Combat")
 	TObjectPtr<ABOMeleeWeapon> MeleeWeapon;
 
 	UPROPERTY(ReplicatedUsing = OnRep_IsAiming, BlueprintReadOnly, Category = "Blackout|Combat")
 	bool bIsAiming = false;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
-	float AimParallaxOffset = 100.0f;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
-	float AimTraceDistance = 10000.0f;
+	UPROPERTY(ReplicatedUsing = OnRep_MeleeWeaponAttachmentOverride, BlueprintReadOnly, Category = "Blackout|Combat")
+	bool bMeleeWeaponAttachmentOverride = false;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
 	FName EquippedWeaponSocketName = TEXT("WeaponSocket");
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
-	FName PrimaryHolsterSocketName = TEXT("PrimaryWeaponSocket");
+	/** 반동이 목표 값에 도달하는 보간 속도. 클수록 즉각적. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat|Recoil", meta = (ClampMin = 1.f))
+	float RecoilInterpSpeed = 15.0f;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
-	FName SecondaryHolsterSocketName = TEXT("SecondaryWeaponSocket");
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
-	FName MeleeHolsterSocketName = TEXT("MeleeWeaponSocket");
+	/** 반동 종료 후 카메라가 되돌아오는 보간 속도. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat|Recoil", meta = (ClampMin = 1.f))
+	float RecoilRecoveryInterpSpeed = 8.0f;
 
 private:
 	ABOWeaponBase* SpawnWeaponActor(TSubclassOf<ABOWeaponBase> WeaponClass);
@@ -132,6 +201,8 @@ private:
 	bool CanStartAim() const;
 	float GetEquippedClipAmmo() const;
 	void ApplyAimingState(bool bNewAiming);
+	ABOWeaponBase* ResolveWeaponBySlotTag(FGameplayTag WeaponSlotTag) const;
+	bool BeginWeaponSwapInternal(FGameplayTag TargetWeaponSlotTag);
 	EBlackoutAbilityInputID ResolvePrimaryActionInputID() const;
 	void StartAutomaticFire();
 	void StopAutomaticFire();
@@ -140,8 +211,45 @@ private:
 	void HandleAbilityInputPressed(EBlackoutAbilityInputID InputID) const;
 	void HandleAbilityInputReleased(EBlackoutAbilityInputID InputID) const;
 
+	
+	// 현재 열려 있는 근접 공격창에서 사용할 데미지 스펙
+	FGameplayEffectSpecHandle ActiveMeleeDamageSpecHandle;
+
+	// 같은 공격창 안에서 동일 히트박스 중복 피격을 막기 위한 집합
+	TSet<TWeakObjectPtr<UPrimitiveComponent>> ProcessedMeleeHitComponents;
+
+	// 같은 공격창 안에서 동일 액터 중복 피격을 막기 위한 집합
+	TSet<TWeakObjectPtr<AActor>> ProcessedMeleeHitActors;
+
+	// 현재 근접 공격창이 열려 있는지 여부
+	bool bMeleeAttackWindowActive = false;
+	
 	UPROPERTY(Transient)
 	EBlackoutAbilityInputID ActivePrimaryActionInputID = EBlackoutAbilityInputID::None;
 
+	UPROPERTY(Transient)
+	FGameplayTag PendingWeaponSwapSlotTag;
+
+	UPROPERTY(Transient)
+	bool bIsWeaponSwapInProgress = false;
+
 	FTimerHandle AutomaticFireTimerHandle;
+
+	void AccumulateSpread();
+	void ApplyRecoil();
+	void TickSpreadRecovery();
+	void TickRecoil(float DeltaTime);
+	void ResetSpread();
+	float GetRecoilPitchDisplacement(const AController& Controller) const;
+
+	float CurrentSpreadDegrees = 0.0f;
+	FTimerHandle SpreadRecoveryTimerHandle;
+
+	float PendingRecoilPitch = 0.0f;
+	float PendingRecoilYaw = 0.0f;
+	float RecoilBaselinePitch = 0.0f;
+	float AccumulatedRecoilPitch = 0.0f;
+	float RecoveryPitchRemaining = 0.0f;
+	bool bHasRecoilBaseline = false;
+	bool bIsRecoveringRecoil = false;
 };

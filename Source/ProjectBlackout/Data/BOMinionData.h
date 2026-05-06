@@ -5,6 +5,7 @@
 #include "GameplayTagContainer.h"
 #include "BOMinionData.generated.h"
 
+class UGameplayAbility;
 /**
  * 미니언(Root Hollow / Root Wraith) 스탯 및 패턴 데미지 데이터.
  * ABlackoutEnemyCharacter::BeginPlay에서 어트리뷰트 초기화에 참조.
@@ -28,4 +29,12 @@ public:
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Abilities")
 	TMap<FGameplayTag, float> AbilityDamageMap;
+	
+	/**
+	 * ASC 에 부여할 어빌리티 클래스 목록.
+	 * BlackoutEnemyCharacter::BeginPlay 에서 GiveDefaultAbilities 로 일괄 부여.
+	 * 미니언이 GA 사용 시에만 채움 (Hollow 빈 배열 / Wraith 사용).
+	 */
+	UPROPERTY(EditAnywhere,BlueprintReadOnly, Category = "Blackout|Abilities")
+	TArray<TSubclassOf<UGameplayAbility>> GrantedAbilities;
 };

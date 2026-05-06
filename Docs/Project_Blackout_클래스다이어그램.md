@@ -31,6 +31,7 @@ classDiagram
         -UCameraComponent* Camera
         -USpringArmComponent* SpringArm
         -UBlackoutCombatComponent* CombatComp
+        -UBlackoutImpactIndicatorComponent* ImpactIndicatorComp
         +PossessedBy(AController*) void
     }
 
@@ -227,7 +228,7 @@ classDiagram
     direction LR
 
     class GA_FireWeapon {
-        +Hitscan / Projectile 분기
+        +Hitscan / Projectile / Shotgun Pellet 분기
         +Cost: ClipAmmo -1
         +Cue: GCN_Weapon_Fire
     }
@@ -275,6 +276,13 @@ classDiagram
         +Kill.WeakSpot → 탄약+소모품
     }
 
+    class ABOShotgunFirearm {
+        +FireShotgun(Direction, DamageSpec)
+        +PelletCount / PelletSpreadDegrees
+        +TArray~FBlackoutShotgunPelletHit~
+    }
+
+    GA_FireWeapon --> ABOShotgunFirearm : 산탄 펠릿 사격
     GA_FireWeapon --> ExecCalc_DamageCalc : 피격 시
     GA_Melee_Player --> ExecCalc_DamageCalc : 피격 시
     ExecCalc_DamageCalc --> ExecCalc_CombatReward : 사망 시
@@ -365,13 +373,46 @@ classDiagram
         <<ActorComponent>>
         -bool bIsAiming
         -EWeaponSlot CurrentSlot
-        +GetMuzzleLocation() FVector
-        +GetAimDirection() FVector
+        +GetEquippedFirearm() ABOFirearm*
+        +GetMuzzleTransform() FTransform
         +SwapWeapon(EWeaponSlot) void
-        -CalculateParallaxOffset() FVector
+        +StartAim() void
+        +StopAim() void
+    }
+
+    class UBlackoutImpactIndicatorComponent {
+        <<ActorComponent>>
+        +GetImpactIndicatorData(FBlackoutImpactIndicatorData&) bool
+        +GetAimTargetHitResult(FHitResult&, FVector& TraceEnd) bool
+        +GetTrueImpactHitResult(FHitResult&, FVector& ImpactPoint, FVector& TraceEnd) bool
+        -GetHitscanImpactHitResult(FHitResult&, FVector&, FVector&) bool
+        -GetProjectileImpactHitResult(FHitResult&, FVector&, FVector&) bool
+        -PerformWeaponTrace(FVector Start, FVector End, AActor* IgnoredActor, FHitResult&) bool
+    }
+
+    class FBlackoutImpactIndicatorData {
+        <<Struct>>
+        +bool bIsVisible
+        +bool bHasBlockingHit
+        +bool bTargetMismatch
+        +bool bUsesProjectilePrediction
+        +FVector WorldLocation
+        +FVector2D ScreenPosition
+    }
+
+    class ABOFirearm {
+        +UsesHitscan() bool
+        +GetProjectileClass() TSubclassOf~ABOProjectile~
+        +GetProjectileLaunchSpeed() float
+        +GetProjectileGravityScale() float
+        +GetProjectileCollisionRadius() float
     }
 
     ABlackoutPlayerCharacter --> UBlackoutCombatComponent : has
+    ABlackoutPlayerCharacter --> UBlackoutImpactIndicatorComponent : has
+    UBlackoutImpactIndicatorComponent --> UBlackoutCombatComponent : reads combat state
+    UBlackoutImpactIndicatorComponent --> ABOFirearm : reads weapon/projectile data
+    UBlackoutImpactIndicatorComponent --> FBlackoutImpactIndicatorData : fills
 ```
 
 ---

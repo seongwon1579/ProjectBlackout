@@ -32,4 +32,7 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
 	TSubclassOf<ABOProjectile> ArrowProjectileClass;
+	
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly, Category = "Blackout|Combat")
+	float MeleeDetectRadius= 300.0f;
 };

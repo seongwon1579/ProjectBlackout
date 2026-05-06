@@ -3,7 +3,9 @@
 #include "AbilitySystemComponent.h"
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
+#include "Combat/Components/BlackoutImpactIndicatorComponent.h"
 #include "Combat/Weapons/BOFirearm.h"
+#include "Combat/Weapons/BOShotgunFirearm.h"
 #include "Core/BlackoutLog.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "GAS/Attributes/BlackoutAmmoAttributeSet.h"
@@ -26,10 +28,14 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 
 	const ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
 	UBlackoutCombatComponent* CombatComponent = PlayerCharacter ? PlayerCharacter->GetCombatComponent() : nullptr;
+	const UBlackoutImpactIndicatorComponent* ImpactIndicatorComponent = PlayerCharacter ? PlayerCharacter->GetImpactIndicatorComponent() : nullptr;
 	ABOFirearm* EquippedFirearm = CombatComponent ? CombatComponent->GetEquippedFirearm() : nullptr;
-	if (!EquippedFirearm)
+	if (!EquippedFirearm || !ImpactIndicatorComponent)
 	{
-		BO_LOG_GAS(Warning, "GA_FireWeapon failed: 장착된 총기가 없음");
+		BO_LOG_GAS(Warning,
+		           "GA_FireWeapon failed: Firearm=%s ImpactIndicatorComponent=%s",
+		           *GetNameSafe(EquippedFirearm),
+		           *GetNameSafe(ImpactIndicatorComponent));
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
@@ -56,11 +62,24 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 
 	// 3. 트레이스 수행 또는 발사체 스폰 (무기 컴포넌트 정보 기반)
 	const FVector MuzzleLocation = CombatComponent->GetMuzzleTransform().GetLocation();
-	const FVector AimTarget = CombatComponent->GetAimImpactPoint();
-	const FVector FireDirection = (AimTarget - MuzzleLocation).GetSafeNormal();
-	EquippedFirearm->Fire(FireDirection);
+	const FVector AimTarget = ImpactIndicatorComponent->GetAimTargetPoint();
+	const FVector BaseFireDirection = (AimTarget - MuzzleLocation).GetSafeNormal();
+	const FVector FireDirection = CombatComponent->GetSpreadDeviatedDirection(BaseFireDirection);
+	if (ABOShotgunFirearm* ShotgunFirearm = Cast<ABOShotgunFirearm>(EquippedFirearm))
+	{
+		const FGameplayEffectSpecHandle PelletDamageSpecHandle = BuildPelletDamageSpec(ShotgunFirearm);
+		ShotgunFirearm->FireShotgun(FireDirection, PelletDamageSpecHandle);
+	}
+	else
+	{
+		const FGameplayEffectSpecHandle DamageSpecHandle = BuildDamageSpec(EquippedFirearm);
+		EquippedFirearm->Fire(FireDirection, DamageSpecHandle);
+	}
 
-	// 4. 사격 GameplayCue 트리거
+	// 4. 탄퍼짐 누적 및 반동 적용
+	CombatComponent->OnShotFired();
+
+	// 5. 사격 GameplayCue 트리거
 	if (UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo())
 	{
 		AbilitySystemComponent->ExecuteGameplayCue(BlackoutGameplayTags::GameplayCue_Weapon_Fire);
@@ -82,13 +101,56 @@ FHitResult UBlackoutGA_FireWeapon::PerformTrace(const FVector& Start, const FVec
 	return HitResult;
 }
 
-FGameplayEffectSpecHandle UBlackoutGA_FireWeapon::BuildDamageSpec(const FHitResult& HitResult)
+FGameplayEffectSpecHandle UBlackoutGA_FireWeapon::BuildDamageSpec(const ABOFirearm* Firearm)
 {
 	FGameplayEffectSpecHandle SpecHandle;
-	if (DamageEffectClass && GetAbilitySystemComponentFromActorInfo())
+	if (!DamageEffectClass)
+	{
+		BO_LOG_GAS(Error, "BuildDamageSpec failed: DamageEffectClass가 설정되지 않음 (Ability=%s)", *GetNameSafe(this));
+		return SpecHandle;
+	}
+
+	if (Firearm && GetAbilitySystemComponentFromActorInfo())
 	{
 		SpecHandle = MakeOutgoingGameplayEffectSpec(DamageEffectClass, GetAbilityLevel());
-		// TODO: HitResult에서 Hitbox 컴포넌트의 부위 태그를 확인하고 SetByCaller로 데미지 배율(Body.WeakSpot 등) 주입
+		if (SpecHandle.IsValid())
+		{
+			SpecHandle.Data->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Damage, Firearm->GetBaseDamage());
+		}
+	}
+	else
+	{
+		BO_LOG_GAS(Warning,
+		           "BuildDamageSpec failed: Firearm=%s ASC=%s",
+		           *GetNameSafe(Firearm),
+		           *GetNameSafe(GetAbilitySystemComponentFromActorInfo()));
+	}
+	return SpecHandle;
+}
+
+FGameplayEffectSpecHandle UBlackoutGA_FireWeapon::BuildPelletDamageSpec(const ABOShotgunFirearm* Firearm)
+{
+	FGameplayEffectSpecHandle SpecHandle;
+	if (!DamageEffectClass)
+	{
+		BO_LOG_GAS(Error, "BuildPelletDamageSpec failed: DamageEffectClass가 설정되지 않음 (Ability=%s)", *GetNameSafe(this));
+		return SpecHandle;
+	}
+
+	if (Firearm && GetAbilitySystemComponentFromActorInfo())
+	{
+		SpecHandle = MakeOutgoingGameplayEffectSpec(DamageEffectClass, GetAbilityLevel());
+		if (SpecHandle.IsValid())
+		{
+			SpecHandle.Data->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Damage, Firearm->GetDamagePerPellet());
+		}
+	}
+	else
+	{
+		BO_LOG_GAS(Warning,
+		           "BuildPelletDamageSpec failed: Firearm=%s ASC=%s",
+		           *GetNameSafe(Firearm),
+		           *GetNameSafe(GetAbilitySystemComponentFromActorInfo()));
 	}
 	return SpecHandle;
 }

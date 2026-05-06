@@ -17,9 +17,10 @@ void UBossBTRunner::Initialize(ABlackoutBossAIController* InOwner,
 	BBComp          = InBBComp;
 }
 
-void UBossBTRunner::RunBehaviorTree(UBehaviorTree* SubTree)
+void UBossBTRunner::RunBehaviorTree(UBehaviorTree* SubTree, APawn* InitialTarget)
 {
-	if (!HasAuthority() || !SubTree || !BTComp.IsValid() || !BBComp.IsValid()) return;
+	//if (!HasAuthority() || !SubTree || !BTComp.IsValid() || !BBComp.IsValid()) return;
+	if (!SubTree || !BTComp.IsValid() || !BBComp.IsValid()) return;
 
 	if (BTComp->IsRunning())
 	{
@@ -32,6 +33,15 @@ void UBossBTRunner::RunBehaviorTree(UBehaviorTree* SubTree)
 	}
 
 	BTComp->StartTree(*SubTree);
+	
+	UE_LOG(LogTemp, Warning, TEXT("RunBehaviorTree"));
+	
+	// APawn* Target = InitialTarget ? InitialTarget : CachedTarget.Get();
+	// if (Target)
+	// {
+	// 	CachedTarget = Target;
+	// 	BBComp->SetValueAsObject(TargetKeyName, Target);
+	// }
 }
 
 void UBossBTRunner::Stop()
@@ -50,6 +60,9 @@ bool UBossBTRunner::IsRunning() const
 void UBossBTRunner::WriteTargetToBlackboard(APawn* TargetPawn)
 {
 	if (!HasAuthority() || !BBComp.IsValid()) return;
+
+	CheckingActor = TargetPawn;
+	CachedTarget = TargetPawn;
 	BBComp->SetValueAsObject(TargetKeyName, TargetPawn);
 }
 

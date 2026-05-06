@@ -9,6 +9,28 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
+#include "UI/BlackoutHUD.h"
+
+void ABlackoutPlayerController::AcknowledgePossession(APawn* P)
+{
+	Super::AcknowledgePossession(P);
+
+	TryInitHUD();
+}
+
+void ABlackoutPlayerController::OnPossess(APawn* InPawn)
+{
+	Super::OnPossess(InPawn);
+
+	TryInitHUD();
+}
+
+void ABlackoutPlayerController::OnRep_PlayerState()
+{
+	Super::OnRep_PlayerState();
+
+	TryInitHUD();
+}
 
 void ABlackoutPlayerController::Server_SelectClass_Implementation(FGameplayTag ClassTag)
 {
@@ -121,10 +143,29 @@ void ABlackoutPlayerController::SetupInputComponent()
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Started, this, &ABlackoutPlayerController::OnSprintPressed);
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed, this, &ABlackoutPlayerController::OnSprintReleased);
 	}
+
+	if (DebugSelfDamageAction)
+	{
+		EnhancedInputComponent->BindAction(DebugSelfDamageAction, ETriggerEvent::Started, this, &ABlackoutPlayerController::OnDebugSelfDamagePressed);
+	}
+	
+	if (InteractAction)
+	{
+		EnhancedInputComponent->BindAction(InteractAction , ETriggerEvent::Started , this , &ABlackoutPlayerController::OnInteractPressed);
+		EnhancedInputComponent->BindAction(InteractAction , ETriggerEvent::Completed , this , &ABlackoutPlayerController::OnInteractReleased);
+		EnhancedInputComponent->BindAction(InteractAction , ETriggerEvent::Canceled , this , &ABlackoutPlayerController::OnInteractReleased);
+		
+	}
+	
 }
 
 void ABlackoutPlayerController::OnFirePressed()
 {
+	if (IsHitReactInputBlocked())
+	{
+		return;
+	}
+
 	if (UBlackoutCombatComponent* CombatComponent = GetBlackoutCombatComponent())
 	{
 		CombatComponent->HandlePrimaryActionPressed();
@@ -147,6 +188,11 @@ void ABlackoutPlayerController::OnFireReleased()
 
 void ABlackoutPlayerController::OnAimPressed()
 {
+	if (IsHitReactInputBlocked())
+	{
+		return;
+	}
+
 	if (UBlackoutCombatComponent* CombatComponent = GetBlackoutCombatComponent())
 	{
 		CombatComponent->StartAim();
@@ -163,12 +209,22 @@ void ABlackoutPlayerController::OnAimReleased()
 
 void ABlackoutPlayerController::OnReloadPressed()
 {
+	if (IsHitReactInputBlocked())
+	{
+		return;
+	}
+
 	HandleAbilityInputPressed(EBlackoutAbilityInputID::Reload);
 	HandleAbilityInputReleased(EBlackoutAbilityInputID::Reload);
 }
 
 void ABlackoutPlayerController::OnSwapWeaponPressed()
 {
+	if (IsHitReactInputBlocked())
+	{
+		return;
+	}
+
 	if (UBlackoutCombatComponent* CombatComponent = GetBlackoutCombatComponent())
 	{
 		CombatComponent->SwapWeapon();
@@ -177,6 +233,11 @@ void ABlackoutPlayerController::OnSwapWeaponPressed()
 
 void ABlackoutPlayerController::OnDodgePressed()
 {
+	if (IsHitReactInputBlocked())
+	{
+		return;
+	}
+
 	if (ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(GetPawn()))
 	{
 		const FVector2D DodgeInput = PlayerCharacter->GetCachedMoveInput();
@@ -194,6 +255,11 @@ void ABlackoutPlayerController::OnDodgePressed()
 
 void ABlackoutPlayerController::OnSprintPressed()
 {
+	if (IsHitReactInputBlocked())
+	{
+		return;
+	}
+
 	HandleAbilityInputPressed(EBlackoutAbilityInputID::Sprint);
 }
 
@@ -202,8 +268,52 @@ void ABlackoutPlayerController::OnSprintReleased()
 	HandleAbilityInputReleased(EBlackoutAbilityInputID::Sprint);
 }
 
+void ABlackoutPlayerController::OnDebugSelfDamagePressed()
+{
+	if (IsHitReactInputBlocked())
+	{
+		return;
+	}
+
+	if (ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(GetPawn()))
+	{
+		PlayerCharacter->Server_RequestDebugSelfDamage(10.f);
+	}
+}
+
+void ABlackoutPlayerController::OnInteractPressed()
+{
+	if (IsHitReactInputBlocked())
+	{
+		return;
+	}
+
+	HandleAbilityInputPressed(EBlackoutAbilityInputID::Interact);
+
+}
+
+void ABlackoutPlayerController::OnInteractReleased()
+{
+	HandleAbilityInputReleased(EBlackoutAbilityInputID::Interact);
+
+}
+
+bool ABlackoutPlayerController::IsHitReactInputBlocked() const
+{
+	const ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(GetPawn());
+	return PlayerCharacter
+		&& (PlayerCharacter->IsHitReactMontagePlaying()
+			|| PlayerCharacter->IsDowned()
+			|| PlayerCharacter->IsDead());
+}
+
 void ABlackoutPlayerController::HandleAbilityInputPressed(EBlackoutAbilityInputID InputID)
 {
+	if (IsHitReactInputBlocked())
+	{
+		return;
+	}
+
 	if (UBlackoutAbilitySystemComponent* AbilitySystemComponent = GetBlackoutAbilitySystemComponent())
 	{
 		AbilitySystemComponent->HandleAbilityInputPressed(InputID);
@@ -216,6 +326,22 @@ void ABlackoutPlayerController::HandleAbilityInputReleased(EBlackoutAbilityInput
 	{
 		AbilitySystemComponent->HandleAbilityInputReleased(InputID);
 	}
+}
+
+void ABlackoutPlayerController::TryInitHUD() const
+{
+	if (!IsLocalController())
+	{
+		return;
+	}
+
+	ABlackoutHUD* BlackoutHUD = Cast<ABlackoutHUD>(GetHUD());
+	if (!BlackoutHUD)
+	{
+		return;
+	}
+
+	BlackoutHUD->InitHUD();
 }
 
 UBlackoutAbilitySystemComponent* ABlackoutPlayerController::GetBlackoutAbilitySystemComponent() const

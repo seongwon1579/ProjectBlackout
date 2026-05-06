@@ -11,16 +11,25 @@ void ABlackoutAIController::OnPossess(APawn* InPawn)
 {
 	Super::OnPossess(InPawn);
 
-	if (HasAuthority())
-	{
-		InitPerception();
-		InitStateTreeContext();
+	// if (HasAuthority())
+	// {
+	// 	InitPerception();
+	// 	InitStateTreeContext();
+	// 	
+	// 	if (StateTreeComp)
+	// 	{
+	// 		// StateTree 에셋은 BP 서브클래스 또는 DataAsset에서 지정된 후 이 호출이 이루어져야 함
+	// 		StateTreeComp->StartLogic();
+	// 	}
+	// }
+	//
+	InitPerception();
+	InitStateTreeContext();
 		
-		if (StateTreeComp)
-		{
-			// StateTree 에셋은 BP 서브클래스 또는 DataAsset에서 지정된 후 이 호출이 이루어져야 함
-			StateTreeComp->StartLogic();
-		}
+	if (StateTreeComp)
+	{
+		// StateTree 에셋은 BP 서브클래스 또는 DataAsset에서 지정된 후 이 호출이 이루어져야 함
+		StateTreeComp->StartLogic();
 	}
 }
 

@@ -24,6 +24,8 @@ public:
 	void ReceiveDamageSpec(const FGameplayEffectSpecHandle& SpecHandle);
 
 protected:
+	virtual void BeginPlay() override;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Combat")
 	FGameplayTag PartTag;
 

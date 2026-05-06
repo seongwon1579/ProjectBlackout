@@ -15,12 +15,15 @@ flowchart TB
     Reload -->|Apply GE_Reload| Ammo
 
     Fire -->|Hitscan or Spawn| Firearm[ABOFirearm]
+    Fire -->|Pellet Hitscan| Shotgun[ABOShotgunFirearm]
     Firearm -->|SpawnFromPool| Proj[ABOProjectile]
     Proj --> Pool[UBlackoutPoolSubsystem]
 
     Fire -->|BuildDamageSpec| GE[GE_Damage]
+    Shotgun -->|FBlackoutShotgunPelletHit 배열| GE
     Proj -->|OnHit + SpecHandle| Hitbox[UBlackoutHitboxComponent]
     Firearm -->|Hitscan Result| Hitbox
+    Shotgun -->|Pellet Trace Results| Hitbox
     Melee -->|Sweep| MeleeW[ABOMeleeWeapon]
     MeleeW --> GE
 
@@ -42,6 +45,7 @@ flowchart TB
 |---|---|---|
 | 1 | `UBlackoutAmmoAttributeSet` | 공통기반 AttributeSet 패턴 |
 | 2 | `ABOWeaponBase` + `ABOFirearm` + `ABOMeleeWeapon` | DT_WeaponStats(완료) |
+| 2.5 | `ABOShotgunFirearm` + `FBlackoutShotgunFirearmStat` + `FBlackoutShotgunPelletHit` | 2, `GE_Damage` Spec 전달 규칙 |
 | 3 | `ABOProjectile` | `IBlackoutPoolableInterface`(완료) |
 | 4 | `UBlackoutCombatComponent` | 2, 3 |
 | 5 | `UBlackoutHitboxComponent` | `IBlackoutDamageableInterface`(완료) |

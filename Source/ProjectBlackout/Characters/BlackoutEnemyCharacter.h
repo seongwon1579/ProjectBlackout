@@ -6,6 +6,7 @@
 #include "BlackoutEnemyCharacter.generated.h"
 
 class UBOMinionData;
+class UBlackoutBaseAttributeSet;
 
 /**
  * AI 제어 적 캐릭터 베이스. ASC를 자기 자신이 소유.
@@ -31,6 +32,10 @@ public:
 	virtual void OnReturnToPool_Implementation() override;
 
 protected:
+	/** 모든 적/보스가 공유하는 기본 전투 어트리뷰트 세트. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Attributes")
+	TObjectPtr<UBlackoutBaseAttributeSet> BaseAttributeSet;
+
 	/** 미니언 스탯 데이터. BP 서브클래스(BP_RootHollow 등)에서 지정. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Data")
 	TObjectPtr<UBOMinionData> MinionData;
