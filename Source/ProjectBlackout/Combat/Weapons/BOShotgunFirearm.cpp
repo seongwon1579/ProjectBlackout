@@ -1,24 +1,11 @@
 #include "Combat/Weapons/BOShotgunFirearm.h"
 
 #include "Combat/Components/BlackoutHitboxComponent.h"
+#include "Combat/Weapons/BOWeaponDebugUtils.h"
 #include "Core/BlackoutCollisionChannels.h"
 #include "DrawDebugHelpers.h"
 #include "Engine/World.h"
-#include "GameplayEffect.h"
 #include "Interfaces/BlackoutDamageable.h"
-
-namespace
-{
-	FGameplayEffectSpecHandle DuplicateGameplayEffectSpec(const FGameplayEffectSpecHandle& SourceSpecHandle)
-	{
-		FGameplayEffectSpecHandle DuplicatedSpecHandle;
-		if (SourceSpecHandle.IsValid())
-		{
-			DuplicatedSpecHandle.Data = MakeShared<FGameplayEffectSpec>(*SourceSpecHandle.Data.Get());
-		}
-		return DuplicatedSpecHandle;
-	}
-}
 
 ABOShotgunFirearm::ABOShotgunFirearm()
 {
@@ -69,11 +56,17 @@ TArray<FBlackoutShotgunPelletHit> ABOShotgunFirearm::FireShotgun(const FVector& 
 		PelletHit.PelletIndex = PelletIndex;
 		World->LineTraceSingleByChannel(PelletHit.HitResult, TraceStart, TraceEnd, BlackoutCollisionChannels::WeaponTrace, QueryParams);
 
+		UPrimitiveComponent* HitComponent = PelletHit.HitResult.GetComponent();
+		AActor* HitActor = PelletHit.HitResult.GetActor();
+		UBlackoutHitboxComponent* HitboxComponent = Cast<UBlackoutHitboxComponent>(HitComponent);
+		AActor* DamageTargetActor = BlackoutWeaponDebug::ResolveDamageTargetActor(PelletHit.HitResult);
+
 		if (bDrawDebugHitscanRay)
 		{
 			const bool bHit = PelletHit.HitResult.bBlockingHit;
 			const FVector DebugEnd = bHit ? PelletHit.HitResult.ImpactPoint : TraceEnd;
-			DrawDebugLine(World, TraceStart, DebugEnd, bHit ? FColor::Red : FColor::Green, false, DebugHitscanRayDuration, 0, DebugHitscanRayThickness);
+			const FColor DebugColor = BlackoutWeaponDebug::GetHitscanDebugColor(bHit, DamageTargetActor);
+			DrawDebugLine(World, TraceStart, DebugEnd, DebugColor, false, DebugHitscanRayDuration, 0, DebugHitscanRayThickness);
 		}
 
 		if (!HasAuthority() || !PelletHit.HitResult.bBlockingHit || !DamageSpecHandle.IsValid())
@@ -82,10 +75,6 @@ TArray<FBlackoutShotgunPelletHit> ABOShotgunFirearm::FireShotgun(const FVector& 
 			continue;
 		}
 
-		UPrimitiveComponent* HitComponent = PelletHit.HitResult.GetComponent();
-		AActor* HitActor = PelletHit.HitResult.GetActor();
-		UBlackoutHitboxComponent* HitboxComponent = Cast<UBlackoutHitboxComponent>(HitComponent);
-		AActor* DamageTargetActor = HitboxComponent ? HitboxComponent->GetOwner() : HitActor;
 		if (!DamageTargetActor)
 		{
 			PelletHits.Add(PelletHit);
@@ -103,7 +92,7 @@ TArray<FBlackoutShotgunPelletHit> ABOShotgunFirearm::FireShotgun(const FVector& 
 			++AppliedCount;
 		}
 
-		FGameplayEffectSpecHandle PelletSpecHandle = DuplicateGameplayEffectSpec(DamageSpecHandle);
+		FGameplayEffectSpecHandle PelletSpecHandle = BlackoutWeaponDebug::DuplicateGameplayEffectSpec(DamageSpecHandle);
 		if (!PelletSpecHandle.IsValid())
 		{
 			PelletHits.Add(PelletHit);
