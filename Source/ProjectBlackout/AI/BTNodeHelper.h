@@ -55,6 +55,9 @@ public:
 		return Cast<T>(GetActorFromBB(OwnerComp, Key));
 	}
 	
+	// ── Float from Blackboard ────────────────────────────────────────────────
+	static TOptional<float> GetFloatFromBB(UBehaviorTreeComponent& OwnerComp, const FBlackboardKeySelector& Key);
+	
 	// ── AbilitySystemComponent ───────────────────────────────────────────────
 	static UAbilitySystemComponent* GetAbilitySystemComponent(UBehaviorTreeComponent& OwnerComp);
 	

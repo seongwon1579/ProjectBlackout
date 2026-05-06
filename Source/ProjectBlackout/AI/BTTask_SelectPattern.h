@@ -29,39 +29,31 @@ public:
 	virtual FString             GetStaticDescription() const override;
 
 protected:
-	/** 패턴 목록 데이터 에셋. 에디터에서 페이즈별로 교체한다. */
-	UPROPERTY(EditAnywhere, Category = "Blackout|Pattern")
+	
+	// Data
+	UPROPERTY(EditAnywhere, Category = "Blackout|Data")
 	TObjectPtr<UBOPhasePatternData> PatternData;
+	
+	// Input Key
+	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard|Input")
+	FBlackboardKeySelector DistanceBTWActorsKey;
 
-	/**
-	 * BTService_UpdateTargetData가 기록하는 AI~타겟 2D 거리 키 (Float).
-	 * 서비스가 없으면 직접 계산한다.
-	 */
-	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard")
-	FBlackboardKeySelector DistanceKey;
+	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard|Input")
+	FBlackboardKeySelector SelectedGamePlayTagKey;
 
-	/** 선택된 어빌리티 태그 이름을 저장할 블랙보드 키 (Name). */
-	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard")
-	FBlackboardKeySelector SelectedTagKey;
-
-	/** 타겟 액터를 읽어올 블랙보드 키 (Object). 거리 직접 계산 폴백에 사용. */
-	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard")
-	FBlackboardKeySelector TargetKey;
-
-	/**
-	 * 접근 목표 거리를 저장할 블랙보드 키 (Float).
-	 * BTTask_MoveToAttackRange에서 읽는다.
-	 *
-	 * CurrentDistance > MaxDist  → MaxDist 저장
-	 * MinDist ≤ CurrentDistance  → Random(MinDist, CurrentDistance) 저장
-	 */
-	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard")
+	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard|Input")
+	FBlackboardKeySelector CurrentTargetKey;
+	
+	// Output Key
+	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard|Output")
 	FBlackboardKeySelector ApproachDistanceKey;
 
-	/** 선택된 패턴의 MaxDistance를 저장할 블랙보드 키 (Float).
-	 * BTTask_MoveToAttackRange에서 이동 중 이탈 감지에 사용한다. */
-	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard")
+	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard|Output")
 	FBlackboardKeySelector MaxDistanceKey;
+
+	/** 현재 거리가 패턴 MaxDistance를 초과할 때 true — 쫓아가는 패턴임을 표시 */
+	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard|Output")
+	FBlackboardKeySelector bIsChasingKey;
 
 private:
 	/** 현재 쿨다운 중인 패턴. 타이머 만료 시 자동 제거. */
