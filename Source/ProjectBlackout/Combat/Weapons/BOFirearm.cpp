@@ -29,12 +29,18 @@ bool ABOFirearm::InitializeStatsFromDataTable()
 
 	if (const FBlackoutFirearmStat* FoundStats = FirearmStatsRow.GetRow<FBlackoutFirearmStat>(TEXT("BOFirearm::InitializeStatsFromDataTable")))
 	{
-		CachedFirearmStats = *FoundStats;
-		ApplyCommonStats(CachedFirearmStats);
+		ApplyFirearmStats(*FoundStats);
 		return true;
 	}
 
 	return false;
+}
+
+void ABOFirearm::ApplyFirearmStats(const FBlackoutFirearmStat& FirearmStats)
+{
+	CachedFirearmStats = FirearmStats;
+	ApplyCommonStats(CachedFirearmStats);
+	bUseTwoHandedAnimation = CachedFirearmStats.bUseTwoHandedAnimation;
 }
 
 FHitResult ABOFirearm::Fire(const FVector& Direction, const FGameplayEffectSpecHandle& DamageSpecHandle)
@@ -183,6 +189,11 @@ bool ABOFirearm::IsAutomatic() const
 bool ABOFirearm::UsesHitscan() const
 {
 	return bUseHitscan;
+}
+
+bool ABOFirearm::UsesTwoHandedAnimation() const
+{
+	return bUseTwoHandedAnimation;
 }
 
 int32 ABOFirearm::GetMagazineSize() const

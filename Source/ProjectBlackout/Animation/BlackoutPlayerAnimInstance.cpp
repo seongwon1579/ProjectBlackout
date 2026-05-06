@@ -3,6 +3,7 @@
 #include "AbilitySystemComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
+#include "Combat/Weapons/BOFirearm.h"
 #include "Combat/Weapons/BOWeaponBase.h"
 #include "Core/BlackoutCollisionChannels.h"
 #include "Engine/World.h"
@@ -34,8 +35,10 @@ void UBlackoutPlayerAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	if (CombatComponent)
 	{
 		bIsAiming = CombatComponent->IsAiming();
-		const FGameplayTag EquippedWeaponSlotTag = CombatComponent->GetEquippedWeaponSlotTag();
-		bIsTwoHanded = EquippedWeaponSlotTag == BlackoutGameplayTags::Weapon_Primary;
+		if (const ABOFirearm* EquippedFirearm = CombatComponent->GetEquippedFirearm())
+		{
+			bIsTwoHanded = EquippedFirearm->UsesTwoHandedAnimation();
+		}
 	}
 
 	UpdateLeftHandIK(CombatComponent);

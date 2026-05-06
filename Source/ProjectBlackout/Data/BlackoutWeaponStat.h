@@ -55,6 +55,10 @@ struct PROJECTBLACKOUT_API FBlackoutFirearmStat : public FBlackoutWeaponStat
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Weapon")
 	bool bIsAutomatic = false;
 
+	/** AnimBP에서 양손 총기 애니메이션 세트를 사용할지 여부 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Animation")
+	bool bUseTwoHandedAnimation = true;
+
 	/** 한 탄창에 들어가는 최대 장탄수 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Weapon", meta = (ClampMin = 0))
 	int32 MagazineSize = 30;
