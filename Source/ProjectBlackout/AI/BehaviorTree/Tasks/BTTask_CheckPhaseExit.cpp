@@ -1,4 +1,4 @@
-#include "AI/BTTask_CheckPhaseExit.h"
+#include "AI/BehaviorTree/Tasks/BTTask_CheckPhaseExit.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "BehaviorTree/BehaviorTreeComponent.h"
 

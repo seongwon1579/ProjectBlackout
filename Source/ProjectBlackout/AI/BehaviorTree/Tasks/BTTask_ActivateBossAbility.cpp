@@ -1,11 +1,11 @@
-#include "AI/BTTask_ActivateBossAbility.h"
+#include "AI/BehaviorTree/Tasks/BTTask_ActivateBossAbility.h"
 #include "AIController.h"
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemGlobals.h"
-#include "BTNodeHelper.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "GameplayTagsManager.h"
 #include "Abilities/GameplayAbility.h"
+#include "BehaviorTree/BTNodeHelper.h"
 
 UBTTask_ActivateBossAbility::UBTTask_ActivateBossAbility()
 {

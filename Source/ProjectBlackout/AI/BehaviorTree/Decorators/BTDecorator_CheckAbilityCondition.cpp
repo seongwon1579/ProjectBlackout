@@ -1,5 +1,5 @@
-#include "AI/BTDecorator_CheckAbilityCondition.h"
-#include "AI/BTNodeHelper.h"
+#include "AI/BehaviorTree/Decorators/BTDecorator_CheckAbilityCondition.h"
+#include "AI/BehaviorTree/BTNodeHelper.h"
 #include "AI/BOAICalcHelper.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "BehaviorTree/BehaviorTreeComponent.h"

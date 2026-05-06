@@ -1,4 +1,4 @@
-#include "AI/BSTEval_HealthRatio.h"
+#include "AI/StateTree/BSTEval_HealthRatio.h"
 #include "StateTreeExecutionContext.h"
 #include "AbilitySystemComponent.h"
 

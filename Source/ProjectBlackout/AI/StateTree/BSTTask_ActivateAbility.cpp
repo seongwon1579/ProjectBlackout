@@ -1,4 +1,4 @@
-#include "AI/BSTTask_ActivateAbility.h"
+#include "AI/StateTree/BSTTask_ActivateAbility.h"
 #include "StateTreeExecutionContext.h"
 #include "AbilitySystemComponent.h"
 

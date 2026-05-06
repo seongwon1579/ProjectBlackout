@@ -1,8 +1,8 @@
-#include "AI/BTService_UpdateTargetData.h"
+#include "AI/BehaviorTree/Services/BTService_UpdateTargetData.h"
 
 #include "AIController.h"
 #include "AI/BOAggroComponent.h"
-#include "AI/BTNodeHelper.h"
+#include "AI/BehaviorTree/BTNodeHelper.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "Characters/BlackoutBossCharacter.h"
 #include "KismetAnimationLibrary.h"

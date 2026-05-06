@@ -1,4 +1,4 @@
-#include "AI/BTNodeHelper.h"
+#include "AI/BehaviorTree/BTNodeHelper.h"
 #include "AbilitySystemGlobals.h"
 
 AAIController* UBTNodeHelper::GetAIController(UBehaviorTreeComponent& OwnerComp)

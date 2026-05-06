@@ -1,4 +1,4 @@
-#include "AI/BSTTask_BowShove.h"
+#include "AI/StateTree/BSTTask_BowShove.h"
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemGlobals.h"
 #include "BlackoutGameplayTags.h"

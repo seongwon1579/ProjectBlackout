@@ -1,5 +1,5 @@
-#include "AI/BTTask_MoveToAttackRange.h"
-#include "AI/BTNodeHelper.h"
+#include "AI/BehaviorTree/Tasks/BTTask_MoveToAttackRange.h"
+#include "AI/BehaviorTree/BTNodeHelper.h"
 #include "AI/BOAICalcHelper.h"
 #include "AIController.h"
 #include "BehaviorTree/BlackboardComponent.h"

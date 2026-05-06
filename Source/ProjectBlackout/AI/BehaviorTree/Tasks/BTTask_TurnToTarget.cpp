@@ -1,5 +1,5 @@
-#include "AI/BTTask_TurnToTarget.h"
-#include "AI/BTNodeHelper.h"
+#include "AI/BehaviorTree/Tasks/BTTask_TurnToTarget.h"
+#include "AI/BehaviorTree/BTNodeHelper.h"
 #include "AI/BOAICalcHelper.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"

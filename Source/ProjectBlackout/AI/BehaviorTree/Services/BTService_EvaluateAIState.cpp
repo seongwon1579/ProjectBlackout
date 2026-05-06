@@ -1,6 +1,6 @@
-#include "AI/BTService_EvaluateAIState.h"
+#include "AI/BehaviorTree/Services/BTService_EvaluateAIState.h"
 
-#include "AI/BTNodeHelper.h"
+#include "AI/BehaviorTree/BTNodeHelper.h"
 #include "BehaviorTree/BlackboardComponent.h"
 
 UBTService_EvaluateAIState::UBTService_EvaluateAIState()

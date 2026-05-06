@@ -1,10 +1,10 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "AI/BTDecorator_LineTraceCheck.h"
+#include "AI/BehaviorTree/Decorators/BTDecorator_LineTraceCheck.h"
 
-#include "BTNodeHelper.h"
 #include "DrawDebugHelpers.h"
+#include "BehaviorTree/BTNodeHelper.h"
 
 bool UBTDecorator_LineTraceCheck::CalculateRawConditionValue(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) const
 {

@@ -1,6 +1,6 @@
-#include "AI/BTTask_SelectPattern.h"
+#include "AI/BehaviorTree/Tasks/BTTask_SelectPattern.h"
 #include "AI/BOPhasePatternData.h"
-#include "AI/BTNodeHelper.h"
+#include "AI/BehaviorTree/BTNodeHelper.h"
 #include "AI/BOAICalcHelper.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "BehaviorTree/BehaviorTreeComponent.h"

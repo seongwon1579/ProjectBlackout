@@ -1,4 +1,4 @@
-﻿#include "AI/BSTCond_TargetWithinRange.h"
+﻿#include "AI/StateTree/BSTCond_TargetWithinRange.h"
 #include "StateTreeExecutionContext.h"
 #include "GameFramework/Pawn.h"
 #include "AI/BOAICalcHelper.h"

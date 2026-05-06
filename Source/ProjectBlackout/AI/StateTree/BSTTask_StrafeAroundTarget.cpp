@@ -1,4 +1,4 @@
-﻿#include "AI/BSTTask_StrafeAroundTarget.h"
+﻿#include "AI/StateTree/BSTTask_StrafeAroundTarget.h"
 #include "StateTreeExecutionContext.h"
 #include "AIController.h"
 #include "GameFramework/Pawn.h"

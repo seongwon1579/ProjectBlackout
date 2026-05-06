@@ -1,4 +1,4 @@
-#include "AI/BSTCond_HealthBelow.h"
+#include "AI/StateTree/BSTCond_HealthBelow.h"
 #include "StateTreeExecutionContext.h"
 
 bool FBSTCond_HealthBelow::TestCondition(FStateTreeExecutionContext& Context) const

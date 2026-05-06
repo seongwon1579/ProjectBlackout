@@ -1,4 +1,4 @@
-#include "AI/BTTask_SpawnMinionWave.h"
+#include "AI/BehaviorTree/Tasks/BTTask_SpawnMinionWave.h"
 #include "AIController.h"
 #include "Pool/BlackoutPoolSubsystem.h"
 #include "Engine/World.h"
