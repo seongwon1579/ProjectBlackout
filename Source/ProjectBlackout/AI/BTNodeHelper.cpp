@@ -23,6 +23,12 @@ AActor* UBTNodeHelper::GetActorFromBB(UBehaviorTreeComponent& OwnerComp, const F
 	return BB ? Cast<AActor>(BB->GetValueAsObject(Key.SelectedKeyName)) : nullptr;
 }
 
+TOptional<float> UBTNodeHelper::GetFloatFromBB(UBehaviorTreeComponent& OwnerComp, const FBlackboardKeySelector& Key)
+{
+	UBlackboardComponent* BB = GetBlackboard(OwnerComp);
+	return BB ? BB->GetValueAsFloat(Key.SelectedKeyName) : TOptional<float>();
+}
+
 UAbilitySystemComponent* UBTNodeHelper::GetAbilitySystemComponent(UBehaviorTreeComponent& OwnerComp)
 {
 	APawn* Pawn = GetAIPawn(OwnerComp);

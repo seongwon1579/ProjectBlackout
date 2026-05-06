@@ -3,6 +3,7 @@
 #include "AbilitySystemComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
+#include "Combat/Weapons/BOFirearm.h"
 #include "Combat/Weapons/BOWeaponBase.h"
 #include "Core/BlackoutCollisionChannels.h"
 #include "Engine/World.h"
@@ -34,8 +35,10 @@ void UBlackoutPlayerAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	if (CombatComponent)
 	{
 		bIsAiming = CombatComponent->IsAiming();
-		const FGameplayTag EquippedWeaponSlotTag = CombatComponent->GetEquippedWeaponSlotTag();
-		bIsTwoHanded = EquippedWeaponSlotTag == BlackoutGameplayTags::Weapon_Primary;
+		if (const ABOFirearm* EquippedFirearm = CombatComponent->GetEquippedFirearm())
+		{
+			bIsTwoHanded = EquippedFirearm->UsesTwoHandedAnimation();
+		}
 	}
 
 	UpdateLeftHandIK(CombatComponent);
@@ -155,16 +158,18 @@ void UBlackoutPlayerAnimInstance::UpdateLeftHandIK(const UBlackoutCombatComponen
 	}
 
 	const FTransform LeftHandIKWorldTransform = EquippedWeapon->GetLeftHandIKTransform();
-	const FTransform ReferenceBoneWorldTransform = CharacterMesh->GetSocketTransform(LeftHandIKReferenceBoneName, RTS_World);
+	FRotator UnusedBoneSpaceRotation = FRotator::ZeroRotator;
 	CharacterMesh->TransformToBoneSpace(
 		LeftHandIKReferenceBoneName,
 		LeftHandIKWorldTransform.GetLocation(),
 		LeftHandIKWorldTransform.Rotator(),
 		LeftHandIKLocation,
-		LeftHandIKRotation);
+		UnusedBoneSpaceRotation);
 
-	const FQuat LeftHandIKRelativeRotation = ReferenceBoneWorldTransform.GetRotation().Inverse() * LeftHandIKWorldTransform.GetRotation();
-	LeftHandIKRotation = LeftHandIKRelativeRotation.Rotator();
+	// ModifyBone의 Component Space Replace 회전에 바로 사용할 수 있도록 무기 소켓 회전을 변환합니다.
+	LeftHandIKRotation = CharacterMesh->GetComponentTransform()
+		.InverseTransformRotation(LeftHandIKWorldTransform.GetRotation())
+		.Rotator();
 
 	bHasLeftHandIKTarget = true;
 }

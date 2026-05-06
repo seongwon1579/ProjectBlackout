@@ -4,7 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "BlackoutMinionGameplayAbility.h"
+#include "Templates/SubclassOf.h"
 #include "GA_Wraith_FireTwinArrows.generated.h"
+
+class ABOProjectile;
+class UAnimMontage;
 
 /**
  * Wraith 2연발 화살.
@@ -26,4 +30,30 @@ protected:
 	                             ActivationInfo,
 	                             const FGameplayEventData*
 	                             TriggerEventData) override;
+
+	UFUNCTION()
+	void OnAimDelayFinished();
+
+	UFUNCTION()
+	void OnSecondShotDelayFinished();
+
+	void FireOneArrow();
+
+	UPROPERTY(EditDefaultsOnly, Category = "Wraith")
+	TSubclassOf<ABOProjectile> ArrowProjectileClass;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Wraith", meta = (ClampMin = 0.0f))
+	float AimDelay = 1.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Wraith", meta = (ClampMin = 0.0f))
+	float SecondShotDelay = 0.3f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Wraith")
+	TSubclassOf<UGameplayEffect> DamageEffectClass;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Wraith", meta = (ClampMin = 0.0f))
+	float DamageMagnitude = 12.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Wraith")
+	TObjectPtr<UAnimMontage> BowshotMontage;
 };

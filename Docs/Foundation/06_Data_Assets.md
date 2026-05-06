@@ -44,7 +44,6 @@ classDiagram
 
     class FBlackoutWeaponStat {
         <<Struct — DT_WeaponStats 행>>
-        +FGameplayTag WeaponTag
         +float BaseDamage
         +float FireRate
         +int32 MagazineSize

@@ -9,6 +9,28 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
+#include "UI/BlackoutHUD.h"
+
+void ABlackoutPlayerController::AcknowledgePossession(APawn* P)
+{
+	Super::AcknowledgePossession(P);
+
+	TryInitHUD();
+}
+
+void ABlackoutPlayerController::OnPossess(APawn* InPawn)
+{
+	Super::OnPossess(InPawn);
+
+	TryInitHUD();
+}
+
+void ABlackoutPlayerController::OnRep_PlayerState()
+{
+	Super::OnRep_PlayerState();
+
+	TryInitHUD();
+}
 
 void ABlackoutPlayerController::Server_SelectClass_Implementation(FGameplayTag ClassTag)
 {
@@ -304,6 +326,22 @@ void ABlackoutPlayerController::HandleAbilityInputReleased(EBlackoutAbilityInput
 	{
 		AbilitySystemComponent->HandleAbilityInputReleased(InputID);
 	}
+}
+
+void ABlackoutPlayerController::TryInitHUD() const
+{
+	if (!IsLocalController())
+	{
+		return;
+	}
+
+	ABlackoutHUD* BlackoutHUD = Cast<ABlackoutHUD>(GetHUD());
+	if (!BlackoutHUD)
+	{
+		return;
+	}
+
+	BlackoutHUD->InitHUD();
 }
 
 UBlackoutAbilitySystemComponent* ABlackoutPlayerController::GetBlackoutAbilitySystemComponent() const

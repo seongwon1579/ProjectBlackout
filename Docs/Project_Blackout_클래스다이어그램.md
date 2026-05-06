@@ -228,7 +228,7 @@ classDiagram
     direction LR
 
     class GA_FireWeapon {
-        +Hitscan / Projectile 분기
+        +Hitscan / Projectile / Shotgun Pellet 분기
         +Cost: ClipAmmo -1
         +Cue: GCN_Weapon_Fire
     }
@@ -276,6 +276,13 @@ classDiagram
         +Kill.WeakSpot → 탄약+소모품
     }
 
+    class ABOShotgunFirearm {
+        +FireShotgun(Direction, DamageSpec)
+        +PelletCount / PelletSpreadDegrees
+        +TArray~FBlackoutShotgunPelletHit~
+    }
+
+    GA_FireWeapon --> ABOShotgunFirearm : 산탄 펠릿 사격
     GA_FireWeapon --> ExecCalc_DamageCalc : 피격 시
     GA_Melee_Player --> ExecCalc_DamageCalc : 피격 시
     ExecCalc_DamageCalc --> ExecCalc_CombatReward : 사망 시

@@ -96,6 +96,7 @@ private:
 	TWeakObjectPtr<const UBlackoutAmmoAttributeSet> AmmoAttributeSet;
 	TWeakObjectPtr<UBlackoutCombatComponent> CombatComponent;
 	TWeakObjectPtr<UBlackoutImpactIndicatorComponent> ImpactIndicatorComponent;
+	TWeakObjectPtr<UBlackoutCombatComponent> BoundCombatComponent;
 
-	bool bCallbacksBound = false;
+	bool bAttributeCallbacksBound = false;
 };

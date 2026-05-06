@@ -4,6 +4,7 @@
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
 #include "Combat/Components/BlackoutImpactIndicatorComponent.h"
+#include "Combat/Weapons/BOFirearm.h"
 #include "Combat/Weapons/BOWeaponBase.h"
 #include "Core/BlackoutLog.h"
 #include "Framework/BlackoutPlayerController.h"
@@ -27,50 +28,58 @@ bool UBlackoutHUDWidgetController::Initialize(APlayerController* InPlayerControl
 
 void UBlackoutHUDWidgetController::BindCallbacksToDependencies()
 {
-	if (bCallbacksBound)
-	{
-		return;
-	}
-
 	UAbilitySystemComponent* ASC = AbilitySystemComponent.Get();
-	if (!ASC)
+	if (!ASC && !bAttributeCallbacksBound)
 	{
 		BO_LOG_CORE(Error, "HUD 바인딩 실패: AbilitySystemComponent가 유효하지 않습니다.");
 		return;
 	}
 
-	ASC->GetGameplayAttributeValueChangeDelegate(UBlackoutBaseAttributeSet::GetHealthAttribute())
-		.AddUObject(this, &UBlackoutHUDWidgetController::HandleHealthChanged);
-	ASC->GetGameplayAttributeValueChangeDelegate(UBlackoutBaseAttributeSet::GetMaxHealthAttribute())
-		.AddUObject(this, &UBlackoutHUDWidgetController::HandleMaxHealthChanged);
-	ASC->GetGameplayAttributeValueChangeDelegate(UBlackoutPlayerAttributeSet::GetStaminaAttribute())
-		.AddUObject(this, &UBlackoutHUDWidgetController::HandleStaminaChanged);
-	ASC->GetGameplayAttributeValueChangeDelegate(UBlackoutPlayerAttributeSet::GetMaxStaminaAttribute())
-		.AddUObject(this, &UBlackoutHUDWidgetController::HandleMaxStaminaChanged);
-	ASC->GetGameplayAttributeValueChangeDelegate(UBlackoutAmmoAttributeSet::GetPrimaryClipAmmoAttribute())
-		.AddUObject(this, &UBlackoutHUDWidgetController::HandleAmmoChanged);
-	ASC->GetGameplayAttributeValueChangeDelegate(UBlackoutAmmoAttributeSet::GetPrimaryMaxClipAttribute())
-		.AddUObject(this, &UBlackoutHUDWidgetController::HandleAmmoChanged);
-	ASC->GetGameplayAttributeValueChangeDelegate(UBlackoutAmmoAttributeSet::GetPrimaryReserveAmmoAttribute())
-		.AddUObject(this, &UBlackoutHUDWidgetController::HandleAmmoChanged);
-	ASC->GetGameplayAttributeValueChangeDelegate(UBlackoutAmmoAttributeSet::GetSecondaryClipAmmoAttribute())
-		.AddUObject(this, &UBlackoutHUDWidgetController::HandleAmmoChanged);
-	ASC->GetGameplayAttributeValueChangeDelegate(UBlackoutAmmoAttributeSet::GetSecondaryMaxClipAttribute())
-		.AddUObject(this, &UBlackoutHUDWidgetController::HandleAmmoChanged);
-	ASC->GetGameplayAttributeValueChangeDelegate(UBlackoutAmmoAttributeSet::GetSecondaryReserveAmmoAttribute())
-		.AddUObject(this, &UBlackoutHUDWidgetController::HandleAmmoChanged);
+	if (ASC && !bAttributeCallbacksBound)
+	{
+		ASC->GetGameplayAttributeValueChangeDelegate(UBlackoutBaseAttributeSet::GetHealthAttribute())
+			.AddUObject(this, &UBlackoutHUDWidgetController::HandleHealthChanged);
+		ASC->GetGameplayAttributeValueChangeDelegate(UBlackoutBaseAttributeSet::GetMaxHealthAttribute())
+			.AddUObject(this, &UBlackoutHUDWidgetController::HandleMaxHealthChanged);
+		ASC->GetGameplayAttributeValueChangeDelegate(UBlackoutPlayerAttributeSet::GetStaminaAttribute())
+			.AddUObject(this, &UBlackoutHUDWidgetController::HandleStaminaChanged);
+		ASC->GetGameplayAttributeValueChangeDelegate(UBlackoutPlayerAttributeSet::GetMaxStaminaAttribute())
+			.AddUObject(this, &UBlackoutHUDWidgetController::HandleMaxStaminaChanged);
+		ASC->GetGameplayAttributeValueChangeDelegate(UBlackoutAmmoAttributeSet::GetPrimaryClipAmmoAttribute())
+			.AddUObject(this, &UBlackoutHUDWidgetController::HandleAmmoChanged);
+		ASC->GetGameplayAttributeValueChangeDelegate(UBlackoutAmmoAttributeSet::GetPrimaryMaxClipAttribute())
+			.AddUObject(this, &UBlackoutHUDWidgetController::HandleAmmoChanged);
+		ASC->GetGameplayAttributeValueChangeDelegate(UBlackoutAmmoAttributeSet::GetPrimaryReserveAmmoAttribute())
+			.AddUObject(this, &UBlackoutHUDWidgetController::HandleAmmoChanged);
+		ASC->GetGameplayAttributeValueChangeDelegate(UBlackoutAmmoAttributeSet::GetSecondaryClipAmmoAttribute())
+			.AddUObject(this, &UBlackoutHUDWidgetController::HandleAmmoChanged);
+		ASC->GetGameplayAttributeValueChangeDelegate(UBlackoutAmmoAttributeSet::GetSecondaryMaxClipAttribute())
+			.AddUObject(this, &UBlackoutHUDWidgetController::HandleAmmoChanged);
+		ASC->GetGameplayAttributeValueChangeDelegate(UBlackoutAmmoAttributeSet::GetSecondaryReserveAmmoAttribute())
+			.AddUObject(this, &UBlackoutHUDWidgetController::HandleAmmoChanged);
+
+		bAttributeCallbacksBound = true;
+	}
 
 	if (UBlackoutCombatComponent* BlackoutCombatComponent = CombatComponent.Get())
 	{
-		BlackoutCombatComponent->OnEquippedWeaponChanged.AddDynamic(this, &UBlackoutHUDWidgetController::HandleEquippedWeaponChanged);
-		BlackoutCombatComponent->OnAimingChanged.AddDynamic(this, &UBlackoutHUDWidgetController::HandleAimingChanged);
+		if (BoundCombatComponent.Get() != BlackoutCombatComponent)
+		{
+			if (UBlackoutCombatComponent* PreviousCombatComponent = BoundCombatComponent.Get())
+			{
+				PreviousCombatComponent->OnEquippedWeaponChanged.RemoveAll(this);
+				PreviousCombatComponent->OnAimingChanged.RemoveAll(this);
+			}
+
+			BlackoutCombatComponent->OnEquippedWeaponChanged.AddDynamic(this, &UBlackoutHUDWidgetController::HandleEquippedWeaponChanged);
+			BlackoutCombatComponent->OnAimingChanged.AddDynamic(this, &UBlackoutHUDWidgetController::HandleAimingChanged);
+			BoundCombatComponent = BlackoutCombatComponent;
+		}
 	}
 	else
 	{
 		BO_LOG_CORE(Warning, "HUD 무기 바인딩 보류: CombatComponent가 유효하지 않습니다.");
 	}
-
-	bCallbacksBound = true;
 }
 
 void UBlackoutHUDWidgetController::BroadcastInitialValues()
@@ -139,7 +148,7 @@ bool UBlackoutHUDWidgetController::ResolveDependencies(APlayerController* InPlay
 	ABlackoutPlayerState* BlackoutPlayerState = BlackoutPlayerController->GetPlayerState<ABlackoutPlayerState>();
 	if (!BlackoutPlayerState)
 	{
-		BO_LOG_CORE(Error, "HUD 초기화 실패: ABlackoutPlayerState를 찾을 수 없습니다.");
+		BO_LOG_CORE(Verbose, "HUD 초기화 보류: ABlackoutPlayerState 복제를 기다리는 중입니다.");
 		return false;
 	}
 

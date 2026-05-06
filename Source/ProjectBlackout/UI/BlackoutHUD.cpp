@@ -55,30 +55,36 @@ void ABlackoutHUD::CreateHUDWidget()
 
 void ABlackoutHUD::CreateWidgetController()
 {
-	if (HUDWidgetController)
-	{
-		return;
-	}
-
 	if (!HUDWidget)
 	{
 		BO_LOG_CORE(Error, "WidgetController 생성 실패: HUDWidget이 유효하지 않습니다.");
 		return;
 	}
 
-	HUDWidgetController = NewObject<UBlackoutHUDWidgetController>(this);
-	if (!HUDWidgetController)
+	const bool bCreatedController = !HUDWidgetController;
+	if (bCreatedController)
 	{
-		BO_LOG_CORE(Error, "WidgetController 생성에 실패했습니다.");
-		return;
+		HUDWidgetController = NewObject<UBlackoutHUDWidgetController>(this);
+		if (!HUDWidgetController)
+		{
+			BO_LOG_CORE(Error, "WidgetController 생성에 실패했습니다.");
+			return;
+		}
 	}
 
 	if (!HUDWidgetController->Initialize(PlayerOwner))
 	{
-		HUDWidgetController = nullptr;
+		if (bCreatedController)
+		{
+			HUDWidgetController = nullptr;
+		}
 		return;
 	}
 
-	HUDWidget->SetWidgetController(HUDWidgetController);
+	if (HUDWidget->GetWidgetController() != HUDWidgetController)
+	{
+		HUDWidget->SetWidgetController(HUDWidgetController);
+	}
+
 	HUDWidgetController->BroadcastInitialValues();
 }

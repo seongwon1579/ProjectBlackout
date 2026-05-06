@@ -25,13 +25,13 @@ protected:
 
 	/** 타겟 월드 위치 (Vector) */
 	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard")
-	FBlackboardKeySelector OutLocationKey;
+	FBlackboardKeySelector CurrentTargetLocationKey;
 
 	/** AI ~ 타겟 2D 거리 (Float) */
 	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard")
-	FBlackboardKeySelector OutDistanceKey;
+	FBlackboardKeySelector DistanceBTWActorsKey;
 
 	/** AI 전방 기준 타겟 방향 각도 -180~180 (Float) */
 	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard")
-	FBlackboardKeySelector OutDirectionAngleKey;
+	FBlackboardKeySelector AngleBTWActorsKey;
 };

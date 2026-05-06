@@ -19,15 +19,17 @@ EBTNodeResult::Type UBTTask_MoveToAttackRange::ExecuteTask(
 	UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
 	AAIController* AI = UBTNodeHelper::GetAIController(OwnerComp);
+	if (!AI) return EBTNodeResult::Failed;
+	
 	UBlackboardComponent* BB = UBTNodeHelper::GetBlackboard(OwnerComp);
-	if (!AI || !BB) return EBTNodeResult::Failed;
+	if (!BB) return EBTNodeResult::Failed;
 
-	APawn* Boss    = AI->GetPawn();
-	AActor* Target = Cast<AActor>(BB->GetValueAsObject(TargetKey.SelectedKeyName));
-	if (!Boss || !Target) return EBTNodeResult::Failed;
+	APawn* Owner= AI->GetPawn();
+	AActor* Target = Cast<AActor>(BB->GetValueAsObject(CurrentTargetKey.SelectedKeyName));
+	if (!Owner || !Target) return EBTNodeResult::Failed;
 
 	const float ApproachDist = BB->GetValueAsFloat(ApproachDistanceKey.SelectedKeyName);
-	const float CurrentDist  = UBOAICalcHelper::GetDistance2D(Boss, Target);
+	const float CurrentDist  = UBOAICalcHelper::GetDistance2D(Owner, Target);
 
 	// 이미 접근 거리 이내 → 즉시 성공
 	if (CurrentDist <= ApproachDist)
@@ -50,11 +52,10 @@ EBTNodeResult::Type UBTTask_MoveToAttackRange::ExecuteTask(
 
 	if (Result.Code != EPathFollowingRequestResult::RequestSuccessful)
 	{
-		UE_LOG(LogMoveToAttackRange, Warning, TEXT("이동 요청 실패"));
 		return EBTNodeResult::Failed;
 	}
-
-	CachedOwnerComp = &OwnerComp;
+	
+	CachedComp		= &OwnerComp;
 	CachedAI        = AI;
 	CachedRequestID = Result.MoveId;
 
@@ -75,64 +76,56 @@ void UBTTask_MoveToAttackRange::TickTask(
 	const float MaxDist = BB->GetValueAsFloat(MaxDistanceKey.SelectedKeyName);
 	if (MaxDist <= 0.f) return;
 
-	APawn* Boss    = CachedAI->GetPawn();
-	AActor* Target = Cast<AActor>(BB->GetValueAsObject(TargetKey.SelectedKeyName));
-	if (!Boss || !Target) return;
+	APawn* Owner = CachedAI->GetPawn();
+	AActor* Target = Cast<AActor>(BB->GetValueAsObject(CurrentTargetKey.SelectedKeyName));
+	if (!Owner || !Target) return;
 	
-	if (UBOAICalcHelper::GetDistance2D(Boss, Target) < MaxDist)
+	if (UBOAICalcHelper::GetDistance2D(Owner, Target) < MaxDist)
 	{
-		StopAndSucceed(OwnerComp);
+		StopAndSucceed();
 	}
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 void UBTTask_MoveToAttackRange::OnMoveCompleted(
 	FAIRequestID RequestID, const FPathFollowingResult& Result)
 {
 	if (RequestID != CachedRequestID) return;
 
-	if (CachedAI.IsValid())
-	{
-		CachedAI->GetPathFollowingComponent()->OnRequestFinished.RemoveAll(this);
-	}
-
-	if (CachedOwnerComp)
-	{
-		// 경로 추종 결과와 무관하게 Succeeded — 어빌리티는 항상 실행한다
-		FinishLatentTask(*CachedOwnerComp, EBTNodeResult::Succeeded);
-		CachedOwnerComp = nullptr;
-	}
+	ClearMovement();
+	FinishLatentTask(*CachedComp, EBTNodeResult::Succeeded);
+	ClearPtr();
 }
 
-void UBTTask_MoveToAttackRange::StopAndSucceed(UBehaviorTreeComponent& OwnerComp)
+void UBTTask_MoveToAttackRange::StopAndSucceed()
+{
+	ClearMovement();
+	FinishLatentTask(*CachedComp, EBTNodeResult::Succeeded);
+	ClearPtr();
+}
+
+void UBTTask_MoveToAttackRange::ClearMovement()
 {
 	if (CachedAI.IsValid())
 	{
 		CachedAI->GetPathFollowingComponent()->OnRequestFinished.RemoveAll(this);
 		CachedAI->StopMovement();
 	}
+}
 
-	FinishLatentTask(OwnerComp, EBTNodeResult::Succeeded);
-	CachedOwnerComp = nullptr;
+void UBTTask_MoveToAttackRange::ClearPtr()
+{
+	CachedAI  = nullptr;
+	CachedComp = nullptr;
 }
 
 EBTNodeResult::Type UBTTask_MoveToAttackRange::AbortTask(
 	UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
-	if (CachedAI.IsValid())
-	{
-		CachedAI->GetPathFollowingComponent()->OnRequestFinished.RemoveAll(this);
-		CachedAI->StopMovement();
-	}
-	CachedOwnerComp = nullptr;
+	ClearMovement();
 	return EBTNodeResult::Aborted;
 }
 
 FString UBTTask_MoveToAttackRange::GetStaticDescription() const
 {
-	return FString::Printf(TEXT("Move To Attack Range  |  Target: %s  |  Dist: %s  |  Max: %s"),
-		*TargetKey.SelectedKeyName.ToString(),
-		*ApproachDistanceKey.SelectedKeyName.ToString(),
-		*MaxDistanceKey.SelectedKeyName.ToString());
+	return FString::Printf(TEXT("Move To Target"));
 }

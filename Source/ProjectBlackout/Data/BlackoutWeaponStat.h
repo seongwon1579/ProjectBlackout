@@ -2,7 +2,6 @@
 
 #include "CoreMinimal.h"
 #include "Engine/DataTable.h"
-#include "GameplayTagContainer.h"
 #include "BlackoutWeaponStat.generated.h"
 
 class UTexture2D;
@@ -14,10 +13,6 @@ USTRUCT(BlueprintType)
 struct PROJECTBLACKOUT_API FBlackoutWeaponStat : public FTableRowBase
 {
 	GENERATED_BODY()
-
-	/** 무기 식별 태그 (e.g. Weapon.Primary.Rifle) */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Weapon")
-	FGameplayTag WeaponTag;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Weapon", meta = (ClampMin = 0.f))
 	float BaseDamage = 20.f;
@@ -54,6 +49,10 @@ struct PROJECTBLACKOUT_API FBlackoutFirearmStat : public FBlackoutWeaponStat
 	/** 입력을 누르고 있을 때 FireRate 간격으로 계속 발사할지 여부 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Weapon")
 	bool bIsAutomatic = false;
+
+	/** AnimBP에서 양손 총기 애니메이션 세트를 사용할지 여부 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Animation")
+	bool bUseTwoHandedAnimation = true;
 
 	/** 한 탄창에 들어가는 최대 장탄수 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Weapon", meta = (ClampMin = 0))
@@ -102,6 +101,39 @@ struct PROJECTBLACKOUT_API FBlackoutFirearmStat : public FBlackoutWeaponStat
 	/** 반동 종료 후 자동으로 되돌아오는 비율 (0=되돌림 없음, 1=전부 되돌림). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Recoil", meta = (ClampMin = 0.f, ClampMax = 1.f))
 	float RecoilRecoveryFraction = 0.4f;
+};
+
+/**
+ * 산탄 총기 전용 스탯 행 구조체.
+ */
+USTRUCT(BlueprintType)
+struct PROJECTBLACKOUT_API FBlackoutShotgunFirearmStat : public FBlackoutFirearmStat
+{
+	GENERATED_BODY()
+
+	/** 한 번의 사격에서 생성되는 펠릿 수 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Shotgun", meta = (ClampMin = 1))
+	int32 PelletCount = 8;
+
+	/** 펠릿이 퍼지는 원뿔 각도 (도) */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Shotgun", meta = (ClampMin = 0.f))
+	float PelletSpreadDegrees = 6.0f;
+
+	/** 펠릿별 라인트레이스 거리 (cm) */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Shotgun", meta = (ClampMin = 0.f))
+	float PelletTraceDistance = 5000.0f;
+
+	/** 펠릿 한 발의 기본 피해량. 0 이하이면 BaseDamage / PelletCount를 사용합니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Shotgun", meta = (ClampMin = 0.f))
+	float DamagePerPellet = 0.0f;
+
+	/** 단일 타겟에 적용되는 펠릿 수를 제한할지 여부 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Shotgun")
+	bool bSingleTargetPelletCap = false;
+
+	/** 단일 타겟에 피해를 적용할 최대 펠릿 수 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Shotgun", meta = (ClampMin = 1, EditCondition = "bSingleTargetPelletCap"))
+	int32 MaxPelletsPerTarget = 4;
 };
 
 /**

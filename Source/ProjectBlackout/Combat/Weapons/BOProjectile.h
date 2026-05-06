@@ -9,6 +9,27 @@
 class UProjectileMovementComponent;
 class USphereComponent;
 
+USTRUCT()
+struct FBOProjectileNetState
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	uint32 StateId = 0;
+
+	UPROPERTY()
+	bool bActive = false;
+
+	UPROPERTY()
+	FVector_NetQuantize10 Location = FVector::ZeroVector;
+
+	UPROPERTY()
+	FVector_NetQuantizeNormal Direction = FVector::ForwardVector;
+
+	UPROPERTY()
+	float Speed = 0.0f;
+};
+
 UCLASS()
 class PROJECTBLACKOUT_API ABOProjectile : public AActor, public IBlackoutPoolableInterface
 {
@@ -17,6 +38,7 @@ class PROJECTBLACKOUT_API ABOProjectile : public AActor, public IBlackoutPoolabl
 public:	
 	ABOProjectile();
 
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void OnSpawnFromPool_Implementation() override;
 	virtual void OnReturnToPool_Implementation() override;
 
@@ -33,9 +55,16 @@ public:
 	float GetCollisionRadius() const;
 
 protected:
+	virtual void BeginPlay() override;
+
+	UFUNCTION()
+	void OnRep_ProjectileNetState();
+
 	UFUNCTION()
 	virtual void OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
 
+	void ApplyProjectileNetState();
+	void ApplyActiveState(bool bIsActive);
 	void ReturnToPool();
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Combat")
@@ -46,6 +75,11 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
 	float SplashRadius = 0.0f;
+
+	UPROPERTY(ReplicatedUsing = OnRep_ProjectileNetState)
+	FBOProjectileNetState ReplicatedNetState;
+
+	uint32 LastAppliedStateId = 0;
 
 	FGameplayEffectSpecHandle DamageSpec;
 };

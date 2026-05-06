@@ -47,7 +47,11 @@ protected:
 	/** bReadTagFromBlackboard = true일 때 읽어올 블랙보드 키 (Name 타입). */
 	UPROPERTY(EditAnywhere, Category = "Blackout|Ability",
 		meta = (EditCondition = "bReadTagFromBlackboard"))
-	FBlackboardKeySelector AbilityTagKey;
+	FBlackboardKeySelector SelectedGameAbilityTagKey;
+
+	/** MotionWarp 대상 타겟 블랙보드 키 (Object). */
+	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard")
+	FBlackboardKeySelector CurrentTargetKey;
 
 	UPROPERTY(EditAnywhere, Category = "Blackout|Ability")
 	bool bWaitForEnd = true;
