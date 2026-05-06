@@ -165,6 +165,10 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
 	TObjectPtr<UAnimMontage> DownedEnterMontage;
 
+	/** 다운 상태에서 부활 성공 시 기상 연출로 재생할 몽타주입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
+	TObjectPtr<UAnimMontage> ReviveMontage;
+
 	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
 	void Multicast_PlayDeathMontage(UAnimMontage* Montage, float PlayRate = 1.f);
 
@@ -177,6 +181,26 @@ protected:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
 	bool PlayDownedEnterMontage(UAnimMontage* Montage, float PlayRate = 1.f);
 
+	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
+	void Multicast_PlayReviveMontage(UAnimMontage* Montage, float PlayRate = 1.f);
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
+	bool PlayReviveMontage(UAnimMontage* Montage, float PlayRate = 1.f);
+
+public:
+	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
+	void Multicast_PlayRevivePerformMontage(UAnimMontage* Montage, float PlayRate = 1.f);
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
+	bool PlayRevivePerformMontage(UAnimMontage* Montage, float PlayRate = 1.f);
+
+	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
+	void Multicast_StopRevivePerformMontage(UAnimMontage* Montage, float BlendOutTime = 0.1f);
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
+	bool StopRevivePerformMontage(UAnimMontage* Montage, float BlendOutTime = 0.1f);
+
+protected:
 	void ApplyDownedStateLocally();
 	void ClearDownedStateLocally();
 	
@@ -224,6 +248,10 @@ protected:
 
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Animation")
 	bool bIsHitReactMontagePlaying = false;
+
+	/** 로컬 클라이언트에서 직전 downed 상태를 기억해 기상 몽타주 전환을 판별합니다. */
+	UPROPERTY(Transient)
+	bool bWasDownedLocally = false;
 
 	UFUNCTION()
 	void HandleHitReactMontageEnded(UAnimMontage* Montage, bool bInterrupted);

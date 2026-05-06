@@ -126,6 +126,15 @@ void ABlackoutPlayerController::SetupInputComponent()
 	{
 		EnhancedInputComponent->BindAction(DebugSelfDamageAction, ETriggerEvent::Started, this, &ABlackoutPlayerController::OnDebugSelfDamagePressed);
 	}
+	
+	if (InteractAction)
+	{
+		EnhancedInputComponent->BindAction(InteractAction , ETriggerEvent::Started , this , &ABlackoutPlayerController::OnInteractPressed);
+		EnhancedInputComponent->BindAction(InteractAction , ETriggerEvent::Completed , this , &ABlackoutPlayerController::OnInteractReleased);
+		EnhancedInputComponent->BindAction(InteractAction , ETriggerEvent::Canceled , this , &ABlackoutPlayerController::OnInteractReleased);
+		
+	}
+	
 }
 
 void ABlackoutPlayerController::OnFirePressed()
@@ -248,6 +257,23 @@ void ABlackoutPlayerController::OnDebugSelfDamagePressed()
 	{
 		PlayerCharacter->Server_RequestDebugSelfDamage(10.f);
 	}
+}
+
+void ABlackoutPlayerController::OnInteractPressed()
+{
+	if (IsHitReactInputBlocked())
+	{
+		return;
+	}
+
+	HandleAbilityInputPressed(EBlackoutAbilityInputID::Interact);
+
+}
+
+void ABlackoutPlayerController::OnInteractReleased()
+{
+	HandleAbilityInputReleased(EBlackoutAbilityInputID::Interact);
+
 }
 
 bool ABlackoutPlayerController::IsHitReactInputBlocked() const

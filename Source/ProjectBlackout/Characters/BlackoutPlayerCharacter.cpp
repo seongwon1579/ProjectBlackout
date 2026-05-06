@@ -16,6 +16,7 @@
 #include "EnhancedInputComponent.h"
 #include "GAS/Attributes/BlackoutBaseAttributeSet.h"
 #include "Net/UnrealNetwork.h"
+#include "VerseVM/VVMRuntimeError.h"
 
 ABlackoutPlayerCharacter::ABlackoutPlayerCharacter()
 {
@@ -583,13 +584,23 @@ void ABlackoutPlayerCharacter::OnHitReact()
 
 void ABlackoutPlayerCharacter::HandleDownedStateChanged()
 {
-	if (IsDowned())
+	const bool bWasDowned = bWasDownedLocally;
+	const bool bIsCurrentlyDowned = IsDowned();
+
+	bWasDownedLocally = bIsCurrentlyDowned;
+
+	if (bIsCurrentlyDowned)
 	{
 		ApplyDownedStateLocally();
 		return;
 	}
 
 	ClearDownedStateLocally();
+
+	if (bWasDowned && !IsDead() && ReviveMontage)
+	{
+		PlayReviveMontage(ReviveMontage, 1.f);
+	}
 }
 
 void ABlackoutPlayerCharacter::ApplyDownedStateLocally()
@@ -775,6 +786,119 @@ bool ABlackoutPlayerCharacter::PlayDownedEnterMontage(UAnimMontage* Montage, flo
 void ABlackoutPlayerCharacter::Multicast_PlayDownedEnterMontage_Implementation(UAnimMontage* Montage, float PlayRate)
 {
 	PlayDownedEnterMontage(Montage, PlayRate);
+}
+
+bool ABlackoutPlayerCharacter::PlayReviveMontage(UAnimMontage* Montage, float PlayRate)
+{
+	if (!Montage)
+	{
+		BO_LOG_GAS(Warning, "PlayReviveMontage failed: Montage가 비어 있음");
+		return false;
+	}
+
+	USkeletalMeshComponent* MeshComponent = GetMesh();
+	if (!MeshComponent)
+	{
+		BO_LOG_GAS(Warning, "PlayReviveMontage failed: MeshComponent가 비어 있음");
+		return false;
+	}
+
+	UAnimInstance* AnimInstance = MeshComponent->GetAnimInstance();
+	if (!AnimInstance)
+	{
+		BO_LOG_GAS(Warning, "PlayReviveMontage failed: AnimInstance가 비어 있음");
+		return false;
+	}
+
+	const float PlayResult = PlayAnimMontage(Montage, PlayRate);
+	BO_LOG_GAS(Log,
+		"PlayReviveMontage result=%.2f Local=%s Authority=%s Montage=%s",
+		PlayResult,
+		IsLocallyControlled() ? TEXT("true") : TEXT("false"),
+		HasAuthority() ? TEXT("true") : TEXT("false"),
+		*GetNameSafe(Montage));
+
+	return PlayResult > 0.f;
+}
+
+void ABlackoutPlayerCharacter::Multicast_PlayRevivePerformMontage_Implementation(UAnimMontage* Montage, float PlayRate)
+{
+	PlayRevivePerformMontage(Montage, PlayRate);
+	
+}
+
+bool ABlackoutPlayerCharacter::PlayRevivePerformMontage(UAnimMontage* Montage, float PlayRate)
+{
+	
+	if (!Montage)
+	{
+		BO_LOG_GAS(Warning, "PlayRevivePerformMontage failed: Montage가 비어 있음");
+		return false;
+	}
+
+	USkeletalMeshComponent* MeshComponent = GetMesh();
+	if (!MeshComponent)
+	{
+		BO_LOG_GAS(Warning, "PlayRevivePerformMontage failed: MeshComponent가 비어 있음");
+		return false;
+	}
+
+	UAnimInstance* AnimInstance = MeshComponent->GetAnimInstance();
+	if (!AnimInstance)
+	{
+		BO_LOG_GAS(Warning, "PlayRevivePerformMontage failed: AnimInstance가 비어 있음");
+		return false;
+	}
+
+	// 로컬 예측 재생 후 멀티캐스트가 와도 같은 몽타주를 다시 시작하지 않도록 방지
+	if (AnimInstance->GetCurrentActiveMontage() == Montage && AnimInstance->Montage_IsPlaying(Montage))
+	{
+		return true;
+	}
+
+	const float PlayResult = PlayAnimMontage(Montage, PlayRate);
+	BO_LOG_GAS(Log,
+		"PlayRevivePerformMontage result=%.2f Local=%s Authority=%s Montage=%s",
+		PlayResult,
+		IsLocallyControlled() ? TEXT("true") : TEXT("false"),
+		HasAuthority() ? TEXT("true") : TEXT("false"),
+		*GetNameSafe(Montage));
+
+	return PlayResult > 0.f;
+}
+
+void ABlackoutPlayerCharacter::Multicast_StopRevivePerformMontage_Implementation(UAnimMontage* Montage,
+	float BlendOutTime)
+{
+	StopRevivePerformMontage(Montage , BlendOutTime);
+}
+
+bool ABlackoutPlayerCharacter::StopRevivePerformMontage(UAnimMontage* Montage, float BlendOutTime)
+{
+	if (!Montage)
+	{
+		return false;
+	}
+
+	USkeletalMeshComponent* MeshComponent = GetMesh();
+	if (!MeshComponent)
+	{
+		return false;
+	}
+
+	UAnimInstance* AnimInstance = MeshComponent->GetAnimInstance();
+	if (!AnimInstance || !AnimInstance->Montage_IsPlaying(Montage))
+	{
+		return false;
+	}
+
+	AnimInstance->Montage_Stop(BlendOutTime, Montage);
+	return true;
+}
+
+void ABlackoutPlayerCharacter::Multicast_PlayReviveMontage_Implementation(UAnimMontage* Montage, float PlayRate)
+{
+	PlayReviveMontage(Montage, PlayRate);
 }
 
 UAnimMontage* ABlackoutPlayerCharacter::GetWeaponSwapMontage(FGameplayTag TargetWeaponSlotTag) const
