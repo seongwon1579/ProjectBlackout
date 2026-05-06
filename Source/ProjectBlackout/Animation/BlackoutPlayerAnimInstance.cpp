@@ -158,16 +158,18 @@ void UBlackoutPlayerAnimInstance::UpdateLeftHandIK(const UBlackoutCombatComponen
 	}
 
 	const FTransform LeftHandIKWorldTransform = EquippedWeapon->GetLeftHandIKTransform();
-	const FTransform ReferenceBoneWorldTransform = CharacterMesh->GetSocketTransform(LeftHandIKReferenceBoneName, RTS_World);
+	FRotator UnusedBoneSpaceRotation = FRotator::ZeroRotator;
 	CharacterMesh->TransformToBoneSpace(
 		LeftHandIKReferenceBoneName,
 		LeftHandIKWorldTransform.GetLocation(),
 		LeftHandIKWorldTransform.Rotator(),
 		LeftHandIKLocation,
-		LeftHandIKRotation);
+		UnusedBoneSpaceRotation);
 
-	const FQuat LeftHandIKRelativeRotation = ReferenceBoneWorldTransform.GetRotation().Inverse() * LeftHandIKWorldTransform.GetRotation();
-	LeftHandIKRotation = LeftHandIKRelativeRotation.Rotator();
+	// ModifyBone의 Component Space Replace 회전에 바로 사용할 수 있도록 무기 소켓 회전을 변환합니다.
+	LeftHandIKRotation = CharacterMesh->GetComponentTransform()
+		.InverseTransformRotation(LeftHandIKWorldTransform.GetRotation())
+		.Rotator();
 
 	bHasLeftHandIKTarget = true;
 }

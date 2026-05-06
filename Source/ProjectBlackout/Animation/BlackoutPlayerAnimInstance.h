@@ -63,13 +63,13 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Animation")
 	FVector LeftHandIKLocation;
 
-	/** 오른손 기준 Bone Space로 변환된 왼손 IK 회전 */
+	/** Component Space로 변환된 왼손 IK 회전 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Animation")
 	FRotator LeftHandIKRotation;
 
 	/** 왼손 IK 위치를 변환할 기준 본 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Animation")
-	FName LeftHandIKReferenceBoneName = TEXT("hand_r");
+	FName LeftHandIKReferenceBoneName = TEXT("Bone_M_Hand_R");
 
 	/** 전력질주 여부 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Animation")
