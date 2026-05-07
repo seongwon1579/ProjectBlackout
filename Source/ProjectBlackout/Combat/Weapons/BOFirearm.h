@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Combat/Weapons/BOWeaponBase.h"
+#include "GameplayTagContainer.h"
 #include "GameplayEffectTypes.h"
 #include "BOFirearm.generated.h"
 
@@ -38,6 +39,9 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Blackout|Animation")
 	bool UsesTwoHandedAnimation() const;
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|Animation")
+	FGameplayTag GetReloadAnimTag() const { return ReloadAnimTag; }
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	int32 GetMagazineSize() const;
@@ -110,6 +114,10 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
 	bool bUseTwoHandedAnimation = true;
+
+	/** 현재 무기가 사용할 재장전 애니메이션 프로필 태그입니다. 실제 몽타주는 캐릭터가 소유합니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation") 
+	FGameplayTag ReloadAnimTag;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Debug")
 	bool bDrawDebugHitscanRay = false;

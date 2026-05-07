@@ -25,15 +25,15 @@ public:
 	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
 
 protected:
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
-	TSubclassOf<UGameplayEffect> ReloadEffectClass;
+	UAnimMontage* ResolveReloadMontage(const class ABlackoutPlayerCharacter* PlayerCharacter, const class ABOFirearm* EquippedFirearm) const;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
-	TObjectPtr<UAnimMontage> ReloadMontage;
+	TSubclassOf<UGameplayEffect> ReloadEffectClass;
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	void OnReloadMontageCompleted();
 
 	FGameplayTag PendingWeaponSlotTag;
+	TObjectPtr<UAnimMontage> CachedReloadMontage = nullptr;
 	FTimerHandle ReloadCompletionTimerHandle;
 };

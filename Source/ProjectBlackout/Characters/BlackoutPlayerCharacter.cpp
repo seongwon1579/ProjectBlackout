@@ -226,6 +226,11 @@ void ABlackoutPlayerCharacter::Multicast_PlayHitReactMontage_Implementation(UAni
 	PlayHitReactMontage(Montage, PlayRate);
 }
 
+void ABlackoutPlayerCharacter::Multicast_PlayReloadMontage_Implementation(UAnimMontage* Montage, float PlayRate)
+{
+	PlayReloadMontage(Montage, PlayRate);
+}
+
 bool ABlackoutPlayerCharacter::PlayDodgeMontage(UAnimMontage* Montage, float PlayRate)
 {
 	if (!Montage)
@@ -280,6 +285,86 @@ bool ABlackoutPlayerCharacter::PlayDodgeMontage(UAnimMontage* Montage, float Pla
 		*GetNameSafe(Montage));
 
 	return PlayResult > 0.f;
+}
+
+bool ABlackoutPlayerCharacter::PlayReloadMontage(UAnimMontage* Montage, float PlayRate)
+{
+	if (!Montage)
+	{
+		BO_LOG_GAS(Warning, "PlayReloadMontage failed: Montage가 비어 있음");
+		return false;
+	}
+
+	USkeletalMeshComponent* MeshComponent = GetMesh();
+	if (!MeshComponent)
+	{
+		BO_LOG_GAS(Warning, "PlayReloadMontage failed: MeshComponent가 비어 있음");
+		return false;
+	}
+
+	UAnimInstance* AnimInstance = MeshComponent->GetAnimInstance();
+	if (!AnimInstance)
+	{
+		BO_LOG_GAS(Warning, "PlayReloadMontage failed: AnimInstance가 비어 있음");
+		return false;
+	}
+
+	if (AnimInstance->GetCurrentActiveMontage() == Montage && AnimInstance->Montage_IsPlaying(Montage))
+	{
+		BO_LOG_GAS(Verbose, "PlayReloadMontage skipped: 이미 같은 장전 몽타주가 재생 중임");
+		return true;
+	}
+
+	const float PlayResult = PlayAnimMontage(Montage, PlayRate);
+	BO_LOG_GAS(Log,
+		"PlayReloadMontage result=%.2f Local=%s Authority=%s Montage=%s",
+		PlayResult,
+		IsLocallyControlled() ? TEXT("true") : TEXT("false"),
+		HasAuthority() ? TEXT("true") : TEXT("false"),
+		*GetNameSafe(Montage));
+
+	return PlayResult > 0.f;
+}
+
+UAnimMontage* ABlackoutPlayerCharacter::GetReloadMontageForTag(FGameplayTag ReloadAnimTag, bool bIsTwoHanded) const
+{
+	for (const FBlackoutReloadMontageEntry& Entry : ReloadMontageEntries)
+	{
+		if (Entry.ReloadAnimTag == ReloadAnimTag && Entry.Montage)
+		{
+			return Entry.Montage;
+		}
+	}
+
+	return bIsTwoHanded ? ReloadFallbackMontage2R : ReloadFallbackMontage1R;
+}
+
+void ABlackoutPlayerCharacter::Multicast_StopReloadMontage_Implementation(UAnimMontage* Montage, float BlendOutTime)
+{
+	StopReloadMontage(Montage, BlendOutTime);
+}
+
+bool ABlackoutPlayerCharacter::StopReloadMontage(UAnimMontage* Montage, float BlendOutTime)
+{
+	if (!Montage)
+	{
+		return false;
+	}
+
+	USkeletalMeshComponent* MeshComponent = GetMesh();
+	if (!MeshComponent)
+	{
+		return false;
+	}
+
+	UAnimInstance* AnimInstance = MeshComponent->GetAnimInstance();
+	if (!AnimInstance || !AnimInstance->Montage_IsPlaying(Montage))
+	{
+		return false;
+	}
+
+	AnimInstance->Montage_Stop(BlendOutTime, Montage);
+	return true;
 }
 
 bool ABlackoutPlayerCharacter::PlayHitReactMontage(UAnimMontage* Montage, float PlayRate)
