@@ -54,7 +54,10 @@ namespace BlackoutGameplayTags
 	
 	// ─── Ravager Abilities ─────────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_Bite_Single);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_Bite_DoubleFromSingle);
+	
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_Swipe_RFromSingle);
+	
 	
 	// ─── Wraith Abilities ─────────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Wraith_FireTwinArrows);
