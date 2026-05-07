@@ -1,31 +1,22 @@
 #include "AI/BehaviorTree/BTNodeHelper.h"
 #include "AbilitySystemGlobals.h"
 
-AAIController* UBTNodeHelper::GetAIController(UBehaviorTreeComponent& OwnerComp)
-{
-	return OwnerComp.GetAIOwner();
-}
-
-UBlackboardComponent* UBTNodeHelper::GetBlackboard(UBehaviorTreeComponent& OwnerComp)
-{
-	return OwnerComp.GetBlackboardComponent();
-}
 
 APawn* UBTNodeHelper::GetAIPawn(UBehaviorTreeComponent& OwnerComp)
 {
-	AAIController* AI = GetAIController(OwnerComp);
+	AAIController* AI = OwnerComp.GetAIOwner();
 	return AI ? AI->GetPawn() : nullptr;
 }
 
 AActor* UBTNodeHelper::GetActorFromBB(UBehaviorTreeComponent& OwnerComp, const FBlackboardKeySelector& Key)
 {
-	UBlackboardComponent* BB = GetBlackboard(OwnerComp);
+	UBlackboardComponent* BB = OwnerComp.GetBlackboardComponent();
 	return BB ? Cast<AActor>(BB->GetValueAsObject(Key.SelectedKeyName)) : nullptr;
 }
 
 TOptional<float> UBTNodeHelper::GetFloatFromBB(UBehaviorTreeComponent& OwnerComp, const FBlackboardKeySelector& Key)
 {
-	UBlackboardComponent* BB = GetBlackboard(OwnerComp);
+	UBlackboardComponent* BB = OwnerComp.GetBlackboardComponent();
 	return BB ? BB->GetValueAsFloat(Key.SelectedKeyName) : TOptional<float>();
 }
 
