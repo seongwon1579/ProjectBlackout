@@ -7,7 +7,6 @@
 #include "GAS/BlackoutAbilitySystemComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
-#include "GAS/Attributes/BlackoutBaseAttributeSet.h"
 #include "GAS/Attributes/BlackoutPlayerAttributeSet.h"
 #include "TimerManager.h"
 
@@ -51,12 +50,12 @@ void UBlackoutGA_Sprint::ActivateAbility(const FGameplayAbilitySpecHandle Handle
 
 	BO_LOG_GAS(Log, "GA_Sprint activated: Character=%s", *GetNameSafe(ActorInfo->AvatarActor.Get()));
 
-	ApplySprintSpeed(ActorInfo);
-
 	if (UBlackoutCombatComponent* CombatComponent = ActorInfo->AvatarActor->FindComponentByClass<UBlackoutCombatComponent>())
 	{
 		CombatComponent->StopAim();
 	}
+
+	ApplySprintSpeed(ActorInfo);
 
 	if (UWorld* World = ActorInfo->AvatarActor->GetWorld())
 	{
@@ -113,14 +112,7 @@ void UBlackoutGA_Sprint::ApplySprintSpeed(const FGameplayAbilityActorInfo* Actor
 	}
 
 	CachedWalkSpeed = MovementComponent->MaxWalkSpeed;
-
-	const UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo();
-	const float BaseMovementSpeed = AbilitySystemComponent
-		? AbilitySystemComponent->GetNumericAttribute(UBlackoutBaseAttributeSet::GetMovementSpeedAttribute())
-		: CachedWalkSpeed;
-
-	const float TargetBaseSpeed = BaseMovementSpeed > 0.0f ? BaseMovementSpeed : CachedWalkSpeed;
-	MovementComponent->MaxWalkSpeed = TargetBaseSpeed * SprintSpeedMultiplier;
+	MovementComponent->MaxWalkSpeed = CachedWalkSpeed * SprintSpeedMultiplier;
 }
 
 void UBlackoutGA_Sprint::RestoreWalkSpeed(const FGameplayAbilityActorInfo* ActorInfo) const
