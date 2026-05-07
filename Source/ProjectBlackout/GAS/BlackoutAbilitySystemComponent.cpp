@@ -6,6 +6,7 @@
 #include "Engine/World.h"
 #include "GameplayEffect.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
+#include "GAS/Attributes/BlackoutBaseAttributeSet.h"
 #include "GAS/Attributes/BlackoutPlayerAttributeSet.h"
 #include "Net/UnrealNetwork.h"
 
@@ -176,6 +177,7 @@ void UBlackoutAbilitySystemComponent::ClearAllAbilitiesAndEffects()
 
 	StopStaminaRegen();
 	ClearStaminaCostMultiplier();
+	StopHealthRegen();
 	ClearAllAbilities();
 
 	// 모든 활성 GE 제거 (풀 반환 시 상태이상/쿨다운 초기화)
@@ -234,6 +236,68 @@ void UBlackoutAbilitySystemComponent::ApplyTemporaryStaminaCostMultiplier(float 
 		*GetNameSafe(GetOwner()),
 		StaminaCostMultiplier,
 		Duration);
+}
+
+void UBlackoutAbilitySystemComponent::ApplyHealthRegenOverTime(float HealAmountPerTick, float Duration, float TickInterval)
+{
+	if (!IsOwnerActorAuthoritative())
+	{
+		return;
+	}
+
+	if (HealAmountPerTick <= 0.0f)
+	{
+		BO_LOG_GAS(Warning, "지속 체력 회복 적용 실패: 회복량이 0 이하입니다. Owner=%s Heal=%.2f",
+			*GetNameSafe(GetOwner()),
+			HealAmountPerTick);
+		return;
+	}
+
+	StopHealthRegen();
+
+	const float SafeTickInterval = FMath::Max(0.1f, TickInterval);
+	const int32 TickCount = Duration > 0.0f ? FMath::Max(1, FMath::CeilToInt(Duration / SafeTickInterval)) : 1;
+	HealthRegenAmountPerTick = HealAmountPerTick;
+	RemainingHealthRegenTickCount = TickCount;
+
+	HandleHealthRegenTick();
+	if (RemainingHealthRegenTickCount <= 0)
+	{
+		StopHealthRegen();
+		return;
+	}
+
+	if (Duration > 0.0f)
+	{
+		if (UWorld* World = GetWorld())
+		{
+			World->GetTimerManager().SetTimer(
+				HealthRegenTimerHandle,
+				this,
+				&UBlackoutAbilitySystemComponent::HandleHealthRegenTick,
+				SafeTickInterval,
+				true,
+				SafeTickInterval);
+		}
+		else
+		{
+			BO_LOG_GAS(Warning, "지속 체력 회복 타이머 시작 실패: World가 유효하지 않습니다. Owner=%s",
+				*GetNameSafe(GetOwner()));
+			StopHealthRegen();
+			return;
+		}
+	}
+	else
+	{
+		StopHealthRegen();
+	}
+
+	BO_LOG_GAS(Log, "지속 체력 회복 적용: Owner=%s TickAmount=%.2f Duration=%.2f TickInterval=%.2f TickCount=%d",
+		*GetNameSafe(GetOwner()),
+		HealAmountPerTick,
+		Duration,
+		SafeTickInterval,
+		TickCount);
 }
 
 void UBlackoutAbilitySystemComponent::StartStaminaRegen()
@@ -303,6 +367,57 @@ void UBlackoutAbilitySystemComponent::ClearStaminaCostMultiplier()
 
 	StaminaCostMultiplier = 1.0f;
 	BO_LOG_GAS(Log, "스태미나 소비 배율 복구: Owner=%s", *GetNameSafe(GetOwner()));
+}
+
+void UBlackoutAbilitySystemComponent::HandleHealthRegenTick()
+{
+	if (RemainingHealthRegenTickCount <= 0)
+	{
+		StopHealthRegen();
+		return;
+	}
+
+	const float CurrentHealth = GetNumericAttribute(UBlackoutBaseAttributeSet::GetHealthAttribute());
+	const float MaxHealth = GetNumericAttribute(UBlackoutBaseAttributeSet::GetMaxHealthAttribute());
+	
+	// 체력이 0 이하로 내려가면 중단
+	if (MaxHealth <= 0.0f)
+	{
+		StopHealthRegen();
+		return;
+	}
+	
+	// 최대 체력에 도달한 경우 이번 틱은 체력 회복 안 함
+	if (CurrentHealth >= MaxHealth)
+	{
+		return;
+	}
+
+	const float HealingEffectivenessAttribute = GetNumericAttribute(UBlackoutPlayerAttributeSet::GetHealingEffectivenessAttribute());
+	const float HealingEffectiveness = HealingEffectivenessAttribute > 0.0f ? HealingEffectivenessAttribute : 1.0f;
+	const float EffectiveHealAmount = FMath::Min(HealthRegenAmountPerTick * HealingEffectiveness, MaxHealth - CurrentHealth);
+
+	if (EffectiveHealAmount > 0.0f)
+	{
+		ApplyModToAttribute(UBlackoutBaseAttributeSet::GetHealthAttribute(), EGameplayModOp::Additive, EffectiveHealAmount);
+	}
+
+	--RemainingHealthRegenTickCount;
+	if (RemainingHealthRegenTickCount <= 0)
+	{
+		StopHealthRegen();
+	}
+}
+
+void UBlackoutAbilitySystemComponent::StopHealthRegen()
+{
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(HealthRegenTimerHandle);
+	}
+
+	HealthRegenAmountPerTick = 0.0f;
+	RemainingHealthRegenTickCount = 0;
 }
 
 bool UBlackoutAbilitySystemComponent::CanRecoverStamina() const

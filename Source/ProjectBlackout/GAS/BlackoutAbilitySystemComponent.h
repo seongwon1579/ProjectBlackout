@@ -58,6 +58,11 @@ public:
 	 */
 	void ApplyTemporaryStaminaCostMultiplier(float NewMultiplier, float Duration);
 
+	/**
+	 * 서버 전용. 블러드 루트 같은 소모품이 적용하는 지속 체력 회복입니다.
+	 */
+	void ApplyHealthRegenOverTime(float HealAmountPerTick, float Duration, float TickInterval);
+
 	float GetStaminaCostMultiplier() const { return StaminaCostMultiplier; }
 
 protected:
@@ -76,11 +81,17 @@ private:
 	void StopStaminaRegen();
 	bool CanRecoverStamina() const;
 	void ClearStaminaCostMultiplier();
+	void HandleHealthRegenTick();
+	void StopHealthRegen();
 
 	FTimerHandle StaminaRegenDelayTimerHandle;
 	FTimerHandle StaminaRegenTickTimerHandle;
 	FTimerHandle StaminaCostMultiplierTimerHandle;
+	FTimerHandle HealthRegenTimerHandle;
 
 	UPROPERTY(Replicated)
 	float StaminaCostMultiplier = 1.0f;
+
+	float HealthRegenAmountPerTick = 0.0f;
+	int32 RemainingHealthRegenTickCount = 0;
 };

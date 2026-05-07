@@ -4,9 +4,6 @@
 #include "Core/BlackoutLog.h"
 #include "Data/BOConsumableData.h"
 #include "Framework/BlackoutPlayerState.h"
-#include "GAS/Attributes/BlackoutBaseAttributeSet.h"
-#include "GAS/Attributes/BlackoutPlayerAttributeSet.h"
-#include "GAS/BlackoutAbilitySystemComponent.h"
 #include "GameplayAbilitySpec.h"
 #include "GameplayEffect.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
@@ -73,7 +70,7 @@ void UBlackoutGA_UseConsumable::ActivateAbility(const FGameplayAbilitySpecHandle
 		return;
 	}
 
-	const bool bKeepAbilityActive = ApplyBuiltInConsumableEffect(ResolvedConsumableData);
+	const bool bKeepAbilityActive = ApplyConsumableEffect(ResolvedConsumableData);
 	ApplyConfiguredGameplayEffect(ResolvedConsumableData);
 	StartConsumableCooldown(ResolvedConsumableData);
 
@@ -87,26 +84,6 @@ void UBlackoutGA_UseConsumable::ActivateAbility(const FGameplayAbilitySpecHandle
 	{
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
 	}
-}
-
-void UBlackoutGA_UseConsumable::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
-	const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
-{
-	if (BloodRootAbilitySystemComponent)
-	{
-		if (UWorld* World = BloodRootAbilitySystemComponent->GetWorld())
-		{
-			World->GetTimerManager().ClearTimer(BloodRootHealTimerHandle);
-		}
-	}
-
-	BloodRootAbilitySystemComponent = nullptr;
-	RemainingBloodRootHealAmount = 0.0f;
-	BloodRootHealAmountPerTick = 0.0f;
-	bBloodRootHealInProgress = false;
-	bEndAbilityOnBloodRootHealFinished = false;
-
-	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
 
 const UBOConsumableData* UBlackoutGA_UseConsumable::ResolveConsumableData()
@@ -124,29 +101,24 @@ const UBOConsumableData* UBlackoutGA_UseConsumable::ResolveConsumableData()
 	return ConsumableData;
 }
 
-bool UBlackoutGA_UseConsumable::ApplyBuiltInConsumableEffect(const UBOConsumableData* UsedConsumableData)
+bool UBlackoutGA_UseConsumable::ApplyConsumableEffect(const UBOConsumableData*)
 {
-	if (!UsedConsumableData)
-	{
-		return false;
-	}
-
-	if (UsedConsumableData->ConsumableTag.MatchesTag(BlackoutGameplayTags::Item_Consumable_BloodRoot))
-	{
-		return StartBloodRootHealOverTime(UsedConsumableData);
-	}
-
-	if (UsedConsumableData->ConsumableTag.MatchesTag(BlackoutGameplayTags::Item_Consumable_GulSerum))
-	{
-		ApplyGulSerumBuff(UsedConsumableData);
-	}
-
 	return false;
+}
+
+bool UBlackoutGA_UseConsumable::ShouldApplyConfiguredGameplayEffect(const UBOConsumableData*) const
+{
+	return true;
 }
 
 void UBlackoutGA_UseConsumable::ApplyConfiguredGameplayEffect(const UBOConsumableData* UsedConsumableData)
 {
 	if (!UsedConsumableData || !UsedConsumableData->GameplayEffect)
+	{
+		return;
+	}
+
+	if (!ShouldApplyConfiguredGameplayEffect(UsedConsumableData))
 	{
 		return;
 	}
@@ -176,145 +148,6 @@ void UBlackoutGA_UseConsumable::ApplyConfiguredGameplayEffect(const UBOConsumabl
 	}
 
 	AbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
-}
-
-bool UBlackoutGA_UseConsumable::StartBloodRootHealOverTime(const UBOConsumableData* UsedConsumableData)
-{
-	UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo();
-	if (!UsedConsumableData || !AbilitySystemComponent)
-	{
-		return false;
-	}
-
-	const float TotalHealAmount = GetEffectMagnitudeOrDefault(
-		UsedConsumableData,
-		BlackoutGameplayTags::Data_Consumable_HealAmount,
-		0.0f);
-	if (TotalHealAmount <= 0.0f)
-	{
-		BO_LOG_GAS(Warning, "블러드 루트 회복 실패: HealAmount가 0 이하입니다. Data=%s", *GetNameSafe(UsedConsumableData));
-		return false;
-	}
-
-	const float Duration = GetEffectMagnitudeOrDefault(
-		UsedConsumableData,
-		BlackoutGameplayTags::Data_Consumable_Duration,
-		0.0f);
-	if (Duration <= 0.0f)
-	{
-		BloodRootAbilitySystemComponent = AbilitySystemComponent;
-		RemainingBloodRootHealAmount = TotalHealAmount;
-		BloodRootHealAmountPerTick = TotalHealAmount;
-		HandleBloodRootHealTick();
-		return false;
-	}
-
-	const int32 TickCount = FMath::Max(1, FMath::CeilToInt(Duration / FMath::Max(0.1f, BloodRootHealTickInterval)));
-	BloodRootAbilitySystemComponent = AbilitySystemComponent;
-	RemainingBloodRootHealAmount = TotalHealAmount;
-	BloodRootHealAmountPerTick = TotalHealAmount / static_cast<float>(TickCount);
-	bBloodRootHealInProgress = true;
-	bEndAbilityOnBloodRootHealFinished = false;
-
-	HandleBloodRootHealTick();
-	if (RemainingBloodRootHealAmount <= KINDA_SMALL_NUMBER)
-	{
-		FinishBloodRootHealOverTime(false);
-		return false;
-	}
-
-	if (UWorld* World = AbilitySystemComponent->GetWorld())
-	{
-		World->GetTimerManager().ClearTimer(BloodRootHealTimerHandle);
-		World->GetTimerManager().SetTimer(
-			BloodRootHealTimerHandle,
-			this,
-			&UBlackoutGA_UseConsumable::HandleBloodRootHealTick,
-			FMath::Max(0.1f, BloodRootHealTickInterval),
-			true,
-			FMath::Max(0.1f, BloodRootHealTickInterval));
-		bEndAbilityOnBloodRootHealFinished = true;
-		return true;
-	}
-
-	FinishBloodRootHealOverTime(true);
-	return false;
-}
-
-void UBlackoutGA_UseConsumable::HandleBloodRootHealTick()
-{
-	UAbilitySystemComponent* AbilitySystemComponent = BloodRootAbilitySystemComponent ? BloodRootAbilitySystemComponent.Get() : GetAbilitySystemComponentFromActorInfo();
-	if (!AbilitySystemComponent || RemainingBloodRootHealAmount <= 0.0f)
-	{
-		FinishBloodRootHealOverTime(!AbilitySystemComponent);
-		return;
-	}
-
-	const float CurrentHealth = AbilitySystemComponent->GetNumericAttribute(UBlackoutBaseAttributeSet::GetHealthAttribute());
-	const float MaxHealth = AbilitySystemComponent->GetNumericAttribute(UBlackoutBaseAttributeSet::GetMaxHealthAttribute());
-	if (MaxHealth <= 0.0f || CurrentHealth >= MaxHealth)
-	{
-		FinishBloodRootHealOverTime(false);
-		return;
-	}
-
-	const float HealingEffectivenessAttribute = AbilitySystemComponent->GetNumericAttribute(UBlackoutPlayerAttributeSet::GetHealingEffectivenessAttribute());
-	const float HealingEffectiveness = HealingEffectivenessAttribute > 0.0f ? HealingEffectivenessAttribute : 1.0f;
-	const float RawHealAmount = FMath::Min(BloodRootHealAmountPerTick, RemainingBloodRootHealAmount);
-	const float EffectiveHealAmount = FMath::Min(RawHealAmount * HealingEffectiveness, MaxHealth - CurrentHealth);
-
-	if (EffectiveHealAmount > 0.0f)
-	{
-		AbilitySystemComponent->ApplyModToAttribute(UBlackoutBaseAttributeSet::GetHealthAttribute(), EGameplayModOp::Additive, EffectiveHealAmount);
-	}
-
-	RemainingBloodRootHealAmount -= RawHealAmount;
-	if (RemainingBloodRootHealAmount <= KINDA_SMALL_NUMBER)
-	{
-		FinishBloodRootHealOverTime(false);
-	}
-}
-
-void UBlackoutGA_UseConsumable::FinishBloodRootHealOverTime(bool bWasCancelled)
-{
-	if (BloodRootAbilitySystemComponent)
-	{
-		if (UWorld* World = BloodRootAbilitySystemComponent->GetWorld())
-		{
-			World->GetTimerManager().ClearTimer(BloodRootHealTimerHandle);
-		}
-	}
-
-	BloodRootAbilitySystemComponent = nullptr;
-	RemainingBloodRootHealAmount = 0.0f;
-	BloodRootHealAmountPerTick = 0.0f;
-	bBloodRootHealInProgress = false;
-
-	if (bEndAbilityOnBloodRootHealFinished && IsActive())
-	{
-		bEndAbilityOnBloodRootHealFinished = false;
-		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, bWasCancelled);
-	}
-}
-
-void UBlackoutGA_UseConsumable::ApplyGulSerumBuff(const UBOConsumableData* UsedConsumableData)
-{
-	UBlackoutAbilitySystemComponent* BlackoutAbilitySystemComponent = Cast<UBlackoutAbilitySystemComponent>(GetAbilitySystemComponentFromActorInfo());
-	if (!UsedConsumableData || !BlackoutAbilitySystemComponent)
-	{
-		return;
-	}
-
-	const float StaminaCostMultiplier = GetEffectMagnitudeOrDefault(
-		UsedConsumableData,
-		BlackoutGameplayTags::Data_Consumable_StaminaCostMultiplier,
-		0.5f);
-	const float Duration = GetEffectMagnitudeOrDefault(
-		UsedConsumableData,
-		BlackoutGameplayTags::Data_Consumable_Duration,
-		60.0f);
-
-	BlackoutAbilitySystemComponent->ApplyTemporaryStaminaCostMultiplier(StaminaCostMultiplier, Duration);
 }
 
 float UBlackoutGA_UseConsumable::GetEffectMagnitudeOrDefault(const UBOConsumableData* UsedConsumableData, FGameplayTag MagnitudeTag, float DefaultValue) const

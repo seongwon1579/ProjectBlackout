@@ -270,6 +270,22 @@ classDiagram
         +Tag: State.Locked
     }
 
+    class UBlackoutGA_UseConsumable {
+        +소모품 공통 검증
+        +PlayerState 수량 차감
+        +쿨다운 / 공통 GE 적용
+    }
+
+    class UBlackoutGA_UseBloodRoot {
+        +ASC 지속 체력 회복
+        +Data.Consumable.HealAmount
+    }
+
+    class UBlackoutGA_UseGulSerum {
+        +ASC 스태미나 소비 배율
+        +Data.Consumable.StaminaCostMultiplier
+    }
+
     class GA_Revive {
         +HoldToRevive 진행도
         +GE_Downed 해제
@@ -303,6 +319,8 @@ classDiagram
     GA_FireWeapon --> ABOShotgunFirearm : 산탄 펠릿 사격
     GA_FireWeapon --> ExecCalc_DamageCalc : 피격 시
     GA_Melee_Player --> ExecCalc_DamageCalc : 피격 시
+    UBlackoutGA_UseConsumable <|-- UBlackoutGA_UseBloodRoot
+    UBlackoutGA_UseConsumable <|-- UBlackoutGA_UseGulSerum
     ExecCalc_DamageCalc --> ExecCalc_CombatReward : 사망 시
 ```
 
