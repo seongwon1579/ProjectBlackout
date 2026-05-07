@@ -7,6 +7,7 @@
 #include "BlackoutAbilitySystemComponent.generated.h"
 
 class UGameplayEffect;
+class UBOConsumableData;
 
 /**
  * 프로젝트 전용 ASC.
@@ -18,11 +19,19 @@ class PROJECTBLACKOUT_API UBlackoutAbilitySystemComponent : public UAbilitySyste
 	GENERATED_BODY()
 
 public:
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
 	/**
 	 * 서버 전용. CharacterData의 GrantedAbilities 배열을 순회해 ASC에 일괄 부여.
 	 * ABlackoutPlayerCharacter::PossessedBy, ABlackoutEnemyCharacter::BeginPlay 에서 호출.
 	 */
 	void GiveDefaultAbilities(const TArray<TSubclassOf<UGameplayAbility>>& Abilities);
+
+	/**
+	 * 서버 전용. CharacterData의 소모품 슬롯 배열을 순회해 각 DA의 UseAbility를 ASC에 부여.
+	 * 배열 0/1번은 각각 UseConsumable1/2 입력 ID에 대응합니다.
+	 */
+	void GiveConsumableAbilities(const TArray<TObjectPtr<UBOConsumableData>>& ConsumableSlots);
 
 	/**
 	 * 로컬 입력 ID를 기준으로 대응되는 GA를 활성화하거나 활성 어빌리티에 입력 pressed 이벤트를 전달합니다.
@@ -44,6 +53,18 @@ public:
 	 */
 	void NotifyStaminaSpent();
 
+	/**
+	 * 서버 전용. 굴 세럼 같은 임시 효과가 적용하는 스태미나 소비 배율입니다.
+	 */
+	void ApplyTemporaryStaminaCostMultiplier(float NewMultiplier, float Duration);
+
+	/**
+	 * 서버 전용. 블러드 루트 같은 소모품이 적용하는 지속 체력 회복입니다.
+	 */
+	void ApplyHealthRegenOverTime(float HealAmountPerTick, float Duration, float TickInterval);
+
+	float GetStaminaCostMultiplier() const { return StaminaCostMultiplier; }
+
 protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Blackout|Stamina")
 	float StaminaRegenDelay = 1.2f;
@@ -59,7 +80,18 @@ private:
 	void HandleStaminaRegenTick();
 	void StopStaminaRegen();
 	bool CanRecoverStamina() const;
+	void ClearStaminaCostMultiplier();
+	void HandleHealthRegenTick();
+	void StopHealthRegen();
 
 	FTimerHandle StaminaRegenDelayTimerHandle;
 	FTimerHandle StaminaRegenTickTimerHandle;
+	FTimerHandle StaminaCostMultiplierTimerHandle;
+	FTimerHandle HealthRegenTimerHandle;
+
+	UPROPERTY(Replicated)
+	float StaminaCostMultiplier = 1.0f;
+
+	float HealthRegenAmountPerTick = 0.0f;
+	int32 RemainingHealthRegenTickCount = 0;
 };

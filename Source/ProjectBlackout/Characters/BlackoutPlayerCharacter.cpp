@@ -3,6 +3,7 @@
 #include "Combat/Components/BlackoutCombatComponent.h"
 #include "Combat/Components/BlackoutImpactIndicatorComponent.h"
 #include "Data/BOCharacterData.h"
+#include "Framework/BlackoutPlayerState.h"
 #include "AbilitySystemInterface.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "Core/BlackoutTypes.h"
@@ -119,7 +120,13 @@ void ABlackoutPlayerCharacter::PossessedBy(AController* NewController)
 
 			if (CharacterData)
 			{
+				if (ABlackoutPlayerState* BlackoutPlayerState = GetPlayerState<ABlackoutPlayerState>())
+				{
+					BlackoutPlayerState->InitializeConsumablesFromCharacterData(CharacterData);
+				}
+
 				AbilitySystemComponent->GiveDefaultAbilities(CharacterData->GrantedAbilities);
+				AbilitySystemComponent->GiveConsumableAbilities(CharacterData->ConsumableSlots);
 
 				if (CombatComponent)
 				{
@@ -601,6 +608,30 @@ bool ABlackoutPlayerCharacter::StopMeleeMontage(UAnimMontage* Montage, float Ble
 
 	AnimInstance->Montage_Stop(BlendOutTime, Montage);
 	return true;
+}
+
+void ABlackoutPlayerCharacter::Multicast_PlayConsumableMontage_Implementation(UAnimMontage* Montage, float PlayRate)
+{
+	if (!Montage)
+	{
+		return;
+	}
+
+	PlayAnimMontage(Montage, PlayRate);
+}
+
+void ABlackoutPlayerCharacter::Multicast_StopConsumableMontage_Implementation(UAnimMontage* Montage, float BlendOutTime)
+{
+	if (!Montage)
+	{
+		return;
+	}
+
+	UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+	if (AnimInstance && AnimInstance->Montage_IsPlaying(Montage))
+	{
+		AnimInstance->Montage_Stop(BlendOutTime, Montage);
+	}
 }
 
 void ABlackoutPlayerCharacter::CommitPendingWeaponSwap()

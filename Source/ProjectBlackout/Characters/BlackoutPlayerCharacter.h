@@ -52,6 +52,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat|Accessors")
 	UBlackoutImpactIndicatorComponent* GetImpactIndicatorComponent() const { return ImpactIndicatorComponent; }
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|Data")
+	const UBOCharacterData* GetCharacterData() const { return CharacterData; }
 	
 	UFUNCTION(BlueprintPure, Category = "Blackout|Input")
 	FVector2D GetCachedMoveInput() const { return CachedMoveInput; }
@@ -117,6 +120,12 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
 	bool StopMeleeMontage(UAnimMontage* Montage, float BlendOutTime = 0.1f);
+
+	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
+	void Multicast_PlayConsumableMontage(UAnimMontage* Montage, float PlayRate = 1.f);
+
+	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
+	void Multicast_StopConsumableMontage(UAnimMontage* Montage, float BlendOutTime = 0.25f);
 
 	UFUNCTION(Server, Unreliable, Category = "Blackout|Animation")
 	void Server_SetAimOffset(FVector2D NewAimOffset);

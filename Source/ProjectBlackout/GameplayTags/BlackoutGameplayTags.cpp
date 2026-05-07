@@ -9,6 +9,12 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(State_Aiming,        "State.Aiming");
 	UE_DEFINE_GAMEPLAY_TAG(State_Sprinting,     "State.Sprinting");
 	UE_DEFINE_GAMEPLAY_TAG(State_Attacking,     "State.Attacking");
+	UE_DEFINE_GAMEPLAY_TAG(State_UseConsumable, "State.UseConsumable");
+	
+	// ─── Character Abilities ───────────────────────────────────────────────────
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Player_Dodge,			"Ability.Player.Dodge");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Player_Sprint,			"Ability.Player.Sprint");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Player_UseConsumable,	"Ability.Player.UseConsumable");
 
 	// ─── Character Class ───────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Character_Class_Assault,    "Character.Class.Assault");
@@ -22,6 +28,13 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(Data_MaxStamina,    "Data.Stat.MaxStamina");
 	UE_DEFINE_GAMEPLAY_TAG(Data_Stamina,       "Data.Stat.Stamina");
 	UE_DEFINE_GAMEPLAY_TAG(Data_MovementSpeed, "Data.Stat.MovementSpeed");
+	UE_DEFINE_GAMEPLAY_TAG(Data_Consumable_HealAmount, "Data.Consumable.HealAmount");
+	UE_DEFINE_GAMEPLAY_TAG(Data_Consumable_Duration,   "Data.Consumable.Duration");
+	UE_DEFINE_GAMEPLAY_TAG(Data_Consumable_StaminaCostMultiplier, "Data.Consumable.StaminaCostMultiplier");
+
+	// ─── Consumables ──────────────────────────────────────────────────────────
+	UE_DEFINE_GAMEPLAY_TAG(Item_Consumable_BloodRoot, "Item.Consumable.BloodRoot");
+	UE_DEFINE_GAMEPLAY_TAG(Item_Consumable_GulSerum,  "Item.Consumable.GulSerum");
 
 	// ─── Hitbox Parts ──────────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Body_WeakSpot,    "Body.WeakSpot");
@@ -78,5 +91,8 @@ namespace BlackoutGameplayTags
 	
 	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_SweepStart, "Event.Enemy.Attack.SweepStart");
 	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_SweepEnd, "Event.Enemy.Attack.SweepEnd");
+
+	// ─── Montage Events ───────────────────────────────────────────────────
+	UE_DEFINE_GAMEPLAY_TAG(Event_Montage_ConsumableApply, "Event.Montage.ConsumableApply");
 	
 }

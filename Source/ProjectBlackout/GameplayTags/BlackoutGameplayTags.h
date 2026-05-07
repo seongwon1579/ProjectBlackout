@@ -12,6 +12,12 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Aiming);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Sprinting);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Attacking);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_UseConsumable);
+	
+	// ─── Character Abilities ───────────────────────────────────────────────────
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Player_Dodge);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Player_Sprint);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Player_UseConsumable);
 
 	// ─── Character Class ───────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_Class_Assault);
@@ -25,6 +31,13 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_MaxStamina);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Stamina);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_MovementSpeed);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Consumable_HealAmount);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Consumable_Duration);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Consumable_StaminaCostMultiplier);
+
+	// ─── Consumables ──────────────────────────────────────────────────────────
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Item_Consumable_BloodRoot);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Item_Consumable_GulSerum);
 
 	// ─── Hitbox Parts ──────────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Body_WeakSpot);
@@ -82,4 +95,7 @@ namespace BlackoutGameplayTags
 	// ─── Attack Events ────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Enemy_Attack_SweepStart);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Enemy_Attack_SweepEnd);
+
+	// ─── Montage Events ───────────────────────────────────────────────────
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Montage_ConsumableApply);
 }

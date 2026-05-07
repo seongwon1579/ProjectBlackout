@@ -162,13 +162,16 @@ bool UBlackoutGA_Dodge::ConsumeStamina() const
 		return false;
 	}
 
+	const UBlackoutAbilitySystemComponent* BlackoutASC = Cast<UBlackoutAbilitySystemComponent>(AbilitySystemComponent);
+	const float StaminaCostMultiplier = BlackoutASC ? BlackoutASC->GetStaminaCostMultiplier() : 1.0f;
+	const float ModifiedStaminaCost = StaminaCost * StaminaCostMultiplier;
 	const float CurrentStamina = AbilitySystemComponent->GetNumericAttribute(UBlackoutPlayerAttributeSet::GetStaminaAttribute());
-	if (CurrentStamina < StaminaCost)
+	if (CurrentStamina < ModifiedStaminaCost)
 	{
 		return false;
 	}
 
-	AbilitySystemComponent->ApplyModToAttribute(UBlackoutPlayerAttributeSet::GetStaminaAttribute(), EGameplayModOp::Additive, -StaminaCost);
+	AbilitySystemComponent->ApplyModToAttribute(UBlackoutPlayerAttributeSet::GetStaminaAttribute(), EGameplayModOp::Additive, -ModifiedStaminaCost);
 
 	if (UBlackoutAbilitySystemComponent* BlackoutAbilitySystemComponent = Cast<UBlackoutAbilitySystemComponent>(AbilitySystemComponent))
 	{
