@@ -424,7 +424,15 @@ bool ABlackoutPlayerCharacter::PlayHitReactMontage(UAnimMontage* Montage, float 
 
 void ABlackoutPlayerCharacter::Multicast_PlayWeaponSwapMontage_Implementation(FGameplayTag TargetWeaponSlotTag, float PlayRate)
 {
-	PlayWeaponSwapMontage(TargetWeaponSlotTag, PlayRate);
+	if (CombatComponent)
+	{
+		CombatComponent->PrepareWeaponSwapMontageTarget(TargetWeaponSlotTag);
+	}
+
+	if (!PlayWeaponSwapMontage(TargetWeaponSlotTag, PlayRate) && CombatComponent)
+	{
+		CombatComponent->HandleWeaponSwapMontageEnded(true);
+	}
 }
 
 bool ABlackoutPlayerCharacter::PlayWeaponSwapMontage(FGameplayTag TargetWeaponSlotTag, float PlayRate)
