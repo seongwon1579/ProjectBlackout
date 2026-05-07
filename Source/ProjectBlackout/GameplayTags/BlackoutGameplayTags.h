@@ -43,6 +43,14 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Weapon_Primary);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Weapon_Secondary);
 
+	// ─── Reload Animation ─────────────────────────────────────────────────────
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Animation_Reload_ChicagoTypewriter);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Animation_Reload_RepeaterPistol);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Animation_Reload_Sporebloom);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Animation_Reload_Meridian);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Animation_Reload_RustyLeverAction);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Animation_Reload_DoubleBarrel);
+
 	// ─── Lobby ─────────────────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(LobbyTag_InfiniteAmmo);
 

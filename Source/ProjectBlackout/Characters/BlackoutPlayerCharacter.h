@@ -16,6 +16,18 @@ class UAnimMontage;
 
 struct FInputActionValue;
 
+USTRUCT(BlueprintType)
+struct FBlackoutReloadMontageEntry
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Animation")
+	FGameplayTag ReloadAnimTag;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Animation")
+	TObjectPtr<UAnimMontage> Montage = nullptr;
+};
+
 /**
  * 플레이어블 캐릭터 (Assault / Demolition / Sniper 공통 베이스).
  * ASC는 ABlackoutPlayerState가 소유 → PossessedBy에서 InitAbilityActorInfo.
@@ -71,6 +83,18 @@ public:
 	bool PlayHitReactMontage(UAnimMontage* Montage, float PlayRate = 1.f);
 
 	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
+	void Multicast_PlayReloadMontage(UAnimMontage* Montage, float PlayRate = 1.f);
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
+	bool PlayReloadMontage(UAnimMontage* Montage, float PlayRate = 1.f);
+
+	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
+	void Multicast_StopReloadMontage(UAnimMontage* Montage, float BlendOutTime = 0.1f);
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
+	bool StopReloadMontage(UAnimMontage* Montage, float BlendOutTime = 0.1f);
+
+	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
 	void Multicast_PlayWeaponSwapMontage(FGameplayTag TargetWeaponSlotTag, float PlayRate = 1.f);
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
@@ -111,6 +135,9 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Blackout|Animation")
 	bool IsHitReactMontagePlaying() const { return bIsHitReactMontagePlaying; }
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|Animation")
+	UAnimMontage* GetReloadMontageForTag(FGameplayTag ReloadAnimTag, bool bIsTwoHanded) const;
 
 	void HandleAimStateChanged(bool bNewAiming);
 	
@@ -258,6 +285,15 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
 	TObjectPtr<UAnimMontage> HitReactMontage;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
+	TArray<FBlackoutReloadMontageEntry> ReloadMontageEntries;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
+	TObjectPtr<UAnimMontage> ReloadFallbackMontage1R;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
+	TObjectPtr<UAnimMontage> ReloadFallbackMontage2R;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
 	TObjectPtr<UAnimMontage> EquipPrimaryMontage;

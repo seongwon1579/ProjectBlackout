@@ -1,13 +1,11 @@
 #include "GAS/Abilities/Player/BlackoutGA_Reload.h"
 
 #include "AbilitySystemComponent.h"
-#include "Animation/AnimInstance.h"
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
 #include "Combat/Weapons/BOFirearm.h"
 #include "Core/BlackoutLog.h"
 #include "Engine/World.h"
-#include "GameFramework/Character.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "GAS/Attributes/BlackoutAmmoAttributeSet.h"
 #include "TimerManager.h"
@@ -17,19 +15,33 @@ UBlackoutGA_Reload::UBlackoutGA_Reload()
 	InputID = EBlackoutAbilityInputID::Reload;
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::LocalPredicted;
+	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Downed);
+	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Locked);
+}
+
+UAnimMontage* UBlackoutGA_Reload::ResolveReloadMontage(const ABlackoutPlayerCharacter* PlayerCharacter, const ABOFirearm* EquippedFirearm) const
+{
+	if (!PlayerCharacter || !EquippedFirearm)
+	{
+		return nullptr;
+	}
+
+	return PlayerCharacter->GetReloadMontageForTag(
+		EquippedFirearm->GetReloadAnimTag(),
+		EquippedFirearm->UsesTwoHandedAnimation());
 }
 
 void UBlackoutGA_Reload::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
 	BO_LOG_GAS(Log, "GA_Reload activate requested");
 
-	const ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
+	ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
 	const UBlackoutCombatComponent* CombatComponent = PlayerCharacter ? PlayerCharacter->GetCombatComponent() : nullptr;
 	const ABOFirearm* EquippedFirearm = CombatComponent ? CombatComponent->GetEquippedFirearm() : nullptr;
 	UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo();
-	if (!CombatComponent || !EquippedFirearm || !AbilitySystemComponent)
+	if (!PlayerCharacter || !CombatComponent || !EquippedFirearm || !AbilitySystemComponent)
 	{
-		BO_LOG_GAS(Warning, "GA_Reload failed: CombatComponent, 무기 또는 ASC가 유효하지 않음");
+		BO_LOG_GAS(Warning, "GA_Reload failed: PlayerCharacter, CombatComponent, 무기 또는 ASC가 유효하지 않음");
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
@@ -61,32 +73,44 @@ void UBlackoutGA_Reload::ActivateAbility(const FGameplayAbilitySpecHandle Handle
 		return;
 	}
 
-	BO_LOG_GAS(Log, "GA_Reload activated: Character=%s, Weapon=%s", *GetNameSafe(ActorInfo ? ActorInfo->AvatarActor.Get() : nullptr), *GetNameSafe(EquippedFirearm));
+	UAnimMontage* SelectedReloadMontage = ResolveReloadMontage(PlayerCharacter, EquippedFirearm);
+	CachedReloadMontage = SelectedReloadMontage;
+	const bool bIsTwoHanded = EquippedFirearm->UsesTwoHandedAnimation();
 
-	// 1. 장전 애니메이션 몽타주 재생
-	if (ReloadMontage)
+	BO_LOG_GAS(Log,
+		"GA_Reload activated: Character=%s, Weapon=%s, TwoHanded=%s, Montage=%s",
+		*GetNameSafe(ActorInfo ? ActorInfo->AvatarActor.Get() : nullptr),
+		*GetNameSafe(EquippedFirearm),
+		bIsTwoHanded ? TEXT("true") : TEXT("false"),
+		*GetNameSafe(SelectedReloadMontage));
+
+	if (SelectedReloadMontage)
 	{
-		float MontageDuration = 0.0f;
-
-		if (ACharacter* Character = Cast<ACharacter>(ActorInfo->AvatarActor.Get()))
+		if (PlayerCharacter->IsLocallyControlled())
 		{
-			if (UAnimInstance* AnimInstance = Character->GetMesh() ? Character->GetMesh()->GetAnimInstance() : nullptr)
-			{
-				MontageDuration = AnimInstance->Montage_Play(ReloadMontage);
-			}
+			PlayerCharacter->PlayReloadMontage(SelectedReloadMontage, 1.f);
 		}
 
-		if (MontageDuration > 0.0f)
+		if (PlayerCharacter->HasAuthority())
 		{
-			if (UWorld* World = ActorInfo->AvatarActor.IsValid() ? ActorInfo->AvatarActor->GetWorld() : nullptr)
+			PlayerCharacter->Multicast_PlayReloadMontage(SelectedReloadMontage, 1.f);
+
+			const float MontageDuration = SelectedReloadMontage->GetPlayLength();
+			if (MontageDuration > 0.0f)
 			{
-				World->GetTimerManager().SetTimer(ReloadCompletionTimerHandle, this, &UBlackoutGA_Reload::OnReloadMontageCompleted, MontageDuration, false);
+				if (UWorld* World = ActorInfo->AvatarActor.IsValid() ? ActorInfo->AvatarActor->GetWorld() : nullptr)
+				{
+					World->GetTimerManager().SetTimer(ReloadCompletionTimerHandle, this, &UBlackoutGA_Reload::OnReloadMontageCompleted, MontageDuration, false);
+				}
 				return;
 			}
 		}
 	}
 
-	OnReloadMontageCompleted();
+	if (PlayerCharacter->HasAuthority())
+	{
+		OnReloadMontageCompleted();
+	}
 }
 
 void UBlackoutGA_Reload::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
@@ -95,6 +119,21 @@ void UBlackoutGA_Reload::EndAbility(const FGameplayAbilitySpecHandle Handle, con
 
 	if (ActorInfo && ActorInfo->AvatarActor.IsValid())
 	{
+		ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get());
+
+		if (bWasCancelled && PlayerCharacter && CachedReloadMontage)
+		{
+			if (PlayerCharacter->IsLocallyControlled())
+			{
+				PlayerCharacter->StopReloadMontage(CachedReloadMontage, 0.1f);
+			}
+
+			if (PlayerCharacter->HasAuthority())
+			{
+				PlayerCharacter->Multicast_StopReloadMontage(CachedReloadMontage, 0.1f);
+			}
+		}
+
 		if (UWorld* World = ActorInfo->AvatarActor->GetWorld())
 		{
 			World->GetTimerManager().ClearTimer(ReloadCompletionTimerHandle);
@@ -102,11 +141,17 @@ void UBlackoutGA_Reload::EndAbility(const FGameplayAbilitySpecHandle Handle, con
 	}
 
 	PendingWeaponSlotTag = FGameplayTag();
+	CachedReloadMontage = nullptr;
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
 
 void UBlackoutGA_Reload::OnReloadMontageCompleted()
 {
+	if (!CurrentActorInfo || !CurrentActorInfo->AvatarActor.IsValid() || !CurrentActorInfo->AvatarActor->HasAuthority())
+	{
+		return;
+	}
+
 	BO_LOG_GAS(Log, "GA_Reload montage completed");
 
 	// 장전 완료 시 데미지 이펙트 (ReloadEffectClass, 내부적으로 ExecCalc_Reload 실행) 적용하여 탄약 수치 갱신
