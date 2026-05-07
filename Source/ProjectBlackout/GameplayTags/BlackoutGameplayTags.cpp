@@ -9,6 +9,7 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(State_Aiming,        "State.Aiming");
 	UE_DEFINE_GAMEPLAY_TAG(State_Sprinting,     "State.Sprinting");
 	UE_DEFINE_GAMEPLAY_TAG(State_Attacking,     "State.Attacking");
+	UE_DEFINE_GAMEPLAY_TAG(State_UseConsumable, "State.UseConsumable");
 
 	// ─── Character Class ───────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Character_Class_Assault,    "Character.Class.Assault");

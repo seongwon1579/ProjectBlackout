@@ -12,6 +12,7 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Aiming);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Sprinting);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Attacking);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_UseConsumable);
 
 	// ─── Character Class ───────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_Class_Assault);
