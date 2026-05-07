@@ -15,23 +15,36 @@ UBTTask_SelectPattern::UBTTask_SelectPattern()
 
 EBTNodeResult::Type UBTTask_SelectPattern::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
+	Super::ExecuteTask(OwnerComp, NodeMemory);
+	
 	//UE_LOG(LogTemp, Warning, TEXT("Pattern changed"));
 	
 	if (!PatternData)
 	{
-		UE_LOG(LogSelectPattern, Error, TEXT("PatternData가 설정되지 않았습니다."));
+		UE_LOG(LogTemp, Warning, TEXT("data"));
 		return EBTNodeResult::Failed;
 	}
 
-	UBlackboardComponent* BB = UBTNodeHelper::GetBlackboard(OwnerComp);
-	if (!BB) return EBTNodeResult::Failed;
-
+	UBlackboardComponent* BB = OwnerComp.GetBlackboardComponent();
+	if (!BB)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("bb"));
+		return EBTNodeResult::Failed;
+	}
+	
+	auto CurrentTarget = BB->GetValueAsObject(CurrentTargetKey.SelectedKeyName);
+	if (CurrentTarget == nullptr)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("CurrentTarget"));
+		return EBTNodeResult::Failed;
+	}
+	
 	const float DistanceBTWActors = ResolveDistance(OwnerComp);
 
 	TArray<const FBOPatternEntry*> Candidates = FilterCandidates(DistanceBTWActors);
 	if (Candidates.IsEmpty())
 	{
-		UE_LOG(LogSelectPattern, Verbose, TEXT("유효한 패턴 없음 (거리: %.0fcm)"), DistanceBTWActors);
+		UE_LOG(LogTemp, Warning, TEXT("Candidates"));
 		return EBTNodeResult::Failed;
 	}
 
@@ -44,7 +57,7 @@ EBTNodeResult::Type UBTTask_SelectPattern::ExecuteTask(UBehaviorTreeComponent& O
 	{
 		if (Entry->AbilityTag != SelectedGamePlayTag) continue;
 
-		StartCooldown(SelectedGamePlayTag, Entry->Cooldown);
+		//StartCooldown(SelectedGamePlayTag, Entry->Cooldown);
 
 		// 접근 거리 + 패턴 최대 거리 BB에 기록
 		if (ApproachDistanceKey.SelectedKeyName != NAME_None)
@@ -60,12 +73,11 @@ EBTNodeResult::Type UBTTask_SelectPattern::ExecuteTask(UBehaviorTreeComponent& O
 
 		if (bIsChasingKey.SelectedKeyName != NAME_None)
 		{
-			BB->SetValueAsBool(bIsChasingKey.SelectedKeyName, DistanceBTWActors > Entry->MaxDistance);
+			//BB->SetValueAsBool(bIsChasingKey.SelectedKeyName, DistanceBTWActors > Entry->MaxDistance);
 		}
 		break;
 	}
 
-	UE_LOG(LogSelectPattern, Verbose, TEXT("패턴 선택: %s (거리: %.0fcm)"), *SelectedGamePlayTag.ToString(), DistanceBTWActors);
 	return EBTNodeResult::Succeeded;
 }
 
@@ -76,8 +88,15 @@ TArray<const FBOPatternEntry*> UBTTask_SelectPattern::FilterCandidates(float Dis
 	{
 		// MinDistance 미만만 하드 컷오프.
 		// MaxDistance 초과는 선택 가능 — 접근 후 공격하면 되므로.
-		if (Distance < Entry.MinDistance) continue;
-		if (CooldownHandles.Contains(Entry.AbilityTag)) continue;
+		if (Distance < Entry.MinDistance)
+		{
+			continue;
+		}
+		
+		// if (CooldownHandles.Contains(Entry.AbilityTag))
+		// {
+		// 	continue;
+		// }
 		Result.Add(&Entry);
 	}
 	return Result;
@@ -138,7 +157,7 @@ void UBTTask_SelectPattern::StartCooldown(const FGameplayTag& Tag, float Duratio
 
 float UBTTask_SelectPattern::ResolveDistance(UBehaviorTreeComponent& OwnerComp) const
 {
-	UBlackboardComponent* BB = UBTNodeHelper::GetBlackboard(OwnerComp);
+	UBlackboardComponent* BB = OwnerComp.GetBlackboardComponent();
 
 	if (BB && DistanceBTWActorsKey.SelectedKeyName != NAME_None)
 	{

@@ -14,7 +14,7 @@ void UBTService_EvaluateAIState::TickNode(UBehaviorTreeComponent& OwnerComp, uin
 {
 	Super::TickNode(OwnerComp, NodeMemory, DeltaSeconds);
 
-	UBlackboardComponent* BB = UBTNodeHelper::GetBlackboard(OwnerComp);
+	UBlackboardComponent* BB = OwnerComp.GetBlackboardComponent();
 	if (!BB) return;
 
 	const float Distance = BB->GetValueAsFloat(CurrentDistanceKey.SelectedKeyName);
