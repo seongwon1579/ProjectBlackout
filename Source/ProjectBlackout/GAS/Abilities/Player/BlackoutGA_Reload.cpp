@@ -1,5 +1,6 @@
 #include "GAS/Abilities/Player/BlackoutGA_Reload.h"
 
+#include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "AbilitySystemComponent.h"
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
@@ -75,6 +76,7 @@ void UBlackoutGA_Reload::ActivateAbility(const FGameplayAbilitySpecHandle Handle
 
 	UAnimMontage* SelectedReloadMontage = ResolveReloadMontage(PlayerCharacter, EquippedFirearm);
 	CachedReloadMontage = SelectedReloadMontage;
+	bWeaponReloadAnimationTriggered = false;
 	const bool bIsTwoHanded = EquippedFirearm->UsesTwoHandedAnimation();
 
 	BO_LOG_GAS(Log,
@@ -86,6 +88,13 @@ void UBlackoutGA_Reload::ActivateAbility(const FGameplayAbilitySpecHandle Handle
 
 	if (SelectedReloadMontage)
 	{
+		if (UAbilityTask_WaitGameplayEvent* WaitEventTask =
+			UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(this, BlackoutGameplayTags::Event_Montage_ReloadWeaponStart))
+		{
+			WaitEventTask->EventReceived.AddDynamic(this, &UBlackoutGA_Reload::OnWeaponReloadStartEventReceived);
+			WaitEventTask->ReadyForActivation();
+		}
+
 		if (PlayerCharacter->IsLocallyControlled())
 		{
 			PlayerCharacter->PlayReloadMontage(SelectedReloadMontage, 1.f);
@@ -111,6 +120,42 @@ void UBlackoutGA_Reload::ActivateAbility(const FGameplayAbilitySpecHandle Handle
 	{
 		OnReloadMontageCompleted();
 	}
+}
+
+void UBlackoutGA_Reload::OnWeaponReloadStartEventReceived(FGameplayEventData Payload)
+{
+	if (bWeaponReloadAnimationTriggered)
+	{
+		return;
+	}
+
+	ABlackoutPlayerCharacter* PlayerCharacter =
+		CurrentActorInfo ? Cast<ABlackoutPlayerCharacter>(CurrentActorInfo->AvatarActor.Get()) : nullptr;
+	UBlackoutCombatComponent* CombatComponent = PlayerCharacter ? PlayerCharacter->GetCombatComponent() : nullptr;
+	ABOFirearm* EquippedFirearm = CombatComponent ? CombatComponent->GetEquippedFirearm() : nullptr;
+	if (!PlayerCharacter || !EquippedFirearm)
+	{
+		BO_LOG_GAS(Warning, "GA_Reload weapon reload event ignored: PlayerCharacter 또는 EquippedFirearm이 유효하지 않음");
+		return;
+	}
+
+	bWeaponReloadAnimationTriggered = true;
+
+	if (PlayerCharacter->IsLocallyControlled())
+	{
+		EquippedFirearm->PlayWeaponReloadAnimation();
+	}
+
+	if (PlayerCharacter->HasAuthority())
+	{
+		EquippedFirearm->Multicast_PlayWeaponReloadAnimation();
+	}
+
+	BO_LOG_GAS(Log,
+		"GA_Reload weapon reload event received: Character=%s Weapon=%s EventTag=%s",
+		*GetNameSafe(PlayerCharacter),
+		*GetNameSafe(EquippedFirearm),
+		*Payload.EventTag.ToString());
 }
 
 void UBlackoutGA_Reload::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
@@ -142,6 +187,7 @@ void UBlackoutGA_Reload::EndAbility(const FGameplayAbilitySpecHandle Handle, con
 
 	PendingWeaponSlotTag = FGameplayTag();
 	CachedReloadMontage = nullptr;
+	bWeaponReloadAnimationTriggered = false;
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
 

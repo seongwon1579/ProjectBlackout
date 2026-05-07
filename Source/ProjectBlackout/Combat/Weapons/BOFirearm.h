@@ -8,6 +8,7 @@
 
 class UNiagaraComponent;
 class ABOProjectile;
+class UAnimationAsset;
 
 UCLASS()
 class PROJECTBLACKOUT_API ABOFirearm : public ABOWeaponBase
@@ -91,6 +92,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	float GetRecoilRecoveryFraction() const;
 
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
+	bool PlayWeaponReloadAnimation();
+
+	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
+	void Multicast_PlayWeaponReloadAnimation();
+
 protected:
 	void ApplyFirearmStats(const FBlackoutFirearmStat& FirearmStats);
 
@@ -118,6 +125,10 @@ protected:
 	/** 현재 무기가 사용할 재장전 애니메이션 프로필 태그입니다. 실제 몽타주는 캐릭터가 소유합니다. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation") 
 	FGameplayTag ReloadAnimTag;
+
+	/** 무기 메시에 직접 재생할 재장전 애니메이션입니다. 캐릭터 상체 몽타주와 별도로 동작합니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
+	TObjectPtr<UAnimationAsset> WeaponReloadAnimation;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Debug")
 	bool bDrawDebugHitscanRay = false;

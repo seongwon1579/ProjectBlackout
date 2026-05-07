@@ -8,6 +8,7 @@
 class UGameplayEffect;
 class UAnimMontage;
 struct FTimerHandle;
+struct FGameplayEventData;
 
 /**
  * 플레이어 무기 장전 게임플레이 어빌리티 (TDD v5 §4.1)
@@ -30,10 +31,14 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
 	TSubclassOf<UGameplayEffect> ReloadEffectClass;
 
+	UFUNCTION()
+	void OnWeaponReloadStartEventReceived(FGameplayEventData Payload);
+
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	void OnReloadMontageCompleted();
 
 	FGameplayTag PendingWeaponSlotTag;
 	TObjectPtr<UAnimMontage> CachedReloadMontage = nullptr;
+	bool bWeaponReloadAnimationTriggered = false;
 	FTimerHandle ReloadCompletionTimerHandle;
 };

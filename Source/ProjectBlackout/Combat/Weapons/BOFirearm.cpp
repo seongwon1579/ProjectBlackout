@@ -1,6 +1,8 @@
 #include "Combat/Weapons/BOFirearm.h"
 
 #include "DrawDebugHelpers.h"
+#include "Animation/AnimSingleNodeInstance.h"
+#include "Animation/AnimationAsset.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "GameFramework/Pawn.h"
@@ -243,3 +245,45 @@ float ABOFirearm::GetVerticalRecoilMax() const { return CachedFirearmStats.Verti
 float ABOFirearm::GetHorizontalRecoilRange() const { return CachedFirearmStats.HorizontalRecoilRange; }
 float ABOFirearm::GetMaxRecoilPitchDegrees() const { return CachedFirearmStats.MaxRecoilPitchDegrees; }
 float ABOFirearm::GetRecoilRecoveryFraction() const { return CachedFirearmStats.RecoilRecoveryFraction; }
+
+bool ABOFirearm::PlayWeaponReloadAnimation()
+{
+	if (!WeaponReloadAnimation)
+	{
+		BO_LOG_CORE(Warning, "PlayWeaponReloadAnimation failed: WeaponReloadAnimation이 비어 있음 (Weapon=%s)", *GetName());
+		return false;
+	}
+
+	if (!WeaponMesh)
+	{
+		BO_LOG_CORE(Warning, "PlayWeaponReloadAnimation failed: WeaponMesh가 비어 있음 (Weapon=%s)", *GetName());
+		return false;
+	}
+
+	if (WeaponMesh->GetAnimationMode() == EAnimationMode::AnimationSingleNode)
+	{
+		if (UAnimSingleNodeInstance* SingleNodeInstance = WeaponMesh->GetSingleNodeInstance())
+		{
+			if (SingleNodeInstance->GetCurrentAsset() == WeaponReloadAnimation && SingleNodeInstance->IsPlaying())
+			{
+				return true;
+			}
+		}
+	}
+
+	WeaponMesh->PlayAnimation(WeaponReloadAnimation, false);
+
+	BO_LOG_CORE(Log,
+		"PlayWeaponReloadAnimation: Weapon=%s Local=%s Authority=%s Animation=%s",
+		*GetName(),
+		GetNetMode() != NM_DedicatedServer && GetOwner() && GetOwner()->GetLocalRole() == ROLE_AutonomousProxy ? TEXT("true") : TEXT("false"),
+		HasAuthority() ? TEXT("true") : TEXT("false"),
+		*GetNameSafe(WeaponReloadAnimation));
+
+	return true;
+}
+
+void ABOFirearm::Multicast_PlayWeaponReloadAnimation_Implementation()
+{
+	PlayWeaponReloadAnimation();
+}
