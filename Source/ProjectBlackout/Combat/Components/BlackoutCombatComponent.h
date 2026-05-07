@@ -73,6 +73,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Blackout|Combat")
 	bool IsWeaponSwapInProgress() const { return bIsWeaponSwapInProgress; }
 
+	/** 멀티캐스트로 시작된 무기 교체 몽타주의 목표 슬롯을 로컬에 기록합니다. */
+	void PrepareWeaponSwapMontageTarget(FGameplayTag TargetWeaponSlotTag);
+
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	void BeginMeleeWeaponAttachmentOverride();
 

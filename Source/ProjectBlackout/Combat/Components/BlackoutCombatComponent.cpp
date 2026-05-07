@@ -8,6 +8,7 @@
 #include "Combat/Weapons/BOFirearm.h"
 #include "Combat/Weapons/BOMeleeWeapon.h"
 #include "Combat/Weapons/BOWeaponBase.h"
+#include "BlackoutLog.h"
 #include "Data/BOCharacterData.h"
 #include "Engine/World.h"
 #include "GAS/Attributes/BlackoutAmmoAttributeSet.h"
@@ -302,20 +303,54 @@ void UBlackoutCombatComponent::CommitPendingWeaponSwap()
 	}
 
 	const FGameplayTag TargetWeaponSlotTag = PendingWeaponSwapSlotTag;
-
-	if (GetOwner() && GetOwner()->HasAuthority())
+	ABOWeaponBase* TargetWeapon = ResolveWeaponBySlotTag(TargetWeaponSlotTag);
+	if (!TargetWeapon)
 	{
-		if (ABOWeaponBase* TargetWeapon = ResolveWeaponBySlotTag(TargetWeaponSlotTag))
-		{
-			Server_EquipWeapon_Implementation(TargetWeapon);
-		}
-
+		BO_LOG_CORE(Warning, "CommitPendingWeaponSwap failed: 슬롯 %s 에 대응하는 무기가 없음", *TargetWeaponSlotTag.ToString());
 		PendingWeaponSwapSlotTag = FGameplayTag();
 		return;
 	}
 
-	Server_CommitPendingWeaponSwap(TargetWeaponSlotTag);
+	if (GetOwner() && GetOwner()->HasAuthority())
+	{
+		Server_EquipWeapon_Implementation(TargetWeapon);
+		PendingWeaponSwapSlotTag = FGameplayTag();
+		return;
+	}
+
+	// 클라이언트에서는 복제 도착을 기다리지 않고 노티파이 프레임에 먼저 시각 상태를 맞춥니다.
+	EquippedWeapon = TargetWeapon;
+	OnRep_EquippedWeapon();
+
+	const APawn* OwnerPawn = Cast<APawn>(GetOwner());
+	if (OwnerPawn && OwnerPawn->IsLocallyControlled())
+	{
+		Server_CommitPendingWeaponSwap(TargetWeaponSlotTag);
+	}
+
 	PendingWeaponSwapSlotTag = FGameplayTag();
+}
+
+void UBlackoutCombatComponent::PrepareWeaponSwapMontageTarget(FGameplayTag TargetWeaponSlotTag)
+{
+	if (!TargetWeaponSlotTag.IsValid())
+	{
+		return;
+	}
+
+	if (!ResolveWeaponBySlotTag(TargetWeaponSlotTag))
+	{
+		BO_LOG_CORE(Warning, "PrepareWeaponSwapMontageTarget failed: 슬롯 %s 에 대응하는 무기가 없음", *TargetWeaponSlotTag.ToString());
+		return;
+	}
+
+	if (GetEquippedWeaponSlotTag() == TargetWeaponSlotTag)
+	{
+		return;
+	}
+
+	PendingWeaponSwapSlotTag = TargetWeaponSlotTag;
+	bIsWeaponSwapInProgress = true;
 }
 
 void UBlackoutCombatComponent::BeginMeleeWeaponAttachmentOverride()
@@ -453,7 +488,8 @@ void UBlackoutCombatComponent::HandleWeaponSwapMontageEnded(bool bInterrupted)
 		CommitPendingWeaponSwap();
 	}
 
-	if (bInterrupted && PendingWeaponSwapSlotTag.IsValid() && GetOwner() && !GetOwner()->HasAuthority())
+	const APawn* OwnerPawn = Cast<APawn>(GetOwner());
+	if (bInterrupted && PendingWeaponSwapSlotTag.IsValid() && OwnerPawn && OwnerPawn->IsLocallyControlled() && !GetOwner()->HasAuthority())
 	{
 		Server_CancelPendingWeaponSwap();
 	}
