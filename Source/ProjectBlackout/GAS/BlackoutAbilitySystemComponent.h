@@ -7,6 +7,7 @@
 #include "BlackoutAbilitySystemComponent.generated.h"
 
 class UGameplayEffect;
+class UBOConsumableData;
 
 /**
  * 프로젝트 전용 ASC.
@@ -23,6 +24,12 @@ public:
 	 * ABlackoutPlayerCharacter::PossessedBy, ABlackoutEnemyCharacter::BeginPlay 에서 호출.
 	 */
 	void GiveDefaultAbilities(const TArray<TSubclassOf<UGameplayAbility>>& Abilities);
+
+	/**
+	 * 서버 전용. CharacterData의 소모품 슬롯 배열을 순회해 각 DA의 UseAbility를 ASC에 부여.
+	 * 배열 0/1번은 각각 UseConsumable1/2 입력 ID에 대응합니다.
+	 */
+	void GiveConsumableAbilities(const TArray<TObjectPtr<UBOConsumableData>>& ConsumableSlots);
 
 	/**
 	 * 로컬 입력 ID를 기준으로 대응되는 GA를 활성화하거나 활성 어빌리티에 입력 pressed 이벤트를 전달합니다.

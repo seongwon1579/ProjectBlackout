@@ -126,6 +126,7 @@ void ABlackoutPlayerCharacter::PossessedBy(AController* NewController)
 				}
 
 				AbilitySystemComponent->GiveDefaultAbilities(CharacterData->GrantedAbilities);
+				AbilitySystemComponent->GiveConsumableAbilities(CharacterData->ConsumableSlots);
 
 				if (CombatComponent)
 				{

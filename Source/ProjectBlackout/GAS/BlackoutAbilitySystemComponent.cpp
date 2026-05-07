@@ -2,6 +2,7 @@
 
 #include "Abilities/BlackoutGameplayAbility.h"
 #include "BlackoutLog.h"
+#include "Data/BOConsumableData.h"
 #include "Engine/World.h"
 #include "GameplayEffect.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
@@ -34,6 +35,50 @@ void UBlackoutAbilitySystemComponent::GiveDefaultAbilities(const TArray<TSubclas
 
 		GiveAbility(Spec);
 		BO_LOG_GAS(Verbose, "Granted ability: %s (InputID: %d)", *AbilityClass->GetName(), Spec.InputID);
+	}
+}
+
+void UBlackoutAbilitySystemComponent::GiveConsumableAbilities(const TArray<TObjectPtr<UBOConsumableData>>& ConsumableSlots)
+{
+	if (!IsOwnerActorAuthoritative())
+	{
+		return;
+	}
+
+	for (int32 SlotIndex = 0; SlotIndex < ConsumableSlots.Num(); ++SlotIndex)
+	{
+		UBOConsumableData* ConsumableData = ConsumableSlots[SlotIndex];
+		if (!ConsumableData || !ConsumableData->UseAbility)
+		{
+			BO_LOG_GAS(Warning, "소모품 어빌리티 부여 실패: Slot=%d Data=%s UseAbility=%s",
+				SlotIndex,
+				*GetNameSafe(ConsumableData),
+				ConsumableData ? *GetNameSafe(ConsumableData->UseAbility.Get()) : TEXT("None"));
+			continue;
+		}
+
+		FGameplayAbilitySpec Spec(ConsumableData->UseAbility, 1);
+		Spec.SourceObject = ConsumableData;
+
+		if (SlotIndex == 0)
+		{
+			Spec.InputID = static_cast<int32>(EBlackoutAbilityInputID::UseConsumable1);
+		}
+		else if (SlotIndex == 1)
+		{
+			Spec.InputID = static_cast<int32>(EBlackoutAbilityInputID::UseConsumable2);
+		}
+		else if (const UBlackoutGameplayAbility* BlackoutAbility = Cast<UBlackoutGameplayAbility>(ConsumableData->UseAbility->GetDefaultObject()))
+		{
+			Spec.InputID = static_cast<int32>(BlackoutAbility->InputID);
+		}
+
+		GiveAbility(Spec);
+		BO_LOG_GAS(Log, "Granted consumable ability: Slot=%d Data=%s Ability=%s InputID=%d",
+			SlotIndex,
+			*GetNameSafe(ConsumableData),
+			*GetNameSafe(Spec.Ability),
+			Spec.InputID);
 	}
 }
 

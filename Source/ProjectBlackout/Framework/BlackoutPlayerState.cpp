@@ -3,6 +3,8 @@
 #include "BlackoutAmmoAttributeSet.h"
 #include "Attributes/BlackoutBaseAttributeSet.h"
 #include "Data/BOCharacterData.h"
+#include "Data/BOConsumableData.h"
+#include "GameplayTags/BlackoutGameplayTags.h"
 #include "Net/UnrealNetwork.h"
 #include "BlackoutLog.h"
 #include "BlackoutPlayerAttributeSet.h"
@@ -73,12 +75,95 @@ void ABlackoutPlayerState::InitializeConsumablesFromCharacterData(const UBOChara
 		return;
 	}
 
-	SetConsumableCounts(CharacterData->InitialBloodRoot, CharacterData->InitialGulSerum);
+	int32 InitialBloodRootCount = CharacterData->InitialBloodRoot;
+	int32 InitialGulSerumCount = CharacterData->InitialGulSerum;
+
+	for (const UBOConsumableData* ConsumableData : CharacterData->ConsumableSlots)
+	{
+		if (!ConsumableData || !ConsumableData->ConsumableTag.IsValid())
+		{
+			continue;
+		}
+
+		const int32 ClampedInitialCount = FMath::Clamp(ConsumableData->InitialCount, 0, ConsumableData->MaxCount);
+		if (ConsumableData->ConsumableTag.MatchesTagExact(BlackoutGameplayTags::Item_Consumable_BloodRoot))
+		{
+			InitialBloodRootCount = ClampedInitialCount;
+		}
+		else if (ConsumableData->ConsumableTag.MatchesTagExact(BlackoutGameplayTags::Item_Consumable_GulSerum))
+		{
+			InitialGulSerumCount = ClampedInitialCount;
+		}
+	}
+
+	SetConsumableCounts(InitialBloodRootCount, InitialGulSerumCount);
 	BO_LOG_CORE(Log,
 		"소모품 초기화: Player=%s BloodRoot=%d GulSerum=%d",
 		*GetPlayerName(),
 		BloodRootCount,
 		GulSerumCount);
+}
+
+int32 ABlackoutPlayerState::GetConsumableCount(FGameplayTag ConsumableTag) const
+{
+	if (ConsumableTag.MatchesTagExact(BlackoutGameplayTags::Item_Consumable_BloodRoot))
+	{
+		return BloodRootCount;
+	}
+
+	if (ConsumableTag.MatchesTagExact(BlackoutGameplayTags::Item_Consumable_GulSerum))
+	{
+		return GulSerumCount;
+	}
+
+	return 0;
+}
+
+bool ABlackoutPlayerState::SetConsumableCount(FGameplayTag ConsumableTag, int32 NewCount)
+{
+	if (ConsumableTag.MatchesTagExact(BlackoutGameplayTags::Item_Consumable_BloodRoot))
+	{
+		BloodRootCount = FMath::Max(0, NewCount);
+		BroadcastConsumableCounts();
+		return true;
+	}
+
+	if (ConsumableTag.MatchesTagExact(BlackoutGameplayTags::Item_Consumable_GulSerum))
+	{
+		GulSerumCount = FMath::Max(0, NewCount);
+		BroadcastConsumableCounts();
+		return true;
+	}
+
+	BO_LOG_CORE(Warning, "소모품 수량 설정 실패: 지원하지 않는 태그입니다. Player=%s Tag=%s",
+		*GetPlayerName(),
+		*ConsumableTag.ToString());
+	return false;
+}
+
+bool ABlackoutPlayerState::ConsumeConsumable(FGameplayTag ConsumableTag, int32 Amount)
+{
+	if (Amount <= 0)
+	{
+		BO_LOG_CORE(Warning, "소모품 소비 실패: 소비량이 0 이하입니다. Player=%s Tag=%s Amount=%d",
+			*GetPlayerName(),
+			*ConsumableTag.ToString(),
+			Amount);
+		return false;
+	}
+
+	const int32 CurrentCount = GetConsumableCount(ConsumableTag);
+	if (CurrentCount < Amount)
+	{
+		BO_LOG_CORE(Warning, "소모품 소비 실패: 수량 부족. Player=%s Tag=%s Current=%d Amount=%d",
+			*GetPlayerName(),
+			*ConsumableTag.ToString(),
+			CurrentCount,
+			Amount);
+		return false;
+	}
+
+	return SetConsumableCount(ConsumableTag, CurrentCount - Amount);
 }
 
 void ABlackoutPlayerState::OnRep_BloodRootCount()

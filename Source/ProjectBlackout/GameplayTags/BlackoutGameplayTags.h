@@ -26,6 +26,13 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_MaxStamina);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Stamina);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_MovementSpeed);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Consumable_HealAmount);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Consumable_Duration);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Consumable_Cooldown);
+
+	// ─── Consumables ──────────────────────────────────────────────────────────
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Item_Consumable_BloodRoot);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Item_Consumable_GulSerum);
 
 	// ─── Hitbox Parts ──────────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Body_WeakSpot);

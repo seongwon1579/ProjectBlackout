@@ -12,6 +12,7 @@ class UBlackoutPlayerAttributeSet;
 class UBlackoutBaseAttributeSet;
 class UBlackoutAbilitySystemComponent;
 class UBOCharacterData;
+class UBOConsumableData;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FBlackoutConsumableCountsChangedSignature, int32, BloodRootCount, int32, GulSerumCount);
 
@@ -35,6 +36,15 @@ public:
 	void SetConsumableCounts(int32 NewBloodRootCount, int32 NewGulSerumCount);
 
 	void InitializeConsumablesFromCharacterData(const UBOCharacterData* CharacterData);
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|PlayerState|Consumables")
+	int32 GetConsumableCount(FGameplayTag ConsumableTag) const;
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|PlayerState|Consumables")
+	bool SetConsumableCount(FGameplayTag ConsumableTag, int32 NewCount);
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|PlayerState|Consumables")
+	bool ConsumeConsumable(FGameplayTag ConsumableTag, int32 Amount = 1);
 
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Blackout|PlayerState")
 	FGameplayTag SelectedClassTag;
