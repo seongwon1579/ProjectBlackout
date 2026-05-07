@@ -97,6 +97,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
 	bool StopMeleeMontage(UAnimMontage* Montage, float BlendOutTime = 0.1f);
 
+	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
+	void Multicast_PlayConsumableMontage(UAnimMontage* Montage, float PlayRate = 1.f);
+
+	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
+	void Multicast_StopConsumableMontage(UAnimMontage* Montage, float BlendOutTime = 0.25f);
+
 	UFUNCTION(Server, Unreliable, Category = "Blackout|Animation")
 	void Server_SetAimOffset(FVector2D NewAimOffset);
 

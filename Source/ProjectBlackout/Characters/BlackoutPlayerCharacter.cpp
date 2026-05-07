@@ -525,6 +525,30 @@ bool ABlackoutPlayerCharacter::StopMeleeMontage(UAnimMontage* Montage, float Ble
 	return true;
 }
 
+void ABlackoutPlayerCharacter::Multicast_PlayConsumableMontage_Implementation(UAnimMontage* Montage, float PlayRate)
+{
+	if (!Montage)
+	{
+		return;
+	}
+
+	PlayAnimMontage(Montage, PlayRate);
+}
+
+void ABlackoutPlayerCharacter::Multicast_StopConsumableMontage_Implementation(UAnimMontage* Montage, float BlendOutTime)
+{
+	if (!Montage)
+	{
+		return;
+	}
+
+	UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+	if (AnimInstance && AnimInstance->Montage_IsPlaying(Montage))
+	{
+		AnimInstance->Montage_Stop(BlendOutTime, Montage);
+	}
+}
+
 void ABlackoutPlayerCharacter::CommitPendingWeaponSwap()
 {
 	if (CombatComponent)

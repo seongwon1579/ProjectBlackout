@@ -1,12 +1,17 @@
 #include "GAS/Abilities/Player/BlackoutGA_UseConsumable.h"
 
+#include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "AbilitySystemComponent.h"
+#include "Animation/AnimMontage.h"
+#include "Characters/BlackoutPlayerCharacter.h"
 #include "Core/BlackoutLog.h"
 #include "Data/BOConsumableData.h"
 #include "Framework/BlackoutPlayerState.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "GameplayAbilitySpec.h"
 #include "GameplayEffect.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
+#include "TimerManager.h"
 
 UBlackoutGA_UseConsumable::UBlackoutGA_UseConsumable()
 {
@@ -64,25 +69,111 @@ void UBlackoutGA_UseConsumable::ActivateAbility(const FGameplayAbilitySpecHandle
 		return;
 	}
 
-	if (!BlackoutPlayerState->ConsumeConsumable(ResolvedConsumableData->ConsumableTag, ConsumeAmount))
+	bConsumableApplied = false;
+	PendingConsumableData = ResolvedConsumableData;
+
+	if (ConsumableMontage)
 	{
-		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get());
+		if (PlayerCharacter && PlayerCharacter->HasAuthority())
+		{
+			PlayerCharacter->Multicast_PlayConsumableMontage(ConsumableMontage, 1.f);
+
+			const float MontageDuration = ConsumableMontage->GetPlayLength();
+			if (MontageDuration > 0.f)
+			{
+				ApplySlowMovementSpeed(ActorInfo);
+
+				UAbilityTask_WaitGameplayEvent* WaitEventTask = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(this, BlackoutGameplayTags::Event_Montage_ConsumableApply);
+				if (WaitEventTask)
+				{
+					WaitEventTask->EventReceived.AddDynamic(this, &UBlackoutGA_UseConsumable::OnConsumableApplyEventReceived);
+					WaitEventTask->ReadyForActivation();
+				}
+
+				if (UWorld* World = PlayerCharacter->GetWorld())
+				{
+					World->GetTimerManager().SetTimer(ConsumableMontageTimerHandle, this, &UBlackoutGA_UseConsumable::OnConsumableMontageFinished, MontageDuration, false);
+				}
+
+				BO_LOG_GAS(Log, "소모품 몽타주 시작: Player=%s Data=%s Duration=%.2f",
+					*BlackoutPlayerState->GetPlayerName(),
+					*GetNameSafe(ResolvedConsumableData),
+					MontageDuration);
+				return;
+			}
+		}
+	}
+
+	ConsumeAndApplyEffect();
+	EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
+}
+
+void UBlackoutGA_UseConsumable::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
+{
+	if (ActorInfo && ActorInfo->AvatarActor.IsValid())
+	{
+		if (UWorld* World = ActorInfo->AvatarActor->GetWorld())
+		{
+			World->GetTimerManager().ClearTimer(ConsumableMontageTimerHandle);
+		}
+
+		if (bWasCancelled && ConsumableMontage)
+		{
+			if (ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()))
+			{
+				PlayerCharacter->Multicast_StopConsumableMontage(ConsumableMontage);
+			}
+		}
+
+		RestoreMovementSpeed(ActorInfo);
+	}
+
+	PendingConsumableData = nullptr;
+	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+}
+
+void UBlackoutGA_UseConsumable::ConsumeAndApplyEffect()
+{
+	if (bConsumableApplied || !PendingConsumableData)
+	{
 		return;
 	}
 
-	const bool bKeepAbilityActive = ApplyConsumableEffect(ResolvedConsumableData);
-	ApplyConfiguredGameplayEffect(ResolvedConsumableData);
-	StartConsumableCooldown(ResolvedConsumableData);
+	bConsumableApplied = true;
 
-	ReceiveConsumableUsed(ResolvedConsumableData);
+	ABlackoutPlayerState* BlackoutPlayerState = CurrentActorInfo ? Cast<ABlackoutPlayerState>(CurrentActorInfo->OwnerActor.Get()) : nullptr;
+	if (!BlackoutPlayerState || !BlackoutPlayerState->ConsumeConsumable(PendingConsumableData->ConsumableTag, ConsumeAmount))
+	{
+		BO_LOG_GAS(Warning, "소모품 차감 실패: Data=%s", *GetNameSafe(PendingConsumableData.Get()));
+		return;
+	}
+
+	bKeepActiveAfterMontage = ApplyConsumableEffect(PendingConsumableData);
+	ApplyConfiguredGameplayEffect(PendingConsumableData);
+	StartConsumableCooldown(PendingConsumableData);
+
+	ReceiveConsumableUsed(PendingConsumableData);
 	BO_LOG_GAS(Log, "소모품 사용 완료: Player=%s Data=%s Tag=%s",
 		*BlackoutPlayerState->GetPlayerName(),
-		*GetNameSafe(ResolvedConsumableData),
-		*ResolvedConsumableData->ConsumableTag.ToString());
+		*GetNameSafe(PendingConsumableData.Get()),
+		*PendingConsumableData->ConsumableTag.ToString());
+}
 
-	if (!bKeepAbilityActive)
+void UBlackoutGA_UseConsumable::OnConsumableApplyEventReceived(FGameplayEventData Payload)
+{
+	ConsumeAndApplyEffect();
+}
+
+void UBlackoutGA_UseConsumable::OnConsumableMontageFinished()
+{
+	ConsumeAndApplyEffect();
+	RestoreMovementSpeed(CurrentActorInfo);
+
+	if (!bKeepActiveAfterMontage)
 	{
-		EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
+		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
 	}
 }
 
@@ -192,4 +283,33 @@ void UBlackoutGA_UseConsumable::StartConsumableCooldown(const UBOConsumableData*
 	{
 		ConsumableCooldownEndTime = World->GetTimeSeconds() + UsedConsumableData->Cooldown;
 	}
+}
+
+void UBlackoutGA_UseConsumable::ApplySlowMovementSpeed(const FGameplayAbilityActorInfo* ActorInfo)
+{
+	const ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
+	UCharacterMovementComponent* MovementComponent = PlayerCharacter ? PlayerCharacter->GetCharacterMovement() : nullptr;
+	if (!MovementComponent)
+	{
+		return;
+	}
+
+	CachedWalkSpeed = MovementComponent->MaxWalkSpeed;
+	MovementComponent->MaxWalkSpeed = CachedWalkSpeed * ConsumableSpeedMultiplier;
+}
+
+void UBlackoutGA_UseConsumable::RestoreMovementSpeed(const FGameplayAbilityActorInfo* ActorInfo)
+{
+	if (CachedWalkSpeed <= 0.0f)
+	{
+		return;
+	}
+
+	const ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
+	if (UCharacterMovementComponent* MovementComponent = PlayerCharacter ? PlayerCharacter->GetCharacterMovement() : nullptr)
+	{
+		MovementComponent->MaxWalkSpeed = CachedWalkSpeed;
+	}
+
+	CachedWalkSpeed = 0.0f;
 }
