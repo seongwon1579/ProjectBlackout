@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "BlackoutMinionGameplayAbility.h"
 #include "Templates/SubclassOf.h"
+#include "Animation/AnimInstance.h"
 #include "GA_Wraith_FireTwinArrows.generated.h"
 
 class ABOProjectile;
@@ -30,24 +31,22 @@ protected:
 	                             ActivationInfo,
 	                             const FGameplayEventData*
 	                             TriggerEventData) override;
-
+	
+	// AnimNotify Fire1/Fire2 - NotifyName 으로 분기처리
 	UFUNCTION()
-	void OnAimDelayFinished();
-
+	void OnNotifyBegin(FName NotifyName,  const FBranchingPointNotifyPayload& Payload);
+	
+	// Montage 종료 
 	UFUNCTION()
-	void OnSecondShotDelayFinished();
-
+	void OnMontageEnded();
+	
 	void FireOneArrow();
+	void UnbindNotify();
 
+	
 	UPROPERTY(EditDefaultsOnly, Category = "Wraith")
 	TSubclassOf<ABOProjectile> ArrowProjectileClass;
-
-	UPROPERTY(EditDefaultsOnly, Category = "Wraith", meta = (ClampMin = 0.0f))
-	float AimDelay = 1.0f;
-
-	UPROPERTY(EditDefaultsOnly, Category = "Wraith", meta = (ClampMin = 0.0f))
-	float SecondShotDelay = 0.3f;
-
+	
 	UPROPERTY(EditDefaultsOnly, Category = "Wraith")
 	TSubclassOf<UGameplayEffect> DamageEffectClass;
 

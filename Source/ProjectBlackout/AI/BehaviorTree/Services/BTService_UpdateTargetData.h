@@ -21,11 +21,11 @@ protected:
 
 	/** 어그로 타겟을 쓸 블랙보드 키 (Object) */
 	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard")
-	FBlackboardKeySelector CurrentTargetKey;
+	FBlackboardKeySelector TargetKey;
 
 	/** 타겟 월드 위치 (Vector) */
 	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard")
-	FBlackboardKeySelector CurrentTargetLocationKey;
+	FBlackboardKeySelector TargetLocationKey;
 
 	/** AI ~ 타겟 2D 거리 (Float) */
 	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard")
@@ -34,4 +34,6 @@ protected:
 	/** AI 전방 기준 타겟 방향 각도 -180~180 (Float) */
 	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard")
 	FBlackboardKeySelector AngleBTWActorsKey;
+	
+	void UpdateBlackboard(UBehaviorTreeComponent& OwnerComp);
 };
