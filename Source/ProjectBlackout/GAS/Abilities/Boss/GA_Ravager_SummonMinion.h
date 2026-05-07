@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GAS/Abilities/BlackoutBossGameplayAbility.h"
-#include "AI/BTTask_SpawnMinionWave.h"
+#include "BehaviorTree/Tasks/BTTask_SpawnMinionWave.h"
 #include "GA_Ravager_SummonMinion.generated.h"
 
 /**
