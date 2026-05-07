@@ -8,6 +8,7 @@
 
 class ABOFirearm;
 class ABOMeleeWeapon;
+class UBOConsumableData;
 
 /**
  * 플레이어 병과(Assault / Demolition / Sniper)별 초기 스탯 및 어빌리티 데이터.
@@ -47,6 +48,10 @@ public:
 	/** 빙의 시(PossessedBy) ASC에 일괄 부여할 어빌리티 목록 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Abilities")
 	TArray<TSubclassOf<UGameplayAbility>> GrantedAbilities;
+
+	/** 소모품 슬롯 순서입니다. 0번은 UseConsumable1, 1번은 UseConsumable2 입력에 연결됩니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Consumables")
+	TArray<TObjectPtr<UBOConsumableData>> ConsumableSlots;
 
 	/** 시작 주무기 클래스 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Weapons")

@@ -113,10 +113,13 @@ classDiagram
         -UBlackoutPlayerAttributeSet* PlayerAttributes
         -UBlackoutAmmoAttributeSet* AmmoAttributes
         +FGameplayTag SelectedClassTag
-        +uint8 BloodRootCount
-        +uint8 GulSerumCount
+        +int32 BloodRootCount
+        +int32 GulSerumCount
         +bool bIsReady
         +ApplyBattleTransitionPolicy(EBattleTransitionType) void
+        +SetConsumableCounts(int32 BloodRoot, int32 GulSerum) void
+        +InitializeConsumablesFromCharacterData(UBOCharacterData*) void
+        +OnConsumableCountsChanged(int32 BloodRoot, int32 GulSerum)
         +OnRep_SelectedClassTag() void
         +OnRep_BloodRootCount() void
         +OnRep_GulSerumCount() void
@@ -179,6 +182,7 @@ classDiagram
     UPrimaryDataAsset <|-- UBOCharacterData
     UPrimaryDataAsset <|-- UBOMinionData
     UPrimaryDataAsset <|-- UBOBossData
+    UPrimaryDataAsset <|-- UBOConsumableData
 
     class UBOCharacterData {
         +float InitialHealth
@@ -204,6 +208,19 @@ classDiagram
         +FMinionSpawnTable SpawnWeights
     }
 
+    class UBOConsumableData {
+        <<PrimaryDataAsset>>
+        +FGameplayTag ConsumableTag
+        +FText DisplayName
+        +TSoftObjectPtr~UTexture2D~ Icon
+        +int32 InitialCount
+        +int32 MaxCount
+        +float Cooldown
+        +TSubclassOf~UGameplayAbility~ UseAbility
+        +TSubclassOf~UGameplayEffect~ GameplayEffect
+        +TMap~FGameplayTag, float~ EffectMagnitudes
+    }
+
     class DT_WeaponStats {
         <<DataTable>>
         +float BaseDamage
@@ -215,6 +232,7 @@ classDiagram
     note for UBOCharacterData "GrantedAbilities: TArray<TSubclassOf<UGameplayAbility>>"
     note for UBOMinionData "AbilityDamageMap: TMap<FGameplayTag, float>"
     note for UBOBossData "AbilityDamageMap: TMap<FGameplayTag, float>"
+    note for UBOConsumableData "소모품별 표시/효과 정의. 현재 소지량은 PlayerState가 복제"
 ```
 
 ---
@@ -252,6 +270,22 @@ classDiagram
         +Tag: State.Locked
     }
 
+    class UBlackoutGA_UseConsumable {
+        +소모품 공통 검증
+        +PlayerState 수량 차감
+        +쿨다운 / 공통 GE 적용
+    }
+
+    class UBlackoutGA_UseBloodRoot {
+        +ASC 지속 체력 회복
+        +Data.Consumable.HealAmount
+    }
+
+    class UBlackoutGA_UseGulSerum {
+        +ASC 스태미나 소비 배율
+        +Data.Consumable.StaminaCostMultiplier
+    }
+
     class GA_Revive {
         +HoldToRevive 진행도
         +GE_Downed 해제
@@ -285,6 +319,8 @@ classDiagram
     GA_FireWeapon --> ABOShotgunFirearm : 산탄 펠릿 사격
     GA_FireWeapon --> ExecCalc_DamageCalc : 피격 시
     GA_Melee_Player --> ExecCalc_DamageCalc : 피격 시
+    UBlackoutGA_UseConsumable <|-- UBlackoutGA_UseBloodRoot
+    UBlackoutGA_UseConsumable <|-- UBlackoutGA_UseGulSerum
     ExecCalc_DamageCalc --> ExecCalc_CombatReward : 사망 시
 ```
 

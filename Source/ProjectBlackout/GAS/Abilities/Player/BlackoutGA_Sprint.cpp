@@ -140,17 +140,21 @@ bool UBlackoutGA_Sprint::ConsumeSprintStamina() const
 		return false;
 	}
 
+	const UBlackoutAbilitySystemComponent* BlackoutAbilitySystemComponent = Cast<UBlackoutAbilitySystemComponent>(AbilitySystemComponent);
+	const float StaminaCostMultiplier = BlackoutAbilitySystemComponent ? BlackoutAbilitySystemComponent->GetStaminaCostMultiplier() : 1.0f;
+	const float ModifiedStaminaDrain = StaminaDrainPerTick * StaminaCostMultiplier;
+
 	const float CurrentStamina = AbilitySystemComponent->GetNumericAttribute(UBlackoutPlayerAttributeSet::GetStaminaAttribute());
-	if (CurrentStamina < StaminaDrainPerTick)
+	if (CurrentStamina < ModifiedStaminaDrain)
 	{
 		return false;
 	}
 
-	AbilitySystemComponent->ApplyModToAttribute(UBlackoutPlayerAttributeSet::GetStaminaAttribute(), EGameplayModOp::Additive, -StaminaDrainPerTick);
+	AbilitySystemComponent->ApplyModToAttribute(UBlackoutPlayerAttributeSet::GetStaminaAttribute(), EGameplayModOp::Additive, -ModifiedStaminaDrain);
 
-	if (UBlackoutAbilitySystemComponent* BlackoutAbilitySystemComponent = Cast<UBlackoutAbilitySystemComponent>(AbilitySystemComponent))
+	if (UBlackoutAbilitySystemComponent* MutableBlackoutAbilitySystemComponent = Cast<UBlackoutAbilitySystemComponent>(AbilitySystemComponent))
 	{
-		BlackoutAbilitySystemComponent->NotifyStaminaSpent();
+		MutableBlackoutAbilitySystemComponent->NotifyStaminaSpent();
 	}
 
 	return true;

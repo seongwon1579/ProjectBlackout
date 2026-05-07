@@ -3,6 +3,7 @@
 #include "Combat/Components/BlackoutCombatComponent.h"
 #include "Combat/Components/BlackoutImpactIndicatorComponent.h"
 #include "Data/BOCharacterData.h"
+#include "Framework/BlackoutPlayerState.h"
 #include "AbilitySystemInterface.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "Core/BlackoutTypes.h"
@@ -119,7 +120,13 @@ void ABlackoutPlayerCharacter::PossessedBy(AController* NewController)
 
 			if (CharacterData)
 			{
+				if (ABlackoutPlayerState* BlackoutPlayerState = GetPlayerState<ABlackoutPlayerState>())
+				{
+					BlackoutPlayerState->InitializeConsumablesFromCharacterData(CharacterData);
+				}
+
 				AbilitySystemComponent->GiveDefaultAbilities(CharacterData->GrantedAbilities);
+				AbilitySystemComponent->GiveConsumableAbilities(CharacterData->ConsumableSlots);
 
 				if (CombatComponent)
 				{

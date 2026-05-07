@@ -40,6 +40,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat|Accessors")
 	UBlackoutImpactIndicatorComponent* GetImpactIndicatorComponent() const { return ImpactIndicatorComponent; }
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|Data")
+	const UBOCharacterData* GetCharacterData() const { return CharacterData; }
 	
 	UFUNCTION(BlueprintPure, Category = "Blackout|Input")
 	FVector2D GetCachedMoveInput() const { return CachedMoveInput; }
