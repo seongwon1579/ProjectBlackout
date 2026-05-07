@@ -98,6 +98,12 @@ public:
 	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
 	void Multicast_PlayWeaponReloadAnimation();
 
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
+	bool StopWeaponReloadAnimation();
+
+	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
+	void Multicast_StopWeaponReloadAnimation();
+
 protected:
 	void ApplyFirearmStats(const FBlackoutFirearmStat& FirearmStats);
 

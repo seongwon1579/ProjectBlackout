@@ -2,6 +2,7 @@
 
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "AbilitySystemComponent.h"
+#include "AbilitySystemInterface.h"
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
 #include "Combat/Weapons/BOFirearm.h"
@@ -18,6 +19,34 @@ UBlackoutGA_Reload::UBlackoutGA_Reload()
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::LocalPredicted;
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Downed);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Locked);
+}
+
+UBlackoutGA_Reload* UBlackoutGA_Reload::GetActiveReloadAbilityFromActor(const AActor* OwnerActor)
+{
+	const IAbilitySystemInterface* AbilitySystemInterface = Cast<IAbilitySystemInterface>(OwnerActor);
+	const UAbilitySystemComponent* AbilitySystemComponent = AbilitySystemInterface ? AbilitySystemInterface->GetAbilitySystemComponent() : nullptr;
+	if (!AbilitySystemComponent)
+	{
+		return nullptr;
+	}
+
+	for (const FGameplayAbilitySpec& AbilitySpec : AbilitySystemComponent->GetActivatableAbilities())
+	{
+		if (!AbilitySpec.IsActive())
+		{
+			continue;
+		}
+
+		for (UGameplayAbility* AbilityInstance : AbilitySpec.GetAbilityInstances())
+		{
+			if (UBlackoutGA_Reload* ReloadAbility = Cast<UBlackoutGA_Reload>(AbilityInstance))
+			{
+				return ReloadAbility;
+			}
+		}
+	}
+
+	return nullptr;
 }
 
 UAnimMontage* UBlackoutGA_Reload::ResolveReloadMontage(const ABlackoutPlayerCharacter* PlayerCharacter, const ABOFirearm* EquippedFirearm) const
@@ -165,6 +194,8 @@ void UBlackoutGA_Reload::EndAbility(const FGameplayAbilitySpecHandle Handle, con
 	if (ActorInfo && ActorInfo->AvatarActor.IsValid())
 	{
 		ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get());
+		UBlackoutCombatComponent* CombatComponent = PlayerCharacter ? PlayerCharacter->GetCombatComponent() : nullptr;
+		ABOFirearm* EquippedFirearm = CombatComponent ? CombatComponent->GetEquippedFirearm() : nullptr;
 
 		if (bWasCancelled && PlayerCharacter && CachedReloadMontage)
 		{
@@ -176,6 +207,19 @@ void UBlackoutGA_Reload::EndAbility(const FGameplayAbilitySpecHandle Handle, con
 			if (PlayerCharacter->HasAuthority())
 			{
 				PlayerCharacter->Multicast_StopReloadMontage(CachedReloadMontage, 0.1f);
+			}
+		}
+
+		if (bWasCancelled && bWeaponReloadAnimationTriggered && EquippedFirearm)
+		{
+			if (PlayerCharacter->IsLocallyControlled())
+			{
+				EquippedFirearm->StopWeaponReloadAnimation();
+			}
+
+			if (PlayerCharacter->HasAuthority())
+			{
+				EquippedFirearm->Multicast_StopWeaponReloadAnimation();
 			}
 		}
 

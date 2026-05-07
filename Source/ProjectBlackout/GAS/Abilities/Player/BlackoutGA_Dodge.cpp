@@ -5,6 +5,7 @@
 #include "Combat/Components/BlackoutCombatComponent.h"
 #include "Animation/AnimMontage.h"
 #include "GAS/Abilities/Player/BlackoutGA_MeleePlayer.h"
+#include "GAS/Abilities/Player/BlackoutGA_Reload.h"
 #include "GAS/BlackoutAbilitySystemComponent.h"
 #include "Core/BlackoutLog.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -56,6 +57,12 @@ void UBlackoutGA_Dodge::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
 	{
 		BO_LOG_GAS(Log, "GA_Dodge cancelling active melee before dodge");
 		MeleeAbility->K2_CancelAbility();
+	}
+
+	if (UBlackoutGA_Reload* ReloadAbility = UBlackoutGA_Reload::GetActiveReloadAbilityFromActor(PlayerCharacter))
+	{
+		BO_LOG_GAS(Log, "GA_Dodge cancelling active reload before dodge");
+		ReloadAbility->K2_CancelAbility();
 	}
 	
 	// TODO : 백스텝 임시 항상 FALSE  , 추후 방향입력 X DODGE 실행시 백스텝 추가 예정 
