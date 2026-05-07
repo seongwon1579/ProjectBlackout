@@ -73,7 +73,7 @@ void UBlackoutGA_UseConsumable::ActivateAbility(const FGameplayAbilitySpecHandle
 		return;
 	}
 
-	ApplyBuiltInConsumableEffect(ResolvedConsumableData);
+	const bool bKeepAbilityActive = ApplyBuiltInConsumableEffect(ResolvedConsumableData);
 	ApplyConfiguredGameplayEffect(ResolvedConsumableData);
 	StartConsumableCooldown(ResolvedConsumableData);
 
@@ -83,7 +83,30 @@ void UBlackoutGA_UseConsumable::ActivateAbility(const FGameplayAbilitySpecHandle
 		*GetNameSafe(ResolvedConsumableData),
 		*ResolvedConsumableData->ConsumableTag.ToString());
 
-	EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
+	if (!bKeepAbilityActive)
+	{
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
+	}
+}
+
+void UBlackoutGA_UseConsumable::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
+{
+	if (BloodRootAbilitySystemComponent)
+	{
+		if (UWorld* World = BloodRootAbilitySystemComponent->GetWorld())
+		{
+			World->GetTimerManager().ClearTimer(BloodRootHealTimerHandle);
+		}
+	}
+
+	BloodRootAbilitySystemComponent = nullptr;
+	RemainingBloodRootHealAmount = 0.0f;
+	BloodRootHealAmountPerTick = 0.0f;
+	bBloodRootHealInProgress = false;
+	bEndAbilityOnBloodRootHealFinished = false;
+
+	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
 
 const UBOConsumableData* UBlackoutGA_UseConsumable::ResolveConsumableData()
@@ -101,23 +124,24 @@ const UBOConsumableData* UBlackoutGA_UseConsumable::ResolveConsumableData()
 	return ConsumableData;
 }
 
-void UBlackoutGA_UseConsumable::ApplyBuiltInConsumableEffect(const UBOConsumableData* UsedConsumableData)
+bool UBlackoutGA_UseConsumable::ApplyBuiltInConsumableEffect(const UBOConsumableData* UsedConsumableData)
 {
 	if (!UsedConsumableData)
 	{
-		return;
+		return false;
 	}
 
-	if (UsedConsumableData->ConsumableTag.MatchesTagExact(BlackoutGameplayTags::Item_Consumable_BloodRoot))
+	if (UsedConsumableData->ConsumableTag.MatchesTag(BlackoutGameplayTags::Item_Consumable_BloodRoot))
 	{
-		StartBloodRootHealOverTime(UsedConsumableData);
-		return;
+		return StartBloodRootHealOverTime(UsedConsumableData);
 	}
 
-	if (UsedConsumableData->ConsumableTag.MatchesTagExact(BlackoutGameplayTags::Item_Consumable_GulSerum))
+	if (UsedConsumableData->ConsumableTag.MatchesTag(BlackoutGameplayTags::Item_Consumable_GulSerum))
 	{
 		ApplyGulSerumBuff(UsedConsumableData);
 	}
+
+	return false;
 }
 
 void UBlackoutGA_UseConsumable::ApplyConfiguredGameplayEffect(const UBOConsumableData* UsedConsumableData)
@@ -143,10 +167,6 @@ void UBlackoutGA_UseConsumable::ApplyConfiguredGameplayEffect(const UBOConsumabl
 	}
 
 	SpecHandle.Data->AddDynamicAssetTag(UsedConsumableData->ConsumableTag);
-	SpecHandle.Data->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Consumable_HealAmount, UsedConsumableData->HealAmount);
-	SpecHandle.Data->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Consumable_Duration, UsedConsumableData->Duration);
-	SpecHandle.Data->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Consumable_Cooldown, UsedConsumableData->Cooldown);
-
 	for (const TPair<FGameplayTag, float>& EffectMagnitude : UsedConsumableData->EffectMagnitudes)
 	{
 		if (EffectMagnitude.Key.IsValid())
@@ -158,33 +178,50 @@ void UBlackoutGA_UseConsumable::ApplyConfiguredGameplayEffect(const UBOConsumabl
 	AbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
 }
 
-void UBlackoutGA_UseConsumable::StartBloodRootHealOverTime(const UBOConsumableData* UsedConsumableData)
+bool UBlackoutGA_UseConsumable::StartBloodRootHealOverTime(const UBOConsumableData* UsedConsumableData)
 {
 	UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo();
 	if (!UsedConsumableData || !AbilitySystemComponent)
 	{
-		return;
+		return false;
 	}
 
-	const float TotalHealAmount = UsedConsumableData->HealAmount;
+	const float TotalHealAmount = GetEffectMagnitudeOrDefault(
+		UsedConsumableData,
+		BlackoutGameplayTags::Data_Consumable_HealAmount,
+		0.0f);
 	if (TotalHealAmount <= 0.0f)
 	{
 		BO_LOG_GAS(Warning, "블러드 루트 회복 실패: HealAmount가 0 이하입니다. Data=%s", *GetNameSafe(UsedConsumableData));
-		return;
+		return false;
 	}
 
-	const float Duration = UsedConsumableData->Duration;
+	const float Duration = GetEffectMagnitudeOrDefault(
+		UsedConsumableData,
+		BlackoutGameplayTags::Data_Consumable_Duration,
+		0.0f);
 	if (Duration <= 0.0f)
 	{
+		BloodRootAbilitySystemComponent = AbilitySystemComponent;
 		RemainingBloodRootHealAmount = TotalHealAmount;
 		BloodRootHealAmountPerTick = TotalHealAmount;
 		HandleBloodRootHealTick();
-		return;
+		return false;
 	}
 
 	const int32 TickCount = FMath::Max(1, FMath::CeilToInt(Duration / FMath::Max(0.1f, BloodRootHealTickInterval)));
+	BloodRootAbilitySystemComponent = AbilitySystemComponent;
 	RemainingBloodRootHealAmount = TotalHealAmount;
 	BloodRootHealAmountPerTick = TotalHealAmount / static_cast<float>(TickCount);
+	bBloodRootHealInProgress = true;
+	bEndAbilityOnBloodRootHealFinished = false;
+
+	HandleBloodRootHealTick();
+	if (RemainingBloodRootHealAmount <= KINDA_SMALL_NUMBER)
+	{
+		FinishBloodRootHealOverTime(false);
+		return false;
+	}
 
 	if (UWorld* World = AbilitySystemComponent->GetWorld())
 	{
@@ -195,22 +232,21 @@ void UBlackoutGA_UseConsumable::StartBloodRootHealOverTime(const UBOConsumableDa
 			&UBlackoutGA_UseConsumable::HandleBloodRootHealTick,
 			FMath::Max(0.1f, BloodRootHealTickInterval),
 			true,
-			0.0f);
+			FMath::Max(0.1f, BloodRootHealTickInterval));
+		bEndAbilityOnBloodRootHealFinished = true;
+		return true;
 	}
+
+	FinishBloodRootHealOverTime(true);
+	return false;
 }
 
 void UBlackoutGA_UseConsumable::HandleBloodRootHealTick()
 {
-	UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo();
+	UAbilitySystemComponent* AbilitySystemComponent = BloodRootAbilitySystemComponent ? BloodRootAbilitySystemComponent.Get() : GetAbilitySystemComponentFromActorInfo();
 	if (!AbilitySystemComponent || RemainingBloodRootHealAmount <= 0.0f)
 	{
-		if (AbilitySystemComponent)
-		{
-			if (UWorld* World = AbilitySystemComponent->GetWorld())
-			{
-				World->GetTimerManager().ClearTimer(BloodRootHealTimerHandle);
-			}
-		}
+		FinishBloodRootHealOverTime(!AbilitySystemComponent);
 		return;
 	}
 
@@ -218,11 +254,7 @@ void UBlackoutGA_UseConsumable::HandleBloodRootHealTick()
 	const float MaxHealth = AbilitySystemComponent->GetNumericAttribute(UBlackoutBaseAttributeSet::GetMaxHealthAttribute());
 	if (MaxHealth <= 0.0f || CurrentHealth >= MaxHealth)
 	{
-		if (UWorld* World = AbilitySystemComponent->GetWorld())
-		{
-			World->GetTimerManager().ClearTimer(BloodRootHealTimerHandle);
-		}
-		RemainingBloodRootHealAmount = 0.0f;
+		FinishBloodRootHealOverTime(false);
 		return;
 	}
 
@@ -239,11 +271,29 @@ void UBlackoutGA_UseConsumable::HandleBloodRootHealTick()
 	RemainingBloodRootHealAmount -= RawHealAmount;
 	if (RemainingBloodRootHealAmount <= KINDA_SMALL_NUMBER)
 	{
-		if (UWorld* World = AbilitySystemComponent->GetWorld())
+		FinishBloodRootHealOverTime(false);
+	}
+}
+
+void UBlackoutGA_UseConsumable::FinishBloodRootHealOverTime(bool bWasCancelled)
+{
+	if (BloodRootAbilitySystemComponent)
+	{
+		if (UWorld* World = BloodRootAbilitySystemComponent->GetWorld())
 		{
 			World->GetTimerManager().ClearTimer(BloodRootHealTimerHandle);
 		}
-		RemainingBloodRootHealAmount = 0.0f;
+	}
+
+	BloodRootAbilitySystemComponent = nullptr;
+	RemainingBloodRootHealAmount = 0.0f;
+	BloodRootHealAmountPerTick = 0.0f;
+	bBloodRootHealInProgress = false;
+
+	if (bEndAbilityOnBloodRootHealFinished && IsActive())
+	{
+		bEndAbilityOnBloodRootHealFinished = false;
+		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, bWasCancelled);
 	}
 }
 
@@ -259,7 +309,10 @@ void UBlackoutGA_UseConsumable::ApplyGulSerumBuff(const UBOConsumableData* UsedC
 		UsedConsumableData,
 		BlackoutGameplayTags::Data_Consumable_StaminaCostMultiplier,
 		0.5f);
-	const float Duration = UsedConsumableData->Duration > 0.0f ? UsedConsumableData->Duration : 60.0f;
+	const float Duration = GetEffectMagnitudeOrDefault(
+		UsedConsumableData,
+		BlackoutGameplayTags::Data_Consumable_Duration,
+		60.0f);
 
 	BlackoutAbilitySystemComponent->ApplyTemporaryStaminaCostMultiplier(StaminaCostMultiplier, Duration);
 }

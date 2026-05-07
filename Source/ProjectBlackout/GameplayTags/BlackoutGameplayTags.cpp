@@ -25,7 +25,6 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(Data_MovementSpeed, "Data.Stat.MovementSpeed");
 	UE_DEFINE_GAMEPLAY_TAG(Data_Consumable_HealAmount, "Data.Consumable.HealAmount");
 	UE_DEFINE_GAMEPLAY_TAG(Data_Consumable_Duration,   "Data.Consumable.Duration");
-	UE_DEFINE_GAMEPLAY_TAG(Data_Consumable_Cooldown,   "Data.Consumable.Cooldown");
 	UE_DEFINE_GAMEPLAY_TAG(Data_Consumable_StaminaCostMultiplier, "Data.Consumable.StaminaCostMultiplier");
 
 	// ─── Consumables ──────────────────────────────────────────────────────────

@@ -218,8 +218,6 @@ classDiagram
         +float Cooldown
         +TSubclassOf~UGameplayAbility~ UseAbility
         +TSubclassOf~UGameplayEffect~ GameplayEffect
-        +float HealAmount
-        +float Duration
         +TMap~FGameplayTag, float~ EffectMagnitudes
     }
 

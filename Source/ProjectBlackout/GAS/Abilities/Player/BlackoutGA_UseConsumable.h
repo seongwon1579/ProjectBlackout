@@ -22,6 +22,7 @@ public:
 	UBlackoutGA_UseConsumable();
 
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
 
 protected:
 	/** SourceObject가 비어 있을 때 사용할 폴백 소모품 데이터입니다. BP GA에서 직접 지정할 수 있습니다. */
@@ -39,10 +40,11 @@ protected:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Consumable")
 	const UBOConsumableData* ResolveConsumableData();
 
-	void ApplyBuiltInConsumableEffect(const UBOConsumableData* UsedConsumableData);
+	bool ApplyBuiltInConsumableEffect(const UBOConsumableData* UsedConsumableData);
 	void ApplyConfiguredGameplayEffect(const UBOConsumableData* UsedConsumableData);
-	void StartBloodRootHealOverTime(const UBOConsumableData* UsedConsumableData);
+	bool StartBloodRootHealOverTime(const UBOConsumableData* UsedConsumableData);
 	void HandleBloodRootHealTick();
+	void FinishBloodRootHealOverTime(bool bWasCancelled);
 	void ApplyGulSerumBuff(const UBOConsumableData* UsedConsumableData);
 	float GetEffectMagnitudeOrDefault(const UBOConsumableData* UsedConsumableData, FGameplayTag MagnitudeTag, float DefaultValue) const;
 	bool IsConsumableCooldownReady(const UBOConsumableData* UsedConsumableData) const;
@@ -52,7 +54,12 @@ protected:
 	void ReceiveConsumableUsed(const UBOConsumableData* UsedConsumableData);
 
 	FTimerHandle BloodRootHealTimerHandle;
+	UPROPERTY(Transient)
+	TObjectPtr<UAbilitySystemComponent> BloodRootAbilitySystemComponent;
+
 	float RemainingBloodRootHealAmount = 0.0f;
 	float BloodRootHealAmountPerTick = 0.0f;
 	float ConsumableCooldownEndTime = 0.0f;
+	bool bBloodRootHealInProgress = false;
+	bool bEndAbilityOnBloodRootHealFinished = false;
 };

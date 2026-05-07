@@ -55,17 +55,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Consumable|Effect")
 	TSubclassOf<UGameplayEffect> GameplayEffect;
 
-	/** 회복형 소모품에서 사용할 대표 회복량입니다. 비회복형 소모품은 0으로 둡니다. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Consumable|Effect", meta = (ClampMin = 0.f))
-	float HealAmount = 0.f;
-
-	/** 지속 회복 또는 버프 유지 시간입니다. 0이면 즉시 효과로 처리합니다. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Consumable|Effect", meta = (ClampMin = 0.f))
-	float Duration = 0.f;
-
 	/**
 	 * 소모품별 추가 효과 수치입니다.
-	 * 예: Data.Consumable.Resistance, Data.Consumable.CleansePower, Data.Consumable.HealPerTick 등.
+	 * 예: Data.Consumable.HealAmount, Data.Consumable.Duration, Data.Consumable.StaminaCostMultiplier 등.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Consumable|Effect")
 	TMap<FGameplayTag, float> EffectMagnitudes;
