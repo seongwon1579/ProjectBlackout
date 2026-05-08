@@ -13,7 +13,9 @@
 
 UGA_Wraith_FireTwinArrows::UGA_Wraith_FireTwinArrows()
 {
-	AbilityTags.AddTag(BlackoutGameplayTags::Ability_Wraith_FireTwinArrows);
+	FGameplayTagContainer AssetTags;
+	AssetTags.AddTag(BlackoutGameplayTags::Ability_Wraith_FireTwinArrows);
+	SetAssetTags(AssetTags);
 }
 
 void UGA_Wraith_FireTwinArrows::ActivateAbility(

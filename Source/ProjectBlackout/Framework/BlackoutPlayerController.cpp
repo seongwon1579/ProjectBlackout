@@ -239,10 +239,8 @@ void ABlackoutPlayerController::OnSwapWeaponPressed()
 		return;
 	}
 
-	if (UBlackoutCombatComponent* CombatComponent = GetBlackoutCombatComponent())
-	{
-		CombatComponent->SwapWeapon();
-	}
+	HandleAbilityInputPressed(EBlackoutAbilityInputID::SwapWeapon);
+	HandleAbilityInputReleased(EBlackoutAbilityInputID::SwapWeapon);
 }
 
 void ABlackoutPlayerController::OnDodgePressed()
