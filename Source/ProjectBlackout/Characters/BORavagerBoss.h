@@ -8,6 +8,7 @@
 class UStateTree;
 class UBOAggroComponent;
 class UGameplayAbility;
+class USphereComponent;
 
 /**
  * Corrupted Ravager Boss (메인 보스)
@@ -42,6 +43,9 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Aggro")
 	TObjectPtr<UBOAggroComponent> AggroComp;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	TObjectPtr<USphereComponent> Hit_Target;
 
 protected:
 	virtual void OnPhaseChanged(EBossPhase NewPhase) override;

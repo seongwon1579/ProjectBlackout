@@ -13,7 +13,7 @@ void UAnimNotifyState_BossAttackSweep::NotifyBegin(USkeletalMeshComponent* MeshC
 		FGameplayEventData EventData;
 		UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(
 			Owner,
-			BlackoutGameplayTags::Event_Enemy_Attack_SweepStart,
+			BlackoutGameplayTags::Event_Enemy_Attack_OnCollision,
 			EventData
 		);
 	}
@@ -29,7 +29,7 @@ void UAnimNotifyState_BossAttackSweep::NotifyEnd(USkeletalMeshComponent* MeshCom
 		FGameplayEventData EventData;
 		UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(
 			Owner,
-			BlackoutGameplayTags::Event_Enemy_Attack_SweepEnd,
+			BlackoutGameplayTags::Event_Enemy_Attack_OffCollision,
 			EventData
 		);
 	}

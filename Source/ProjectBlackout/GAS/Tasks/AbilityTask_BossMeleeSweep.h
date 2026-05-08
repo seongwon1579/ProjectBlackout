@@ -40,7 +40,16 @@ private:
 	FName EndSocketName;
 	float SweepRadius = 30.f;
 
+	// 이전 프레임 소켓 위치 — 빠른 이동 시 tunneling 방지에 사용
+	FVector PrevStartLoc = FVector::ZeroVector;
+	FVector PrevEndLoc   = FVector::ZeroVector;
+	bool    bFirstTick   = true;
+
 	TArray<TWeakObjectPtr<AActor>> HitActors;
 
+	// 무기 축 샘플 수 — 많을수록 고속 이동 시 정밀도 상승, 성능 트레이드오프
+	static constexpr int32 SweepSamples = 4;
+
 	USkeletalMeshComponent* GetOwnerMesh() const;
+	bool DoSweep(const FVector& From, const FVector& To, const FCollisionQueryParams& Params, FHitResult& OutHit) const;
 };

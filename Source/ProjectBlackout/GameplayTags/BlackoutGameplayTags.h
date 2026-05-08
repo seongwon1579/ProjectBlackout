@@ -79,6 +79,7 @@ namespace BlackoutGameplayTags
 	
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_Swipe_RFromSingle);
 	
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_FlashKick);
 	
 	// ─── Wraith Abilities ─────────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Wraith_FireTwinArrows);
@@ -96,8 +97,8 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Wraith_Invulnerable);
 
 	// ─── Attack Events ────────────────────────────────────────────────────
-	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Enemy_Attack_SweepStart);
-	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Enemy_Attack_SweepEnd);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Enemy_Attack_OnCollision);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Enemy_Attack_OffCollision);
 
 	// ─── Montage Events ───────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Montage_ConsumableApply);
