@@ -287,3 +287,19 @@ void ABOFirearm::Multicast_PlayWeaponReloadAnimation_Implementation()
 {
 	PlayWeaponReloadAnimation();
 }
+
+bool ABOFirearm::StopWeaponReloadAnimation()
+{
+	if (!WeaponMesh)
+	{
+		return false;
+	}
+
+	WeaponMesh->Stop();
+	return true;
+}
+
+void ABOFirearm::Multicast_StopWeaponReloadAnimation_Implementation()
+{
+	StopWeaponReloadAnimation();
+}
