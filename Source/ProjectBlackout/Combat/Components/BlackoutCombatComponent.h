@@ -80,6 +80,12 @@ public:
 	void EndMeleeWeaponAttachmentOverride();
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	void BeginEquippedWeaponHolsterOverride();
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	void EndEquippedWeaponHolsterOverride();
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	ABOWeaponBase* GetEquippedWeapon() const { return EquippedWeapon; }
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
@@ -165,6 +171,12 @@ protected:
 	UFUNCTION()
 	void OnRep_MeleeWeaponAttachmentOverride();
 
+	UFUNCTION()
+	void OnRep_EquippedWeaponHolsterOverride();
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_ApplyEquippedWeaponHolsterOverride(bool bNewHolsterOverride);
+
 	UPROPERTY(Transient, ReplicatedUsing = OnRep_EquippedWeapon, BlueprintReadOnly, Category = "Blackout|Combat")
 	TObjectPtr<ABOWeaponBase> EquippedWeapon;
 
@@ -182,6 +194,9 @@ protected:
 
 	UPROPERTY(ReplicatedUsing = OnRep_MeleeWeaponAttachmentOverride, BlueprintReadOnly, Category = "Blackout|Combat")
 	bool bMeleeWeaponAttachmentOverride = false;
+
+	UPROPERTY(ReplicatedUsing = OnRep_EquippedWeaponHolsterOverride, BlueprintReadOnly, Category = "Blackout|Combat")
+	bool bEquippedWeaponHolsterOverride = false;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
 	FName EquippedWeaponSocketName = TEXT("WeaponSocket");

@@ -39,6 +39,7 @@ void UBlackoutCombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProper
 	DOREPLIFETIME(UBlackoutCombatComponent, MeleeWeapon);
 	DOREPLIFETIME(UBlackoutCombatComponent, bIsAiming);
 	DOREPLIFETIME(UBlackoutCombatComponent, bMeleeWeaponAttachmentOverride);
+	DOREPLIFETIME(UBlackoutCombatComponent, bEquippedWeaponHolsterOverride);
 }
 
 void UBlackoutCombatComponent::InitializeLoadoutFromCharacterData(const UBOCharacterData* CharacterData)
@@ -340,6 +341,38 @@ void UBlackoutCombatComponent::EndMeleeWeaponAttachmentOverride()
 	RefreshWeaponAttachments();
 }
 
+void UBlackoutCombatComponent::BeginEquippedWeaponHolsterOverride()
+{
+	if (!EquippedWeapon)
+	{
+		return;
+	}
+
+	bEquippedWeaponHolsterOverride = true;
+	RefreshWeaponAttachments();
+
+	if (GetOwner() && GetOwner()->HasAuthority())
+	{
+		Multicast_ApplyEquippedWeaponHolsterOverride(true);
+	}
+}
+
+void UBlackoutCombatComponent::EndEquippedWeaponHolsterOverride()
+{
+	if (!bEquippedWeaponHolsterOverride)
+	{
+		return;
+	}
+
+	bEquippedWeaponHolsterOverride = false;
+	RefreshWeaponAttachments();
+
+	if (GetOwner() && GetOwner()->HasAuthority())
+	{
+		Multicast_ApplyEquippedWeaponHolsterOverride(false);
+	}
+}
+
 ABOFirearm* UBlackoutCombatComponent::GetEquippedFirearm() const
 {
 	return Cast<ABOFirearm>(EquippedWeapon);
@@ -443,6 +476,17 @@ void UBlackoutCombatComponent::OnRep_IsAiming()
 
 void UBlackoutCombatComponent::OnRep_MeleeWeaponAttachmentOverride()
 {
+	RefreshWeaponAttachments();
+}
+
+void UBlackoutCombatComponent::OnRep_EquippedWeaponHolsterOverride()
+{
+	RefreshWeaponAttachments();
+}
+
+void UBlackoutCombatComponent::Multicast_ApplyEquippedWeaponHolsterOverride_Implementation(bool bNewHolsterOverride)
+{
+	bEquippedWeaponHolsterOverride = bNewHolsterOverride;
 	RefreshWeaponAttachments();
 }
 
@@ -629,9 +673,10 @@ void UBlackoutCombatComponent::RefreshWeaponAttachments() const
 	const bool bPrimaryEquipped = EquippedWeapon == PrimaryWeapon;
 	const bool bSecondaryEquipped = EquippedWeapon == SecondaryWeapon;
 	const bool bMeleeEquipped = bMeleeWeaponAttachmentOverride && MeleeWeapon;
+	const bool bEquippedWeaponHolstered = bEquippedWeaponHolsterOverride && EquippedWeapon;
 
-	AttachWeapon(PrimaryWeapon, !bMeleeEquipped && bPrimaryEquipped);
-	AttachWeapon(SecondaryWeapon, !bMeleeEquipped && bSecondaryEquipped);
+	AttachWeapon(PrimaryWeapon, !bMeleeEquipped && !bEquippedWeaponHolstered && bPrimaryEquipped);
+	AttachWeapon(SecondaryWeapon, !bMeleeEquipped && !bEquippedWeaponHolstered && bSecondaryEquipped);
 	AttachWeapon(MeleeWeapon, bMeleeEquipped);
 }
 

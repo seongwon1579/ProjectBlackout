@@ -133,4 +133,4 @@ ABlackoutGameMode (서버 베이스)
 - **`.generated.h` 인클루드**를 절대 빠뜨리지 마세요. 항상 해당 파일 `#include` 목록의 **마지막**에 위치해야 합니다.
 - 헤더 파일에는 **`#pragma once`** 를 사용하세요.
 - `UCLASS()`, `USTRUCT()`, `UENUM()` 매크로에는 적절한 **Specifier** (`BlueprintType`, `Blueprintable` 등)를 포함하세요.
-- **모든 코드 내 주석은 한글로 작성**하세요.
+- 코드를 생성할 때 반드시 주석을 포함해야 하며 **모든 코드 내 주석은 한글로 작성**해야 합니다.
