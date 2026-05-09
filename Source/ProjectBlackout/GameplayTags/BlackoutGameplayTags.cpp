@@ -72,9 +72,10 @@ namespace BlackoutGameplayTags
 	
 	// ─── Ravager Abilities ──────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Bite_Single, "Ability.Ravager.Bite.Single");
-	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Bite_DoubleFromSingle, "Ability.Ravager.Bite.DoubleFromSingle");
 	
-	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Swipe_RFromSingle, "Ability.Ravager.Swipe.RFromSingle");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_FromSingle_SwipeL, "Ability.Ravager.FromSingle.SwipeL");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_FromSingle_SwipeR, "Ability.Ravager.FromSingle.SwipeR");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_FromSingle_Double, "Ability.Ravager.FromSingle.Double");
 	
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_FlashKick, "Ability.Ravager.FlashKick");
 	
