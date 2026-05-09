@@ -1,6 +1,8 @@
 #include "GAS/Abilities/Player/BlackoutGA_FireWeapon.h"
 
+#include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "AbilitySystemComponent.h"
+#include "Animation/AnimMontage.h"
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
 #include "Combat/Components/BlackoutImpactIndicatorComponent.h"
@@ -9,6 +11,8 @@
 #include "Core/BlackoutLog.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "GAS/Attributes/BlackoutAmmoAttributeSet.h"
+#include "TimerManager.h"
+#include "Engine/World.h"
 #include "GameFramework/Character.h"
 
 UBlackoutGA_FireWeapon::UBlackoutGA_FireWeapon()
@@ -27,7 +31,7 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 {
 	BO_LOG_GAS(Log, "GA_FireWeapon activate requested");
 
-	const ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
+	ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
 	UBlackoutCombatComponent* CombatComponent = PlayerCharacter ? PlayerCharacter->GetCombatComponent() : nullptr;
 	const UBlackoutImpactIndicatorComponent* ImpactIndicatorComponent = PlayerCharacter ? PlayerCharacter->GetImpactIndicatorComponent() : nullptr;
 	ABOFirearm* EquippedFirearm = CombatComponent ? CombatComponent->GetEquippedFirearm() : nullptr;
@@ -58,6 +62,29 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 
 	BO_LOG_GAS(Log, "GA_FireWeapon activated: Character=%s, Weapon=%s", *GetNameSafe(ActorInfo ? ActorInfo->AvatarActor.Get() : nullptr), *GetNameSafe(EquippedFirearm));
 
+	const FGameplayTag FireAnimTag = EquippedFirearm->GetFireAnimTag();
+	CachedFireMontage = PlayerCharacter ? PlayerCharacter->GetFireMontageForTag(FireAnimTag) : nullptr;
+	bWeaponFireAnimationTriggered = false;
+
+	if (FireAnimTag.IsValid() && !CachedFireMontage)
+	{
+		BO_LOG_GAS(Warning,
+			"GA_FireWeapon fire montage lookup failed: Character=%s Weapon=%s FireAnimTag=%s",
+			*GetNameSafe(PlayerCharacter),
+			*GetNameSafe(EquippedFirearm),
+			*FireAnimTag.ToString());
+	}
+
+	if (CachedFireMontage)
+	{
+		if (UAbilityTask_WaitGameplayEvent* WaitEventTask =
+			UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(this, BlackoutGameplayTags::Event_Montage_FireWeaponStart))
+		{
+			WaitEventTask->EventReceived.AddDynamic(this, &UBlackoutGA_FireWeapon::OnWeaponFireStartEventReceived);
+			WaitEventTask->ReadyForActivation();
+		}
+	}
+
 	// 2. 사격 애니메이션 몽타주 재생
 	PlayFireMontage();
 
@@ -86,11 +113,71 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 		AbilitySystemComponent->ExecuteGameplayCue(BlackoutGameplayTags::GameplayCue_Weapon_Fire);
 	}
 
+	if (CachedFireMontage)
+	{
+		if (PlayerCharacter->HasAuthority())
+		{
+			const float MontageDuration = CachedFireMontage->GetPlayLength();
+			if (MontageDuration > 0.0f)
+			{
+				if (UWorld* World = ActorInfo->AvatarActor.IsValid() ? ActorInfo->AvatarActor->GetWorld() : nullptr)
+				{
+					World->GetTimerManager().SetTimer(FireMontageCompletionTimerHandle, this, &UBlackoutGA_FireWeapon::OnFireMontageCompleted, MontageDuration, false);
+				}
+				return;
+			}
+
+			OnFireMontageCompleted();
+		}
+
+		return;
+	}
+
 	EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
 }
 
 void UBlackoutGA_FireWeapon::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
 {
+	if (ActorInfo && ActorInfo->AvatarActor.IsValid())
+	{
+		ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get());
+		UBlackoutCombatComponent* CombatComponent = PlayerCharacter ? PlayerCharacter->GetCombatComponent() : nullptr;
+		ABOFirearm* EquippedFirearm = CombatComponent ? CombatComponent->GetEquippedFirearm() : nullptr;
+
+		if (bWasCancelled && PlayerCharacter && CachedFireMontage)
+		{
+			if (PlayerCharacter->IsLocallyControlled())
+			{
+				PlayerCharacter->StopFireMontage(CachedFireMontage, 0.1f);
+			}
+
+			if (PlayerCharacter->HasAuthority())
+			{
+				PlayerCharacter->Multicast_StopFireMontage(CachedFireMontage, 0.1f);
+			}
+		}
+
+		if (bWasCancelled && bWeaponFireAnimationTriggered && EquippedFirearm)
+		{
+			if (PlayerCharacter->IsLocallyControlled())
+			{
+				EquippedFirearm->StopWeaponFireAnimation();
+			}
+
+			if (PlayerCharacter->HasAuthority())
+			{
+				EquippedFirearm->Multicast_StopWeaponFireAnimation();
+			}
+		}
+
+		if (UWorld* World = ActorInfo->AvatarActor->GetWorld())
+		{
+			World->GetTimerManager().ClearTimer(FireMontageCompletionTimerHandle);
+		}
+	}
+
+	CachedFireMontage = nullptr;
+	bWeaponFireAnimationTriggered = false;
 	BO_LOG_GAS(Log, "GA_FireWeapon ended: Cancelled=%s", bWasCancelled ? TEXT("true") : TEXT("false"));
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
@@ -191,5 +278,94 @@ bool UBlackoutGA_FireWeapon::ApplyAmmoCost()
 
 void UBlackoutGA_FireWeapon::PlayFireMontage()
 {
-	// TODO: 캐릭터 사격 몽타주 재생 (PlayMontageAndWait 활용)
+	ABlackoutPlayerCharacter* PlayerCharacter =
+		CurrentActorInfo ? Cast<ABlackoutPlayerCharacter>(CurrentActorInfo->AvatarActor.Get()) : nullptr;
+	UBlackoutCombatComponent* CombatComponent = PlayerCharacter ? PlayerCharacter->GetCombatComponent() : nullptr;
+	ABOFirearm* EquippedFirearm = CombatComponent ? CombatComponent->GetEquippedFirearm() : nullptr;
+	if (!PlayerCharacter || !EquippedFirearm)
+	{
+		BO_LOG_GAS(Warning, "PlayFireMontage failed: PlayerCharacter 또는 EquippedFirearm이 유효하지 않음");
+		return;
+	}
+
+	UAnimMontage* FireMontage = CachedFireMontage.Get();
+	if (!FireMontage)
+	{
+		return;
+	}
+
+	if (PlayerCharacter->IsLocallyControlled())
+	{
+		PlayerCharacter->PlayFireMontage(FireMontage, 1.f, false);
+	}
+
+	if (PlayerCharacter->HasAuthority())
+	{
+		PlayerCharacter->Multicast_PlayFireMontage(FireMontage, 1.f, false);
+	}
+
+	BO_LOG_GAS(Log,
+		"PlayFireMontage: Character=%s Weapon=%s Montage=%s",
+		*GetNameSafe(PlayerCharacter),
+		*GetNameSafe(EquippedFirearm),
+		*GetNameSafe(FireMontage));
+}
+
+void UBlackoutGA_FireWeapon::OnWeaponFireStartEventReceived(FGameplayEventData Payload)
+{
+	if (bWeaponFireAnimationTriggered)
+	{
+		return;
+	}
+
+	ABlackoutPlayerCharacter* PlayerCharacter =
+		CurrentActorInfo ? Cast<ABlackoutPlayerCharacter>(CurrentActorInfo->AvatarActor.Get()) : nullptr;
+	UBlackoutCombatComponent* CombatComponent = PlayerCharacter ? PlayerCharacter->GetCombatComponent() : nullptr;
+	ABOFirearm* EquippedFirearm = CombatComponent ? CombatComponent->GetEquippedFirearm() : nullptr;
+	if (!PlayerCharacter || !EquippedFirearm)
+	{
+		BO_LOG_GAS(Warning, "GA_FireWeapon fire event ignored: PlayerCharacter 또는 EquippedFirearm이 유효하지 않음");
+		return;
+	}
+
+	bWeaponFireAnimationTriggered = true;
+
+	if (PlayerCharacter->IsLocallyControlled())
+	{
+		EquippedFirearm->PlayWeaponFireAnimation();
+	}
+
+	if (PlayerCharacter->HasAuthority())
+	{
+		EquippedFirearm->Multicast_PlayWeaponFireAnimation();
+	}
+
+	BO_LOG_GAS(Log,
+		"GA_FireWeapon fire event received: Character=%s Weapon=%s EventTag=%s",
+		*GetNameSafe(PlayerCharacter),
+		*GetNameSafe(EquippedFirearm),
+		*Payload.EventTag.ToString());
+}
+
+void UBlackoutGA_FireWeapon::OnFireMontageCompleted()
+{
+	if (!CurrentActorInfo || !CurrentActorInfo->AvatarActor.IsValid() || !CurrentActorInfo->AvatarActor->HasAuthority())
+	{
+		return;
+	}
+
+	if (CachedFireMontage && !bWeaponFireAnimationTriggered)
+	{
+		ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(CurrentActorInfo->AvatarActor.Get());
+		UBlackoutCombatComponent* CombatComponent = PlayerCharacter ? PlayerCharacter->GetCombatComponent() : nullptr;
+		const ABOFirearm* EquippedFirearm = CombatComponent ? CombatComponent->GetEquippedFirearm() : nullptr;
+		BO_LOG_GAS(Warning,
+			"GA_FireWeapon montage completed without fire event: Character=%s Weapon=%s Montage=%s",
+			*GetNameSafe(PlayerCharacter),
+			*GetNameSafe(EquippedFirearm),
+			*GetNameSafe(CachedFireMontage));
+	}
+
+	BO_LOG_GAS(Log, "GA_FireWeapon montage completed");
+	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
 }

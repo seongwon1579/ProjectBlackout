@@ -57,6 +57,7 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(Weapon_Secondary, "Weapon.Secondary");
 
 	// ─── Reload Animation ─────────────────────────────────────────────────────
+	UE_DEFINE_GAMEPLAY_TAG(Animation_Fire_RustyLeverAction,      "Animation.Fire.RustyLeverAction");
 	UE_DEFINE_GAMEPLAY_TAG(Animation_Reload_ChicagoTypewriter, "Animation.Reload.ChicagoTypewriter");
 	UE_DEFINE_GAMEPLAY_TAG(Animation_Reload_RepeaterPistol,    "Animation.Reload.RepeaterPistol");
 	UE_DEFINE_GAMEPLAY_TAG(Animation_Reload_Sporebloom,        "Animation.Reload.Sporebloom");
@@ -99,6 +100,7 @@ namespace BlackoutGameplayTags
 
 	// ─── Montage Events ───────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Event_Montage_ConsumableApply, "Event.Montage.ConsumableApply");
+	UE_DEFINE_GAMEPLAY_TAG(Event_Montage_FireWeaponStart, "Event.Montage.Fire.WeaponStart");
 	UE_DEFINE_GAMEPLAY_TAG(Event_Montage_ReloadWeaponStart, "Event.Montage.Reload.WeaponStart");
 	UE_DEFINE_GAMEPLAY_TAG(Event_Montage_ReloadAmmoCommit, "Event.Montage.Reload.AmmoCommit");
 	UE_DEFINE_GAMEPLAY_TAG(Event_Montage_WeaponSwapCommit, "Event.Montage.WeaponSwap.Commit");

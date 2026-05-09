@@ -71,6 +71,8 @@ void UBlackoutGA_MeleePlayer::ActivateAbility(const FGameplayAbilitySpecHandle H
 		(ComboSectionNames.Num() > 0 && ComboSectionNames[0] != NAME_None)
 			? ComboSectionNames[0]
 			: NAME_None;
+	
+	SnapToControllYaw();
 
 	bool bMontageStarted = false;
 	if (ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()))
@@ -405,6 +407,7 @@ bool UBlackoutGA_MeleePlayer::JumpToNextComboSection()
 
 	const FName PreviousSectionName = ActiveAnimInstance->Montage_GetCurrentSection(MeleeMontage);
 	bComboInputQueued = false;
+	SnapToControllYaw();
 	ActiveAnimInstance->Montage_JumpToSection(TargetSectionName, MeleeMontage);
 
 	const FName CurrentSectionName = ActiveAnimInstance->Montage_GetCurrentSection(MeleeMontage);
@@ -448,6 +451,20 @@ UAnimInstance* UBlackoutGA_MeleePlayer::GetAvatarAnimInstance() const
 	const ACharacter* Character = CurrentActorInfo ? Cast<ACharacter>(CurrentActorInfo->AvatarActor.Get()) : nullptr;
 	USkeletalMeshComponent* MeshComponent = Character ? Character->GetMesh() : nullptr;
 	return MeshComponent ? MeshComponent->GetAnimInstance() : nullptr;
+}
+
+void UBlackoutGA_MeleePlayer::SnapToControllYaw()
+{
+	
+	if (ABlackoutPlayerCharacter* PlayerCharacter = CurrentActorInfo ? Cast<ABlackoutPlayerCharacter>(CurrentActorInfo->AvatarActor.Get()) : nullptr)
+	{
+		if (AController* Controller = PlayerCharacter->GetController())
+		{
+			const FRotator ControlRotation = Controller->GetControlRotation();
+			PlayerCharacter->SetActorRotation(FRotator(0.f, ControlRotation.Yaw, 0.f));
+		}
+	}
+	
 }
 
 FGameplayEffectSpecHandle UBlackoutGA_MeleePlayer::BuildDamageSpec() const

@@ -17,6 +17,18 @@ class UAnimMontage;
 struct FInputActionValue;
 
 USTRUCT(BlueprintType)
+struct FBlackoutFireMontageEntry
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Animation")
+	FGameplayTag FireAnimTag;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Animation")
+	TObjectPtr<UAnimMontage> Montage = nullptr;
+};
+
+USTRUCT(BlueprintType)
 struct FBlackoutReloadMontageEntry
 {
 	GENERATED_BODY()
@@ -74,16 +86,28 @@ public:
 	void Server_ReviveFromDowned(float RevivedHealth);
 
 	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
-	void Multicast_PlayDodgeMontage(UAnimMontage* Montage, float PlayRate = 1.f);
+	void Multicast_PlayDodgeMontage(UAnimMontage* Montage, float PlayRate = 1.f, bool bRestartIfPlaying = false);
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
-	bool PlayDodgeMontage(UAnimMontage* Montage, float PlayRate = 1.f);
+	bool PlayDodgeMontage(UAnimMontage* Montage, float PlayRate = 1.f, bool bRestartIfPlaying = false);
 
 	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
 	void Multicast_PlayHitReactMontage(UAnimMontage* Montage, float PlayRate = 1.f);
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
 	bool PlayHitReactMontage(UAnimMontage* Montage, float PlayRate = 1.f);
+
+	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
+	void Multicast_PlayFireMontage(UAnimMontage* Montage, float PlayRate = 1.f, bool bRestartIfPlaying = false);
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
+	bool PlayFireMontage(UAnimMontage* Montage, float PlayRate = 1.f, bool bRestartIfPlaying = false);
+
+	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
+	void Multicast_StopFireMontage(UAnimMontage* Montage, float BlendOutTime = 0.1f);
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
+	bool StopFireMontage(UAnimMontage* Montage, float BlendOutTime = 0.1f);
 
 	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
 	void Multicast_PlayReloadMontage(UAnimMontage* Montage, float PlayRate = 1.f);
@@ -147,6 +171,9 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Blackout|Animation")
 	bool IsHitReactMontagePlaying() const { return bIsHitReactMontagePlaying; }
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|Animation")
+	UAnimMontage* GetFireMontageForTag(FGameplayTag FireAnimTag) const;
 
 	UFUNCTION(BlueprintPure, Category = "Blackout|Animation")
 	UAnimMontage* GetReloadMontageForTag(FGameplayTag ReloadAnimTag, bool bIsTwoHanded) const;
@@ -297,6 +324,9 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
 	TObjectPtr<UAnimMontage> HitReactMontage;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
+	TArray<FBlackoutFireMontageEntry> FireMontageEntries;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
 	TArray<FBlackoutReloadMontageEntry> ReloadMontageEntries;

@@ -60,6 +60,7 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Weapon_Secondary);
 
 	// ─── Reload Animation ─────────────────────────────────────────────────────
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Animation_Fire_RustyLeverAction);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Animation_Reload_ChicagoTypewriter);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Animation_Reload_RepeaterPistol);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Animation_Reload_Sporebloom);
@@ -104,6 +105,7 @@ namespace BlackoutGameplayTags
 
 	// ─── Montage Events ───────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Montage_ConsumableApply);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Montage_FireWeaponStart);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Montage_ReloadWeaponStart);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Montage_ReloadAmmoCommit);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Montage_WeaponSwapCommit);
