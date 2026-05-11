@@ -7,6 +7,7 @@
 #include "Components/Widget.h"
 #include "UI/BlackoutConsumableSlotsWidget.h"
 #include "UI/BlackoutHUDWidgetController.h"
+#include "UI/BlackoutRelicWidget.h"
 #include "UI/BlackoutValueBarWidget.h"
 #include "UI/BlackoutWeaponAmmoWidget.h"
 
@@ -53,6 +54,7 @@ void UBlackoutHUDWidget::SetWidgetController(UBlackoutHUDWidgetController* InWid
 	WidgetController->OnEquippedWeaponChanged.AddDynamic(this, &UBlackoutHUDWidget::HandleEquippedWeaponChanged);
 	WidgetController->OnAimingChanged.AddDynamic(this, &UBlackoutHUDWidget::HandleAimingChanged);
 	WidgetController->OnWeaponAmmoDisplayChanged.AddDynamic(this, &UBlackoutHUDWidget::HandleWeaponAmmoDisplayChanged);
+	WidgetController->OnRelicChargesChanged.AddDynamic(this, &UBlackoutHUDWidget::HandleRelicChargesChanged);
 	WidgetController->OnConsumablesChanged.AddDynamic(this, &UBlackoutHUDWidget::HandleConsumablesChanged);
 	WidgetController->OnConsumableSlotsChanged.AddDynamic(this, &UBlackoutHUDWidget::HandleConsumableSlotsChanged);
 
@@ -72,6 +74,7 @@ void UBlackoutHUDWidget::UnbindWidgetControllerCallbacks()
 	WidgetController->OnEquippedWeaponChanged.RemoveAll(this);
 	WidgetController->OnAimingChanged.RemoveAll(this);
 	WidgetController->OnWeaponAmmoDisplayChanged.RemoveAll(this);
+	WidgetController->OnRelicChargesChanged.RemoveAll(this);
 	WidgetController->OnConsumablesChanged.RemoveAll(this);
 	WidgetController->OnConsumableSlotsChanged.RemoveAll(this);
 }
@@ -180,6 +183,16 @@ void UBlackoutHUDWidget::HandleWeaponAmmoDisplayChanged(
 	}
 
 	ReceiveWeaponAmmoDisplayChanged(PrimaryWeaponData, SecondaryWeaponData, bPlaySwapAnimation);
+}
+
+void UBlackoutHUDWidget::HandleRelicChargesChanged(int32 CurrentCharges, int32 MaxCharges)
+{
+	if (RelicWidget)
+	{
+		RelicWidget->SetRelicCharges(CurrentCharges, MaxCharges);
+	}
+
+	ReceiveRelicChargesChanged(CurrentCharges, MaxCharges);
 }
 
 void UBlackoutHUDWidget::HandleConsumablesChanged(int32 BloodRootCount, int32 GulSerumCount)

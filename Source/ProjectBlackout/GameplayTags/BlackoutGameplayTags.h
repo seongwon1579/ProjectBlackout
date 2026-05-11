@@ -20,6 +20,7 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Player_Reload);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Player_SwapWeapon);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Player_Sprint);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Player_UseRelic);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Player_UseConsumable);
 
 	// ─── Character Class ───────────────────────────────────────────────────────
@@ -108,6 +109,7 @@ namespace BlackoutGameplayTags
 
 	// ─── Montage Events ───────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Montage_ConsumableApply);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Montage_RelicApply);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Montage_FireWeaponStart);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Montage_ReloadWeaponStart);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Montage_ReloadAmmoCommit);
