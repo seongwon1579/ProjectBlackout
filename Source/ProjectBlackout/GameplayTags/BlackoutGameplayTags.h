@@ -86,6 +86,12 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_FromSingle_SwipeR);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_FromSingle_Double);
 	
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_Swipe_L);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_Swipe_LFromR);
+	
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_Swipe_R);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_Swipe_RFromL);
+	
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_FlashKick);
 	
 	// ─── Wraith Abilities ─────────────────────────────────────────────────────────

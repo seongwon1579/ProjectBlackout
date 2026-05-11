@@ -1,4 +1,4 @@
-#include "AI/BehaviorTree/Tasks/BTT_ActivatAbility.h"
+#include "AI/BehaviorTree/Tasks/BTT_ActivateAbility.h"
 #include "AIController.h"
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemGlobals.h"
@@ -7,13 +7,13 @@
 #include "Abilities/GameplayAbility.h"
 #include "BehaviorTree/BTNodeHelper.h"
 
-UBTT_ActivatAbility::UBTT_ActivatAbility()
+UBTT_ActivateAbility::UBTT_ActivateAbility()
 {
 	NodeName = "Activate Boss Ability";
 	bCreateNodeInstance = true;
 }
 
-EBTNodeResult::Type UBTT_ActivatAbility::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
+EBTNodeResult::Type UBTT_ActivateAbility::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
 	// AAIController* AI = OwnerComp.GetAIOwner();
 	// if (!AI || !AI->GetPawn()) return EBTNodeResult::Failed;
@@ -38,7 +38,7 @@ EBTNodeResult::Type UBTT_ActivatAbility::ExecuteTask(UBehaviorTreeComponent& Own
 	{
 		CachedOwnerComp = &OwnerComp;
 		CachedASC       = ASC;
-		ASC->AbilityActivatedCallbacks.AddUObject(this, &UBTT_ActivatAbility::HandleAbilityActivated);
+		ASC->AbilityActivatedCallbacks.AddUObject(this, &UBTT_ActivateAbility::HandleAbilityActivated);
 	}
 
 	const int32 TriggeredCount = ASC->HandleGameplayEvent(Tag, &EventData);
@@ -53,7 +53,7 @@ EBTNodeResult::Type UBTT_ActivatAbility::ExecuteTask(UBehaviorTreeComponent& Own
 	return EBTNodeResult::InProgress;
 }
 
-void UBTT_ActivatAbility::HandleAbilityActivated(UGameplayAbility* Ability)
+void UBTT_ActivateAbility::HandleAbilityActivated(UGameplayAbility* Ability)
 {
 	if (CachedASC.IsValid())
 	{
@@ -61,10 +61,10 @@ void UBTT_ActivatAbility::HandleAbilityActivated(UGameplayAbility* Ability)
 	}
 
 	BoundAbility = Ability;
-	Ability->OnGameplayAbilityEnded.AddUObject(this, &UBTT_ActivatAbility::HandleAbilityEnded);
+	Ability->OnGameplayAbilityEnded.AddUObject(this, &UBTT_ActivateAbility::HandleAbilityEnded);
 }
 
-void UBTT_ActivatAbility::HandleAbilityEnded(UGameplayAbility* Ability)
+void UBTT_ActivateAbility::HandleAbilityEnded(UGameplayAbility* Ability)
 {
 	UnbindDelegate();
 	if (CachedOwnerComp)
@@ -74,14 +74,14 @@ void UBTT_ActivatAbility::HandleAbilityEnded(UGameplayAbility* Ability)
 	}
 }
 
-EBTNodeResult::Type UBTT_ActivatAbility::AbortTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
+EBTNodeResult::Type UBTT_ActivateAbility::AbortTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
 	UnbindDelegate();
 	CachedOwnerComp = nullptr;
 	return EBTNodeResult::Aborted;
 }
 
-void UBTT_ActivatAbility::UnbindDelegate()
+void UBTT_ActivateAbility::UnbindDelegate()
 {
 	if (CachedASC.IsValid())
 	{
@@ -96,7 +96,7 @@ void UBTT_ActivatAbility::UnbindDelegate()
 	BoundAbility.Reset();
 }
 
-FString UBTT_ActivatAbility::GetStaticDescription() const
+FString UBTT_ActivateAbility::GetStaticDescription() const
 {
 	if (bReadTagFromBlackboard)
 	{
@@ -105,7 +105,7 @@ FString UBTT_ActivatAbility::GetStaticDescription() const
 	return FString::Printf(TEXT("Activate GA: %s"), *AbilityTag.ToString());
 }
 
-FGameplayTag UBTT_ActivatAbility::ResolveAbilityTag(UBehaviorTreeComponent& OwnerComp) const
+FGameplayTag UBTT_ActivateAbility::ResolveAbilityTag(UBehaviorTreeComponent& OwnerComp) const
 {
 	if (!bReadTagFromBlackboard)
 	{
