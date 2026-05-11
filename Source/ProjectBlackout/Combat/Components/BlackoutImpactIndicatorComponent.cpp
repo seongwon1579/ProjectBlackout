@@ -1,5 +1,8 @@
 #include "Combat/Components/BlackoutImpactIndicatorComponent.h"
 
+#include "AbilitySystemComponent.h"
+#include "AbilitySystemGlobals.h"
+#include "BlackoutLog.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
 #include "Combat/Weapons/BOFirearm.h"
 #include "Combat/Weapons/BOProjectile.h"
@@ -9,11 +12,17 @@
 #include "Engine/World.h"
 #include "GameFramework/Controller.h"
 #include "GameFramework/Pawn.h"
+#include "GameFramework/PlayerState.h"
+#include "GameplayTags/BlackoutGameplayTags.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/GameplayStaticsTypes.h"
 
 namespace
 {
+	// 카메라 떨림과 소켓의 미세한 흔들림 때문에 매 프레임 캐시가 무효화되지 않도록 허용 오차를 둡니다.
+	constexpr float ImpactIndicatorCameraRotationToleranceDegrees = 0.05f;
+	constexpr float ImpactIndicatorMuzzleLocationTolerance = 0.5f;
+
 	void AppendIgnoredProjectiles(UWorld* World, TArray<TObjectPtr<AActor>>& OutIgnoredActors)
 	{
 		if (!World)
@@ -57,6 +66,8 @@ UBlackoutImpactIndicatorComponent::UBlackoutImpactIndicatorComponent()
 void UBlackoutImpactIndicatorComponent::Initialize(UBlackoutCombatComponent* InCombatComponent)
 {
 	CombatComponent = InCombatComponent;
+	bHasCachedIndicatorData = false;
+	CachedIndicatorData = FBlackoutImpactIndicatorData();
 }
 
 bool UBlackoutImpactIndicatorComponent::GetImpactIndicatorData(FBlackoutImpactIndicatorData& OutIndicatorData) const
@@ -64,18 +75,46 @@ bool UBlackoutImpactIndicatorComponent::GetImpactIndicatorData(FBlackoutImpactIn
 	OutIndicatorData = FBlackoutImpactIndicatorData();
 
 	const UBlackoutCombatComponent* ResolvedCombatComponent = ResolveCombatComponent();
+	const float SpreadNormalized = ResolvedCombatComponent ? ResolvedCombatComponent->GetNormalizedSpread() : 0.0f;
 
-	// 조준 여부와 무관하게 현재 스프레드는 항상 전달
-	OutIndicatorData.SpreadNormalized = ResolvedCombatComponent ? ResolvedCombatComponent->GetNormalizedSpread() : 0.0f;
-
-	if (!ResolvedCombatComponent || !ResolvedCombatComponent->IsAiming())
+	FBlackoutImpactIndicatorUpdateKey UpdateKey;
+	if (!BuildImpactIndicatorUpdateKey(UpdateKey))
 	{
+		bHasCachedIndicatorData = false;
+		CachedIndicatorData = FBlackoutImpactIndicatorData();
+		OutIndicatorData.SpreadNormalized = SpreadNormalized;
 		return false;
 	}
 
-	const ABOFirearm* Firearm = ResolvedCombatComponent->GetEquippedFirearm();
+	if (!bHasCachedIndicatorData || HasImpactIndicatorUpdateInputChanged(UpdateKey))
+	{
+		(bool)RefreshCachedImpactIndicatorData(UpdateKey, SpreadNormalized);
+	}
+
+	// 탄퍼짐은 매 틱 달라질 수 있으므로 착탄 예측을 다시 돌리지 않고 캐시에 값만 덮어씁니다.
+	CachedIndicatorData.SpreadNormalized = SpreadNormalized;
+	OutIndicatorData = CachedIndicatorData;
+
+	return OutIndicatorData.bIsVisible;
+}
+
+bool UBlackoutImpactIndicatorComponent::RefreshCachedImpactIndicatorData(const FBlackoutImpactIndicatorUpdateKey& UpdateKey, float SpreadNormalized) const
+{
+	FBlackoutImpactIndicatorData RefreshedData;
+	RefreshedData.SpreadNormalized = SpreadNormalized;
+	LastUpdateKey = UpdateKey;
+	bHasCachedIndicatorData = true;
+
+	if (!UpdateKey.bIsAiming || UpdateKey.bIsReloading)
+	{
+		CachedIndicatorData = RefreshedData;
+		return true;
+	}
+
+	const ABOFirearm* Firearm = UpdateKey.EquippedFirearm.Get();
 	if (!Firearm)
 	{
+		CachedIndicatorData = RefreshedData;
 		return false;
 	}
 
@@ -83,31 +122,60 @@ bool UBlackoutImpactIndicatorComponent::GetImpactIndicatorData(FBlackoutImpactIn
 	FVector AimTraceEnd = FVector::ZeroVector;
 	if (!GetAimTargetHitResult(AimHitResult, AimTraceEnd))
 	{
+		CachedIndicatorData = RefreshedData;
 		return false;
 	}
 
 	FHitResult TrueImpactHitResult;
 	FVector ImpactPoint = FVector::ZeroVector;
 	FVector TraceEnd = FVector::ZeroVector;
-	if (!GetTrueImpactPoint(TrueImpactHitResult, ImpactPoint, TraceEnd))
+	float ProjectileTravelDistance = 0.0f;
+	TArray<FBlackoutTrajectoryPointData> TrajectoryPoints;
+	if (!GetTrueImpactPointInternal(TrueImpactHitResult, ImpactPoint, TraceEnd, &ProjectileTravelDistance, &TrajectoryPoints))
 	{
+		CachedIndicatorData = RefreshedData;
 		return false;
 	}
 
 	const bool bUsesProjectilePrediction = !Firearm->UsesHitscan();
+	const float DistanceFromMuzzle = FVector::Dist(Firearm->GetMuzzleTransform().GetLocation(), ImpactPoint);
+	const float ProjectileImpactFuseArmDistance = Firearm->GetProjectileImpactFuseArmDistance();
 
-	OutIndicatorData.bIsVisible = true;
-	OutIndicatorData.bHasBlockingHit = TrueImpactHitResult.bBlockingHit;
-	OutIndicatorData.bUsesProjectilePrediction = bUsesProjectilePrediction;
-	OutIndicatorData.bTargetMismatch = !bUsesProjectilePrediction
+	RefreshedData.bIsVisible = true;
+	RefreshedData.bHasBlockingHit = TrueImpactHitResult.bBlockingHit;
+	RefreshedData.bUsesProjectilePrediction = bUsesProjectilePrediction;
+	RefreshedData.bProjectileImpactFuseInactive = bUsesProjectilePrediction
+		&& TrueImpactHitResult.bBlockingHit
+		&& ProjectileImpactFuseArmDistance > 0.0f
+		&& ProjectileTravelDistance < ProjectileImpactFuseArmDistance;
+	RefreshedData.bTargetMismatch = !bUsesProjectilePrediction
 		&& AimHitResult.bBlockingHit
 		&& ResolveTargetActor(AimHitResult) != ResolveTargetActor(TrueImpactHitResult);
-	OutIndicatorData.bIsOccludedFromCamera = bUsesProjectilePrediction
+	RefreshedData.bIsOccludedFromCamera = bUsesProjectilePrediction
 		&& IsProjectileImpactOccludedFromCamera(Firearm, ImpactPoint);
-	OutIndicatorData.WorldLocation = ImpactPoint;
-	OutIndicatorData.TraceEndLocation = TraceEnd;
-	OutIndicatorData.DistanceFromMuzzle = FVector::Dist(Firearm->GetMuzzleTransform().GetLocation(), ImpactPoint);
+	RefreshedData.WorldLocation = ImpactPoint;
+	RefreshedData.TraceEndLocation = TraceEnd;
+	RefreshedData.DistanceFromMuzzle = DistanceFromMuzzle;
+	RefreshedData.TrajectoryPoints = MoveTemp(TrajectoryPoints);
 
+	for (FBlackoutTrajectoryPointData& TrajectoryPoint : RefreshedData.TrajectoryPoints)
+	{
+		// HUD는 전투 조건을 다시 계산하지 않고 포인트별 상태만 보고 색상을 선택합니다.
+		if (ProjectileImpactFuseArmDistance > 0.0f && TrajectoryPoint.DistanceFromMuzzle < ProjectileImpactFuseArmDistance)
+		{
+			TrajectoryPoint.VisualState = EBlackoutTrajectoryVisualState::FuseInactive;
+		}
+		else if (RefreshedData.bIsOccludedFromCamera)
+		{
+			TrajectoryPoint.VisualState = EBlackoutTrajectoryVisualState::Occluded;
+		}
+		else
+		{
+			TrajectoryPoint.VisualState = EBlackoutTrajectoryVisualState::Normal;
+		}
+	}
+
+	CachedIndicatorData = RefreshedData;
 	return true;
 }
 
@@ -155,9 +223,27 @@ FVector UBlackoutImpactIndicatorComponent::GetAimTargetPoint() const
 
 bool UBlackoutImpactIndicatorComponent::GetTrueImpactPoint(FHitResult& OutHitResult, FVector& OutImpactPoint, FVector& OutTraceEnd) const
 {
+	return GetTrueImpactPointInternal(OutHitResult, OutImpactPoint, OutTraceEnd, nullptr, nullptr);
+}
+
+bool UBlackoutImpactIndicatorComponent::GetTrueImpactPointInternal(
+	FHitResult& OutHitResult,
+	FVector& OutImpactPoint,
+	FVector& OutTraceEnd,
+	float* OutProjectileTravelDistance,
+	TArray<FBlackoutTrajectoryPointData>* OutTrajectoryPoints) const
+{
 	OutHitResult = FHitResult();
 	OutImpactPoint = FVector::ZeroVector;
 	OutTraceEnd = FVector::ZeroVector;
+	if (OutTrajectoryPoints)
+	{
+		OutTrajectoryPoints->Reset();
+	}
+	if (OutProjectileTravelDistance)
+	{
+		*OutProjectileTravelDistance = 0.0f;
+	}
 
 	const UBlackoutCombatComponent* ResolvedCombatComponent = ResolveCombatComponent();
 	const ABOFirearm* Firearm = ResolvedCombatComponent ? ResolvedCombatComponent->GetEquippedFirearm() : nullptr;
@@ -171,7 +257,7 @@ bool UBlackoutImpactIndicatorComponent::GetTrueImpactPoint(FHitResult& OutHitRes
 		return GetHitscanImpactHitResult(Firearm, OutHitResult, OutImpactPoint, OutTraceEnd);
 	}
 
-	return GetProjectileImpactHitResult(Firearm, OutHitResult, OutImpactPoint, OutTraceEnd);
+	return GetProjectileImpactHitResult(Firearm, OutHitResult, OutImpactPoint, OutTraceEnd, OutProjectileTravelDistance, OutTrajectoryPoints);
 }
 
 UBlackoutCombatComponent* UBlackoutImpactIndicatorComponent::ResolveCombatComponent() const
@@ -182,6 +268,58 @@ UBlackoutCombatComponent* UBlackoutImpactIndicatorComponent::ResolveCombatCompon
 	}
 
 	return GetOwner() ? GetOwner()->FindComponentByClass<UBlackoutCombatComponent>() : nullptr;
+}
+
+bool UBlackoutImpactIndicatorComponent::BuildImpactIndicatorUpdateKey(FBlackoutImpactIndicatorUpdateKey& OutUpdateKey) const
+{
+	OutUpdateKey = FBlackoutImpactIndicatorUpdateKey();
+
+	const UBlackoutCombatComponent* ResolvedCombatComponent = ResolveCombatComponent();
+	if (!ResolvedCombatComponent)
+	{
+		return false;
+	}
+
+	const APawn* OwnerPawn = Cast<APawn>(GetOwner());
+	const AController* OwnerController = OwnerPawn ? OwnerPawn->GetController() : nullptr;
+	if (OwnerController)
+	{
+		FVector ViewLocation = FVector::ZeroVector;
+		OwnerController->GetPlayerViewPoint(ViewLocation, OutUpdateKey.CameraRotation);
+	}
+	else if (const AActor* OwnerActor = GetOwner())
+	{
+		OutUpdateKey.CameraRotation = OwnerActor->GetActorRotation();
+	}
+	else
+	{
+		return false;
+	}
+
+	OutUpdateKey.bIsAiming = ResolvedCombatComponent->IsAiming();
+	OutUpdateKey.bIsReloading = IsOwnerReloading();
+	OutUpdateKey.EquippedFirearm = ResolvedCombatComponent->GetEquippedFirearm();
+	if (const ABOFirearm* Firearm = OutUpdateKey.EquippedFirearm.Get())
+	{
+		// 발사 방향은 조준점과 총구 위치로 다시 산출하므로 캐시 키에는 총구 위치만 포함합니다.
+		OutUpdateKey.MuzzleLocation = Firearm->GetMuzzleTransform().GetLocation();
+	}
+
+	return true;
+}
+
+bool UBlackoutImpactIndicatorComponent::HasImpactIndicatorUpdateInputChanged(const FBlackoutImpactIndicatorUpdateKey& UpdateKey) const
+{
+	if (!bHasCachedIndicatorData)
+	{
+		return true;
+	}
+
+	return LastUpdateKey.bIsAiming != UpdateKey.bIsAiming
+		|| LastUpdateKey.bIsReloading != UpdateKey.bIsReloading
+		|| LastUpdateKey.EquippedFirearm.Get() != UpdateKey.EquippedFirearm.Get()
+		|| !LastUpdateKey.CameraRotation.Equals(UpdateKey.CameraRotation, ImpactIndicatorCameraRotationToleranceDegrees)
+		|| !LastUpdateKey.MuzzleLocation.Equals(UpdateKey.MuzzleLocation, ImpactIndicatorMuzzleLocationTolerance);
 }
 
 bool UBlackoutImpactIndicatorComponent::GetHitscanImpactHitResult(const ABOFirearm* Firearm, FHitResult& OutHitResult, FVector& OutImpactPoint, FVector& OutTraceEnd) const
@@ -208,11 +346,25 @@ bool UBlackoutImpactIndicatorComponent::GetHitscanImpactHitResult(const ABOFirea
 	return true;
 }
 
-bool UBlackoutImpactIndicatorComponent::GetProjectileImpactHitResult(const ABOFirearm* Firearm, FHitResult& OutHitResult, FVector& OutImpactPoint, FVector& OutTraceEnd) const
+bool UBlackoutImpactIndicatorComponent::GetProjectileImpactHitResult(
+	const ABOFirearm* Firearm,
+	FHitResult& OutHitResult,
+	FVector& OutImpactPoint,
+	FVector& OutTraceEnd,
+	float* OutTravelDistance,
+	TArray<FBlackoutTrajectoryPointData>* OutTrajectoryPoints) const
 {
 	OutHitResult = FHitResult();
 	OutImpactPoint = FVector::ZeroVector;
 	OutTraceEnd = FVector::ZeroVector;
+	if (OutTrajectoryPoints)
+	{
+		OutTrajectoryPoints->Reset();
+	}
+	if (OutTravelDistance)
+	{
+		*OutTravelDistance = 0.0f;
+	}
 
 	if (!Firearm)
 	{
@@ -234,11 +386,28 @@ bool UBlackoutImpactIndicatorComponent::GetProjectileImpactHitResult(const ABOFi
 		}
 	}
 
+	float TravelDistance = 0.0f;
+	TArray<FBlackoutTrajectoryPointData> TrajectoryPoints;
+	BuildTrajectoryPoints(PathResult, TrajectoryPoints, TravelDistance);
+	if (OutTravelDistance)
+	{
+		*OutTravelDistance = TravelDistance;
+	}
+	if (OutTrajectoryPoints)
+	{
+		*OutTrajectoryPoints = MoveTemp(TrajectoryPoints);
+	}
+
+	// PredictProjectilePath는 첫 blocking hit 이후를 계산하지 않으므로 1차 궤적 표시에 그대로 사용합니다.
 	OutHitResult = PathResult.HitResult;
 	if (OutHitResult.bBlockingHit)
 	{
 		OutImpactPoint = OutHitResult.ImpactPoint;
 		OutTraceEnd = OutHitResult.TraceEnd;
+		if (OutTravelDistance && PathResult.PathData.Num() <= 1)
+		{
+			*OutTravelDistance = FVector::Dist(Firearm->GetMuzzleTransform().GetLocation(), OutImpactPoint);
+		}
 		return true;
 	}
 
@@ -250,6 +419,50 @@ bool UBlackoutImpactIndicatorComponent::GetProjectileImpactHitResult(const ABOFi
 	}
 
 	return false;
+}
+
+void UBlackoutImpactIndicatorComponent::BuildTrajectoryPoints(
+	const FPredictProjectilePathResult& PathResult,
+	TArray<FBlackoutTrajectoryPointData>& OutTrajectoryPoints,
+	float& OutTravelDistance) const
+{
+	OutTrajectoryPoints.Reset();
+	OutTravelDistance = 0.0f;
+
+	if (PathResult.PathData.Num() <= 0)
+	{
+		return;
+	}
+
+	FVector PreviousLocation = PathResult.PathData[0].Location;
+	FBlackoutTrajectoryPointData FirstPoint;
+	FirstPoint.WorldLocation = PreviousLocation;
+	FirstPoint.DistanceFromMuzzle = 0.0f;
+	OutTrajectoryPoints.Add(FirstPoint);
+
+	for (int32 PathIndex = 1; PathIndex < PathResult.PathData.Num(); ++PathIndex)
+	{
+		const FVector CurrentLocation = PathResult.PathData[PathIndex].Location;
+		OutTravelDistance += FVector::Dist(PreviousLocation, CurrentLocation);
+
+		FBlackoutTrajectoryPointData TrajectoryPoint;
+		TrajectoryPoint.WorldLocation = CurrentLocation;
+		TrajectoryPoint.DistanceFromMuzzle = OutTravelDistance;
+		OutTrajectoryPoints.Add(TrajectoryPoint);
+
+		PreviousLocation = CurrentLocation;
+	}
+
+	if (PathResult.HitResult.bBlockingHit && !PreviousLocation.Equals(PathResult.HitResult.ImpactPoint, KINDA_SMALL_NUMBER))
+	{
+		// 마지막 샘플이 실제 ImpactPoint와 떨어져 있으면 HUD 끝점 정렬을 위해 ImpactPoint를 추가합니다.
+		OutTravelDistance += FVector::Dist(PreviousLocation, PathResult.HitResult.ImpactPoint);
+
+		FBlackoutTrajectoryPointData ImpactPoint;
+		ImpactPoint.WorldLocation = PathResult.HitResult.ImpactPoint;
+		ImpactPoint.DistanceFromMuzzle = OutTravelDistance;
+		OutTrajectoryPoints.Add(ImpactPoint);
+	}
 }
 
 bool UBlackoutImpactIndicatorComponent::BuildProjectilePathParams(const ABOFirearm* Firearm, const FVector& LaunchDirection, FPredictProjectilePathParams& OutParams) const
@@ -336,6 +549,26 @@ bool UBlackoutImpactIndicatorComponent::IsProjectileImpactOccludedFromCamera(con
 
 	constexpr float ImpactSurfaceTolerance = 10.0f;
 	return CameraHitResult.Distance < ViewToImpactDistance - ImpactSurfaceTolerance;
+}
+
+bool UBlackoutImpactIndicatorComponent::IsOwnerReloading() const
+{
+	const AActor* OwnerActor = GetOwner();
+	UAbilitySystemComponent* AbilitySystemComponent = OwnerActor
+		? UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(OwnerActor)
+		: nullptr;
+
+	if (!AbilitySystemComponent)
+	{
+		const APawn* OwnerPawn = Cast<APawn>(OwnerActor);
+		const APlayerState* OwnerPlayerState = OwnerPawn ? OwnerPawn->GetPlayerState() : nullptr;
+		AbilitySystemComponent = OwnerPlayerState
+			? UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(OwnerPlayerState)
+			: nullptr;
+	}
+
+	return AbilitySystemComponent
+		&& AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Reloading);
 }
 
 AActor* UBlackoutImpactIndicatorComponent::ResolveTargetActor(const FHitResult& HitResult) const

@@ -48,6 +48,7 @@ classDiagram
         +GetProjectileLaunchSpeed() float
         +GetProjectileGravityScale() float
         +GetProjectileCollisionRadius() float
+        +GetProjectileImpactFuseArmDistance() float
         +GetBaseSpreadDegrees() float
         +GetMaxSpreadDegrees() float
         +GetSpreadPerShot() float
@@ -88,6 +89,7 @@ classDiagram
         +GetInitialSpeed() float
         +GetGravityScale() float
         +GetCollisionRadius() float
+        +GetImpactFuseArmDistance() float
         +OnSpawnFromPool_Implementation() void
         +OnReturnToPool_Implementation() void
     }
@@ -133,6 +135,7 @@ classDiagram
         -FGameplayTag ExplosionCueTag
         +SetProjectileMesh(UStaticMesh*) void
         +IsFuseArmed() bool
+        +GetImpactFuseArmDistance() float
     }
 
     ABOFirearm ..> ABOProjectile : Spawn
@@ -159,4 +162,4 @@ classDiagram
 - **투사체 데미지 전달**: `ABOProjectile`은 `SpecHandle`만 보관하고, `OnHit` 시점에 `IBlackoutDamageableInterface::ReceiveDamageFromHitbox(SpecHandle, BoneName)` 를 호출.
 - **산탄 데미지 전달**: `ABOShotgunFirearm::FireShotgun`은 펠릿별로 `DamageSpec`을 복제하거나 `Data.Damage`를 펠릿 피해량으로 재설정한 Spec을 사용합니다. 히트박스가 있으면 `UBlackoutHitboxComponent::ReceiveDamageSpec`, 일반 Damageable이면 `ReceiveDamageFromHitbox`로 전달합니다.
 - **메리디안 유탄발사기**: 별도 C++ 무기 클래스를 두지 않습니다. `ABOFirearm` 기반 블루프린트/데이터 행에서 `bUseHitscan=false`, `ProjectileClass=ABOMeridianGrenadeProjectile`로 설정해 비히트스캔 보조무기로 구성합니다.
-- **착탄 예측 데이터 제공**: `UBlackoutImpactIndicatorComponent`가 투사체 예측 착탄점을 계산할 수 있도록 `ABOFirearm`/`ABOProjectile`은 초기 속도, 중력 스케일, 충돌 반경을 조회할 수 있는 읽기 전용 API를 제공합니다.
+- **착탄 예측 데이터 제공**: `UBlackoutImpactIndicatorComponent`가 투사체 예측 착탄점을 계산할 수 있도록 `ABOFirearm`/`ABOProjectile`은 초기 속도, 중력 스케일, 충돌 반경, 충격 신관 활성 거리를 조회할 수 있는 읽기 전용 API를 제공합니다.
