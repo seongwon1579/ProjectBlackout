@@ -4,7 +4,7 @@
 #include "BehaviorTree/BTTaskNode.h"
 #include "BehaviorTree/BehaviorTreeTypes.h"
 #include "GameplayTagContainer.h"
-#include "BTT_ActivatAbility.generated.h"
+#include "BTT_ActivateAbility.generated.h"
 
 class UGameplayAbility;
 class UAbilitySystemComponent;
@@ -23,13 +23,13 @@ class UAbilitySystemComponent;
  *   BTTask_SelectPattern과 연계할 때 사용한다.
  */
 UCLASS()
-class PROJECTBLACKOUT_API UBTT_ActivatAbility : public UBTTaskNode
+class PROJECTBLACKOUT_API UBTT_ActivateAbility : public UBTTaskNode
 {
 	GENERATED_BODY()
 
 	
 public:
-	UBTT_ActivatAbility();
+	UBTT_ActivateAbility();
 
 	virtual EBTNodeResult::Type ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;
 	virtual EBTNodeResult::Type AbortTask (UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;
