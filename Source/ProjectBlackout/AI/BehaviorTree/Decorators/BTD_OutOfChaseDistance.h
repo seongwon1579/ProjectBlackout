@@ -23,7 +23,7 @@ public:
 	virtual void InitializeFromAsset(UBehaviorTree& Asset) override;
 	virtual FString GetStaticDescription() const override;
 	
-	protected:
+protected:
 	
 	EBlackboardNotificationResult OnBlackboardKeyChanged(const UBlackboardComponent& BB, FBlackboard::FKey KeyID);
 	
