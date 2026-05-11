@@ -17,19 +17,23 @@ class PROJECTBLACKOUT_API UAbilityTask_BossMeleeSweep : public UAbilityTask
 	GENERATED_BODY()
 
 public:
+	
+	
 	UPROPERTY(BlueprintAssignable)
 	FBossMeleeSweepHitSignature OnHit;
 
 	/**
-	 * @param InStartSocketName 시작 소켓 
-	 * @param InEndSocketName   끝 소켓   
+	 * @param InStartSocketName 시작 소켓
+	 * @param InEndSocketName   끝 소켓
 	 * @param InSweepRadius     구체 반지름 (cm)
+	 * @param InMeshOverride    소켓 검색 대상 Mesh (nullptr이면 OwnerActor가 ACharacter일 때 GetMesh() 폴백)
 	 */
 	static UAbilityTask_BossMeleeSweep* CreateSweepTask(
 		UGameplayAbility* OwningAbility,
 		FName InStartSocketName,
 		FName InEndSocketName,
-		float InSweepRadius);
+		float InSweepRadius,
+		UMeshComponent* InMeshOverride = nullptr);
 
 	virtual void Activate() override;
 	virtual void TickTask(float DeltaTime) override;
@@ -40,7 +44,9 @@ private:
 	FName EndSocketName;
 	float SweepRadius = 30.f;
 
+	TWeakObjectPtr<UMeshComponent> MeshOverride;
+
 	TArray<TWeakObjectPtr<AActor>> HitActors;
 
-	USkeletalMeshComponent* GetOwnerMesh() const;
+	UMeshComponent* GetOwnerMesh() const;
 };
