@@ -119,6 +119,11 @@ public:
 	// 로비 WebSocket 종료 + CurrentSessionId 초기화.
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Matchmaking")
 	void DisconnectLobby();
+	
+	// 로그인 상태 해제 AccessToken / CachedPlayerName 폐기 , 로비 WS 종료
+	// 서버 호출 없음 ( JWT 제거 상태 ) 호출직후 UI 상태 갱신
+	UFUNCTION(BlueprintCallable , Category="Blackout|Matchmaking")
+	void Logout();
 
 	UFUNCTION(BlueprintPure, Category = "Blackout|Matchmaking")
 	bool IsLobbyConnected() const;

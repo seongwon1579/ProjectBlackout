@@ -172,6 +172,19 @@ void UBlackoutMatchmakingSubsystem::DisconnectLobby()
 	CurrentSessionId.Empty();
 }
 
+void UBlackoutMatchmakingSubsystem::Logout()
+{
+	
+	if (AccessToken.IsEmpty() && CachedPlayerName.IsEmpty())
+	{
+		return;
+	}
+	BO_LOG_NET(Log,"로그아웃 - %s",*CachedPlayerName);
+	AccessToken.Empty();
+	CachedPlayerName.Empty();
+	DisconnectLobby();
+}
+
 
 bool UBlackoutMatchmakingSubsystem::IsLobbyConnected() const
 {
