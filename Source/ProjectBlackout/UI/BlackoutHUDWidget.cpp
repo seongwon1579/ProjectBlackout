@@ -97,7 +97,11 @@ void UBlackoutHUDWidget::UpdateImpactIndicator(const FBlackoutImpactIndicatorDat
 	}
 
 	FLinearColor IndicatorColor = ImpactIndicatorDefaultColor;
-	if (ImpactIndicatorData.bIsOccludedFromCamera)
+	if (ImpactIndicatorData.bProjectileImpactFuseInactive)
+	{
+		IndicatorColor = ImpactIndicatorMismatchColor;
+	}
+	else if (ImpactIndicatorData.bIsOccludedFromCamera)
 	{
 		IndicatorColor = ImpactIndicatorOccludedColor;
 	}

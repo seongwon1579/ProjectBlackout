@@ -24,6 +24,9 @@ struct FBlackoutImpactIndicatorData
 	bool bIsOccludedFromCamera = false;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Blackout|HUD")
+	bool bProjectileImpactFuseInactive = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|HUD")
 	FVector WorldLocation = FVector::ZeroVector;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Blackout|HUD")

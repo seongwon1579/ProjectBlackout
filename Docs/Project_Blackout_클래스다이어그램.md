@@ -432,6 +432,8 @@ classDiagram
         +bool bHasBlockingHit
         +bool bTargetMismatch
         +bool bUsesProjectilePrediction
+        +bool bIsOccludedFromCamera
+        +bool bProjectileImpactFuseInactive
         +FVector WorldLocation
         +FVector2D ScreenPosition
     }
@@ -442,6 +444,7 @@ classDiagram
         +GetProjectileLaunchSpeed() float
         +GetProjectileGravityScale() float
         +GetProjectileCollisionRadius() float
+        +GetProjectileImpactFuseArmDistance() float
     }
 
     ABlackoutPlayerCharacter --> UBlackoutCombatComponent : has

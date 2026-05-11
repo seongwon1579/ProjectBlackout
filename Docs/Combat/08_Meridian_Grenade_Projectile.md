@@ -28,6 +28,7 @@ classDiagram
         +GetInitialSpeed() float
         +GetGravityScale() float
         +GetCollisionRadius() float
+        +GetImpactFuseArmDistance() float
         +OnSpawnFromPool_Implementation() void
         +OnReturnToPool_Implementation() void
     }
@@ -45,6 +46,7 @@ classDiagram
         +SetProjectileMesh(UStaticMesh*) void
         +InitGrenadeSpec(ImpactSpec, ExplosionSpec, Radius) void
         +Launch(const FVector& Direction) void
+        +GetImpactFuseArmDistance() float
         -UpdateFuseState() void
         -ApplyImpactDamage(const FHitResult&) void
         -Explode(const FHitResult&) void
@@ -83,3 +85,4 @@ classDiagram
 - 폭발 반경 피해는 기존 `FGameplayEffectSpecHandle` 기반 피해 전달 방식을 따르되, 다중 대상 처리는 `OverlapMultiByChannel` 또는 별도 전투 유틸로 분리할 수 있습니다.
 - 메리디안 무기는 별도 C++ 무기 클래스를 두지 않고 `ABOFirearm` 기반 블루프린트/데이터 행에서 `bUseHitscan=false`, `ProjectileClass=ABOMeridianGrenadeProjectile`로 설정합니다.
 - `UBlackoutImpactIndicatorComponent`의 예측 착탄 인디케이터가 실제 유탄 궤적과 맞도록 `UProjectileMovementComponent`의 초기 속도, 중력 스케일, 충돌 반경은 읽기 전용 API로 노출합니다.
+- `ArmDistance`는 `GetImpactFuseArmDistance()`로 노출해 예측 착탄점까지의 누적 비행 거리가 신관 활성 거리보다 짧을 때 HUD가 붉은 경고 인디케이터를 표시할 수 있게 합니다.

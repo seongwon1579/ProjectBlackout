@@ -69,6 +69,9 @@ public:
 	float GetProjectileCollisionRadius() const;
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	float GetProjectileImpactFuseArmDistance() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	float GetBaseSpreadDegrees() const;
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")

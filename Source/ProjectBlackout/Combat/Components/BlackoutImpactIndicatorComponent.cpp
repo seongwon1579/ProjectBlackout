@@ -89,16 +89,23 @@ bool UBlackoutImpactIndicatorComponent::GetImpactIndicatorData(FBlackoutImpactIn
 	FHitResult TrueImpactHitResult;
 	FVector ImpactPoint = FVector::ZeroVector;
 	FVector TraceEnd = FVector::ZeroVector;
-	if (!GetTrueImpactPoint(TrueImpactHitResult, ImpactPoint, TraceEnd))
+	float ProjectileTravelDistance = 0.0f;
+	if (!GetTrueImpactPointInternal(TrueImpactHitResult, ImpactPoint, TraceEnd, &ProjectileTravelDistance))
 	{
 		return false;
 	}
 
 	const bool bUsesProjectilePrediction = !Firearm->UsesHitscan();
+	const float DistanceFromMuzzle = FVector::Dist(Firearm->GetMuzzleTransform().GetLocation(), ImpactPoint);
+	const float ProjectileImpactFuseArmDistance = Firearm->GetProjectileImpactFuseArmDistance();
 
 	OutIndicatorData.bIsVisible = true;
 	OutIndicatorData.bHasBlockingHit = TrueImpactHitResult.bBlockingHit;
 	OutIndicatorData.bUsesProjectilePrediction = bUsesProjectilePrediction;
+	OutIndicatorData.bProjectileImpactFuseInactive = bUsesProjectilePrediction
+		&& TrueImpactHitResult.bBlockingHit
+		&& ProjectileImpactFuseArmDistance > 0.0f
+		&& ProjectileTravelDistance < ProjectileImpactFuseArmDistance;
 	OutIndicatorData.bTargetMismatch = !bUsesProjectilePrediction
 		&& AimHitResult.bBlockingHit
 		&& ResolveTargetActor(AimHitResult) != ResolveTargetActor(TrueImpactHitResult);
@@ -106,7 +113,7 @@ bool UBlackoutImpactIndicatorComponent::GetImpactIndicatorData(FBlackoutImpactIn
 		&& IsProjectileImpactOccludedFromCamera(Firearm, ImpactPoint);
 	OutIndicatorData.WorldLocation = ImpactPoint;
 	OutIndicatorData.TraceEndLocation = TraceEnd;
-	OutIndicatorData.DistanceFromMuzzle = FVector::Dist(Firearm->GetMuzzleTransform().GetLocation(), ImpactPoint);
+	OutIndicatorData.DistanceFromMuzzle = DistanceFromMuzzle;
 
 	return true;
 }
@@ -155,9 +162,18 @@ FVector UBlackoutImpactIndicatorComponent::GetAimTargetPoint() const
 
 bool UBlackoutImpactIndicatorComponent::GetTrueImpactPoint(FHitResult& OutHitResult, FVector& OutImpactPoint, FVector& OutTraceEnd) const
 {
+	return GetTrueImpactPointInternal(OutHitResult, OutImpactPoint, OutTraceEnd, nullptr);
+}
+
+bool UBlackoutImpactIndicatorComponent::GetTrueImpactPointInternal(FHitResult& OutHitResult, FVector& OutImpactPoint, FVector& OutTraceEnd, float* OutProjectileTravelDistance) const
+{
 	OutHitResult = FHitResult();
 	OutImpactPoint = FVector::ZeroVector;
 	OutTraceEnd = FVector::ZeroVector;
+	if (OutProjectileTravelDistance)
+	{
+		*OutProjectileTravelDistance = 0.0f;
+	}
 
 	const UBlackoutCombatComponent* ResolvedCombatComponent = ResolveCombatComponent();
 	const ABOFirearm* Firearm = ResolvedCombatComponent ? ResolvedCombatComponent->GetEquippedFirearm() : nullptr;
@@ -171,7 +187,7 @@ bool UBlackoutImpactIndicatorComponent::GetTrueImpactPoint(FHitResult& OutHitRes
 		return GetHitscanImpactHitResult(Firearm, OutHitResult, OutImpactPoint, OutTraceEnd);
 	}
 
-	return GetProjectileImpactHitResult(Firearm, OutHitResult, OutImpactPoint, OutTraceEnd);
+	return GetProjectileImpactHitResult(Firearm, OutHitResult, OutImpactPoint, OutTraceEnd, OutProjectileTravelDistance);
 }
 
 UBlackoutCombatComponent* UBlackoutImpactIndicatorComponent::ResolveCombatComponent() const
@@ -208,11 +224,15 @@ bool UBlackoutImpactIndicatorComponent::GetHitscanImpactHitResult(const ABOFirea
 	return true;
 }
 
-bool UBlackoutImpactIndicatorComponent::GetProjectileImpactHitResult(const ABOFirearm* Firearm, FHitResult& OutHitResult, FVector& OutImpactPoint, FVector& OutTraceEnd) const
+bool UBlackoutImpactIndicatorComponent::GetProjectileImpactHitResult(const ABOFirearm* Firearm, FHitResult& OutHitResult, FVector& OutImpactPoint, FVector& OutTraceEnd, float* OutTravelDistance) const
 {
 	OutHitResult = FHitResult();
 	OutImpactPoint = FVector::ZeroVector;
 	OutTraceEnd = FVector::ZeroVector;
+	if (OutTravelDistance)
+	{
+		*OutTravelDistance = 0.0f;
+	}
 
 	if (!Firearm)
 	{
@@ -234,11 +254,31 @@ bool UBlackoutImpactIndicatorComponent::GetProjectileImpactHitResult(const ABOFi
 		}
 	}
 
+	if (OutTravelDistance && PathResult.PathData.Num() > 0)
+	{
+		float TravelDistance = 0.0f;
+		for (int32 PathIndex = 1; PathIndex < PathResult.PathData.Num(); ++PathIndex)
+		{
+			TravelDistance += FVector::Dist(
+				PathResult.PathData[PathIndex - 1].Location,
+				PathResult.PathData[PathIndex].Location);
+		}
+		if (PathResult.HitResult.bBlockingHit)
+		{
+			TravelDistance += FVector::Dist(PathResult.PathData.Last().Location, PathResult.HitResult.ImpactPoint);
+		}
+		*OutTravelDistance = TravelDistance;
+	}
+
 	OutHitResult = PathResult.HitResult;
 	if (OutHitResult.bBlockingHit)
 	{
 		OutImpactPoint = OutHitResult.ImpactPoint;
 		OutTraceEnd = OutHitResult.TraceEnd;
+		if (OutTravelDistance && PathResult.PathData.Num() <= 1)
+		{
+			*OutTravelDistance = FVector::Dist(Firearm->GetMuzzleTransform().GetLocation(), OutImpactPoint);
+		}
 		return true;
 	}
 

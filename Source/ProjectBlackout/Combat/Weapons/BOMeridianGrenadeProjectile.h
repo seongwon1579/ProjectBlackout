@@ -32,6 +32,7 @@ public:
 	virtual void OnReturnToPool_Implementation() override;
 	virtual void InitFromSpec(const FGameplayEffectSpecHandle& InDamageSpec, float Radius) override;
 	virtual void Launch(const FVector& Direction) override;
+	virtual float GetImpactFuseArmDistance() const override { return ArmDistance; }
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	void SetProjectileMesh(UStaticMesh* InMesh);
