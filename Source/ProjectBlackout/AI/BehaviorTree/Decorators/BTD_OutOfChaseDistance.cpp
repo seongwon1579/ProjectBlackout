@@ -21,47 +21,31 @@ void UBTD_OutOfChaseDistance::OnBecomeRelevant(UBehaviorTreeComponent& OwnerComp
 {
 	Super::OnBecomeRelevant(OwnerComp, NodeMemory);
 
-	auto BB = OwnerComp.GetBlackboardComponent();
-	if (BB)
+	if (auto BB = OwnerComp.GetBlackboardComponent())
 	{
 		auto KeyID = OnTrigger.GetSelectedKeyID();
 
 		BB->RegisterObserver(KeyID, this, FOnBlackboardChangeNotification::CreateUObject(
 			this, &UBTD_OutOfChaseDistance::OnBlackboardKeyChanged));
-
-		if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Cyan,
-			TEXT("[BTD_OutOfChaseDistance] ▶ 데코레이터 활성 — BB 옵저버 등록"));
 	}
 }
 
 void UBTD_OutOfChaseDistance::OnCeaseRelevant(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
 	Super::OnCeaseRelevant(OwnerComp, NodeMemory);
-
-	auto BB = OwnerComp.GetBlackboardComponent();
-	if (BB)
+	
+	if (auto BB = OwnerComp.GetBlackboardComponent())
 	{
 		BB->UnregisterObserversFrom(this);
-
-		if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Cyan,
-			TEXT("[BTD_OutOfChaseDistance] ■ 데코레이터 비활성 — BB 옵저버 해제"));
 	}
 }
 
 bool UBTD_OutOfChaseDistance::CalculateRawConditionValue(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) const
 {
     auto BB = OwnerComp.GetBlackboardComponent();
-
-	//bool bTrigger = BB->GetValue<UBlackboardKeyType_Bool>(OnTrigger.GetSelectedKeyID());
-	bool bTrigger = BB->GetValueAsBool(OnTrigger.SelectedKeyName);
-	bool bResult = !bTrigger;
-
-	if (GEngine) GEngine->AddOnScreenDebugMessage(300, 0.15f, FColor::Cyan,
-		FString::Printf(TEXT("[BTD_OutOfChaseDistance] ConditionValue — OnTrigger=%s → 결과=%s"),
-			bTrigger ? TEXT("TRUE") : TEXT("FALSE"),
-			bResult  ? TEXT("PASS") : TEXT("FAIL")));
-
-	return !bTrigger;
+	if (!BB) return false;
+	
+	return BB->GetValue<UBlackboardKeyType_Bool>(OnTrigger.GetSelectedKeyID());
 }
 
 void UBTD_OutOfChaseDistance::InitializeFromAsset(UBehaviorTree& Asset)
@@ -87,9 +71,6 @@ EBlackboardNotificationResult UBTD_OutOfChaseDistance::OnBlackboardKeyChanged(co
 	if (BTComp)
 	{
 		BTComp->RequestExecution(this);
-
-		if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Cyan,
-			TEXT("[BTD_OutOfChaseDistance] !! BB 키 변경 감지 → RequestExecution 호출"));
 	}
 
 	return EBlackboardNotificationResult::ContinueObserving;
