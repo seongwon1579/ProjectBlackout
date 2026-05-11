@@ -82,6 +82,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input")
 	TObjectPtr<UInputAction> UseConsumable2Action;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input")
+	TObjectPtr<UInputAction> UseRelicAction;
+
 	void OnFirePressed();
 	void OnFireReleased();
 	void OnAimPressed();
@@ -98,6 +101,8 @@ protected:
 	void OnUseConsumable1Released();
 	void OnUseConsumable2Pressed();
 	void OnUseConsumable2Released();
+	void OnUseRelicPressed();
+	void OnUseRelicReleased();
 	
 	bool IsHitReactInputBlocked() const;
 
