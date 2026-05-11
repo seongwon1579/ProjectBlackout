@@ -224,6 +224,11 @@ void UBlackoutCombatComponent::StopAim()
 	}
 }
 
+bool UBlackoutCombatComponent::CanAim() const
+{
+	return CanStartAim();
+}
+
 void UBlackoutCombatComponent::TryReload()
 {
 	if (bIsWeaponSwapInProgress)

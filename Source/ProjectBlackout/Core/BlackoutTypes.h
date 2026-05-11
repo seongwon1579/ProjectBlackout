@@ -19,6 +19,7 @@ enum class EBlackoutAbilityInputID : uint8
 	UseConsumable1   UMETA(DisplayName = "UseConsumable1"),
 	UseConsumable2   UMETA(DisplayName = "UseConsumable2"),
 	Interact        UMETA(DisplayName = "Interact"),
+	Aim             UMETA(DisplayName = "Aim"),
 };
 
 UENUM(BlueprintType)

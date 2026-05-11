@@ -16,6 +16,7 @@ UBlackoutGA_Sprint::UBlackoutGA_Sprint()
 	bReplicateInputDirectly = true;
 
 	ActivationOwnedTags.AddTag(BlackoutGameplayTags::State_Sprinting);
+	CancelAbilitiesWithTag.AddTag(BlackoutGameplayTags::Ability_Player_Aim);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Downed);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Locked);
 }

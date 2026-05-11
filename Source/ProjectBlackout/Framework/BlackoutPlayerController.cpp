@@ -214,18 +214,12 @@ void ABlackoutPlayerController::OnAimPressed()
 		return;
 	}
 
-	if (UBlackoutCombatComponent* CombatComponent = GetBlackoutCombatComponent())
-	{
-		CombatComponent->StartAim();
-	}
+	HandleAbilityInputPressed(EBlackoutAbilityInputID::Aim);
 }
 
 void ABlackoutPlayerController::OnAimReleased()
 {
-	if (UBlackoutCombatComponent* CombatComponent = GetBlackoutCombatComponent())
-	{
-		CombatComponent->StopAim();
-	}
+	HandleAbilityInputReleased(EBlackoutAbilityInputID::Aim);
 }
 
 void ABlackoutPlayerController::OnReloadPressed()

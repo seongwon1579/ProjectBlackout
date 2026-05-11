@@ -61,6 +61,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Blackout|Combat")
 	bool IsAiming() const { return bIsAiming; }
 
+	UFUNCTION(BlueprintPure, Category = "Blackout|Combat")
+	bool CanAim() const;
+
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	void TryReload();
 
