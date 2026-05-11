@@ -4,13 +4,13 @@
 
 #include "CoreMinimal.h"
 #include "BehaviorTree/BTDecorator.h"
-#include "BTDecorator_LineTraceCheck.generated.h"
+#include "BTD_LineTraceCheck.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class PROJECTBLACKOUT_API UBTDecorator_LineTraceCheck : public UBTDecorator
+class PROJECTBLACKOUT_API UBTD_LineTraceCheck : public UBTDecorator
 {
 	GENERATED_BODY()
 	
