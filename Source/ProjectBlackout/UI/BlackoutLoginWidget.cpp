@@ -4,6 +4,7 @@
 #include "BlackoutLoginWidget.h"
 
 #include "Framework/BlackoutMatchmakingSubsystem.h"
+#include "Framework/BlackoutNetworkSettings.h"
 
 #include "Components/Button.h"
 #include "Components/EditableTextBox.h"
@@ -50,19 +51,18 @@ void UBlackoutLoginWidget::NativeDestruct()
 
 void UBlackoutLoginWidget::HandleLoginClicked()
 {
-	if (!PlayerNameInput || !PasswordInput)
+	if (!PlayerNameInput)
 	{
 		return;
 	}
 	
 	const FString PlayerName = PlayerNameInput->GetText().ToString().TrimStartAndEnd();
-	const FString Password = PasswordInput->GetText().ToString();
 	
-	if (PlayerName.IsEmpty()|| Password.IsEmpty())
+	if (PlayerName.IsEmpty())
 	{
 		if (ErrorMessageText)
 		{
-			ErrorMessageText->SetText(NSLOCTEXT("BlackoutLogin", "EmptyField","이름 / 비밀번호를 입력하세요"));
+			ErrorMessageText->SetText(NSLOCTEXT("BlackoutLogin", "EmptyField","이름을 입력하세요"));
 		}
 		return;
 	}
@@ -73,6 +73,8 @@ void UBlackoutLoginWidget::HandleLoginClicked()
 	{
 		return;
 	}
+	const UBlackoutNetworkSettings* Settings = GetDefault<UBlackoutNetworkSettings>();
+	const FString Password = Settings ? Settings->DummyPassword : FString();
 	
 	SetBusy(true);
 	MatchmakingSubsystem->Login(PlayerName, Password);

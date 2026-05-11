@@ -35,9 +35,6 @@ protected:
 	TObjectPtr<UEditableTextBox> PlayerNameInput;
 	
 	UPROPERTY(meta=(BindWidget))
-	TObjectPtr<UEditableTextBox> PasswordInput;
-	
-	UPROPERTY(meta=(BindWidget))
 	TObjectPtr<UButton> LoginButton;
 	
 	UPROPERTY(meta=(BindWidget))
