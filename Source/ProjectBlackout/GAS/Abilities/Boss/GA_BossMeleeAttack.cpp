@@ -6,7 +6,7 @@
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "Characters/BlackoutBossCharacter.h"
-#include "GAS/Tasks/AbilityTask_BossMeleeSweep.h"
+#include "GAS/Tasks/AbilityTask_BossMeleeHitbox.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "Interfaces/BlackoutDamageable.h"
 #include "MotionWarpingComponent.h"
@@ -22,7 +22,7 @@ void UGA_BossMeleeAttack::ActivateAbility(const FGameplayAbilitySpecHandle Handl
 
 	SetupMotionWarp(ActorInfo, TriggerEventData);
 	PlayAttackMontage();
-	WaitForSweepStart();
+	WaitForCollisionEvent();
 }
 
 void UGA_BossMeleeAttack::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
@@ -78,15 +78,15 @@ void UGA_BossMeleeAttack::PlayAttackMontage()
 	MontageTask->ReadyForActivation();
 }
 
-void UGA_BossMeleeAttack::WaitForSweepStart()
+void UGA_BossMeleeAttack::WaitForCollisionEvent()
 {
 	UAbilityTask_WaitGameplayEvent* WaitStartTask = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(
 		this,
-		BlackoutGameplayTags::Event_Enemy_Attack_SweepStart,
+		BlackoutGameplayTags::Event_Enemy_Attack_OnCollision,
 		nullptr,
 		true
 	);
-	WaitStartTask->EventReceived.AddDynamic(this, &UGA_BossMeleeAttack::OnSweepStartEvent);
+	WaitStartTask->EventReceived.AddDynamic(this, &UGA_BossMeleeAttack::OnCollision);
 	WaitStartTask->ReadyForActivation();
 }
 
@@ -97,71 +97,105 @@ void UGA_BossMeleeAttack::OnMontageEnded()
 
 void UGA_BossMeleeAttack::OnMontageInterrupted()
 {
+	
 }
 
 void UGA_BossMeleeAttack::OnMontageCancelled()
 {
 }
 
-void UGA_BossMeleeAttack::OnSweepStartEvent(FGameplayEventData Payload)
+void UGA_BossMeleeAttack::OnCollision(FGameplayEventData Payload)
 {
-	for (const FBossSweepSocketPair& Pair : SweepSocketPairs)
+	AActor* Avatar = GetAvatarActorFromActorInfo();
+	if (!Avatar) return;
+	
+	for (const FName& CompName : HitboxComponentNames)
 	{
-		UAbilityTask_BossMeleeSweep* SweepTask = UAbilityTask_BossMeleeSweep::CreateSweepTask(
-			this, Pair.StartSocket, Pair.EndSocket, SweepRadius);
-		SweepTask->OnHit.AddDynamic(this, &UGA_BossMeleeAttack::OnMeleeSweepHit);
-		SweepTask->ReadyForActivation();
-		ActiveSweepTasks.Add(SweepTask);
+		UPrimitiveComponent* Hitbox = nullptr;
+		for (UActorComponent* Comp : Avatar->GetComponents())
+		{
+			if (Comp->GetFName() == CompName)
+			{
+				Hitbox = Cast<UPrimitiveComponent>(Comp);
+				break;
+			}
+		}
+
+		if (!Hitbox)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[GA_BossMeleeAttack] Hitbox component '%s' not found on %s"),
+				*CompName.ToString(), *Avatar->GetName());
+			continue;
+		}
+
+		UAbilityTask_BossMeleeHitbox* Task = UAbilityTask_BossMeleeHitbox::InitCustomTask(this, Hitbox);
+		Task->OnHit.AddDynamic(this, &UGA_BossMeleeAttack::OffCollision);
+		Task->ReadyForActivation();
+		ActiveHitboxTasks.Add(Task);
 	}
 
 	UAbilityTask_WaitGameplayEvent* WaitEndTask = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(
 		this,
-		BlackoutGameplayTags::Event_Enemy_Attack_SweepEnd,
+		BlackoutGameplayTags::Event_Enemy_Attack_OffCollision,
 		nullptr,
 		true
 	);
-	WaitEndTask->EventReceived.AddDynamic(this, &UGA_BossMeleeAttack::OnSweepEndEvent);
+	WaitEndTask->EventReceived.AddDynamic(this, &UGA_BossMeleeAttack::EndHitBox);
 	WaitEndTask->ReadyForActivation();
 }
 
-void UGA_BossMeleeAttack::OnSweepEndEvent(FGameplayEventData Payload)
+void UGA_BossMeleeAttack::EndHitBox(FGameplayEventData Payload)
 {
-	for (TObjectPtr<UAbilityTask_BossMeleeSweep>& Task : ActiveSweepTasks)
+	for (TObjectPtr<UAbilityTask_BossMeleeHitbox>& Task : ActiveHitboxTasks)
 	{
 		if (Task)
 		{
 			Task->EndTask();
 		}
 	}
-	ActiveSweepTasks.Empty();
+	ActiveHitboxTasks.Empty();
 }
 
-void UGA_BossMeleeAttack::OnMeleeSweepHit(const FHitResult& HitResult)
+void UGA_BossMeleeAttack::OffCollision(const FHitResult& Result)
 {
-	if (!DamageEffectClass)
+	for (TObjectPtr<UAbilityTask_BossMeleeHitbox>& Task : ActiveHitboxTasks)
 	{
-		return;
+		if (Task)
+		{
+			Task->EndTask();
+		}
 	}
-
-	AActor* HitActor = HitResult.GetActor();
-	IBlackoutDamageable* Damageable = Cast<IBlackoutDamageable>(HitActor);
-	if (!Damageable)
-	{
-		return;
-	}
-
-	UAbilitySystemComponent* OwnerASC = GetAbilitySystemComponentFromActorInfo();
-	if (!OwnerASC)
-	{
-		return;
-	}
-
-	FGameplayEffectContextHandle EffectContext = OwnerASC->MakeEffectContext();
-	EffectContext.AddSourceObject(GetAvatarActorFromActorInfo());
-
-	FGameplayEffectSpecHandle SpecHandle = OwnerASC->MakeOutgoingSpec(DamageEffectClass, GetAbilityLevel(), EffectContext);
-	if (SpecHandle.IsValid())
-	{
-		Damageable->ReceiveDamageFromHitbox(SpecHandle, HitResult.BoneName);
-	}
+	ActiveHitboxTasks.Empty();
 }
+
+
+
+// void UGA_BossMeleeAttack::OffCollision(const FHitResult& HitResult)
+// {
+// 	if (!DamageEffectClass)
+// 	{
+// 		return;
+// 	}
+//
+// 	AActor* HitActor = HitResult.GetActor();
+// 	IBlackoutDamageable* Damageable = Cast<IBlackoutDamageable>(HitActor);
+// 	if (!Damageable)
+// 	{
+// 		return;
+// 	}
+//
+// 	UAbilitySystemComponent* OwnerASC = GetAbilitySystemComponentFromActorInfo();
+// 	if (!OwnerASC)
+// 	{
+// 		return;
+// 	}
+//
+// 	FGameplayEffectContextHandle EffectContext = OwnerASC->MakeEffectContext();
+// 	EffectContext.AddSourceObject(GetAvatarActorFromActorInfo());
+//
+// 	FGameplayEffectSpecHandle SpecHandle = OwnerASC->MakeOutgoingSpec(DamageEffectClass, GetAbilityLevel(), EffectContext);
+// 	if (SpecHandle.IsValid())
+// 	{
+// 		Damageable->ReceiveDamageFromHitbox(SpecHandle, HitResult.BoneName);
+// 	}
+// }

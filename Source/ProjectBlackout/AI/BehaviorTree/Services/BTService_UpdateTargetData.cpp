@@ -11,8 +11,8 @@ UBTService_UpdateTargetData::UBTService_UpdateTargetData()
 {
 	NodeName = "Update Target Data";
 	Interval = 0.1f;
-	RandomDeviation = 0.05f;
 
+	bNotifyTick = true;
 	bCreateNodeInstance = true;
 }
 

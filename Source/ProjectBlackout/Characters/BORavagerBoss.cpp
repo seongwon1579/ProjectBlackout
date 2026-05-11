@@ -4,6 +4,7 @@
 #include "AbilitySystemGlobals.h"
 #include "GameplayAbilitySpec.h"
 #include "AI/BOAggroComponent.h"
+#include "Components/SphereComponent.h"
 
 ABORavagerBoss::ABORavagerBoss()
 {
@@ -12,6 +13,11 @@ ABORavagerBoss::ABORavagerBoss()
 	SummonedMinionCount = 0;
 
 	AggroComp = CreateDefaultSubobject<UBOAggroComponent>(TEXT("AggroComp"));
+	
+	Hit_Target = CreateDefaultSubobject<USphereComponent>("TargetTest");
+	Hit_Target->SetupAttachment(GetMesh(), TEXT("소켓이름"));
+	Hit_Target->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	Hit_Target->SetGenerateOverlapEvents(false);
 }
 
 APawn* ABORavagerBoss::GetHighestAggroTarget() const
