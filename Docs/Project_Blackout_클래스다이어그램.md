@@ -418,12 +418,40 @@ classDiagram
 
     class UBlackoutImpactIndicatorComponent {
         <<ActorComponent>>
+        -FBlackoutImpactIndicatorUpdateKey LastUpdateKey
+        -FBlackoutImpactIndicatorData CachedIndicatorData
         +GetImpactIndicatorData(FBlackoutImpactIndicatorData&) bool
         +GetAimTargetHitResult(FHitResult&, FVector& TraceEnd) bool
         +GetTrueImpactHitResult(FHitResult&, FVector& ImpactPoint, FVector& TraceEnd) bool
+        -BuildImpactIndicatorUpdateKey(FBlackoutImpactIndicatorUpdateKey&) bool
+        -HasImpactIndicatorUpdateInputChanged(FBlackoutImpactIndicatorUpdateKey) bool
+        -RefreshCachedImpactIndicatorData(FBlackoutImpactIndicatorUpdateKey) bool
         -GetHitscanImpactHitResult(FHitResult&, FVector&, FVector&) bool
-        -GetProjectileImpactHitResult(FHitResult&, FVector&, FVector&) bool
+        -GetProjectileImpactHitResult(FHitResult&, FVector&, FVector&, TArray~FBlackoutTrajectoryPointData~*, float*) bool
         -PerformWeaponTrace(FVector Start, FVector End, AActor* IgnoredActor, FHitResult&) bool
+    }
+
+    class FBlackoutImpactIndicatorUpdateKey {
+        <<Struct>>
+        +bool bIsAiming
+        +FRotator CameraRotation
+        +FVector MuzzleLocation
+        +TWeakObjectPtr~ABOFirearm~ EquippedFirearm
+    }
+
+    class EBlackoutTrajectoryVisualState {
+        <<Enum>>
+        Normal
+        FuseInactive
+        Occluded
+    }
+
+    class FBlackoutTrajectoryPointData {
+        <<Struct>>
+        +FVector WorldLocation
+        +FVector2D ScreenPosition
+        +float DistanceFromMuzzle
+        +EBlackoutTrajectoryVisualState VisualState
     }
 
     class FBlackoutImpactIndicatorData {
@@ -436,6 +464,7 @@ classDiagram
         +bool bProjectileImpactFuseInactive
         +FVector WorldLocation
         +FVector2D ScreenPosition
+        +TArray~FBlackoutTrajectoryPointData~ TrajectoryPoints
     }
 
     class ABOFirearm {
@@ -451,6 +480,8 @@ classDiagram
     ABlackoutPlayerCharacter --> UBlackoutImpactIndicatorComponent : has
     UBlackoutImpactIndicatorComponent --> UBlackoutCombatComponent : reads combat state
     UBlackoutImpactIndicatorComponent --> ABOFirearm : reads weapon/projectile data
+    UBlackoutImpactIndicatorComponent --> FBlackoutImpactIndicatorUpdateKey : caches update key
+    UBlackoutImpactIndicatorComponent --> FBlackoutTrajectoryPointData : fills projectile path
     UBlackoutImpactIndicatorComponent --> FBlackoutImpactIndicatorData : fills
 ```
 
