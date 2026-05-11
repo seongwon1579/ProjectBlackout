@@ -9,9 +9,6 @@
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 #include "GAS/Tasks/AbilityTask_BossMeleeSweep.h"
 #include "Interfaces/BlackoutDamageable.h"
-#include "Engine/Engine.h"
-#include "GameFramework/Character.h"
-#include "Components/SkeletalMeshComponent.h"
 
 UGA_Wraith_BowShove::UGA_Wraith_BowShove()
 {
@@ -74,8 +71,6 @@ void UGA_Wraith_BowShove::ActivateAbility(
 
 void UGA_Wraith_BowShove::OnSweepStartEvent(FGameplayEventData Payload)
 {
-	UE_LOG(LogTemp, Warning, TEXT("Wraith BowShove: SweepStart"));
-
 	// BowMesh 검색 (Wraith Character 메인 Mesh의 child component — 소켓이 거기에 있음)
 	UMeshComponent* BowMesh = nullptr;
 	if (AActor* Avatar = GetAvatarActorFromActorInfo())
@@ -91,12 +86,6 @@ void UGA_Wraith_BowShove::OnSweepStartEvent(FGameplayEventData Payload)
 			}
 		}
 	}
-
-	UE_LOG(LogTemp, Warning, TEXT("Wraith BowShove: BowMesh=%d Sockets Start=%d End=%d Radius=%.1f"),
-		BowMesh ? 1 : 0,
-		BowMesh ? (BowMesh->DoesSocketExist(StartSocketName) ? 1 : 0) : -1,
-		BowMesh ? (BowMesh->DoesSocketExist(EndSocketName) ? 1 : 0) : -1,
-		SweepRadius);
 
 	// 휘두름 Cue
 	if (UAbilitySystemComponent* SourceASC =
@@ -137,8 +126,6 @@ void UGA_Wraith_BowShove::OnSweepStartEvent(FGameplayEventData Payload)
 
 void UGA_Wraith_BowShove::OnSweepEndEvent(FGameplayEventData Payload)
 {
-	UE_LOG(LogTemp, Warning, TEXT("Wraith BowShove: SweepEnd"));
-
 	if (ActiveSweepTask)
 	{
 		ActiveSweepTask->EndTask();
@@ -148,17 +135,6 @@ void UGA_Wraith_BowShove::OnSweepEndEvent(FGameplayEventData Payload)
 
 void UGA_Wraith_BowShove::OnMeleeSweepHit(const FHitResult& HitResult)
 {
-	UE_LOG(LogTemp, Warning, TEXT("Wraith BowShove: Hit %s @ %s BoneName=%s"),
-		*GetNameSafe(HitResult.GetActor()),
-		*HitResult.ImpactPoint.ToString(),
-		*HitResult.BoneName.ToString());
-
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red,
-			FString::Printf(TEXT("BowShove Hit: %s"), *GetNameSafe(HitResult.GetActor())));
-	}
-
 	if (!DamageEffectClass)
 	{
 		return;
