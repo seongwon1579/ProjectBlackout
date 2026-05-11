@@ -141,10 +141,15 @@ bool UBlackoutHUDWidgetController::GetImpactIndicatorData(FBlackoutImpactIndicat
 		ScreenPosition,
 		true))
 	{
+		OutIndicatorData.bIsVisible = false;
+		OutIndicatorData.TrajectoryPoints.Reset();
 		return false;
 	}
 
 	OutIndicatorData.ScreenPosition = ScreenPosition;
+
+	// 전투 컴포넌트는 월드 좌표만 만들고, 화면 좌표 변환은 HUD 계층에서 처리합니다.
+	ProjectTrajectoryPoints(OutIndicatorData.TrajectoryPoints);
 
 	return true;
 }
@@ -444,6 +449,33 @@ int32 UBlackoutHUDWidgetController::GetEquippedCrosshairType() const
 	const UBlackoutCombatComponent* BlackoutCombatComponent = CombatComponent.Get();
 	const ABOWeaponBase* EquippedWeapon = BlackoutCombatComponent ? BlackoutCombatComponent->GetEquippedWeapon() : nullptr;
 	return EquippedWeapon ? EquippedWeapon->GetCrosshairType() : 0;
+}
+
+void UBlackoutHUDWidgetController::ProjectTrajectoryPoints(TArray<FBlackoutTrajectoryPointData>& TrajectoryPoints) const
+{
+	ABlackoutPlayerController* BlackoutPlayerController = PlayerController.Get();
+	if (!BlackoutPlayerController || TrajectoryPoints.Num() <= 0)
+	{
+		TrajectoryPoints.Reset();
+		return;
+	}
+
+	for (int32 PointIndex = TrajectoryPoints.Num() - 1; PointIndex >= 0; --PointIndex)
+	{
+		FVector2D ScreenPosition = FVector2D::ZeroVector;
+		if (!UWidgetLayoutLibrary::ProjectWorldLocationToWidgetPosition(
+			BlackoutPlayerController,
+			TrajectoryPoints[PointIndex].WorldLocation,
+			ScreenPosition,
+			true))
+		{
+			// 화면 좌표로 투영할 수 없는 포인트는 점 렌더링 대상에서 제외합니다.
+			TrajectoryPoints.RemoveAt(PointIndex);
+			continue;
+		}
+
+		TrajectoryPoints[PointIndex].ScreenPosition = ScreenPosition;
+	}
 }
 
 void UBlackoutHUDWidgetController::HandleHealthChanged(const FOnAttributeChangeData& ChangeData)

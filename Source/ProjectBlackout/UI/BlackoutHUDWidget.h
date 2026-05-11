@@ -31,6 +31,14 @@ public:
 protected:
 	virtual void NativeOnInitialized() override;
 	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
+	virtual int32 NativePaint(
+		const FPaintArgs& Args,
+		const FGeometry& AllottedGeometry,
+		const FSlateRect& MyCullingRect,
+		FSlateWindowElementList& OutDrawElements,
+		int32 LayerId,
+		const FWidgetStyle& InWidgetStyle,
+		bool bParentEnabled) const override;
 	virtual void NativeDestruct() override;
 
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|HUD")
@@ -53,6 +61,18 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
 	TObjectPtr<UWidget> ImpactIndicatorWidget;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD")
+	FLinearColor TrajectoryNormalColor = FLinearColor(1.f, 1.f, 1.f, 0.75f);
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD")
+	FLinearColor TrajectoryFuseInactiveColor = FLinearColor(1.0f, 0.05f, 0.02f, 0.8f);
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD")
+	FLinearColor TrajectoryOccludedColor = FLinearColor(1.0f, 0.7f, 0.0f, 0.5f);
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD", meta = (ClampMin = 1.0f))
+	float TrajectoryDotSize = 5.0f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD")
 	FLinearColor ImpactIndicatorDefaultColor = FLinearColor::White;
@@ -114,8 +134,13 @@ protected:
 
 private:
 	void UnbindWidgetControllerCallbacks();
-	void UpdateImpactIndicator(const FBlackoutImpactIndicatorData& ImpactIndicatorData) const;
+	void UpdateImpactIndicator(const FBlackoutImpactIndicatorData& ImpactIndicatorData);
 	void ApplyImpactIndicatorColor(const FLinearColor& IndicatorColor) const;
+	int32 PaintProjectileTrajectoryDots(const FGeometry& AllottedGeometry, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle) const;
+	FLinearColor ResolveTrajectoryColor(EBlackoutTrajectoryVisualState VisualState) const;
+
+	UPROPERTY(Transient)
+	TArray<FBlackoutTrajectoryPointData> CachedTrajectoryPoints;
 
 	UFUNCTION()
 	void HandleHealthChanged(float CurrentHealth, float MaxHealth);

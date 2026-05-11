@@ -5,6 +5,8 @@
 #include "Components/CanvasPanelSlot.h"
 #include "Components/Image.h"
 #include "Components/Widget.h"
+#include "Rendering/DrawElements.h"
+#include "Styling/CoreStyle.h"
 #include "UI/BlackoutConsumableSlotsWidget.h"
 #include "UI/BlackoutHUDWidgetController.h"
 #include "UI/BlackoutRelicWidget.h"
@@ -28,6 +30,27 @@ void UBlackoutHUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTi
 
 	UpdateImpactIndicator(ImpactIndicatorData);
 	ReceiveSpreadUpdated(ImpactIndicatorData.SpreadNormalized);
+}
+
+int32 UBlackoutHUDWidget::NativePaint(
+	const FPaintArgs& Args,
+	const FGeometry& AllottedGeometry,
+	const FSlateRect& MyCullingRect,
+	FSlateWindowElementList& OutDrawElements,
+	int32 LayerId,
+	const FWidgetStyle& InWidgetStyle,
+	bool bParentEnabled) const
+{
+	const int32 TrajectoryLayerId = PaintProjectileTrajectoryDots(AllottedGeometry, OutDrawElements, LayerId, InWidgetStyle);
+
+	return Super::NativePaint(
+		Args,
+		AllottedGeometry,
+		MyCullingRect,
+		OutDrawElements,
+		TrajectoryLayerId + 1,
+		InWidgetStyle,
+		bParentEnabled);
 }
 
 void UBlackoutHUDWidget::NativeDestruct()
@@ -79,8 +102,12 @@ void UBlackoutHUDWidget::UnbindWidgetControllerCallbacks()
 	WidgetController->OnConsumableSlotsChanged.RemoveAll(this);
 }
 
-void UBlackoutHUDWidget::UpdateImpactIndicator(const FBlackoutImpactIndicatorData& ImpactIndicatorData) const
+void UBlackoutHUDWidget::UpdateImpactIndicator(const FBlackoutImpactIndicatorData& ImpactIndicatorData)
 {
+	CachedTrajectoryPoints = ImpactIndicatorData.bIsVisible
+		? ImpactIndicatorData.TrajectoryPoints
+		: TArray<FBlackoutTrajectoryPointData>();
+
 	if (!ImpactIndicatorWidget)
 	{
 		return;
@@ -125,6 +152,55 @@ void UBlackoutHUDWidget::UpdateImpactIndicator(const FBlackoutImpactIndicatorDat
 
 	ImpactIndicatorWidget->SetRenderTransformPivot(FVector2D(0.5f, 0.5f));
 	ImpactIndicatorWidget->SetRenderTranslation(ImpactIndicatorData.ScreenPosition);
+}
+
+int32 UBlackoutHUDWidget::PaintProjectileTrajectoryDots(
+	const FGeometry& AllottedGeometry,
+	FSlateWindowElementList& OutDrawElements,
+	int32 LayerId,
+	const FWidgetStyle& InWidgetStyle) const
+{
+	if (CachedTrajectoryPoints.Num() <= 2)
+	{
+		return LayerId;
+	}
+
+	// 기본 흰색 브러시에 포인트 상태별 색상을 곱해 유탄 궤적 점을 그립니다.
+	const FVector2D DotSize(TrajectoryDotSize, TrajectoryDotSize);
+	const FSlateBrush* DotBrush = FCoreStyle::Get().GetBrush("WhiteBrush");
+
+	// 총구와 True Hit 인디케이터를 가리지 않도록 앞쪽 첫 점과 끝쪽 일부 점은 렌더링하지 않습니다.
+	int32 CurrentLayerId = LayerId;
+	for (int32 PointIndex = 1; PointIndex < CachedTrajectoryPoints.Num() - 3; ++PointIndex)
+	{
+		const FBlackoutTrajectoryPointData& TrajectoryPoint = CachedTrajectoryPoints[PointIndex];
+		const FVector2D DotPosition = TrajectoryPoint.ScreenPosition - DotSize * 0.5f;
+
+		FSlateDrawElement::MakeBox(
+			OutDrawElements,
+			CurrentLayerId,
+			AllottedGeometry.ToPaintGeometry(DotSize, FSlateLayoutTransform(DotPosition)),
+			DotBrush,
+			ESlateDrawEffect::None,
+			InWidgetStyle.GetColorAndOpacityTint() * ResolveTrajectoryColor(TrajectoryPoint.VisualState));
+		++CurrentLayerId;
+	}
+
+	return CurrentLayerId;
+}
+
+FLinearColor UBlackoutHUDWidget::ResolveTrajectoryColor(EBlackoutTrajectoryVisualState VisualState) const
+{
+	switch (VisualState)
+	{
+	case EBlackoutTrajectoryVisualState::FuseInactive:
+		return TrajectoryFuseInactiveColor;
+	case EBlackoutTrajectoryVisualState::Occluded:
+		return TrajectoryOccludedColor;
+	case EBlackoutTrajectoryVisualState::Normal:
+	default:
+		return TrajectoryNormalColor;
+	}
 }
 
 void UBlackoutHUDWidget::ApplyImpactIndicatorColor(const FLinearColor& IndicatorColor) const
