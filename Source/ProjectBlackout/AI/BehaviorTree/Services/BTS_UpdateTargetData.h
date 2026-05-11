@@ -2,19 +2,19 @@
 
 #include "CoreMinimal.h"
 #include "BehaviorTree/BTService.h"
-#include "BTService_UpdateTargetData.generated.h"
+#include "BTS_UpdateTargetData.generated.h"
 
 /**
  * AggroComponent의 최고 위협 타겟을 BB_CurrentTarget에 갱신하고
  * 타겟 위치, 거리, 방향 각도를 블랙보드에 쓰는 서비스.
  */
 UCLASS()
-class PROJECTBLACKOUT_API UBTService_UpdateTargetData : public UBTService
+class PROJECTBLACKOUT_API UBTS_UpdateTargetData : public UBTService
 {
 	GENERATED_BODY()
 
 public:
-	UBTService_UpdateTargetData();
+	UBTS_UpdateTargetData();
 
 protected:
 	virtual void TickNode(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, float DeltaSeconds) override;

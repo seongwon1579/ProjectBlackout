@@ -43,10 +43,16 @@ private:
 	FName StartSocketName;
 	FName EndSocketName;
 	float SweepRadius = 30.f;
+	int32 SweepSamples = 5;
 
 	TWeakObjectPtr<UMeshComponent> MeshOverride;
 
 	TArray<TWeakObjectPtr<AActor>> HitActors;
 
+	bool bFirstTick = true;
+	FVector PrevStartLoc = FVector::ZeroVector;
+	FVector PrevEndLoc   = FVector::ZeroVector;
+
 	UMeshComponent* GetOwnerMesh() const;
+	bool DoSweep(const FVector& From, const FVector& To, const FCollisionQueryParams& Params, FHitResult& OutHit) const;
 };

@@ -1,13 +1,12 @@
-#include "AI/BehaviorTree/Services/BTService_UpdateTargetData.h"
+//#include "AI/BehaviorTree/Services/UBTS_UpdateTargetData.h"
+#include "AI/BehaviorTree/Services/BTS_UpdateTargetData.h"
 
-#include "AIController.h"
-#include "AI/BOAggroComponent.h"
 #include "AI/BehaviorTree/BTNodeHelper.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "Characters/BlackoutBossCharacter.h"
 #include "KismetAnimationLibrary.h"
 
-UBTService_UpdateTargetData::UBTService_UpdateTargetData()
+UBTS_UpdateTargetData::UBTS_UpdateTargetData()
 {
 	NodeName = "Update Target Data";
 	Interval = 0.1f;
@@ -16,13 +15,13 @@ UBTService_UpdateTargetData::UBTService_UpdateTargetData()
 	bCreateNodeInstance = true;
 }
 
-void UBTService_UpdateTargetData::TickNode(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, float DeltaSeconds)
+void UBTS_UpdateTargetData::TickNode(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, float DeltaSeconds)
 {
 	Super::TickNode(OwnerComp, NodeMemory, DeltaSeconds);
 	UpdateBlackboard(OwnerComp);
 }
 
-void UBTService_UpdateTargetData::UpdateBlackboard(UBehaviorTreeComponent& OwnerComp)
+void UBTS_UpdateTargetData::UpdateBlackboard(UBehaviorTreeComponent& OwnerComp)
 {
 	if (!OwnerComp.IsRunning()) return;
 

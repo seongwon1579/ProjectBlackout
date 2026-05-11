@@ -4,6 +4,7 @@
 #include "AI/BehaviorTree/Decorators/BTD_OutOfChaseDistance.h"
 
 #include "BehaviorTree/BlackboardComponent.h"
+#include "BehaviorTree/BlackboardData.h"
 #include "BehaviorTree/Blackboard/BlackboardKeyType_Bool.h"
 #include "Engine/Engine.h"
 

@@ -2,12 +2,12 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "AI/BehaviorTree/Decorators/BTDecorator_LineTraceCheck.h"
+#include "AI/BehaviorTree/Decorators/BTD_LineTraceCheck.h"
 
 #include "DrawDebugHelpers.h"
 #include "BehaviorTree/BTNodeHelper.h"
 
-bool UBTDecorator_LineTraceCheck::CalculateRawConditionValue(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) const
+bool UBTD_LineTraceCheck::CalculateRawConditionValue(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) const
 {
 	APawn* Owner = UBTNodeHelper::GetAIPawn(OwnerComp);
 	if (!Owner) return false;
@@ -30,7 +30,7 @@ bool UBTDecorator_LineTraceCheck::CalculateRawConditionValue(UBehaviorTreeCompon
 	return bHit;
 }
 
-FString UBTDecorator_LineTraceCheck::GetStaticDescription() const
+FString UBTD_LineTraceCheck::GetStaticDescription() const
 {
 	return Super::GetStaticDescription();
 }

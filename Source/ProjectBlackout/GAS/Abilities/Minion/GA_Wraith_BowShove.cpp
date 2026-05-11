@@ -57,7 +57,7 @@ void UGA_Wraith_BowShove::ActivateAbility(
 
 	UAbilityTask_WaitGameplayEvent* WaitStartTask =
 		UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(
-			this, BlackoutGameplayTags::Event_Enemy_Attack_SweepStart, nullptr,
+			this, BlackoutGameplayTags::Event_Enemy_Attack_OnCollision, nullptr,
 			true, true
 		);
 
@@ -114,7 +114,7 @@ void UGA_Wraith_BowShove::OnSweepStartEvent(FGameplayEventData Payload)
 	// 스윕 끝 이벤트 대기
 	UAbilityTask_WaitGameplayEvent* WaitEndTask =
 		UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(
-			this, BlackoutGameplayTags::Event_Enemy_Attack_SweepEnd, nullptr,
+			this, BlackoutGameplayTags::Event_Enemy_Attack_OffCollision, nullptr,
 			true, true);
 	
 	if (WaitEndTask)
