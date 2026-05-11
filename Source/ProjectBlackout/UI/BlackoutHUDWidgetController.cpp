@@ -47,6 +47,10 @@ void UBlackoutHUDWidgetController::BindCallbacksToDependencies()
 			.AddUObject(this, &UBlackoutHUDWidgetController::HandleStaminaChanged);
 		ASC->GetGameplayAttributeValueChangeDelegate(UBlackoutPlayerAttributeSet::GetMaxStaminaAttribute())
 			.AddUObject(this, &UBlackoutHUDWidgetController::HandleMaxStaminaChanged);
+		ASC->GetGameplayAttributeValueChangeDelegate(UBlackoutPlayerAttributeSet::GetRelicChargesAttribute())
+			.AddUObject(this, &UBlackoutHUDWidgetController::HandleRelicChargesChanged);
+		ASC->GetGameplayAttributeValueChangeDelegate(UBlackoutPlayerAttributeSet::GetMaxRelicChargesAttribute())
+			.AddUObject(this, &UBlackoutHUDWidgetController::HandleMaxRelicChargesChanged);
 		ASC->GetGameplayAttributeValueChangeDelegate(UBlackoutAmmoAttributeSet::GetPrimaryClipAmmoAttribute())
 			.AddUObject(this, &UBlackoutHUDWidgetController::HandleAmmoChanged);
 		ASC->GetGameplayAttributeValueChangeDelegate(UBlackoutAmmoAttributeSet::GetPrimaryMaxClipAttribute())
@@ -110,6 +114,7 @@ void UBlackoutHUDWidgetController::BroadcastInitialValues()
 	BroadcastEquippedWeapon();
 	BroadcastAiming();
 	BroadcastWeaponAmmoDisplay(false);
+	BroadcastRelicCharges();
 	BroadcastConsumables();
 }
 
@@ -300,6 +305,17 @@ void UBlackoutHUDWidgetController::BroadcastWeaponAmmoDisplay(bool bPlaySwapAnim
 	OnWeaponAmmoDisplayChanged.Broadcast(PrimarySlotData, SecondarySlotData, bPlaySwapAnimation);
 }
 
+void UBlackoutHUDWidgetController::BroadcastRelicCharges() const
+{
+	const int32 MaxCharges = FMath::Max(0, FMath::RoundToInt(GetAttributeValue(UBlackoutPlayerAttributeSet::GetMaxRelicChargesAttribute())));
+	const int32 CurrentCharges = FMath::Clamp(
+		FMath::RoundToInt(GetAttributeValue(UBlackoutPlayerAttributeSet::GetRelicChargesAttribute())),
+		0,
+		MaxCharges);
+
+	OnRelicChargesChanged.Broadcast(CurrentCharges, MaxCharges);
+}
+
 void UBlackoutHUDWidgetController::BroadcastConsumables() const
 {
 	const ABlackoutPlayerState* BlackoutPlayerState = PlayerState.Get();
@@ -448,6 +464,16 @@ void UBlackoutHUDWidgetController::HandleStaminaChanged(const FOnAttributeChange
 void UBlackoutHUDWidgetController::HandleMaxStaminaChanged(const FOnAttributeChangeData& ChangeData)
 {
 	BroadcastStamina();
+}
+
+void UBlackoutHUDWidgetController::HandleRelicChargesChanged(const FOnAttributeChangeData& ChangeData)
+{
+	BroadcastRelicCharges();
+}
+
+void UBlackoutHUDWidgetController::HandleMaxRelicChargesChanged(const FOnAttributeChangeData& ChangeData)
+{
+	BroadcastRelicCharges();
 }
 
 void UBlackoutHUDWidgetController::HandleAmmoChanged(const FOnAttributeChangeData& ChangeData)
