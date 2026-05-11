@@ -4,6 +4,7 @@
 #include "BlackoutMainMenuWidget.h"
 
 #include "BlackoutLoginWidget.h"
+#include "BlackoutMatchmakingWidget.h"
 #include "Framework/BlackoutMatchmakingSubsystem.h"
 
 #include  "Components/Button.h"
@@ -70,6 +71,12 @@ void UBlackoutMainMenuWidget::NativeDestruct()
 			this, &UBlackoutMainMenuWidget::HandleLoginAttemptFinished);
 		ActiveLoginWidget = nullptr;
 	}
+	if (ActiveMatchmakingWidget)
+	{
+		ActiveMatchmakingWidget->OnMatchmakingExited.RemoveDynamic(
+			this, & UBlackoutMainMenuWidget::HandleMatchmakingWidgetExited);
+		ActiveMatchmakingWidget = nullptr;
+	}
 	Super::NativeDestruct();
 }
 
@@ -105,7 +112,19 @@ void UBlackoutMainMenuWidget::HandleLogoutClicked()
 
 void UBlackoutMainMenuWidget::HandleStartMatchmakingClicked()
 {
-	// TODO: Matchmaking 위젯 띄우기
+	if (!MatchmakingWidgetClass || ActiveMatchmakingWidget)
+	{
+		return;
+	}
+	ActiveMatchmakingWidget = CreateWidget<UBlackoutMatchmakingWidget>(
+		GetOwningPlayer(), MatchmakingWidgetClass);
+	if (!ActiveMatchmakingWidget)
+	{
+		return;
+	}
+	ActiveMatchmakingWidget->OnMatchmakingExited.AddDynamic(
+		this, &UBlackoutMainMenuWidget::HandleMatchmakingWidgetExited);
+	ActiveMatchmakingWidget->AddToViewport(100);
 }
 
 void UBlackoutMainMenuWidget::HandleOptionsClicked()
@@ -153,6 +172,21 @@ void UBlackoutMainMenuWidget::HandleMatchmakingError(int32 HttpStatus,
 	RefreshForLoginState();
 }
 
+void UBlackoutMainMenuWidget::HandleMatchmakingWidgetExited(bool bSuccess)
+{
+	if (ActiveMatchmakingWidget)
+	{
+		ActiveMatchmakingWidget->OnMatchmakingExited.RemoveDynamic(
+			this, &UBlackoutMainMenuWidget::HandleMatchmakingWidgetExited);
+		ActiveMatchmakingWidget = nullptr;
+	}
+
+	if (bSuccess)
+	{
+		RefreshForLoginState();
+	}
+}
+
 void UBlackoutMainMenuWidget::RefreshForLoginState()
 {
 	const UGameInstance* GameInstance = GetGameInstance();
@@ -186,7 +220,9 @@ void UBlackoutMainMenuWidget::RefreshForLoginState()
 		if (bLoggedIn)
 		{
 			WelcomeText->SetText(FText::FromString(
-				FString::Printf(TEXT("Welcome, %s"), *MatchmakingSubsystem->GetPlayerName())));
+				FString::Printf(
+					TEXT("Welcome, %s"),
+					*MatchmakingSubsystem->GetPlayerName())));
 		}
 	}
 }

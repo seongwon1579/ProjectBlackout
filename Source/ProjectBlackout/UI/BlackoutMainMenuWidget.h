@@ -9,6 +9,7 @@
 class UButton;
 class UTextBlock;
 class UBlackoutLoginWidget;
+class UBlackoutMatchmakingWidget;
 
 /**
  *  메인메뉴 위젯 
@@ -29,6 +30,9 @@ public:
 	// WBP_Login 등 구체 구현은 BP 에서 지정.
 	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="Blackout|MainMenu")
 	TSubclassOf<UBlackoutLoginWidget> LoginWidgetClass;
+	
+	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="Blackout|MainMenu")
+	TSubclassOf<UBlackoutMatchmakingWidget> MatchmakingWidgetClass;
 	
 protected:
 	virtual void NativeConstruct() override;
@@ -74,9 +78,15 @@ private:
 	UFUNCTION()
 	void HandleMatchmakingError(int32 HttpStatus , const FString& Message);
 	
+	UFUNCTION()
+	void HandleMatchmakingWidgetExited(bool bSuccess);
+	
 	// 로그인 상태에 맞춰서 버튼 Visible / Welcome 텍스트 갱신
 	void RefreshForLoginState();
 	
 	UPROPERTY()
 	TObjectPtr<UBlackoutLoginWidget> ActiveLoginWidget;
+	
+	UPROPERTY()
+	TObjectPtr<UBlackoutMatchmakingWidget> ActiveMatchmakingWidget;
 };
