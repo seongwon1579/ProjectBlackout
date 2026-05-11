@@ -18,7 +18,7 @@ struct PROJECTBLACKOUT_API FBSTTask_MoveTowardTargetInstanceData
 	TObjectPtr<APawn> TargetPawn;
 	
 	/** 거리 안에 들어오면 Succeeded */
-	UPROPERTY(EditAnywhere , Category="Parameter" , meta=(ClampMin=0.0f))
+	UPROPERTY(EditAnywhere , Category="Parameter" , meta=(ClampMin="0.0"))
 	float AcceptableDistance = 1500.0f;
 	
 };

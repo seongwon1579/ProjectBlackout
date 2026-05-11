@@ -156,6 +156,20 @@ void ABlackoutPlayerController::SetupInputComponent()
 		EnhancedInputComponent->BindAction(InteractAction , ETriggerEvent::Canceled , this , &ABlackoutPlayerController::OnInteractReleased);
 		
 	}
+
+	if (UseConsumable1Action)
+	{
+		EnhancedInputComponent->BindAction(UseConsumable1Action, ETriggerEvent::Started, this, &ABlackoutPlayerController::OnUseConsumable1Pressed);
+		EnhancedInputComponent->BindAction(UseConsumable1Action, ETriggerEvent::Completed, this, &ABlackoutPlayerController::OnUseConsumable1Released);
+		EnhancedInputComponent->BindAction(UseConsumable1Action, ETriggerEvent::Canceled, this, &ABlackoutPlayerController::OnUseConsumable1Released);
+	}
+
+	if (UseConsumable2Action)
+	{
+		EnhancedInputComponent->BindAction(UseConsumable2Action, ETriggerEvent::Started, this, &ABlackoutPlayerController::OnUseConsumable2Pressed);
+		EnhancedInputComponent->BindAction(UseConsumable2Action, ETriggerEvent::Completed, this, &ABlackoutPlayerController::OnUseConsumable2Released);
+		EnhancedInputComponent->BindAction(UseConsumable2Action, ETriggerEvent::Canceled, this, &ABlackoutPlayerController::OnUseConsumable2Released);
+	}
 	
 }
 
@@ -225,10 +239,8 @@ void ABlackoutPlayerController::OnSwapWeaponPressed()
 		return;
 	}
 
-	if (UBlackoutCombatComponent* CombatComponent = GetBlackoutCombatComponent())
-	{
-		CombatComponent->SwapWeapon();
-	}
+	HandleAbilityInputPressed(EBlackoutAbilityInputID::SwapWeapon);
+	HandleAbilityInputReleased(EBlackoutAbilityInputID::SwapWeapon);
 }
 
 void ABlackoutPlayerController::OnDodgePressed()
@@ -296,6 +308,36 @@ void ABlackoutPlayerController::OnInteractReleased()
 {
 	HandleAbilityInputReleased(EBlackoutAbilityInputID::Interact);
 
+}
+
+void ABlackoutPlayerController::OnUseConsumable1Pressed()
+{
+	if (IsHitReactInputBlocked())
+	{
+		return;
+	}
+
+	HandleAbilityInputPressed(EBlackoutAbilityInputID::UseConsumable1);
+}
+
+void ABlackoutPlayerController::OnUseConsumable1Released()
+{
+	HandleAbilityInputReleased(EBlackoutAbilityInputID::UseConsumable1);
+}
+
+void ABlackoutPlayerController::OnUseConsumable2Pressed()
+{
+	if (IsHitReactInputBlocked())
+	{
+		return;
+	}
+
+	HandleAbilityInputPressed(EBlackoutAbilityInputID::UseConsumable2);
+}
+
+void ABlackoutPlayerController::OnUseConsumable2Released()
+{
+	HandleAbilityInputReleased(EBlackoutAbilityInputID::UseConsumable2);
 }
 
 bool ABlackoutPlayerController::IsHitReactInputBlocked() const

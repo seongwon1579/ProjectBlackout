@@ -14,7 +14,7 @@ UBTDecorator_CheckAbilityCondition::UBTDecorator_CheckAbilityCondition()
 bool UBTDecorator_CheckAbilityCondition::CalculateRawConditionValue(
 	UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) const
 {
-	UBlackboardComponent* BB = UBTNodeHelper::GetBlackboard(OwnerComp);
+	UBlackboardComponent* BB = OwnerComp.GetBlackboardComponent();
 	if (!BB) return false;
 
 	// 1. 타겟 유효성

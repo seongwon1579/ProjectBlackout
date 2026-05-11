@@ -16,11 +16,11 @@ struct PROJECTBLACKOUT_API FBSTEval_WraithAggroTargetInstanceData
 	TObjectPtr<AAIController> Controller;
 	
 	// 거리 가중치 (0~1) - 가까울수록 점수 ↑
-	UPROPERTY(EditAnywhere , Category="Tuning|Weights", meta=(ClampMin=0.0f, ClampMax=1.0f))
+	UPROPERTY(EditAnywhere , Category="Tuning|Weights", meta=(ClampMin="0.0", ClampMax="1.0"))
 	float DistanceWeight= 1.0f;
 	
 	// 거리 정규화 기준 - 이 거리 안에서 점수 1~0 밖이면 0
-	UPROPERTY(EditAnywhere, Category="Tuning|Weights" ,meta=(ClampMin=100.0f))
+	UPROPERTY(EditAnywhere, Category="Tuning|Weights" ,meta=(ClampMin="100.0"))
 	float MaxRange = 99999.0f;
 	
 	UPROPERTY(EditAnywhere,Category="Output")

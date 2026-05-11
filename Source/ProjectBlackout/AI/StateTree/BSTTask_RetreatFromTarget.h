@@ -19,11 +19,11 @@ struct PROJECTBLACKOUT_API FBSTTask_RetreatFromTargetInstanceData
 	TObjectPtr<APawn> TargetPawn;
 	
 	/** (2D ,cm ) 거리 이상 멀어지면 Succeeded */
-	UPROPERTY(EditAnywhere,Category="Parameter" ,meta=(ClampMin=0.0f))
+	UPROPERTY(EditAnywhere,Category="Parameter" ,meta=(ClampMin="0.0"))
 	float SafeDistance =1100.0f;
 	
 	/** 여유 후퇴 거리 */
-	UPROPERTY(EditAnywhere, Category="Parameter" ,meta=(ClampMin=0.0f))
+	UPROPERTY(EditAnywhere, Category="Parameter" ,meta=(ClampMin="0.0"))
 	float OvershootBuffer =200.0f;
 };
 

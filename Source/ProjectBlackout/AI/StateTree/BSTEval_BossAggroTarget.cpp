@@ -13,5 +13,5 @@ void FBSTEval_BossAggroTarget::Tick(FStateTreeExecutionContext& Context, const f
 
 	APawn* BestTarget = Provider->GetHighestAggroTarget();
 	Data.OutTarget    = BestTarget;
-	Data.Controller->WriteTargetToBlackboard(BestTarget);
+	//Data.Controller->WriteTargetToBlackboard(BestTarget);
 }

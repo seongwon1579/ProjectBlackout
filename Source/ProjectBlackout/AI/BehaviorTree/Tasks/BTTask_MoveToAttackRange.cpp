@@ -18,10 +18,10 @@ UBTTask_MoveToAttackRange::UBTTask_MoveToAttackRange()
 EBTNodeResult::Type UBTTask_MoveToAttackRange::ExecuteTask(
 	UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
-	AAIController* AI = UBTNodeHelper::GetAIController(OwnerComp);
+	AAIController* AI = OwnerComp.GetAIOwner();
 	if (!AI) return EBTNodeResult::Failed;
 	
-	UBlackboardComponent* BB = UBTNodeHelper::GetBlackboard(OwnerComp);
+	UBlackboardComponent* BB = OwnerComp.GetBlackboardComponent();
 	if (!BB) return EBTNodeResult::Failed;
 
 	APawn* Owner= AI->GetPawn();
@@ -70,7 +70,7 @@ void UBTTask_MoveToAttackRange::TickTask(
 {
 	Super::TickTask(OwnerComp, NodeMemory, DeltaSeconds);
 
-	UBlackboardComponent* BB = UBTNodeHelper::GetBlackboard(OwnerComp);
+	UBlackboardComponent* BB = OwnerComp.GetBlackboardComponent();
 	if (!BB || !CachedAI.IsValid()) return;
 
 	const float MaxDist = BB->GetValueAsFloat(MaxDistanceKey.SelectedKeyName);

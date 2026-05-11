@@ -5,8 +5,11 @@
 #include "BlackoutGA_FireWeapon.generated.h"
 
 class UGameplayEffect;
+class UAnimMontage;
 class ABOFirearm;
 class ABOShotgunFirearm;
+struct FGameplayEventData;
+struct FTimerHandle;
 
 /**
  * 플레이어 사격 게임플레이 어빌리티 (TDD v5 §4.1)
@@ -44,4 +47,14 @@ protected:
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	void PlayFireMontage();
+
+	UFUNCTION()
+	void OnWeaponFireStartEventReceived(FGameplayEventData Payload);
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	void OnFireMontageCompleted();
+
+	TObjectPtr<UAnimMontage> CachedFireMontage = nullptr;
+	bool bWeaponFireAnimationTriggered = false;
+	FTimerHandle FireMontageCompletionTimerHandle;
 };

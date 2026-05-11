@@ -20,12 +20,6 @@ class PROJECTBLACKOUT_API ABORootWraith : public ABlackoutEnemyCharacter
 public:
 	ABORootWraith();
 
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Minion")
-	void FireTwinArrows();
-
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Minion")
-	void TeleportOutOfSight();
-
 protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|AI")
 	TObjectPtr<UStateTree> ST_RootWraith;
@@ -35,4 +29,9 @@ protected:
 	
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly, Category = "Blackout|Combat")
 	float MeleeDetectRadius= 300.0f;
+	
+	/** 이동속도 */
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly, Category = "Blackout|Movement" ,meta=(ClampMin=0.0f , UIMin=0.0f , UIMax=300.0f))
+	float DefaultFlySpeed = 75.f;
+	
 };

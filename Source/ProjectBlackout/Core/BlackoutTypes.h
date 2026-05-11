@@ -11,11 +11,13 @@ enum class EBlackoutAbilityInputID : uint8
 	Cancel          UMETA(DisplayName = "Cancel"),
 	Fire            UMETA(DisplayName = "Fire"),
 	Reload          UMETA(DisplayName = "Reload"),
+	SwapWeapon      UMETA(DisplayName = "SwapWeapon"),
 	Dodge           UMETA(DisplayName = "Dodge"),
 	Sprint          UMETA(DisplayName = "Sprint"),
 	Melee           UMETA(DisplayName = "Melee"),
 	UseRelic        UMETA(DisplayName = "UseRelic"),
-	UseConsumable   UMETA(DisplayName = "UseConsumable"),
+	UseConsumable1   UMETA(DisplayName = "UseConsumable1"),
+	UseConsumable2   UMETA(DisplayName = "UseConsumable2"),
 	Interact        UMETA(DisplayName = "Interact"),
 };
 

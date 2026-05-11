@@ -18,11 +18,11 @@ struct PROJECTBLACKOUT_API  FBSTTask_StrafeAroundTargetInstanceData
 	TObjectPtr<APawn> TargetPawn;
 	
 	/** 좌 우 전환 주기 */
-	UPROPERTY(EditAnywhere , Category="Parameter", meta=(ClampMin=0.1f))
+	UPROPERTY(EditAnywhere , Category="Parameter", meta=(ClampMin="0.1"))
 	float StrafeInterval = 1.5f;
 	
 	/** 전환 시 타겟 기준 회전각도 */
-	UPROPERTY(EditAnywhere,Category="Parameter",meta=(ClampMin=1.0f , ClampMax=90.0f))
+	UPROPERTY(EditAnywhere,Category="Parameter",meta=(ClampMin="1.0" , ClampMax="90.0"))
 	float StrafeAngleDeg = 30.0f;
 	
 	bool bStrafeRight = true;

@@ -29,7 +29,9 @@ void UBlackoutPlayerAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	}
 
 	// GAS 태그 상태 업데이트
+	bIsAiming = false;
 	bIsTwoHanded = false;
+	bIsSprinting = false;
 
 	const UBlackoutCombatComponent* CombatComponent = PlayerCharacter->GetCombatComponent();
 	if (CombatComponent)
@@ -52,7 +54,7 @@ void UBlackoutPlayerAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 			bIsAiming = ASC->HasMatchingGameplayTag(BlackoutGameplayTags::State_Aiming);
 		}
 	}
-
+	
 	UpdateAimOffset(DeltaSeconds);
 }
 

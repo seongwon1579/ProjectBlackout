@@ -17,11 +17,11 @@ struct PROJECTBLACKOUT_API FBstCond_TargetWithinRangeInstanceData
 	TObjectPtr<APawn> TargetPawn;
 	
 	/**  사거리 하한 , 0이면 하한 없음 */
-	UPROPERTY(EditAnywhere,Category="Parameter" , meta=(ClampMin=0.0f))
+	UPROPERTY(EditAnywhere,Category="Parameter" , meta=(ClampMin="0.0"))
 	float MinRange = 0.0f;
 	
 	/** 사거리 상한 (포함) */
-	UPROPERTY(EditAnywhere , Category="Parmeter" , meta=(ClampMin=0.0))
+	UPROPERTY(EditAnywhere , Category="Parameter" , meta=(ClampMin="0.0"))
 	float MaxRange = 1500.0f;
 	
 	/** XY 평면 거리로 비교, false 면 3d */

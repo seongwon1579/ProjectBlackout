@@ -14,7 +14,10 @@ classDiagram
     UUserWidget <|-- UW_StaminaBar
     UUserWidget <|-- UW_AmmoDisplay
     UUserWidget <|-- UW_WeaponDisplay
+    UUserWidget <|-- UBlackoutConsumableSlotsWidget
+    UUserWidget <|-- UBlackoutConsumableSlotWidget
     UObject <|-- UBlackoutHUDWidgetController
+    UPrimaryDataAsset <|-- UBOConsumableData
 
     IAbilitySystemInterface <|.. ABlackoutPlayerState
 
@@ -35,6 +38,7 @@ classDiagram
         -UW_StaminaBar* StaminaBarWidget
         -UW_AmmoDisplay* AmmoDisplayWidget
         -UW_WeaponDisplay* WeaponDisplayWidget
+        -UBlackoutConsumableSlotsWidget* ConsumableSlotsWidget
         +SetWidgetController(UBlackoutHUDWidgetController*) void
         +NativeOnInitialized() void
         +NativeTick(FGeometry, float) void
@@ -51,16 +55,21 @@ classDiagram
         -TWeakObjectPtr~UBlackoutAmmoAttributeSet~ AmmoAttributeSet
         -TWeakObjectPtr~UBlackoutCombatComponent~ CombatComponent
         -TWeakObjectPtr~UBlackoutImpactIndicatorComponent~ ImpactIndicatorComponent
+        -TArray~UBOConsumableData*~ ConsumableDefinitions
         +Initialize(APlayerController*) void
         +BindCallbacksToDependencies() void
         +BroadcastInitialValues() void
         +GetImpactIndicatorData(FBlackoutImpactIndicatorData&) bool
         +OnAimingChanged(bool bIsAiming, int32 CrosshairType)
+        +OnConsumableSlotsChanged(FBlackoutConsumableSlotData BloodRootData, FBlackoutConsumableSlotData GulSerumData)
         -HandleHealthChanged(FOnAttributeChangeData) void
         -HandleMaxHealthChanged(FOnAttributeChangeData) void
         -HandleStaminaChanged(FOnAttributeChangeData) void
         -HandleMaxStaminaChanged(FOnAttributeChangeData) void
         -HandleAmmoChanged(FOnAttributeChangeData) void
+        -HandleConsumablesChanged(int32 BloodRootCount, int32 GulSerumCount) void
+        -MakeConsumableSlotData(FGameplayTag, int32) FBlackoutConsumableSlotData
+        -FindConsumableData(FGameplayTag) UBOConsumableData*
         -HandleEquippedWeaponChanged(ABOWeaponBase*) void
         -HandleGameplayTagChanged(FGameplayTag, int32) void
     }
@@ -94,6 +103,43 @@ classDiagram
         +SetWeaponSlot(FGameplayTag WeaponSlotTag) void
     }
 
+    class UBlackoutConsumableSlotsWidget {
+        -UBlackoutConsumableSlotWidget* BloodRootSlotWidget
+        -UBlackoutConsumableSlotWidget* GulSerumSlotWidget
+        +SetConsumableSlots(FBlackoutConsumableSlotData BloodRootData, FBlackoutConsumableSlotData GulSerumData) void
+    }
+
+    class UBlackoutConsumableSlotWidget {
+        -FBlackoutConsumableSlotData SlotData
+        -UImage* IconImage
+        -UTextBlock* CountText
+        +SetConsumableSlotData(FBlackoutConsumableSlotData) void
+    }
+
+    class FBlackoutConsumableSlotData {
+        <<Struct>>
+        +FGameplayTag ConsumableTag
+        +UTexture2D* Icon
+        +FText DisplayName
+        +int32 Count
+        +int32 MaxCount
+        +float Cooldown
+        +bool bIsAvailable
+    }
+
+    class UBOConsumableData {
+        <<PrimaryDataAsset>>
+        +FGameplayTag ConsumableTag
+        +FText DisplayName
+        +TSoftObjectPtr~UTexture2D~ Icon
+        +int32 InitialCount
+        +int32 MaxCount
+        +float Cooldown
+        +TSubclassOf~UGameplayAbility~ UseAbility
+        +TSubclassOf~UGameplayEffect~ GameplayEffect
+        +TMap~FGameplayTag, float~ EffectMagnitudes
+    }
+
     class ABlackoutPlayerController {
         +BeginPlayingState() void
     }
@@ -103,6 +149,9 @@ classDiagram
         -UBlackoutBaseAttributeSet* BaseAttributeSet
         -UBlackoutPlayerAttributeSet* PlayerAttributeSet
         -UBlackoutAmmoAttributeSet* AmmoAttributeSet
+        +int32 BloodRootCount
+        +int32 GulSerumCount
+        +OnConsumableCountsChanged(int32, int32)
         +GetAbilitySystemComponent() UAbilitySystemComponent*
     }
 
@@ -156,6 +205,8 @@ classDiagram
     UBlackoutHUDWidget o-- UW_StaminaBar
     UBlackoutHUDWidget o-- UW_AmmoDisplay
     UBlackoutHUDWidget o-- UW_WeaponDisplay
+    UBlackoutHUDWidget o-- UBlackoutConsumableSlotsWidget
+    UBlackoutConsumableSlotsWidget o-- UBlackoutConsumableSlotWidget
 
     UBlackoutHUDWidget --> UBlackoutHUDWidgetController : receives display events
     UBlackoutHUDWidgetController --> ABlackoutPlayerState : resolves ASC owner
@@ -166,6 +217,9 @@ classDiagram
     UBlackoutHUDWidgetController --> UBlackoutPlayerAttributeSet : reads Stamina
     UBlackoutHUDWidgetController --> UBlackoutAmmoAttributeSet : reads Ammo
     UBlackoutHUDWidgetController --> ABOWeaponBase : reads display data
+    UBlackoutHUDWidgetController --> UBOConsumableData : reads icon/tuning
+    UBlackoutHUDWidgetController --> FBlackoutConsumableSlotData : builds display data
+    UBlackoutConsumableSlotWidget --> FBlackoutConsumableSlotData : renders
 ```
 
 ## 바인딩 흐름
@@ -180,6 +234,7 @@ sequenceDiagram
     participant ASC as UAbilitySystemComponent
     participant Combat as UBlackoutCombatComponent
     participant Widget as UBlackoutHUDWidget
+    participant ConsumableDA as UBOConsumableData
 
     PC->>HUD: InitHUD(PC)
     HUD->>Widget: CreateWidget / AddToViewport
@@ -188,8 +243,11 @@ sequenceDiagram
     WC->>ASC: GetGameplayAttributeValueChangeDelegate(...)
     WC->>ASC: RegisterGameplayTagEvent(...)
     WC->>Combat: OnEquippedWeaponChanged 바인딩
+    WC->>PS: OnConsumableCountsChanged 바인딩
+    WC->>ConsumableDA: BloodRoot / GulSerum 정적 표시 데이터 조회
     WC->>Widget: BroadcastInitialValues()
     ASC-->>WC: Health / Stamina / Ammo 변경
+    PS-->>WC: BloodRoot / GulSerum 수량 변경
     Combat-->>WC: 장착 무기 변경
     WC-->>Widget: 표시용 이벤트 Broadcast
 ```
@@ -204,5 +262,7 @@ sequenceDiagram
 - **현재 무기 표시**: 장착 무기 이름, 아이콘, 무기 슬롯은 `UBlackoutCombatComponent::OnEquippedWeaponChanged`에서 갱신합니다.
 - **크로스헤어 선택**: `DT_WeaponStats`의 `CrosshairType`(0~5)을 `ABOWeaponBase`가 캐시하고, `UBlackoutHUDWidgetController::OnAimingChanged`가 조준 상태와 함께 현재 장착 무기의 타입을 `UBlackoutHUDWidget::ReceiveAimingChanged`로 전달합니다.
 - **탄약 표시 전환**: 현재 슬롯이 주무기면 Primary 어트리뷰트, 보조무기면 Secondary 어트리뷰트를 표시합니다. 근접무기처럼 탄약이 없으면 `UW_AmmoDisplay`를 숨기거나 비활성화합니다.
+- **소모품 표시**: 현재 소지 수량은 `ABlackoutPlayerState`의 Replicated 프로퍼티가 소유하고, 아이콘·최대 수량·쿨다운은 `UBOConsumableData`에서 조회합니다. 회복량·지속시간 같은 효과 수치는 `EffectMagnitudes`의 GameplayTag 키로 조회합니다.
+- **소모품 슬롯 데이터**: `UBlackoutHUDWidgetController`는 `PlayerState` 수량과 `UBOConsumableData` 정적 데이터를 합쳐 `FBlackoutConsumableSlotData`를 만들고, `UBlackoutConsumableSlotsWidget`은 이를 하위 슬롯에 전달합니다. 슬롯 위젯은 ASC/DataAsset을 직접 조회하지 않습니다.
 - **Tick 예외**: `UBlackoutHUDWidget`은 착탄 인디케이터 위치/색상 갱신을 위해 Tick에서 `UBlackoutImpactIndicatorComponent`의 결과를 조회할 수 있습니다. 실제 라인트레이스/투사체 예측 계산은 전투 전용 컴포넌트가 담당하며, 다른 HUD 요소는 Tick을 사용하지 않습니다.
 - **초기값 브로드캐스트**: Delegate 바인딩 직후 현재 Attribute 값을 한 번 브로드캐스트하여 첫 프레임 빈 UI를 방지합니다.

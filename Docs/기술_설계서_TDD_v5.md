@@ -74,9 +74,10 @@ Unreal Engine **5.7.4 바이너리 빌드(버전 고정)** 기반의 **Dedicated
   - `GA_Reload`: 탄창 재장전. 시전 시 장전 몽타주와 함께 `GCN_Weapon_Reload`를 호출하여 재장전 사운드(탄창 탈착음)를 동기화하고, 완료 시점에서 `PrimaryReserveAmmo` → `PrimaryClipAmmo` 로 이전(ExecCalc로 예비탄 차감 및 장탄 보충 동시 처리).
   - `GA_Melee_Player`: 플레이어 전용 근접 무기(강철 검 등) 타격 로직. 단축키 입력 시 근접 몽타주 재생 및 전방 공격 판정(Sweep) 생성, 콤보 연계 관리.
   - `GA_Revive`: 쓰러진 아군 구출. 완료 시 **구출을 수행한 플레이어의 `RelicCharges` 어트리뷰트 1회 차감** 로직 포함.
-  - `GA_UseConsumable_BloodRoot`: 블러드 루트 사용. PlayerState의 블러드 루트 소지량 1 차감 후 `GE_HealOverTime` 부여.
+  - `UBlackoutGA_UseConsumable`: 소모품 사용 공통 절차. `UBOConsumableData`를 읽어 PlayerState 소지량 차감, 쿨다운, 공통 GameplayEffect SetByCaller 주입을 담당.
+  - `UBlackoutGA_UseBloodRoot`: 블러드 루트 사용. PlayerState의 블러드 루트 소지량 1 차감 후 ASC 지속 체력 회복 타이머를 시작.
   - `GA_UseRelic`: 유물(Dragon Heart) 사용. Lock-in 애니메이션 재생과 동시에 `GE_RelicHeal` 이펙트로 즉각 체력 회복. 완료 시 `RelicCharges` 1회 차감. 시전 중 `State.Locked` 태그로 이동 및 액션 봉쇄.
-  - `GA_UseGulSerum`: 굴 혈청 사용. PlayerState의 굴 혈청 소지량 1 차감 후 `GE_GulSerumBuff` 이펙트를 부여하여 60초간 스태미나 소비 50% 감소.
+  - `UBlackoutGA_UseGulSerum`: 굴 혈청 사용. PlayerState의 굴 혈청 소지량 1 차감 후 ASC 임시 스태미나 소비 배율을 적용하여 60초간 스태미나 소비 50% 감소.
 - **미니언 패턴 GA**:
   - `GA_Minion_MeleeAttack`: 미니언(Root Hollow)의 박치기 등 기본 근접 공격. 타격 판정(Sweep, Overlap)에 맞춰 타겟에게 `GE_Damage` 부여.
   - `GA_Wraith_FireArrow`: 엘리트 미니언(Root Wraith)의 원거리 2연발 화살 투사체 발사. 풀비용(Cost) 없이 쿨다운만 적용.
@@ -102,9 +103,9 @@ GE와 ExecCalc(실행 계산기)를 사용해, 피격 처리와 기믹 보상을
 
 - **데미지/회복 이펙트 (`GameplayEffect`)**:
   - `GE_Damage`: 피격 시 대상의 ASC에 `GameplayCue.Character.Hit` 태그를 전달하여 `GCN_HitImpact [Static]` 혈흔/파편 연출 트리거.
-  - `GE_HealOverTime`: 블러드 루트 사용 시 지속 시간 동안 녹색 치유 오라(`GCN_HealLoop [Actor]`) 유지.
+  - 블러드 루트 지속 회복: `UBlackoutGA_UseBloodRoot`가 ASC 지속 체력 회복 타이머를 시작합니다. 별도 GE를 쓸 경우 실제 회복 Modifier가 아니라 Cue/태그 표현 용도로 제한합니다.
   - `GE_RelicHeal`: 유물 사용 시 즉각 체력 회복. `HealingEffectiveness`로 보정.
-  - `GE_GulSerumBuff`: 60초 지속. 구르기/전력 질주의 스태미나 소비 비율 50% 감소(승수 Multiplier 적용).
+  - 굴 혈청 버프: `UBlackoutGA_UseGulSerum`이 ASC의 임시 스태미나 소비 배율을 설정해 구르기/전력 질주의 스태미나 소비 비율을 감소시킵니다.
   - `GE_Enrage`: Phase B 진입 시 보스에게 적용되는 스탯 펌핑 GE. 이동속도/공격속도 Attribute 증폭.
 - **조건부 보상 처리기 (`ExecCalc_CombatReward`)**:
   - 적 액터 사망 시(On Death), 마지막 타격(Killing Blow) 속성(HitTag)을 평가.

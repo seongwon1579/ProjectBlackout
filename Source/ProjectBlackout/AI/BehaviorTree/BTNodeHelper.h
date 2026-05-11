@@ -11,32 +11,20 @@
 
 class UAbilitySystemComponent;
 
-/**
- * BT 노드(Decorator / Service / Task)에서 반복되는
- * AIController · Blackboard · Pawn · Actor 조회 로직을 모아둔 정적 헬퍼.
- *
- * 기본형은 베이스 타입을 반환하고, 템플릿 오버로드로 원하는 타입으로 캐스팅한다.
- *   AAIController*           → GetAIController(OwnerComp)
- *   AMyAIController*         → GetAIController<AMyAIController>(OwnerComp)
- */
 UCLASS()
 class PROJECTBLACKOUT_API UBTNodeHelper : public UObject
 {
 	GENERATED_BODY()
 
 public:
-	// ── AI Controller ────────────────────────────────────────────────────────
-	static AAIController* GetAIController(UBehaviorTreeComponent& OwnerComp);
-
+	
+	// ── AI Controller ──────────────────────────────────────────────────────────────
 	template <typename T>
 	static T* GetAIController(UBehaviorTreeComponent& OwnerComp)
 	{
-		return Cast<T>(GetAIController(OwnerComp));
+		return Cast<T>(OwnerComp.GetAIOwner());
 	}
-
-	// ── Blackboard ───────────────────────────────────────────────────────────
-	static UBlackboardComponent* GetBlackboard(UBehaviorTreeComponent& OwnerComp);
-
+	
 	// ── AI Pawn ──────────────────────────────────────────────────────────────
 	static APawn* GetAIPawn(UBehaviorTreeComponent& OwnerComp);
 

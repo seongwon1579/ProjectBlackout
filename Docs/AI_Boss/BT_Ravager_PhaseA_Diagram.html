@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>BT_Ravager_PhaseA — Behavior Tree Diagram</title>
+<style>
+  body {
+    background: #1a1a2e;
+    color: #e0e0e0;
+    font-family: 'Segoe UI', sans-serif;
+    margin: 0;
+    padding: 20px;
+  }
+  h1 {
+    text-align: center;
+    color: #e94560;
+    font-size: 1.6rem;
+    margin-bottom: 4px;
+  }
+  .subtitle {
+    text-align: center;
+    color: #888;
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+  }
+  .legend {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+  }
+  .legend-box {
+    width: 18px;
+    height: 18px;
+    border-radius: 3px;
+    display: inline-block;
+  }
+  .mermaid {
+    display: flex;
+    justify-content: center;
+  }
+  .mermaid svg {
+    max-width: 100%;
+  }
+</style>
+</head>
+<body>
+
+<h1>BT_Ravager_PhaseA</h1>
+<p class="subtitle">Corrupted Ravager — Phase A (HP 100% ~ 60%) Behavior Tree</p>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-box" style="background:#e94560;"></div> Selector (하나 성공하면 종료)</div>
+  <div class="legend-item"><div class="legend-box" style="background:#0f3460;"></div> Sequence (전부 성공해야 통과)</div>
+  <div class="legend-item"><div class="legend-box" style="background:#533483;"></div> Decorator (조건 필터)</div>
+  <div class="legend-item"><div class="legend-box" style="background:#16213e; border: 1px solid #e94560;"></div> Task (실행 노드)</div>
+</div>
+
+<div class="mermaid">
+graph TD
+    Root(("Root"))
+    Root --> Brain
+
+    Brain{"⟐ Selector<br/><b>PhaseA Brain</b>"}
+
+    %% ── 1. CC ──
+    Brain -->|"①"| CC["⟶ Sequence<br/><b>CC 상태 대기</b>"]
+    CC --> CC_D1{{"🛡 BB IsStunned<br/>== true"}}
+    CC_D1 --> CC_T["▶ WaitForStunEnd"]
+
+    %% ── 2. Summon ──
+    Brain -->|"②"| SUM["⟶ Sequence<br/><b>미니언 소환</b>"]
+    SUM --> SUM_D1{{"⏱ Cooldown 25s"}}
+    SUM_D1 --> SUM_D2{{"🎲 Random 50%"}}
+    SUM_D2 --> SUM_T["▶ ActivateAbility<br/><i>GA.Ravager.Howl.Summon</i>"]
+
+    %% ── 3. Combat ──
+    Brain -->|"③"| CMB{"⟐ Selector<br/><b>Combat</b>"}
+
+    %% ── 3a. Close ──
+    CMB -->|"근거리"| CL["⟶ Sequence<br/><b>Close Range</b>"]
+    CL --> CL_D{{"📏 Distance &lt; 300"}}
+    CL_D --> CLP{"⟐ Selector<br/><b>근접 패턴 풀</b>"}
+
+    CLP -->|"25%"| BJ["⟶ Sequence<br/><b>후방도약 → 장풍</b>"]
+    CLP -->|"40%"| DS["⟶ Sequence<br/><b>2연속 할퀴기</b>"]
+    CLP -->|"35%"| LC1["⟶ Sequence<br/><b>돌진 콤보</b>"]
+    CLP --> CL_W["▶ Wait 0.5s<br/><i>전부 쿨다운 시 대기</i>"]
+
+    BJ --> BJ_D1{{"⏱ CD 10s"}}
+    BJ_D1 --> BJ_D2{{"🎲 Rand 25%"}}
+    BJ_D2 --> BJ_T1["▶ ActivateAbility<br/><i>BackwardJump</i>"]
+    BJ_T1 --> BJ_T2["▶ ActivateAbility<br/><i>ChargedShockwave</i>"]
+
+    DS --> DS_D1{{"⏱ CD 4s"}}
+    DS_D1 --> DS_D2{{"🎲 Rand 40%"}}
+    DS_D2 --> DS_T["▶ ActivateAbility<br/><i>DoubleSwipe</i>"]
+
+    LC1 --> LC1_D1{{"⏱ CD 6s"}}
+    LC1_D1 --> LC1_D2{{"🎲 Rand 35%"}}
+    LC1_D2 --> LC1_T["▶ ActivateAbility<br/><i>LungeAttackCombo</i>"]
+
+    %% ── 3b. Mid ──
+    CMB -->|"중거리"| MD["⟶ Sequence<br/><b>Mid Range</b>"]
+    MD --> MD_D{{"📏 300 ≤ Dist &lt; 800"}}
+    MD_D --> MDP{"⟐ Selector<br/><b>중거리 패턴 풀</b>"}
+
+    MDP --> LC2["⟶ Sequence<br/><b>돌진 콤보</b><br/><i>(갭클로저)</i>"]
+    MDP --> CS["⟶ Sequence<br/><b>장풍 (단독)</b>"]
+    MDP --> MD_M["▶ MoveTo<br/><i>BB_CurrentTarget</i>"]
+
+    LC2 --> LC2_D{{"⏱ CD 6s"}}
+    LC2_D --> LC2_T["▶ ActivateAbility<br/><i>LungeAttackCombo</i>"]
+
+    CS --> CS_D{{"⏱ CD 7s"}}
+    CS_D --> CS_T["▶ ActivateAbility<br/><i>ChargedShockwave</i>"]
+
+    %% ── 3c. Far ──
+    CMB -->|"원거리"| FR["⟶ Sequence<br/><b>Long Range</b>"]
+    FR --> FR_D{{"📏 Distance ≥ 800"}}
+    FR_D --> FRP{"⟐ Selector"}
+
+    FRP --> LC3["⟶ Sequence<br/><b>돌진 도약</b>"]
+    FRP --> FR_M["▶ MoveTo<br/><i>BB_CurrentTarget</i>"]
+
+    LC3 --> LC3_D{{"⏱ CD 6s"}}
+    LC3_D --> LC3_T["▶ ActivateAbility<br/><i>LungeAttackCombo</i>"]
+
+    %% ── 4. Fallback ──
+    Brain -->|"④"| FB["▶ MoveTo<br/><i>BB_CurrentTarget</i><br/><b>최종 폴백</b>"]
+
+    %% ── Styles ──
+    classDef selector fill:#e94560,stroke:#ff6b6b,color:#fff,font-weight:bold
+    classDef sequence fill:#0f3460,stroke:#1a5276,color:#fff
+    classDef decorator fill:#533483,stroke:#7b68ee,color:#fff,font-size:0.8em
+    classDef task fill:#16213e,stroke:#e94560,color:#e0e0e0
+    classDef root fill:#e94560,stroke:#fff,color:#fff,font-weight:bold
+
+    class Root root
+    class Brain,CMB,CLP,MDP,FRP selector
+    class CC,SUM,CL,BJ,DS,LC1,MD,LC2,CS,FR,LC3 sequence
+    class CC_D1,SUM_D1,SUM_D2,CL_D,BJ_D1,BJ_D2,DS_D1,DS_D2,LC1_D1,LC1_D2,MD_D,LC2_D,CS_D,FR_D,LC3_D decorator
+    class CC_T,SUM_T,BJ_T1,BJ_T2,DS_T,LC1_T,CL_W,MD_M,LC2_T,CS_T,FR_M,LC3_T,FB task
+</div>
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      darkMode: true,
+      background: '#1a1a2e',
+      primaryColor: '#0f3460',
+      primaryTextColor: '#e0e0e0',
+      lineColor: '#555',
+      fontSize: '14px'
+    },
+    flowchart: {
+      useMaxWidth: true,
+      htmlLabels: true,
+      curve: 'basis',
+      nodeSpacing: 30,
+      rankSpacing: 50
+    }
+  });
+</script>
+
+</body>
+</html>

@@ -1,6 +1,7 @@
 #include "GAS/Abilities/Player/BlackoutGA_Dodge.h"
 
 #include "AbilitySystemComponent.h"
+#include "AbilitySystemInterface.h"
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
 #include "Animation/AnimMontage.h"
@@ -21,9 +22,93 @@ UBlackoutGA_Dodge::UBlackoutGA_Dodge()
 
 	
 	ActivationOwnedTags.AddTag(BlackoutGameplayTags::State_Locked);
+	CancelAbilitiesWithTag.AddTag(BlackoutGameplayTags::Ability_Player_Reload);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Downed);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Locked);
 }
+
+void UBlackoutGA_Dodge::InputPressed(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayAbilityActivationInfo ActivationInfo)
+{
+	Super::InputPressed(Handle, ActorInfo, ActivationInfo);
+
+	if (!IsActive() || !bChainWindowOpen)
+	{
+		return;
+	}
+
+	ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
+	if (!PlayerCharacter)
+	{
+		return;
+	}
+
+	if (!ConsumeStamina())
+	{
+		BO_LOG_GAS(Log, "GA_Dodge follow-up skipped: 스태미나 부족");
+		return;
+	}
+
+	bool bIsBackstep = false;
+	const FVector DodgeDirection = CalculateDodgeDirection(ActorInfo, bIsBackstep, true);
+	if (DodgeDirection.IsNearlyZero())
+	{
+		BO_LOG_GAS(Warning, "GA_Dodge follow-up failed: 회피 방향 계산 결과가 0 벡터");
+		return;
+	}
+
+	bChainWindowOpen = false;
+	bIsBackstep = false;
+
+	if (!StartDodgeInternal(PlayerCharacter, DodgeDirection, bIsBackstep, true))
+	{
+		BO_LOG_GAS(Warning, "GA_Dodge follow-up failed: 회피 재시작에 실패함");
+		return;
+	}
+
+	BO_LOG_GAS(Log, "GA_Dodge follow-up started immediately");
+}
+
+UBlackoutGA_Dodge* UBlackoutGA_Dodge::GetActiveDodgeAbilityFromActor(const AActor* OwnerActor)
+{
+	const IAbilitySystemInterface* AbilitySystemInterface = Cast<IAbilitySystemInterface>(OwnerActor);
+	const UAbilitySystemComponent* AbilitySystemComponent = AbilitySystemInterface ? AbilitySystemInterface->GetAbilitySystemComponent() : nullptr;
+	if (!AbilitySystemComponent)
+	{
+		return nullptr;
+	}
+
+	for (const FGameplayAbilitySpec& AbilitySpec : AbilitySystemComponent->GetActivatableAbilities())
+	{
+		if (!AbilitySpec.IsActive())
+		{
+			continue;
+		}
+
+		for (UGameplayAbility* AbilityInstance : AbilitySpec.GetAbilityInstances())
+		{
+			if (UBlackoutGA_Dodge* DodgeAbility = Cast<UBlackoutGA_Dodge>(AbilityInstance))
+			{
+				return DodgeAbility;
+			}
+		}
+	}
+
+	return nullptr;
+}
+
+void UBlackoutGA_Dodge::HandleChainWindowOpened()
+{
+	if (!IsActive())
+	{
+		return;
+	}
+
+	bChainWindowOpen = true;
+	BO_LOG_GAS(Log, "GA_Dodge chain window opened");
+}
+
+
 
 void UBlackoutGA_Dodge::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
 	const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
@@ -57,7 +142,7 @@ void UBlackoutGA_Dodge::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
 		BO_LOG_GAS(Log, "GA_Dodge cancelling active melee before dodge");
 		MeleeAbility->K2_CancelAbility();
 	}
-	
+
 	// TODO : 백스텝 임시 항상 FALSE  , 추후 방향입력 X DODGE 실행시 백스텝 추가 예정 
 	bool bIsBackstep = false;
 	const FVector DodgeDirection = CalculateDodgeDirection(ActorInfo, bIsBackstep);
@@ -70,55 +155,10 @@ void UBlackoutGA_Dodge::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
 
 	bIsBackstep = false; // 현재는 forward roll만 사용
 
-	const FRotator TargetRotation(0.f, DodgeDirection.Rotation().Yaw, 0.f);
-	PlayerCharacter->SetActorRotation(TargetRotation);
-
-	if (UBlackoutCombatComponent* CombatComponent = PlayerCharacter->GetCombatComponent())
+	if (!StartDodgeInternal(PlayerCharacter, DodgeDirection, bIsBackstep, false))
 	{
-		CombatComponent->StopAim();
-	}
-
-	if (UCharacterMovementComponent* MovementComponent = PlayerCharacter->GetCharacterMovement())
-	{
-		MovementComponent->StopMovementImmediately();
-	}
-
-	if (DodgeMontage)
-	{
-		// 오너 클라는 즉시 재생해서 입력 반응성을 확보
-		if (PlayerCharacter->IsLocallyControlled())
-		{
-			PlayerCharacter->PlayDodgeMontage(DodgeMontage, 1.f);
-		}
-
-		// 서버는 다른 클라들에게 몽타주를 전파
-		if (PlayerCharacter->HasAuthority())
-		{
-			PlayerCharacter->Multicast_PlayDodgeMontage(DodgeMontage, 1.f);
-		}
-	}
-	else
-	{
-		BO_LOG_GAS(Warning, "GA_Dodge: DodgeMontage가 설정되지 않아 몽타주를 재생하지 못함");
-	}
-
-	const float LaunchStrength = DodgeStrength;
-	PlayerCharacter->LaunchCharacter(DodgeDirection * LaunchStrength + FVector::UpVector * UpwardImpulse, true, true);
-
-	const float DodgeEndDelay =
-		(DodgeMontage && DodgeMontage->GetPlayLength() > 0.f)
-			? DodgeMontage->GetPlayLength()
-			: DodgeDuration;
-
-	// 몽타주 길이 기준으로 어빌리티를 종료해 이동 잠금과 상태 태그를 함께 정리
-	if (UWorld* World = PlayerCharacter->GetWorld())
-	{
-		World->GetTimerManager().SetTimer(
-			DodgeEndTimerHandle,
-			this,
-			&UBlackoutGA_Dodge::OnDodgeFinished,
-			DodgeEndDelay,
-			false);
+		BO_LOG_GAS(Warning, "GA_Dodge failed: 회피 시작에 실패함");
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 	}
 }
 
@@ -140,6 +180,8 @@ void UBlackoutGA_Dodge::EndAbility(const FGameplayAbilitySpecHandle Handle, cons
 		}
 	}
 
+	bChainWindowOpen = false;
+
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
 
@@ -154,6 +196,67 @@ void UBlackoutGA_Dodge::OnDodgeFinished()
 	K2_EndAbility();
 }
 
+bool UBlackoutGA_Dodge::StartDodgeInternal(ABlackoutPlayerCharacter* PlayerCharacter, const FVector& DodgeDirection, bool bIsBackstep, bool bRestartMontage)
+{
+	if (!PlayerCharacter)
+	{
+		return false;
+	}
+
+	bChainWindowOpen = false;
+
+	const FRotator TargetRotation(0.f, DodgeDirection.Rotation().Yaw, 0.f);
+	PlayerCharacter->SetActorRotation(TargetRotation);
+
+	if (UBlackoutCombatComponent* CombatComponent = PlayerCharacter->GetCombatComponent())
+	{
+		CombatComponent->StopAim();
+	}
+
+	if (UCharacterMovementComponent* MovementComponent = PlayerCharacter->GetCharacterMovement())
+	{
+		MovementComponent->StopMovementImmediately();
+	}
+
+	if (DodgeMontage)
+	{
+		if (PlayerCharacter->IsLocallyControlled())
+		{
+			PlayerCharacter->PlayDodgeMontage(DodgeMontage, 1.f, bRestartMontage);
+		}
+
+		if (PlayerCharacter->HasAuthority())
+		{
+			PlayerCharacter->Multicast_PlayDodgeMontage(DodgeMontage, 1.f, bRestartMontage);
+		}
+	}
+	else
+	{
+		BO_LOG_GAS(Warning, "GA_Dodge: DodgeMontage가 설정되지 않아 몽타주를 재생하지 못함");
+	}
+
+	const float LaunchStrength = bIsBackstep ? BackstepStrength : DodgeStrength;
+	PlayerCharacter->LaunchCharacter(DodgeDirection * LaunchStrength + FVector::UpVector * UpwardImpulse, true, true);
+
+	const float DodgeEndDelay =
+		(DodgeMontage && DodgeMontage->GetPlayLength() > 0.f)
+			? DodgeMontage->GetPlayLength()
+			: DodgeDuration;
+
+	if (UWorld* World = PlayerCharacter->GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(DodgeEndTimerHandle);
+		World->GetTimerManager().SetTimer(
+			DodgeEndTimerHandle,
+			this,
+			&UBlackoutGA_Dodge::OnDodgeFinished,
+			DodgeEndDelay,
+			false);
+	}
+
+	return true;
+}
+
 bool UBlackoutGA_Dodge::ConsumeStamina() const
 {
 	UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo();
@@ -162,13 +265,16 @@ bool UBlackoutGA_Dodge::ConsumeStamina() const
 		return false;
 	}
 
+	const UBlackoutAbilitySystemComponent* BlackoutASC = Cast<UBlackoutAbilitySystemComponent>(AbilitySystemComponent);
+	const float StaminaCostMultiplier = BlackoutASC ? BlackoutASC->GetStaminaCostMultiplier() : 1.0f;
+	const float ModifiedStaminaCost = StaminaCost * StaminaCostMultiplier;
 	const float CurrentStamina = AbilitySystemComponent->GetNumericAttribute(UBlackoutPlayerAttributeSet::GetStaminaAttribute());
-	if (CurrentStamina < StaminaCost)
+	if (CurrentStamina < ModifiedStaminaCost)
 	{
 		return false;
 	}
 
-	AbilitySystemComponent->ApplyModToAttribute(UBlackoutPlayerAttributeSet::GetStaminaAttribute(), EGameplayModOp::Additive, -StaminaCost);
+	AbilitySystemComponent->ApplyModToAttribute(UBlackoutPlayerAttributeSet::GetStaminaAttribute(), EGameplayModOp::Additive, -ModifiedStaminaCost);
 
 	if (UBlackoutAbilitySystemComponent* BlackoutAbilitySystemComponent = Cast<UBlackoutAbilitySystemComponent>(AbilitySystemComponent))
 	{
@@ -178,7 +284,7 @@ bool UBlackoutGA_Dodge::ConsumeStamina() const
 	return true;
 }
 
-FVector UBlackoutGA_Dodge::CalculateDodgeDirection(const FGameplayAbilityActorInfo* ActorInfo, bool& bOutIsBackstep) const
+FVector UBlackoutGA_Dodge::CalculateDodgeDirection(const FGameplayAbilityActorInfo* ActorInfo, bool& bOutIsBackstep, bool bPreferControlForwardWhenNoInput) const
 {
 	bOutIsBackstep = false;
 
@@ -212,6 +318,13 @@ FVector UBlackoutGA_Dodge::CalculateDodgeDirection(const FGameplayAbilityActorIn
 		{
 			return WorldInputDirection;
 		}
+	}
+
+	if (bPreferControlForwardWhenNoInput)
+	{
+		const FRotator ControlRotation = PlayerCharacter->GetControlRotation();
+		const FRotator YawRotation(0.f, ControlRotation.Yaw, 0.f);
+		return FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X).GetSafeNormal2D();
 	}
 
 	// 서버에서 입력 전송 타이밍이 어긋나도 최소한 실제 이동 방향은 따라가도록 보조
