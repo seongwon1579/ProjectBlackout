@@ -216,9 +216,14 @@ void ABlackoutPlayerCharacter::Server_SetAimOffset_Implementation(FVector2D NewA
 		FMath::Clamp(NewAimOffset.Y, -90.f, 90.f));
 }
 
-void ABlackoutPlayerCharacter::Multicast_PlayDodgeMontage_Implementation(UAnimMontage* Montage, float PlayRate)
+void ABlackoutPlayerCharacter::Multicast_PlayDodgeMontage_Implementation(UAnimMontage* Montage, float PlayRate, bool bRestartIfPlaying)
 {
-	PlayDodgeMontage(Montage, PlayRate);
+	if (IsLocallyControlled() && !HasAuthority())
+	{
+		return;
+	}
+
+	PlayDodgeMontage(Montage, PlayRate, bRestartIfPlaying);
 }
 
 void ABlackoutPlayerCharacter::Multicast_PlayHitReactMontage_Implementation(UAnimMontage* Montage, float PlayRate)
@@ -226,12 +231,22 @@ void ABlackoutPlayerCharacter::Multicast_PlayHitReactMontage_Implementation(UAni
 	PlayHitReactMontage(Montage, PlayRate);
 }
 
+void ABlackoutPlayerCharacter::Multicast_PlayFireMontage_Implementation(UAnimMontage* Montage, float PlayRate, bool bRestartIfPlaying)
+{
+	PlayFireMontage(Montage, PlayRate, bRestartIfPlaying);
+}
+
 void ABlackoutPlayerCharacter::Multicast_PlayReloadMontage_Implementation(UAnimMontage* Montage, float PlayRate)
 {
 	PlayReloadMontage(Montage, PlayRate);
 }
 
-bool ABlackoutPlayerCharacter::PlayDodgeMontage(UAnimMontage* Montage, float PlayRate)
+void ABlackoutPlayerCharacter::Multicast_StopFireMontage_Implementation(UAnimMontage* Montage, float BlendOutTime)
+{
+	StopFireMontage(Montage, BlendOutTime);
+}
+
+bool ABlackoutPlayerCharacter::PlayDodgeMontage(UAnimMontage* Montage, float PlayRate, bool bRestartIfPlaying)
 {
 	if (!Montage)
 	{
@@ -259,9 +274,14 @@ bool ABlackoutPlayerCharacter::PlayDodgeMontage(UAnimMontage* Montage, float Pla
 	// 로컬 예측 재생 후 멀티캐스트가 도착해도 같은 몽타주를 다시 시작하지 않도록 방지
 	if (AnimInstance->GetCurrentActiveMontage() == Montage && AnimInstance->Montage_IsPlaying(Montage))
 	{
-		bIsDodgeMontagePlaying = true;
-		BO_LOG_GAS(Verbose, "PlayDodgeMontage skipped: 이미 같은 몽타주가 재생 중임");
-		return true;
+		if (!bRestartIfPlaying)
+		{
+			bIsDodgeMontagePlaying = true;
+			BO_LOG_GAS(Verbose, "PlayDodgeMontage skipped: 이미 같은 몽타주가 재생 중임");
+			return true;
+		}
+
+		AnimInstance->Montage_Stop(0.05f, Montage);
 	}
 
 	const float PlayResult = PlayAnimMontage(Montage, PlayRate);
@@ -285,6 +305,72 @@ bool ABlackoutPlayerCharacter::PlayDodgeMontage(UAnimMontage* Montage, float Pla
 		*GetNameSafe(Montage));
 
 	return PlayResult > 0.f;
+}
+
+bool ABlackoutPlayerCharacter::PlayFireMontage(UAnimMontage* Montage, float PlayRate, bool bRestartIfPlaying)
+{
+	if (!Montage)
+	{
+		return false;
+	}
+
+	USkeletalMeshComponent* MeshComponent = GetMesh();
+	if (!MeshComponent)
+	{
+		BO_LOG_GAS(Warning, "PlayFireMontage failed: MeshComponent가 비어 있음");
+		return false;
+	}
+
+	UAnimInstance* AnimInstance = MeshComponent->GetAnimInstance();
+	if (!AnimInstance)
+	{
+		BO_LOG_GAS(Warning, "PlayFireMontage failed: AnimInstance가 비어 있음");
+		return false;
+	}
+
+	if (AnimInstance->GetCurrentActiveMontage() == Montage && AnimInstance->Montage_IsPlaying(Montage))
+	{
+		if (!bRestartIfPlaying)
+		{
+			BO_LOG_GAS(Verbose, "PlayFireMontage skipped: 이미 같은 사격 몽타주가 재생 중임");
+			return true;
+		}
+
+		AnimInstance->Montage_Stop(0.03f, Montage);
+	}
+
+	const float PlayResult = PlayAnimMontage(Montage, PlayRate);
+	BO_LOG_GAS(Log,
+		"PlayFireMontage result=%.2f Local=%s Authority=%s Montage=%s",
+		PlayResult,
+		IsLocallyControlled() ? TEXT("true") : TEXT("false"),
+		HasAuthority() ? TEXT("true") : TEXT("false"),
+		*GetNameSafe(Montage));
+
+	return PlayResult > 0.f;
+}
+
+bool ABlackoutPlayerCharacter::StopFireMontage(UAnimMontage* Montage, float BlendOutTime)
+{
+	if (!Montage)
+	{
+		return false;
+	}
+
+	USkeletalMeshComponent* MeshComponent = GetMesh();
+	if (!MeshComponent)
+	{
+		return false;
+	}
+
+	UAnimInstance* AnimInstance = MeshComponent->GetAnimInstance();
+	if (!AnimInstance || !AnimInstance->Montage_IsPlaying(Montage))
+	{
+		return false;
+	}
+
+	AnimInstance->Montage_Stop(BlendOutTime, Montage);
+	return true;
 }
 
 bool ABlackoutPlayerCharacter::PlayReloadMontage(UAnimMontage* Montage, float PlayRate)
@@ -324,6 +410,19 @@ bool ABlackoutPlayerCharacter::PlayReloadMontage(UAnimMontage* Montage, float Pl
 		*GetNameSafe(Montage));
 
 	return PlayResult > 0.f;
+}
+
+UAnimMontage* ABlackoutPlayerCharacter::GetFireMontageForTag(FGameplayTag FireAnimTag) const
+{
+	for (const FBlackoutFireMontageEntry& Entry : FireMontageEntries)
+	{
+		if (Entry.FireAnimTag == FireAnimTag && Entry.Montage)
+		{
+			return Entry.Montage;
+		}
+	}
+
+	return nullptr;
 }
 
 UAnimMontage* ABlackoutPlayerCharacter::GetReloadMontageForTag(FGameplayTag ReloadAnimTag, bool bIsTwoHanded) const
@@ -429,7 +528,7 @@ void ABlackoutPlayerCharacter::Multicast_PlayWeaponSwapMontage_Implementation(FG
 
 bool ABlackoutPlayerCharacter::PlayWeaponSwapMontage(FGameplayTag TargetWeaponSlotTag, float PlayRate)
 {
-	UAnimMontage* Montage = GetWeaponSwapMontage(TargetWeaponSlotTag);
+	UAnimMontage* Montage = GetWeaponSwapMontageForSlot(TargetWeaponSlotTag);
 	if (!Montage)
 	{
 		BO_LOG_GAS(Warning, "PlayWeaponSwapMontage failed: 슬롯 %s 에 대응하는 몽타주가 비어 있음", *TargetWeaponSlotTag.ToString());
@@ -472,6 +571,21 @@ bool ABlackoutPlayerCharacter::PlayWeaponSwapMontage(FGameplayTag TargetWeaponSl
 
 	bIsWeaponSwapMontagePlaying = false;
 	return false;
+}
+
+UAnimMontage* ABlackoutPlayerCharacter::GetWeaponSwapMontageForSlot(FGameplayTag TargetWeaponSlotTag) const
+{
+	if (TargetWeaponSlotTag == BlackoutGameplayTags::Weapon_Primary)
+	{
+		return EquipPrimaryMontage;
+	}
+
+	if (TargetWeaponSlotTag == BlackoutGameplayTags::Weapon_Secondary)
+	{
+		return EquipSecondaryMontage;
+	}
+
+	return nullptr;
 }
 
 void ABlackoutPlayerCharacter::Multicast_PlayMeleeMontage_Implementation(UAnimMontage* Montage, FName StartSection, float PlayRate)
@@ -1015,21 +1129,6 @@ bool ABlackoutPlayerCharacter::StopRevivePerformMontage(UAnimMontage* Montage, f
 void ABlackoutPlayerCharacter::Multicast_PlayReviveMontage_Implementation(UAnimMontage* Montage, float PlayRate)
 {
 	PlayReviveMontage(Montage, PlayRate);
-}
-
-UAnimMontage* ABlackoutPlayerCharacter::GetWeaponSwapMontage(FGameplayTag TargetWeaponSlotTag) const
-{
-	if (TargetWeaponSlotTag == BlackoutGameplayTags::Weapon_Primary)
-	{
-		return EquipPrimaryMontage;
-	}
-
-	if (TargetWeaponSlotTag == BlackoutGameplayTags::Weapon_Secondary)
-	{
-		return EquipSecondaryMontage;
-	}
-
-	return nullptr;
 }
 
 void ABlackoutPlayerCharacter::CacheAimDefaults()

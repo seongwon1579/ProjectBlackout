@@ -11,6 +11,7 @@
 class ABOWeaponBase;
 class UBlackoutConsumableSlotsWidget;
 class UBlackoutHUDWidgetController;
+class UBlackoutRelicWidget;
 class UBlackoutValueBarWidget;
 class UBlackoutWeaponAmmoWidget;
 class UWidget;
@@ -46,6 +47,9 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
 	TObjectPtr<UBlackoutConsumableSlotsWidget> ConsumableSlotsWidget;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
+	TObjectPtr<UBlackoutRelicWidget> RelicWidget;
 
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
 	TObjectPtr<UWidget> ImpactIndicatorWidget;
@@ -97,6 +101,9 @@ protected:
 		const FBlackoutWeaponAmmoSlotData& SecondaryWeaponData,
 		bool bPlaySwapAnimation);
 
+	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Relic Charges Changed"), Category = "Blackout|HUD")
+	void ReceiveRelicChargesChanged(int32 CurrentCharges, int32 MaxCharges);
+
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Consumables Changed"), Category = "Blackout|HUD")
 	void ReceiveConsumablesChanged(int32 BloodRootCount, int32 GulSerumCount);
 
@@ -130,6 +137,9 @@ private:
 		const FBlackoutWeaponAmmoSlotData& PrimaryWeaponData,
 		const FBlackoutWeaponAmmoSlotData& SecondaryWeaponData,
 		bool bPlaySwapAnimation);
+
+	UFUNCTION()
+	void HandleRelicChargesChanged(int32 CurrentCharges, int32 MaxCharges);
 
 	UFUNCTION()
 	void HandleConsumablesChanged(int32 BloodRootCount, int32 GulSerumCount);

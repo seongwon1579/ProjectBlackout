@@ -5,15 +5,19 @@
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 #include "AbilitySystemComponent.h"
+#include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "Combat/Weapons/BOProjectile.h"
 #include "Pool/BlackoutPoolSubsystem.h"
 #include "Engine/World.h"
-#include "GameFramework/Character.h"
-#include "Animation/AnimInstance.h"
+
 
 UGA_Wraith_FireTwinArrows::UGA_Wraith_FireTwinArrows()
 {
-	AbilityTags.AddTag(BlackoutGameplayTags::Ability_Wraith_FireTwinArrows);
+	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::ServerOnly;
+
+	FGameplayTagContainer Tag;
+	Tag.AddTag(BlackoutGameplayTags::Ability_Wraith_FireTwinArrows);
+	SetAssetTags(Tag);
 }
 
 void UGA_Wraith_FireTwinArrows::ActivateAbility(
@@ -30,52 +34,49 @@ void UGA_Wraith_FireTwinArrows::ActivateAbility(
 		return;
 	}
 
-	// AnimInstance onPlayMotageNotifyBegin 바인딩 - Fire1 / Fire2 NotifyName 확인
-	if (ACharacter* AvatarCharacter = Cast<ACharacter>(
-		GetAvatarActorFromActorInfo()))
+	// Shot 이벤트 대기
+	UAbilityTask_WaitGameplayEvent* WaitShotTask =
+		UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(
+			this, BlackoutGameplayTags::Event_Wraith_FireTwinArrows_Shot,
+			nullptr, false, true);
+	if (WaitShotTask)
 	{
-		if (USkeletalMeshComponent* MeshComp = AvatarCharacter->GetMesh())
-		{
-			if (UAnimInstance* AnimInstance = MeshComp->GetAnimInstance())
-			{
-				AnimInstance->OnPlayMontageNotifyBegin.AddDynamic(
-					this, &UGA_Wraith_FireTwinArrows::OnNotifyBegin);
-			}
-		}
+		WaitShotTask->EventReceived.AddDynamic(this, &UGA_Wraith_FireTwinArrows::OnFireShotEvent);
+		WaitShotTask->ReadyForActivation();
 	}
 
 	UAbilityTask_PlayMontageAndWait* MontageTask =
 		UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
 			this, NAME_None, BowshotMontage);
-	
+
 	if (!MontageTask)
 	{
-		UnbindNotify();
-		EndAbility(Handle , ActorInfo, ActivationInfo , true,false);
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
 		return;
 	}
-	
-	MontageTask->OnCompleted.AddDynamic(this,&UGA_Wraith_FireTwinArrows::OnMontageEnded );
-	MontageTask->OnBlendOut.AddDynamic(this,  &UGA_Wraith_FireTwinArrows::OnMontageEnded);
-	MontageTask->OnInterrupted.AddDynamic(this, &UGA_Wraith_FireTwinArrows::OnMontageEnded);
-	MontageTask->OnCancelled.AddDynamic(this,  &UGA_Wraith_FireTwinArrows::OnMontageEnded);
+
+	MontageTask->OnCompleted.AddDynamic(
+		this, &UGA_Wraith_FireTwinArrows::OnMontageEnded);
+	MontageTask->OnBlendOut.AddDynamic(
+		this, &UGA_Wraith_FireTwinArrows::OnMontageEnded);
+	MontageTask->OnInterrupted.AddDynamic(
+		this, &UGA_Wraith_FireTwinArrows::OnMontageEnded);
+	MontageTask->OnCancelled.AddDynamic(
+		this, &UGA_Wraith_FireTwinArrows::OnMontageEnded);
 	MontageTask->ReadyForActivation();
 }
 
-void UGA_Wraith_FireTwinArrows::OnNotifyBegin(FName NotifyName,
-                                              const FBranchingPointNotifyPayload
-                                              & Payload)
+void UGA_Wraith_FireTwinArrows::OnFireShotEvent(FGameplayEventData Payload)
 {
-	if (NotifyName == TEXT("Fire1") || NotifyName == TEXT("Fire2"))
-	{
-		FireOneArrow();
-	}
+	FireOneArrow();
 }
+
 
 void UGA_Wraith_FireTwinArrows::OnMontageEnded()
 {
-	UnbindNotify();
-	EndAbility(CurrentSpecHandle , CurrentActorInfo, CurrentActivationInfo , true,false);
+	
+	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true,
+	           false);
 }
 
 void UGA_Wraith_FireTwinArrows::FireOneArrow()
@@ -84,19 +85,20 @@ void UGA_Wraith_FireTwinArrows::FireOneArrow()
 	{
 		return;
 	}
-	
+
 	APawn* Avatar = Cast<APawn>(GetAvatarActorFromActorInfo());
 	if (!Avatar)
 	{
 		return;
 	}
-	
+
 	UWorld* World = Avatar->GetWorld();
 	if (!World)
 	{
 		return;
 	}
-	UBlackoutPoolSubsystem* Pool =  World->GetSubsystem<UBlackoutPoolSubsystem>();
+	UBlackoutPoolSubsystem* Pool = World->GetSubsystem<
+		UBlackoutPoolSubsystem>();
 	if (!Pool)
 	{
 		return;
@@ -104,50 +106,43 @@ void UGA_Wraith_FireTwinArrows::FireOneArrow()
 	// 발사 방향
 	const FRotator AimRotation = Avatar->GetControlRotation();
 	const FVector Forward = AimRotation.Vector();
-	const FVector SpawnLocation = Avatar->GetActorLocation()+ Forward  *100.0f + FVector(0.0f,0.0f,50.0f);
+	const FVector SpawnLocation = Avatar->GetActorLocation() + Forward * 100.0f
+		+ FVector(0.0f, 0.0f, 50.0f);
 	const FTransform SpawnTransform(AimRotation, SpawnLocation);
-	
-	ABOProjectile* Arrow = Cast<ABOProjectile>(Pool->SpawnFromPool(ArrowProjectileClass,SpawnTransform));
+
+	ABOProjectile* Arrow = Cast<ABOProjectile>(
+		Pool->SpawnFromPool(ArrowProjectileClass, SpawnTransform));
 	if (!Arrow)
 	{
 		return;
 	}
 	Arrow->SetOwner(Avatar);
 	Arrow->SetInstigator(Avatar);
-	
+
 	// GE Spec
 	if (DamageEffectClass)
 	{
-		FGameplayEffectSpecHandle SpecHandle = MakeOutgoingGameplayEffectSpec(DamageEffectClass);
+		FGameplayEffectSpecHandle SpecHandle = MakeOutgoingGameplayEffectSpec(
+			DamageEffectClass);
 		if (SpecHandle.IsValid())
 		{
-			SpecHandle.Data ->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Damage , DamageMagnitude);
-			Arrow->InitFromSpec(SpecHandle , 0.0f);
+			SpecHandle.Data->SetSetByCallerMagnitude(
+				BlackoutGameplayTags::Data_Damage, DamageMagnitude);
+			Arrow->InitFromSpec(SpecHandle, 0.0f);
 		}
 	}
-	
+
 	// 발사 Cue - VFX / SFX 
-	if (UAbilitySystemComponent* SourceASC = GetAbilitySystemComponentFromActorInfo())
+	if (UAbilitySystemComponent* SourceASC =
+		GetAbilitySystemComponentFromActorInfo())
 	{
 		FGameplayCueParameters CueParams;
 		CueParams.Location = SpawnLocation;
 		CueParams.Normal = Forward;
-		SourceASC->ExecuteGameplayCue(BlackoutGameplayTags::GameplayCue_Wraith_Fire , CueParams);
+		SourceASC->ExecuteGameplayCue(
+			BlackoutGameplayTags::GameplayCue_Wraith_Fire, CueParams);
 	}
-	
+
 	Arrow->Launch(Forward);
 }
 
-void UGA_Wraith_FireTwinArrows::UnbindNotify()
-{
-	if (ACharacter* AvatarCharacter = Cast<ACharacter>(GetAvatarActorFromActorInfo()))
-	{
-		if (USkeletalMeshComponent* MeshComp = AvatarCharacter->GetMesh())
-		{
-			if (UAnimInstance* AnimInstance = MeshComp->GetAnimInstance())
-			{
-				AnimInstance->OnPlayMontageNotifyBegin.RemoveDynamic(this, &UGA_Wraith_FireTwinArrows::OnNotifyBegin);
-			}
-		}
-	}
-}

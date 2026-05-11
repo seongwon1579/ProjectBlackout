@@ -1,17 +1,15 @@
 #include "Characters/BORootWraith.h"
 #include "Combat/Weapons/BOProjectile.h"
+#include "GameFramework/CharacterMovementComponent.h"
 
 ABORootWraith::ABORootWraith()
 {
 	PrimaryActorTick.bCanEverTick = true;
-}
-
-void ABORootWraith::FireTwinArrows()
-{
-	// TODO: 투사체 2연사 로직 (애니메이션 몽타주 호출 등)
-}
-
-void ABORootWraith::TeleportOutOfSight()
-{
-	// TODO: 점멸 이펙트 후 시야 밖으로 위치 이동
+	
+	bUseControllerRotationPitch =true;
+	
+	UCharacterMovementComponent* MovementComponent = GetCharacterMovement();
+	MovementComponent->DefaultLandMovementMode =MOVE_Flying;
+	MovementComponent->MaxFlySpeed = DefaultFlySpeed;
+	MovementComponent->BrakingDecelerationFlying = 1024.0f;
 }

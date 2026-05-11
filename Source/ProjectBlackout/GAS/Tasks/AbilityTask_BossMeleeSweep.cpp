@@ -10,13 +10,15 @@ UAbilityTask_BossMeleeSweep* UAbilityTask_BossMeleeSweep::CreateSweepTask(
 	UGameplayAbility* OwningAbility,
 	FName InStartSocketName,
 	FName InEndSocketName,
-	float InSweepRadius)
+	float InSweepRadius,
+	UMeshComponent* InMeshOverride)
 {
 	UAbilityTask_BossMeleeSweep* Task = NewAbilityTask<UAbilityTask_BossMeleeSweep>(OwningAbility);
 	Task->bTickingTask = true;
 	Task->StartSocketName = InStartSocketName;
 	Task->EndSocketName = InEndSocketName;
 	Task->SweepRadius = InSweepRadius;
+	Task->MeshOverride = InMeshOverride;
 	return Task;
 }
 
@@ -38,7 +40,7 @@ void UAbilityTask_BossMeleeSweep::TickTask(float DeltaTime)
 		return;
 	}
 
-	USkeletalMeshComponent* Mesh = GetOwnerMesh();
+	UMeshComponent* Mesh = GetOwnerMesh();
 	if (!Mesh || !Mesh->DoesSocketExist(StartSocketName) || !Mesh->DoesSocketExist(EndSocketName))
 	{
 		return;
@@ -124,8 +126,12 @@ void UAbilityTask_BossMeleeSweep::OnDestroy(bool bInOwnerFinished)
 	Super::OnDestroy(bInOwnerFinished);
 }
 
-USkeletalMeshComponent* UAbilityTask_BossMeleeSweep::GetOwnerMesh() const
+UMeshComponent* UAbilityTask_BossMeleeSweep::GetOwnerMesh() const
 {
+	if (MeshOverride.IsValid())
+	{
+		return MeshOverride.Get();
+	}
 	if (const ACharacter* Character = Cast<ACharacter>(GetOwnerActor()))
 	{
 		return Character->GetMesh();

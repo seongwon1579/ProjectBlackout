@@ -170,6 +170,13 @@ void ABlackoutPlayerController::SetupInputComponent()
 		EnhancedInputComponent->BindAction(UseConsumable2Action, ETriggerEvent::Completed, this, &ABlackoutPlayerController::OnUseConsumable2Released);
 		EnhancedInputComponent->BindAction(UseConsumable2Action, ETriggerEvent::Canceled, this, &ABlackoutPlayerController::OnUseConsumable2Released);
 	}
+
+	if (UseRelicAction)
+	{
+		EnhancedInputComponent->BindAction(UseRelicAction, ETriggerEvent::Started, this, &ABlackoutPlayerController::OnUseRelicPressed);
+		EnhancedInputComponent->BindAction(UseRelicAction, ETriggerEvent::Completed, this, &ABlackoutPlayerController::OnUseRelicReleased);
+		EnhancedInputComponent->BindAction(UseRelicAction, ETriggerEvent::Canceled, this, &ABlackoutPlayerController::OnUseRelicReleased);
+	}
 	
 }
 
@@ -239,10 +246,8 @@ void ABlackoutPlayerController::OnSwapWeaponPressed()
 		return;
 	}
 
-	if (UBlackoutCombatComponent* CombatComponent = GetBlackoutCombatComponent())
-	{
-		CombatComponent->SwapWeapon();
-	}
+	HandleAbilityInputPressed(EBlackoutAbilityInputID::SwapWeapon);
+	HandleAbilityInputReleased(EBlackoutAbilityInputID::SwapWeapon);
 }
 
 void ABlackoutPlayerController::OnDodgePressed()
@@ -340,6 +345,21 @@ void ABlackoutPlayerController::OnUseConsumable2Pressed()
 void ABlackoutPlayerController::OnUseConsumable2Released()
 {
 	HandleAbilityInputReleased(EBlackoutAbilityInputID::UseConsumable2);
+}
+
+void ABlackoutPlayerController::OnUseRelicPressed()
+{
+	if (IsHitReactInputBlocked())
+	{
+		return;
+	}
+
+	HandleAbilityInputPressed(EBlackoutAbilityInputID::UseRelic);
+}
+
+void ABlackoutPlayerController::OnUseRelicReleased()
+{
+	HandleAbilityInputReleased(EBlackoutAbilityInputID::UseRelic);
 }
 
 bool ABlackoutPlayerController::IsHitReactInputBlocked() const

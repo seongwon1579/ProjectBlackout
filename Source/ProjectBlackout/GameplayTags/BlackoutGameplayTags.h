@@ -12,11 +12,15 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Aiming);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Sprinting);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Attacking);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Reloading);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_UseConsumable);
 	
 	// ─── Character Abilities ───────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Player_Dodge);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Player_Reload);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Player_SwapWeapon);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Player_Sprint);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Player_UseRelic);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Player_UseConsumable);
 
 	// ─── Character Class ───────────────────────────────────────────────────────
@@ -57,6 +61,7 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Weapon_Secondary);
 
 	// ─── Reload Animation ─────────────────────────────────────────────────────
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Animation_Fire_RustyLeverAction);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Animation_Reload_ChicagoTypewriter);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Animation_Reload_RepeaterPistol);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Animation_Reload_Sporebloom);
@@ -85,17 +90,20 @@ namespace BlackoutGameplayTags
 	// ─── Wraith Abilities ─────────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Wraith_FireTwinArrows);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Cooldown_Wraith_FireTwinArrows);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Wraith_FireTwinArrows_Shot);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Wraith_Teleport);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Cooldown_Wraith_Teleport);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Wraith_BowShove);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Cooldown_Wraith_BowShove);
 	
 	// ─── Wraith Gameplay Cues ───────────────────────────────────────────────────────── 
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Wraith_Fire);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Wraith_Teleport_Start);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Wraith_Teleport_End);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Wraith_Teleport_Vanish);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Wraith_Teleport_Appear);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Wraith_BowShove);
 	
-	// ─── Wraith State ─────────────────────────────────────────────────────────
-	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Wraith_Invulnerable);
 
 	// ─── Attack Events ────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Enemy_Attack_OnCollision);
@@ -103,4 +111,9 @@ namespace BlackoutGameplayTags
 
 	// ─── Montage Events ───────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Montage_ConsumableApply);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Montage_RelicApply);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Montage_FireWeaponStart);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Montage_ReloadWeaponStart);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Montage_ReloadAmmoCommit);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Montage_WeaponSwapCommit);
 }

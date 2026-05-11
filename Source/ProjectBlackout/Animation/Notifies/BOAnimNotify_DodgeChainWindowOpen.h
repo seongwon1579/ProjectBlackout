@@ -2,13 +2,13 @@
 
 #include "CoreMinimal.h"
 #include "Animation/AnimNotifies/AnimNotify.h"
-#include "BOAnimNotify_CommitWeaponSwap.generated.h"
+#include "BOAnimNotify_DodgeChainWindowOpen.generated.h"
 
 /**
- * 무기 스왑 몽타주 중간 프레임에서 실제 장착 전환을 확정하는 노티파이.
+ * 회피 체인 입력 윈도우를 여는 포인트 노티파이입니다.
  */
 UCLASS()
-class PROJECTBLACKOUT_API UBOAnimNotify_CommitWeaponSwap : public UAnimNotify
+class PROJECTBLACKOUT_API UBOAnimNotify_DodgeChainWindowOpen : public UAnimNotify
 {
 	GENERATED_BODY()
 

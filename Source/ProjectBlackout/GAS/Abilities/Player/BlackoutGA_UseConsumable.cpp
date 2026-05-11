@@ -4,6 +4,7 @@
 #include "AbilitySystemComponent.h"
 #include "Animation/AnimMontage.h"
 #include "Characters/BlackoutPlayerCharacter.h"
+#include "Combat/Components/BlackoutCombatComponent.h"
 #include "Core/BlackoutLog.h"
 #include "Data/BOConsumableData.h"
 #include "Framework/BlackoutPlayerState.h"
@@ -77,12 +78,12 @@ void UBlackoutGA_UseConsumable::ActivateAbility(const FGameplayAbilitySpecHandle
 		ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get());
 		if (PlayerCharacter && PlayerCharacter->HasAuthority())
 		{
-			PlayerCharacter->Multicast_PlayConsumableMontage(ConsumableMontage, 1.f);
-
 			const float MontageDuration = ConsumableMontage->GetPlayLength();
 			if (MontageDuration > 0.f)
 			{
 				ApplySlowMovementSpeed(ActorInfo);
+				BeginWeaponHolsterOverride(ActorInfo);
+				PlayerCharacter->Multicast_PlayConsumableMontage(ConsumableMontage, 1.f);
 
 				UAbilityTask_WaitGameplayEvent* WaitEventTask = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(this, BlackoutGameplayTags::Event_Montage_ConsumableApply);
 				if (WaitEventTask)
@@ -128,6 +129,7 @@ void UBlackoutGA_UseConsumable::EndAbility(const FGameplayAbilitySpecHandle Hand
 		}
 
 		RestoreMovementSpeed(ActorInfo);
+		EndWeaponHolsterOverride(ActorInfo);
 	}
 
 	PendingConsumableData = nullptr;
@@ -312,4 +314,29 @@ void UBlackoutGA_UseConsumable::RestoreMovementSpeed(const FGameplayAbilityActor
 	}
 
 	CachedWalkSpeed = 0.0f;
+}
+
+void UBlackoutGA_UseConsumable::BeginWeaponHolsterOverride(const FGameplayAbilityActorInfo* ActorInfo)
+{
+	ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
+	UBlackoutCombatComponent* CombatComponent = PlayerCharacter ? PlayerCharacter->FindComponentByClass<UBlackoutCombatComponent>() : nullptr;
+	if (!CombatComponent)
+	{
+		BO_LOG_GAS(Warning, "소모품 무기 홀스터 실패: CombatComponent가 유효하지 않습니다. Player=%s", *GetNameSafe(PlayerCharacter));
+		return;
+	}
+
+	CombatComponent->BeginEquippedWeaponHolsterOverride();
+}
+
+void UBlackoutGA_UseConsumable::EndWeaponHolsterOverride(const FGameplayAbilityActorInfo* ActorInfo)
+{
+	ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
+	UBlackoutCombatComponent* CombatComponent = PlayerCharacter ? PlayerCharacter->FindComponentByClass<UBlackoutCombatComponent>() : nullptr;
+	if (!CombatComponent)
+	{
+		return;
+	}
+
+	CombatComponent->EndEquippedWeaponHolsterOverride();
 }

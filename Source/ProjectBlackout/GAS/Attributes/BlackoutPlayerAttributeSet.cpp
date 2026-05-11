@@ -10,6 +10,9 @@
 
 UBlackoutPlayerAttributeSet::UBlackoutPlayerAttributeSet()
 {
+	// 유물은 모든 병과 공통으로 기본/최대 3회 고정입니다.
+	InitMaxRelicCharges(3.0f);
+	InitRelicCharges(3.0f);
 }
 
 void UBlackoutPlayerAttributeSet::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

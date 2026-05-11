@@ -18,14 +18,13 @@ EStateTreeRunStatus FBSTTask_FireTwinArrows::EnterState(FStateTreeExecutionConte
 		return EStateTreeRunStatus::Failed;
 	}
 	
-	// 활성화 결과 무관하게 Running — Tick 이 재시도 책임 (Cooldown 진행 중에 Combat 진입 시에도 stuck 안 됨)
-	ASC->TryActivateAbilitiesByTag(FGameplayTagContainer(BlackoutGameplayTags::Ability_Wraith_FireTwinArrows));
-	return EStateTreeRunStatus::Running;
+	// Cooldown 중이면 Failed — ST가 다른 State(Kite)로 트랜지션. BowShove / Teleport 패턴 통일.
+	const bool bActivated = ASC->TryActivateAbilitiesByTag(FGameplayTagContainer(BlackoutGameplayTags::Ability_Wraith_FireTwinArrows));
+	return bActivated ? EStateTreeRunStatus::Running : EStateTreeRunStatus::Failed;
 }
 
 EStateTreeRunStatus FBSTTask_FireTwinArrows::Tick(FStateTreeExecutionContext& Context, const float DeltaTime) const
 {
-	
 	FInstanceDataType& InstanceData = Context.GetInstanceData(*this);
 	if (!InstanceData.OwnerPawn)
 	{
@@ -36,25 +35,16 @@ EStateTreeRunStatus FBSTTask_FireTwinArrows::Tick(FStateTreeExecutionContext& Co
 	{
 		return EStateTreeRunStatus::Failed;
 	}
-	
+
 	TArray<FGameplayAbilitySpec*> Specs;
 	ASC->GetActivatableGameplayAbilitySpecsByAllMatchingTags(FGameplayTagContainer(BlackoutGameplayTags::Ability_Wraith_FireTwinArrows), Specs);
-	
-	bool bAnyActive = false;
+
 	for (const FGameplayAbilitySpec* Spec : Specs)
 	{
 		if (Spec && Spec->IsActive())
 		{
-			bAnyActive = true;
-			break;
+			return EStateTreeRunStatus::Running;
 		}
 	}
-
-	// 비활성이면 재활성화 시도 — Cooldown GE 가 페이싱 결정 (쿨다운 중이면 ASC 거부)
-	if (!bAnyActive)
-	{
-		ASC->TryActivateAbilitiesByTag(FGameplayTagContainer(BlackoutGameplayTags::Ability_Wraith_FireTwinArrows));
-	}
-
-	return EStateTreeRunStatus::Running;
+	return EStateTreeRunStatus::Succeeded;
 }

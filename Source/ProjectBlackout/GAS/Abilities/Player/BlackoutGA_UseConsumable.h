@@ -66,6 +66,8 @@ private:
 	void OnConsumableMontageFinished();
 	void ApplySlowMovementSpeed(const FGameplayAbilityActorInfo* ActorInfo);
 	void RestoreMovementSpeed(const FGameplayAbilityActorInfo* ActorInfo);
+	void BeginWeaponHolsterOverride(const FGameplayAbilityActorInfo* ActorInfo);
+	void EndWeaponHolsterOverride(const FGameplayAbilityActorInfo* ActorInfo);
 
 	FTimerHandle ConsumableMontageTimerHandle;
 	TObjectPtr<const UBOConsumableData> PendingConsumableData;

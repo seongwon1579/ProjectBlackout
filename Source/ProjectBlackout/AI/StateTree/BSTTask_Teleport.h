@@ -4,7 +4,7 @@
 #include "StateTreeTaskBase.h"
 #include "BSTTask_Teleport.generated.h"
 
-class ABlackoutEnemyCharacter;
+class APawn;
 
 USTRUCT()
 struct PROJECTBLACKOUT_API FBSTTask_TeleportInstanceData
@@ -12,7 +12,7 @@ struct PROJECTBLACKOUT_API FBSTTask_TeleportInstanceData
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, Category = "Context")
-	TObjectPtr<ABlackoutEnemyCharacter> OwnerCharacter;
+	TObjectPtr<APawn> OwnerPawn;
 
 	UPROPERTY(EditAnywhere, Category = "Parameter")
 	float DesiredOffsetRange = 800.0f;
@@ -30,4 +30,5 @@ struct PROJECTBLACKOUT_API FBSTTask_Teleport : public FStateTreeTaskCommonBase
 	virtual const UStruct* GetInstanceDataType() const override { return FInstanceDataType::StaticStruct(); }
 
 	virtual EStateTreeRunStatus EnterState(FStateTreeExecutionContext& Context, const FStateTreeTransitionResult& Transition) const override;
+	virtual EStateTreeRunStatus Tick(FStateTreeExecutionContext& Context, const float DeltaTime) const override;
 };

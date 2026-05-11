@@ -9,11 +9,15 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(State_Aiming,        "State.Aiming");
 	UE_DEFINE_GAMEPLAY_TAG(State_Sprinting,     "State.Sprinting");
 	UE_DEFINE_GAMEPLAY_TAG(State_Attacking,     "State.Attacking");
+	UE_DEFINE_GAMEPLAY_TAG(State_Reloading,     "State.Reloading");
 	UE_DEFINE_GAMEPLAY_TAG(State_UseConsumable, "State.UseConsumable");
 	
 	// ─── Character Abilities ───────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Player_Dodge,			"Ability.Player.Dodge");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Player_Reload,			"Ability.Player.Reload");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Player_SwapWeapon,		"Ability.Player.SwapWeapon");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Player_Sprint,			"Ability.Player.Sprint");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Player_UseRelic,			"Ability.Player.UseRelic");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Player_UseConsumable,	"Ability.Player.UseConsumable");
 
 	// ─── Character Class ───────────────────────────────────────────────────────
@@ -54,6 +58,7 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(Weapon_Secondary, "Weapon.Secondary");
 
 	// ─── Reload Animation ─────────────────────────────────────────────────────
+	UE_DEFINE_GAMEPLAY_TAG(Animation_Fire_RustyLeverAction,      "Animation.Fire.RustyLeverAction");
 	UE_DEFINE_GAMEPLAY_TAG(Animation_Reload_ChicagoTypewriter, "Animation.Reload.ChicagoTypewriter");
 	UE_DEFINE_GAMEPLAY_TAG(Animation_Reload_RepeaterPistol,    "Animation.Reload.RepeaterPistol");
 	UE_DEFINE_GAMEPLAY_TAG(Animation_Reload_Sporebloom,        "Animation.Reload.Sporebloom");
@@ -82,22 +87,30 @@ namespace BlackoutGameplayTags
 	// ─── Wraith Abilities ──────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Wraith_FireTwinArrows, "Ability.Wraith.FireTwinArrows");
 	UE_DEFINE_GAMEPLAY_TAG(Cooldown_Wraith_FireTwinArrows, "Cooldown.Wraith.FireTwinArrows");
+	UE_DEFINE_GAMEPLAY_TAG(Event_Wraith_FireTwinArrows_Shot, "Event.Wraith.FireTwinArrows.Shot");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Wraith_Teleport,"Ability.Wraith.Teleport");
+	UE_DEFINE_GAMEPLAY_TAG(Cooldown_Wraith_Teleport, "Cooldown.Wraith.Teleport");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Wraith_BowShove,"Ability.Wraith.BowShove");
+	UE_DEFINE_GAMEPLAY_TAG(Cooldown_Wraith_BowShove, "Cooldown.Wraith.BowShove");
 	
 	// ─── Wraith Gameplay Cues ──────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Wraith_Fire, "GameplayCue.Wraith.Fire");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Wraith_Teleport_Start, "GameplayCue.Wraith.Teleport.Start");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Wraith_Teleport_End, "GameplayCue.Wraith.Teleport.End");
+	UE_DEFINE_GAMEPLAY_TAG(Event_Wraith_Teleport_Vanish, "Event.Wraith.Teleport.Vanish");
+	UE_DEFINE_GAMEPLAY_TAG(Event_Wraith_Teleport_Appear , "Event.Wraith.Teleport.Appear");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Wraith_BowShove, "GameplayCue.Wraith.BowShove");
 	
-	// ─── Wraith State ──────────────────────────────────────────────────────────
-	UE_DEFINE_GAMEPLAY_TAG(State_Wraith_Invulnerable, "State.Wraith.Invulnerable");
 	
 	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_OnCollision, "Event.Enemy.Attack.OnCollision");
 	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_OffCollision, "Event.Enemy.Attack.OffCollision");
 
 	// ─── Montage Events ───────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Event_Montage_ConsumableApply, "Event.Montage.ConsumableApply");
+	UE_DEFINE_GAMEPLAY_TAG(Event_Montage_RelicApply, "Event.Montage.RelicApply");
+	UE_DEFINE_GAMEPLAY_TAG(Event_Montage_FireWeaponStart, "Event.Montage.Fire.WeaponStart");
+	UE_DEFINE_GAMEPLAY_TAG(Event_Montage_ReloadWeaponStart, "Event.Montage.Reload.WeaponStart");
+	UE_DEFINE_GAMEPLAY_TAG(Event_Montage_ReloadAmmoCommit, "Event.Montage.Reload.AmmoCommit");
+	UE_DEFINE_GAMEPLAY_TAG(Event_Montage_WeaponSwapCommit, "Event.Montage.WeaponSwap.Commit");
 	
 }

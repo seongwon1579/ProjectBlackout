@@ -4,7 +4,13 @@
 
 #include "CoreMinimal.h"
 #include "BlackoutMinionGameplayAbility.h"
+#include "EnvironmentQuery/EnvQueryTypes.h"
+#include "GameplayEffectTypes.h"
 #include "GA_Wraith_Teleport.generated.h"
+
+class UAnimMontage;
+class UEnvQuery;
+
 
 /**
  * Wraith 점멸.
@@ -26,4 +32,26 @@ protected:
 	                             ActivationInfo,
 	                             const FGameplayEventData*
 	                             TriggerEventData) override;
+	
+	void OnEQSFinished(TSharedPtr<FEnvQueryResult> Result);
+	void StartMontageAndWaitEvents();
+	
+	UFUNCTION()
+	void OnVanishEvent(FGameplayEventData Payload);
+	
+	UFUNCTION()
+	void OnAppearEvent(FGameplayEventData Payload);
+	
+	UFUNCTION()
+	void OnMontageEnded();
+	
+	void RemoveInvulnerableTag();
+	
+	UPROPERTY(EditDefaultsOnly,Category="Wraith")
+	TObjectPtr<UEnvQuery> TeleportQuery;
+	
+	UPROPERTY(EditDefaultsOnly,Category="Wraith")
+	TObjectPtr<UAnimMontage> TeleportAnimMontage;
+	
+	FVector CachedDestination = FVector::ZeroVector;
 };

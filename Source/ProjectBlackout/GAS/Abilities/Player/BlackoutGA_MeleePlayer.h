@@ -62,7 +62,8 @@ private:
 	bool JumpToNextComboSection();
 	void ResetComboState();
 	UAnimInstance* GetAvatarAnimInstance() const;
-
+	void SnapToControllYaw();
+	
 	UPROPERTY(Transient)
 	TObjectPtr<UAnimInstance> ActiveAnimInstance;
 
