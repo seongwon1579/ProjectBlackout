@@ -37,20 +37,7 @@ void UBlackoutGA_MeleePlayer::ActivateAbility(const FGameplayAbilitySpecHandle H
 {
 	BO_LOG_GAS(Log, "GA_MeleePlayer activate requested");
 
-	if (!ActorInfo || !ActorInfo->AvatarActor.IsValid())
-	{
-		BO_LOG_GAS(Warning, "GA_MeleePlayer failed: ActorInfo 또는 AvatarActor가 유효하지 않음");
-		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
-		return;
-	}
-
-	if (!MeleeComboData || !MeleeComboData->MeleeMontage || MeleeComboData->ComboSections.Num() == 0)
-	{
-		BO_LOG_GAS(Warning, "GA_MeleePlayer failed: MeleeComboData / Montage / ComboSections 가 비어 있음");
-		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
-		return;
-	}
-
+	// 사전 조건(ActorInfo/MeleeComboData/첫 섹션/Blocked tags)은 CanActivateAbility 에서 검증됨.
 	if (!CommitAbility(Handle, ActorInfo, ActivationInfo))
 	{
 		BO_LOG_GAS(Warning, "GA_MeleePlayer failed: CommitAbility 실패");
@@ -68,12 +55,15 @@ void UBlackoutGA_MeleePlayer::ActivateAbility(const FGameplayAbilitySpecHandle H
 			CombatComponent->StopAim();
 		}
 
-		// 루트 모션 + LocalPredicted GA 의 CMC 위치 보정 문제 회피.
-		// 콤보 섹션 점프 시 root motion 이 있다면 서버 검증 lag 로 인한 클라 위치 rewind 가 발생합니다.
-		// EndAbility 에서 반드시 false 로 되돌립니다.
+		// v2.3 (옵션 A — 클라 권위 위치 동기화):
+		// - bIgnoreClientMovementErrorChecksAndCorrection: 서버 ClientAdjustPosition RPC 차단 (jitter 방지).
+		// - bServerAcceptClientAuthoritativePosition: 매 ServerMove 마다 서버가 클라 위치를 채택.
+		//   콤보 섹션 점프 timing 차이로 인한 누적 위치 오차가 자연 동기화되어 EndAbility 시 워프 방지.
+		// PvE 코옵 전제. EndAbility 에서 반드시 false 로 복구.
 		if (UCharacterMovementComponent* MovementComponent = PlayerCharacter->GetCharacterMovement())
 		{
 			MovementComponent->bIgnoreClientMovementErrorChecksAndCorrection = true;
+			MovementComponent->bServerAcceptClientAuthoritativePosition = true;
 		}
 	}
 
@@ -81,15 +71,6 @@ void UBlackoutGA_MeleePlayer::ActivateAbility(const FGameplayAbilitySpecHandle H
 	CurrentComboIndex = 0;
 
 	const FBlackoutComboSectionDef& StartSection = MeleeComboData->ComboSections[0];
-	if (StartSection.SectionName == NAME_None || MeleeComboData->MeleeMontage->GetSectionIndex(StartSection.SectionName) == INDEX_NONE)
-	{
-		BO_LOG_GAS(Warning,
-			"GA_MeleePlayer failed: 첫 콤보 섹션 '%s' 이(가) 몽타주 %s 에 없음",
-			*StartSection.SectionName.ToString(),
-			*GetNameSafe(MeleeComboData->MeleeMontage));
-		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
-		return;
-	}
 
 	SnapToControlYaw();
 
@@ -142,10 +123,11 @@ void UBlackoutGA_MeleePlayer::EndAbility(const FGameplayAbilitySpecHandle Handle
 				CombatComponent->EndMeleeWeaponAttachmentOverride();
 			}
 
-			// ActivateAbility 에서 켰던 CMC 위치 보정 가드를 반드시 복구.
+			// v2.3: ActivateAbility 에서 켰던 클라 권위 동기화 플래그 복구.
 			if (UCharacterMovementComponent* MovementComponent = PlayerCharacter->GetCharacterMovement())
 			{
 				MovementComponent->bIgnoreClientMovementErrorChecksAndCorrection = false;
+				MovementComponent->bServerAcceptClientAuthoritativePosition = false;
 			}
 		}
 	}
@@ -172,6 +154,35 @@ void UBlackoutGA_MeleePlayer::EndAbility(const FGameplayAbilitySpecHandle Handle
 void UBlackoutGA_MeleePlayer::InputPressed(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo)
 {
 	Super::InputPressed(Handle, ActorInfo, ActivationInfo);
+}
+
+bool UBlackoutGA_MeleePlayer::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags,
+	FGameplayTagContainer* OptionalRelevantTags) const
+{
+	if (!Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags))
+	{
+		return false;
+	}
+
+	if (!ActorInfo || !ActorInfo->AvatarActor.IsValid())
+	{
+		return false;
+	}
+
+	if (!MeleeComboData || !MeleeComboData->MeleeMontage || MeleeComboData->ComboSections.Num() == 0)
+	{
+		return false;
+	}
+
+	const FBlackoutComboSectionDef& StartSection = MeleeComboData->ComboSections[0];
+	if (StartSection.SectionName == NAME_None
+		|| MeleeComboData->MeleeMontage->GetSectionIndex(StartSection.SectionName) == INDEX_NONE)
+	{
+		return false;
+	}
+
+	return true;
 }
 
 void UBlackoutGA_MeleePlayer::StartComboInputTask()

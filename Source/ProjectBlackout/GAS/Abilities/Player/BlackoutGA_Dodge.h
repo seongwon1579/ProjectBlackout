@@ -32,6 +32,15 @@ public:
 	virtual void InputPressed(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
 		const FGameplayAbilityActivationInfo ActivationInfo) override;
 
+	/**
+	 * 활성 사전 조건 검사. 데이터/스태미나 부족 시 false 를 반환하면 GAS 가
+	 * 서버에서 ClientActivateAbilityFailed RPC 를 자동 호출하여 클라 예측을 폐기합니다.
+	 * 이 덕분에 클라가 잘못 시작한 GA 가 몽타주 종료 시 강제 워프되는 현상이 사라집니다.
+	 */
+	virtual bool CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+		const FGameplayTagContainer* SourceTags = nullptr, const FGameplayTagContainer* TargetTags = nullptr,
+		FGameplayTagContainer* OptionalRelevantTags = nullptr) const override;
+
 	/** 현재 액터에서 활성 중인 회피 어빌리티 인스턴스를 찾습니다. */
 	static UBlackoutGA_Dodge* GetActiveDodgeAbilityFromActor(const AActor* OwnerActor);
 
