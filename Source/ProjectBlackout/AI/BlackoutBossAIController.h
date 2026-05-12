@@ -61,8 +61,14 @@ private:
 	UFUNCTION()
 	void OnTargetPerceived(AActor* Actor, FAIStimulus Stimulus);
 
+	UFUNCTION()
+	void CycleTarget();
+
 	UPROPERTY()
 	TObjectPtr<UActionPipeline> ActionPipeline;
+
+	FTimerHandle TargetCycleTimerHandle;
+	int32        CurrentTargetIndex = 0;
 
 	// ── 비활성화된 매니저들 ────────────────────────────────────────────────────
 	// UPROPERTY() TObjectPtr<UBossPhaseManager> PhaseManager;
