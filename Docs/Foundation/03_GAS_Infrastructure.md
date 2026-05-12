@@ -19,6 +19,17 @@ classDiagram
         +GiveDefaultAbilities(TArray~TSubclassOf~UGameplayAbility~~) void
         +ClearAllAbilitiesAndEffects() void
         +OnDamageReceived(FGameplayEffectSpec) void
+        +InvokeReplicatedEvent(InputPressed, Handle, PredictionKey) void
+        +RecordInputSyncPayload(FBlackoutAbilityInputSyncPayload) void
+        +ValidateInputSequence(FGameplayTag, uint16) bool
+    }
+
+    class FBlackoutAbilityInputSyncPayload {
+        +uint16 SequenceId
+        +float ClientInputTimeSeconds
+        +float ClientEstimatedServerTimeSeconds
+        +FGameplayTag InputTag
+        +FGameplayAbilitySpecHandle AbilitySpecHandle
     }
 
     class UBlackoutBaseAttributeSet {
@@ -64,6 +75,7 @@ classDiagram
     }
 
     UBlackoutAbilitySystemComponent o-- UBlackoutBaseAttributeSet
+    UBlackoutAbilitySystemComponent ..> FBlackoutAbilityInputSyncPayload : 입력 기록 / 검증
     GE_Damage ..> UExecCalc_DamageCalc : uses
     GE_Damage ..> BlackoutGameplayTags : HitPartTag lookup
 ```
@@ -74,4 +86,5 @@ classDiagram
 - `UBlackoutBaseAttributeSet::PostGameplayEffectExecute`: Health 클램핑(0 이하 → OnDeath 델리게이트) 처리.
 - `GE_Damage`의 `SetByCaller(HitPartTag)`: `Body.WeakSpot` → ×1.5, `Body.ArmoredLimb` → ×0.5 (TDD §5.2).
 - `UBlackoutGameplayAbility`: 플레이어 GA(`GA_Dodge` 등)와 보스 패턴 GA 모두 이 클래스에서 파생.
+- `UBlackoutAbilitySystemComponent`: 플레이어 재입력 이벤트를 GAS Generic Replicated Event 경로로 전달하며, 나쁜 핑 조건의 콤보/구르기 판정을 위해 입력 `SequenceId`와 timestamp payload를 기록·검증합니다.
 - 플레이어 전용 `UBlackoutPlayerAttributeSet` / `UBlackoutAmmoAttributeSet`는 **Combat 에픽**에서 `UBlackoutBaseAttributeSet`와 별도로 추가.

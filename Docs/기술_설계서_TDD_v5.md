@@ -98,6 +98,17 @@ Unreal Engine **5.7.4 바이너리 빌드(버전 고정)** 기반의 **Dedicated
   - `GA_Ravager_EnergyBurst`: Phase B 광역 에너지 폭발. 제자리 웅크림 차지 후 주변 넓은 반경에 치명 피해. `GCN_Ravager_Howl` 음파 이펙트.
   - `GA_Ravager_Gorenado`: Phase C 궁극기. 다단 히트(Tick) 볼텍스 장판 생성. 플레이어 끌어당김은 `AddForce`/`AddImpulse` 대신 **서버에서 매 Tick마다 `SetActorLocation()`으로 강제 위치 이동** 처리(네트워크 물리 오차 방지). 끌어당김 강도는 볼텍스 중심 거리 반비례 점증.
 
+### 4.1 플레이어 콤보 입력 동기화
+플레이어 근접 공격(`GA_Melee_Player`)과 연속 구르기(`GA_Dodge`)는 `LocalPredicted` GA로 즉시 로컬 반응을 제공하되, 실제 콤보 승인·회피 재시작·스태미나/무적/데미지 판정은 서버가 최종 확정합니다. 클라이언트의 `AnimNotifyState` 시작/종료 상태를 서버에 직접 RPC로 전달하지 않으며, 서버는 자신의 GA 상태와 몽타주 진행 상태를 기준으로 입력 허용 여부를 판단합니다.
+
+- **입력 전달 경로**: 클라이언트는 재입력 의도만 `UAbilityTask_WaitInputPress`와 ASC의 `EAbilityGenericReplicatedEvent::InputPressed` 경로로 서버에 전달합니다. `bReplicateInputDirectly`는 사용하지 않고, 활성 Ability의 prediction key와 연결된 GAS 복제 이벤트를 우선합니다.
+- **입력 동기화 페이로드**: 나쁜 핑 조건에서 입력 도착 순서와 유효 시각을 검증하기 위해 ASC는 입력 이벤트마다 `SequenceId`, `ClientInputTimeSeconds`, `ClientEstimatedServerTimeSeconds`, `InputTag`, `AbilitySpecHandle`을 포함한 경량 페이로드(`FBlackoutAbilityInputSyncPayload`)를 함께 기록합니다. 서버는 이 값을 그대로 신뢰하지 않고, 수신 시각·PlayerState ping·단조 증가하는 `SequenceId`로 과거/미래 입력을 클램프합니다.
+- **버퍼와 grace 분리**:
+  - **Input Buffer**: 서버 윈도우가 아직 열리기 전에 도착한 다음 입력 1개를 짧게 저장합니다. 저장 시간은 액션별 고정값을 사용하며, 근접 콤보는 0.12~0.20초, 연속 구르기는 0.10~0.15초를 기본 튜닝 범위로 둡니다.
+  - **Late Grace**: 서버 윈도우가 닫힌 직후 네트워크 지연으로 늦게 도착한 입력을 제한적으로 허용합니다. grace는 `BaseGrace + RTT * 0.5 + JitterMargin`으로 계산하되, 반드시 액션별 `MaxGrace`로 상한을 둡니다.
+- **서버 판정 순서**: 서버는 입력 수신 시 `Ability 활성 여부 → SequenceId 유효성 → 입력 추정 시각 clamp → 버퍼/윈도우/grace 상태 → 스태미나·쿨다운·상태 태그` 순으로 검증합니다. 검증에 실패한 입력은 무시하고, 성공한 입력만 다음 콤보 섹션 점프 또는 연속 구르기 재시작을 수행합니다.
+- **권위 경계**: timestamp와 ping 기반 보정은 “입력 수락 여부”에만 사용합니다. 히트 판정, I-Frame 부여, 스태미나 소모, 데미지 적용은 서버 현재 상태에서 확정하며, 클라이언트가 보낸 애니메이션 Notify나 적중 결과를 권위 데이터로 사용하지 않습니다.
+
 ## 5. 데미지 판정 및 조건부 자원 보상 (Gameplay Effect)
 GE와 ExecCalc(실행 계산기)를 사용해, 피격 처리와 기믹 보상을 처리합니다.
 
@@ -309,6 +320,7 @@ GDD §8.3의 미니멀리즘 HUD 전체 구성 요소를 UI 위젯 레이어로 
 - **PlayMontageAndWait**: GA 내 몽타주 재생 대기 제어.
 - **AnimNotifyState (Melee Hitbox)**: 보스 근접 콤보(예: 약탈자 `GA_Ravager_DoubleSwipe`, 슈루드 `GA_Shrewd_MeleeCombo`) 몽타주 구간에 배치, 해당 프레임만 충돌체 활성화.
 - **AnimNotify (Projectile Spawn)**: 원거리 투사체(약탈자 Shockwave, 슈루드 Explosive Arrow)를 애니메이션 정확한 타이밍에 풀링 스폰.
+- **플레이어 콤보 입력 윈도우**: 플레이어 근접/구르기 재입력은 클라이언트 Notify RPC가 아니라 서버 GA의 입력 buffer와 late grace로 처리합니다. NotifyState는 로컬 피드백과 히트박스 타이밍 보조에 사용하되, 서버 콤보 승인 여부의 단독 권위 데이터로 사용하지 않습니다.
 
 ### 13.2 모션 워핑 (Motion Warping)
 타겟 돌진 공격(`GA_Shrewd_Lunge`, `GA_Ravager_LungeAttack`) 시 애니메이션 고정 이동 거리와 실제 타겟 거리 오차를 해소합니다. 커스텀 AbilityTask와 연동하여 캡슐 트랜지션을 동적으로 증폭/회전, Warp Target에 정확히 착지.
