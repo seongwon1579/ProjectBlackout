@@ -216,15 +216,8 @@ void ABlackoutPlayerCharacter::Server_SetAimOffset_Implementation(FVector2D NewA
 		FMath::Clamp(NewAimOffset.Y, -90.f, 90.f));
 }
 
-void ABlackoutPlayerCharacter::Multicast_PlayDodgeMontage_Implementation(UAnimMontage* Montage, float PlayRate, bool bRestartIfPlaying)
-{
-	if (IsLocallyControlled() && !HasAuthority())
-	{
-		return;
-	}
-
-	PlayDodgeMontage(Montage, PlayRate, bRestartIfPlaying);
-}
+// Multicast_PlayDodgeMontage_Implementation 은 TDD §4.1 v2 에서 폐기되었습니다.
+// 회피 몽타주 재생은 GAS 표준 PlayMontageAndWait → ASC::PlayMontage 경로로 처리됩니다.
 
 void ABlackoutPlayerCharacter::Multicast_PlayHitReactMontage_Implementation(UAnimMontage* Montage, float PlayRate)
 {
@@ -246,66 +239,9 @@ void ABlackoutPlayerCharacter::Multicast_StopFireMontage_Implementation(UAnimMon
 	StopFireMontage(Montage, BlendOutTime);
 }
 
-bool ABlackoutPlayerCharacter::PlayDodgeMontage(UAnimMontage* Montage, float PlayRate, bool bRestartIfPlaying)
-{
-	if (!Montage)
-	{
-		BO_LOG_GAS(Warning, "PlayDodgeMontage failed: Montage가 비어 있음");
-		bIsDodgeMontagePlaying = false;
-		return false;
-	}
-
-	USkeletalMeshComponent* MeshComponent = GetMesh();
-	if (!MeshComponent)
-	{
-		BO_LOG_GAS(Warning, "PlayDodgeMontage failed: MeshComponent가 비어 있음");
-		bIsDodgeMontagePlaying = false;
-		return false;
-	}
-
-	UAnimInstance* AnimInstance = MeshComponent->GetAnimInstance();
-	if (!AnimInstance)
-	{
-		BO_LOG_GAS(Warning, "PlayDodgeMontage failed: AnimInstance가 비어 있음");
-		bIsDodgeMontagePlaying = false;
-		return false;
-	}
-
-	// 로컬 예측 재생 후 멀티캐스트가 도착해도 같은 몽타주를 다시 시작하지 않도록 방지
-	if (AnimInstance->GetCurrentActiveMontage() == Montage && AnimInstance->Montage_IsPlaying(Montage))
-	{
-		if (!bRestartIfPlaying)
-		{
-			bIsDodgeMontagePlaying = true;
-			BO_LOG_GAS(Verbose, "PlayDodgeMontage skipped: 이미 같은 몽타주가 재생 중임");
-			return true;
-		}
-
-		AnimInstance->Montage_Stop(0.05f, Montage);
-	}
-
-	const float PlayResult = PlayAnimMontage(Montage, PlayRate);
-	if (PlayResult > 0.f)
-	{
-		FOnMontageEnded MontageEndedDelegate;
-		MontageEndedDelegate.BindUObject(this, &ABlackoutPlayerCharacter::HandleDodgeMontageEnded);
-		AnimInstance->Montage_SetEndDelegate(MontageEndedDelegate, Montage);
-		bIsDodgeMontagePlaying = true;
-	}
-	else
-	{
-		bIsDodgeMontagePlaying = false;
-	}
-
-	BO_LOG_GAS(Log,
-		"PlayDodgeMontage result=%.2f Local=%s Authority=%s Montage=%s",
-		PlayResult,
-		IsLocallyControlled() ? TEXT("true") : TEXT("false"),
-		HasAuthority() ? TEXT("true") : TEXT("false"),
-		*GetNameSafe(Montage));
-
-	return PlayResult > 0.f;
-}
+// PlayDodgeMontage 본체는 TDD §4.1 v2 에서 폐기되었습니다.
+// GA_Dodge 는 UAbilityTask_PlayMontageAndWait 로 직접 재생하며,
+// 회피 진행 상태는 SetDodgeMontagePlaying setter 로 외부에 알립니다.
 
 bool ABlackoutPlayerCharacter::PlayFireMontage(UAnimMontage* Montage, float PlayRate, bool bRestartIfPlaying)
 {
@@ -588,141 +524,9 @@ UAnimMontage* ABlackoutPlayerCharacter::GetWeaponSwapMontageForSlot(FGameplayTag
 	return nullptr;
 }
 
-void ABlackoutPlayerCharacter::Multicast_PlayMeleeMontage_Implementation(UAnimMontage* Montage, FName StartSection, float PlayRate)
-{
-	PlayMeleeMontage(Montage, StartSection, PlayRate);
-}
-
-bool ABlackoutPlayerCharacter::PlayMeleeMontage(UAnimMontage* Montage, FName StartSection, float PlayRate)
-{
-	if (!Montage)
-	{
-		BO_LOG_GAS(Warning, "PlayMeleeMontage failed: Montage가 비어 있음");
-		return false;
-	}
-
-	USkeletalMeshComponent* MeshComponent = GetMesh();
-	if (!MeshComponent)
-	{
-		BO_LOG_GAS(Warning, "PlayMeleeMontage failed: MeshComponent가 비어 있음");
-		return false;
-	}
-
-	UAnimInstance* AnimInstance = MeshComponent->GetAnimInstance();
-	if (!AnimInstance)
-	{
-		BO_LOG_GAS(Warning, "PlayMeleeMontage failed: AnimInstance가 비어 있음");
-		return false;
-	}
-
-	if (AnimInstance->GetCurrentActiveMontage() == Montage && AnimInstance->Montage_IsPlaying(Montage))
-	{
-		const FName CurrentSectionName = AnimInstance->Montage_GetCurrentSection(Montage);
-		if (StartSection == NAME_None || CurrentSectionName == StartSection)
-		{
-			BO_LOG_GAS(Verbose, "PlayMeleeMontage skipped: 이미 같은 근접 몽타주/섹션이 재생 중임");
-			return true;
-		}
-	}
-
-	const float PlayResult = PlayAnimMontage(Montage, PlayRate);
-	if (PlayResult <= 0.f)
-	{
-		BO_LOG_GAS(Warning, "PlayMeleeMontage failed: Montage=%s", *GetNameSafe(Montage));
-		return false;
-	}
-
-	if (StartSection != NAME_None)
-	{
-		if (Montage->GetSectionIndex(StartSection) == INDEX_NONE)
-		{
-			BO_LOG_GAS(Warning,
-				"PlayMeleeMontage failed: StartSection=%s 이(가) Montage=%s 에 없음",
-				*StartSection.ToString(),
-				*GetNameSafe(Montage));
-			return false;
-		}
-
-		AnimInstance->Montage_JumpToSection(StartSection, Montage);
-	}
-
-	return true;
-}
-
-void ABlackoutPlayerCharacter::Multicast_JumpMeleeMontageSection_Implementation(UAnimMontage* Montage, FName SectionName)
-{
-	JumpMeleeMontageSection(Montage, SectionName);
-}
-
-bool ABlackoutPlayerCharacter::JumpMeleeMontageSection(UAnimMontage* Montage, FName SectionName)
-{
-	if (!Montage || SectionName == NAME_None)
-	{
-		return false;
-	}
-
-	USkeletalMeshComponent* MeshComponent = GetMesh();
-	if (!MeshComponent)
-	{
-		return false;
-	}
-
-	UAnimInstance* AnimInstance = MeshComponent->GetAnimInstance();
-	if (!AnimInstance)
-	{
-		return false;
-	}
-
-	if (AnimInstance->GetCurrentActiveMontage() != Montage || !AnimInstance->Montage_IsPlaying(Montage))
-	{
-		return false;
-	}
-
-	if (Montage->GetSectionIndex(SectionName) == INDEX_NONE)
-	{
-		BO_LOG_GAS(Warning,
-			"JumpMeleeMontageSection failed: Section=%s 이(가) Montage=%s 에 없음",
-			*SectionName.ToString(),
-			*GetNameSafe(Montage));
-		return false;
-	}
-
-	if (AnimInstance->Montage_GetCurrentSection(Montage) == SectionName)
-	{
-		return true;
-	}
-
-	AnimInstance->Montage_JumpToSection(SectionName, Montage);
-	return AnimInstance->Montage_GetCurrentSection(Montage) == SectionName;
-}
-
-void ABlackoutPlayerCharacter::Multicast_StopMeleeMontage_Implementation(UAnimMontage* Montage, float BlendOutTime)
-{
-	StopMeleeMontage(Montage, BlendOutTime);
-}
-
-bool ABlackoutPlayerCharacter::StopMeleeMontage(UAnimMontage* Montage, float BlendOutTime)
-{
-	if (!Montage)
-	{
-		return false;
-	}
-
-	USkeletalMeshComponent* MeshComponent = GetMesh();
-	if (!MeshComponent)
-	{
-		return false;
-	}
-
-	UAnimInstance* AnimInstance = MeshComponent->GetAnimInstance();
-	if (!AnimInstance || !AnimInstance->Montage_IsPlaying(Montage))
-	{
-		return false;
-	}
-
-	AnimInstance->Montage_Stop(BlendOutTime, Montage);
-	return true;
-}
+// 근접 콤보 몽타주 RPC/헬퍼는 TDD §4.1 v2 에서 폐기되었습니다.
+// 재생: UAbilityTask_PlayMontageAndWait → ASC::PlayMontage → FRepAnimMontageInfo 자동 복제
+// 섹션 점프: 서버에서 ASC::CurrentMontageJumpToSection 호출 → RepAnimMontageInfo 로 클라이언트 자동 따라잡음
 
 void ABlackoutPlayerCharacter::Multicast_PlayConsumableMontage_Implementation(UAnimMontage* Montage, float PlayRate)
 {
@@ -814,14 +618,8 @@ void ABlackoutPlayerCharacter::CommitPendingWeaponSwap()
 	}
 }
 
-void ABlackoutPlayerCharacter::HandleDodgeMontageEnded(UAnimMontage* Montage, bool bInterrupted)
-{
-	bIsDodgeMontagePlaying = false;
-	BO_LOG_GAS(Log,
-		"Dodge montage ended: Interrupted=%s Montage=%s",
-		bInterrupted ? TEXT("true") : TEXT("false"),
-		*GetNameSafe(Montage));
-}
+// HandleDodgeMontageEnded 는 TDD §4.1 v2 에서 폐기되었습니다.
+// 회피 진행 플래그는 GA_Dodge 가 SetDodgeMontagePlaying setter 로 직접 관리합니다.
 
 void ABlackoutPlayerCharacter::HandleHitReactMontageEnded(UAnimMontage* Montage, bool bInterrupted)
 {

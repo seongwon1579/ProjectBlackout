@@ -4,6 +4,7 @@
 #include "BlackoutLog.h"
 #include "Data/BOConsumableData.h"
 #include "Engine/World.h"
+#include "GameFramework/GameStateBase.h"
 #include "GameplayEffect.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "GAS/Attributes/BlackoutBaseAttributeSet.h"
@@ -100,6 +101,9 @@ void UBlackoutAbilitySystemComponent::HandleAbilityInputPressed(EBlackoutAbility
 
 	const int32 RawInputID = static_cast<int32>(InputID);
 	bool bFoundMatchingAbility = false;
+	const uint16 InputSequenceId = GenerateNextInputSequence(InputID);
+	const float ClientInputTimeSeconds = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0f;
+	const float ClientEstimatedServerTimeSeconds = GetEstimatedServerTimeSeconds();
 
 	ABILITYLIST_SCOPE_LOCK();
 
@@ -113,15 +117,49 @@ void UBlackoutAbilitySystemComponent::HandleAbilityInputPressed(EBlackoutAbility
 		bFoundMatchingAbility = true;
 		AbilitySpec.InputPressed = true;
 
+		const FBlackoutAbilityInputSyncPayload InputPayload = BuildInputSyncPayload(
+			InputID,
+			AbilitySpec.Handle,
+			InputSequenceId,
+			ClientInputTimeSeconds,
+			ClientEstimatedServerTimeSeconds);
+		RecordAbilityInputSyncPayload(InputPayload, IsOwnerActorAuthoritative());
+		if (!IsOwnerActorAuthoritative())
+		{
+			Server_RecordAbilityInputSyncPayload(InputPayload);
+		}
+
 		if (AbilitySpec.IsActive())
 		{
+			// 활성 GA의 prediction key 추출.
+			// 콤보/체인 재입력은 새 ScopedPredictionWindow 를 만들지 않고 기존 activation key 를 재사용합니다.
+			const FGameplayAbilityActivationInfo* ActivationInfo = &AbilitySpec.ActivationInfo;
+			const TArray<UGameplayAbility*> AbilityInstances = AbilitySpec.GetAbilityInstances();
+			if (AbilityInstances.Num() > 0 && AbilityInstances.Last())
+			{
+				ActivationInfo = &AbilityInstances.Last()->GetCurrentActivationInfoRef();
+			}
+			const FPredictionKey ActivationKey = ActivationInfo->GetActivationPredictionKey();
+
+			// 로컬: 자신의 GA 인스턴스에 InputPressed 를 전달하고 로컬 WaitInputPress 를 발화.
+			AbilitySpecInputPressed(AbilitySpec);
+			InvokeReplicatedEvent(
+				EAbilityGenericReplicatedEvent::InputPressed,
+				AbilitySpec.Handle,
+				ActivationKey);
+
+			// 원격(클라이언트 → 서버): 표준 GAS 복제 이벤트 경로.
+			// ServerSetReplicatedEvent 가 서버에서 InvokeReplicatedEvent 를 발화시켜
+			// 서버 GA 의 WaitInputPress::OnPress 가 호출됩니다.
+			// CurrentPredictionKey 인자에도 activation key 를 그대로 넘겨 재사용합니다.
 			if (!IsOwnerActorAuthoritative())
 			{
-				ServerSetInputPressed(AbilitySpec.Handle);
+				ServerSetReplicatedEvent(
+					EAbilityGenericReplicatedEvent::InputPressed,
+					AbilitySpec.Handle,
+					ActivationKey,
+					ActivationKey);
 			}
-
-			AbilitySpecInputPressed(AbilitySpec);
-			//InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::InputPressed, AbilitySpec.Handle, AbilitySpec.ActivationInfo.GetActivationPredictionKey());
 			continue;
 		}
 
@@ -157,15 +195,126 @@ void UBlackoutAbilitySystemComponent::HandleAbilityInputReleased(EBlackoutAbilit
 
 		if (AbilitySpec.IsActive())
 		{
-			if (!IsOwnerActorAuthoritative())
+			if (AbilitySpec.Ability && AbilitySpec.Ability->bReplicateInputDirectly && !IsOwnerActorAuthoritative())
 			{
 				ServerSetInputReleased(AbilitySpec.Handle);
 			}
 
 			AbilitySpecInputReleased(AbilitySpec);
-			//InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::InputReleased, AbilitySpec.Handle, AbilitySpec.ActivationInfo.GetActivationPredictionKey());
+
+			const FGameplayAbilityActivationInfo* ActivationInfo = &AbilitySpec.ActivationInfo;
+			const TArray<UGameplayAbility*> AbilityInstances = AbilitySpec.GetAbilityInstances();
+			if (AbilityInstances.Num() > 0 && AbilityInstances.Last())
+			{
+				ActivationInfo = &AbilityInstances.Last()->GetCurrentActivationInfoRef();
+			}
+
+			InvokeReplicatedEvent(
+				EAbilityGenericReplicatedEvent::InputReleased,
+				AbilitySpec.Handle,
+				ActivationInfo->GetActivationPredictionKey());
 		}
 	}
+}
+
+const FBlackoutAbilityInputSyncPayload* UBlackoutAbilitySystemComponent::GetLatestInputSyncPayload(EBlackoutAbilityInputID InputID) const
+{
+	const int32 RawInputID = static_cast<int32>(InputID);
+	return LatestInputSyncPayloadByID.Find(RawInputID);
+}
+
+void UBlackoutAbilitySystemComponent::Server_RecordAbilityInputSyncPayload_Implementation(FBlackoutAbilityInputSyncPayload Payload)
+{
+	// TDD §4.1 v2: 이 RPC 는 timestamp/sequence 메타데이터 부가 채널입니다.
+	// 입력 트리거(InputPressed 복제 이벤트) 자체는 표준 GAS 경로(`ServerSetReplicatedEvent`)가 담당하므로,
+	// 여기서는 grace clamp 계산에 사용할 페이로드만 기록합니다.
+	RecordAbilityInputSyncPayload(Payload, true);
+}
+
+uint16 UBlackoutAbilitySystemComponent::GenerateNextInputSequence(EBlackoutAbilityInputID InputID)
+{
+	const int32 RawInputID = static_cast<int32>(InputID);
+	uint16& SequenceId = LocalInputSequenceByID.FindOrAdd(RawInputID);
+	++SequenceId;
+	if (SequenceId == 0)
+	{
+		++SequenceId;
+	}
+
+	return SequenceId;
+}
+
+float UBlackoutAbilitySystemComponent::GetEstimatedServerTimeSeconds() const
+{
+	const UWorld* World = GetWorld();
+	if (!World)
+	{
+		return 0.0f;
+	}
+
+	const AGameStateBase* GameState = World->GetGameState();
+	return GameState ? GameState->GetServerWorldTimeSeconds() : World->GetTimeSeconds();
+}
+
+FBlackoutAbilityInputSyncPayload UBlackoutAbilitySystemComponent::BuildInputSyncPayload(
+	EBlackoutAbilityInputID InputID,
+	FGameplayAbilitySpecHandle AbilitySpecHandle,
+	uint16 SequenceId,
+	float ClientInputTimeSeconds,
+	float ClientEstimatedServerTimeSeconds) const
+{
+	FBlackoutAbilityInputSyncPayload Payload;
+	Payload.SequenceId = SequenceId;
+	Payload.ClientInputTimeSeconds = ClientInputTimeSeconds;
+	Payload.ClientEstimatedServerTimeSeconds = ClientEstimatedServerTimeSeconds;
+	Payload.ServerReceivedTimeSeconds = GetEstimatedServerTimeSeconds();
+	Payload.InputID = InputID;
+	Payload.AbilitySpecHandle = AbilitySpecHandle;
+	return Payload;
+}
+
+void UBlackoutAbilitySystemComponent::RecordAbilityInputSyncPayload(FBlackoutAbilityInputSyncPayload Payload, bool bValidateSequence)
+{
+	if (!Payload.IsValid())
+	{
+		return;
+	}
+
+	if (bValidateSequence && !IsInputSequenceNewer(Payload.InputID, Payload.SequenceId))
+	{
+		BO_LOG_GAS(Verbose,
+			"InputSyncPayload rejected: InputID=%d Sequence=%u",
+			static_cast<int32>(Payload.InputID),
+			Payload.SequenceId);
+		return;
+	}
+
+	const int32 RawInputID = static_cast<int32>(Payload.InputID);
+	Payload.ServerReceivedTimeSeconds = GetEstimatedServerTimeSeconds();
+	LatestInputSyncPayloadByID.FindOrAdd(RawInputID) = Payload;
+
+	if (bValidateSequence)
+	{
+		LastServerInputSequenceByID.FindOrAdd(RawInputID) = Payload.SequenceId;
+	}
+}
+
+bool UBlackoutAbilitySystemComponent::IsInputSequenceNewer(EBlackoutAbilityInputID InputID, uint16 NewSequenceId) const
+{
+	if (NewSequenceId == 0)
+	{
+		return false;
+	}
+
+	const int32 RawInputID = static_cast<int32>(InputID);
+	const uint16* LastSequenceId = LastServerInputSequenceByID.Find(RawInputID);
+	if (!LastSequenceId)
+	{
+		return true;
+	}
+
+	const uint16 Delta = NewSequenceId - *LastSequenceId;
+	return Delta != 0 && Delta < 32768;
 }
 
 void UBlackoutAbilitySystemComponent::ClearAllAbilitiesAndEffects()

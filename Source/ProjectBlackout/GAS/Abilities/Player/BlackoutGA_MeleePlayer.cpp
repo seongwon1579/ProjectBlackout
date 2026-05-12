@@ -2,6 +2,8 @@
 
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemInterface.h"
+#include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
+#include "Abilities/Tasks/AbilityTask_WaitInputPress.h"
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimMontage.h"
 #include "Characters/BlackoutPlayerCharacter.h"
@@ -9,13 +11,16 @@
 #include "Combat/Weapons/BOMeleeWeapon.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Core/BlackoutLog.h"
+#include "Data/BOMeleeComboData.h"
 #include "GameFramework/Character.h"
+#include "GameFramework/GameStateBase.h"
+#include "GameFramework/PlayerState.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
+#include "TimerManager.h"
 
 UBlackoutGA_MeleePlayer::UBlackoutGA_MeleePlayer()
 {
 	InputID = EBlackoutAbilityInputID::Melee;
-	bReplicateInputDirectly = true;
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::LocalPredicted;
 
@@ -34,6 +39,13 @@ void UBlackoutGA_MeleePlayer::ActivateAbility(const FGameplayAbilitySpecHandle H
 	if (!ActorInfo || !ActorInfo->AvatarActor.IsValid())
 	{
 		BO_LOG_GAS(Warning, "GA_MeleePlayer failed: ActorInfo 또는 AvatarActor가 유효하지 않음");
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		return;
+	}
+
+	if (!MeleeComboData || !MeleeComboData->MeleeMontage || MeleeComboData->ComboSections.Num() == 0)
+	{
+		BO_LOG_GAS(Warning, "GA_MeleePlayer failed: MeleeComboData / Montage / ComboSections 가 비어 있음");
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
@@ -59,114 +71,63 @@ void UBlackoutGA_MeleePlayer::ActivateAbility(const FGameplayAbilitySpecHandle H
 	ResetComboState();
 	CurrentComboIndex = 0;
 
-	if (!MeleeMontage)
+	const FBlackoutComboSectionDef& StartSection = MeleeComboData->ComboSections[0];
+	if (StartSection.SectionName == NAME_None || MeleeComboData->MeleeMontage->GetSectionIndex(StartSection.SectionName) == INDEX_NONE)
 	{
-		BO_LOG_GAS(Warning, "GA_MeleePlayer failed: MeleeMontage가 비어 있음");
-		//HandleMeleeHitNotify();
-		EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
-		return;
-	}
-
-	const FName StartSectionName =
-		(ComboSectionNames.Num() > 0 && ComboSectionNames[0] != NAME_None)
-			? ComboSectionNames[0]
-			: NAME_None;
-	
-	SnapToControllYaw();
-
-	bool bMontageStarted = false;
-	if (ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()))
-	{
-		if (StartSectionName != NAME_None && MeleeMontage->GetSectionIndex(StartSectionName) == INDEX_NONE)
-		{
-			BO_LOG_GAS(Warning,
-				"GA_MeleePlayer failed: 첫 콤보 섹션 %s 이(가) 몽타주 %s 에 없음",
-				*StartSectionName.ToString(),
-				*GetNameSafe(MeleeMontage));
-			EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
-			return;
-		}
-
-		if (PlayerCharacter->HasAuthority())
-		{
-			PlayerCharacter->Multicast_PlayMeleeMontage(MeleeMontage, StartSectionName, 1.f);
-			bMontageStarted = true;
-		}
-		else if (PlayerCharacter->IsLocallyControlled())
-		{
-			bMontageStarted = PlayerCharacter->PlayMeleeMontage(MeleeMontage, StartSectionName, 1.f);
-		}
-		else
-		{
-			bMontageStarted = PlayerCharacter->PlayMeleeMontage(MeleeMontage, StartSectionName, 1.f);
-		}
-	}
-	else
-	{
-		UAnimInstance* AnimInstance = GetAvatarAnimInstance();
-		if (!AnimInstance)
-		{
-			BO_LOG_GAS(Warning, "GA_MeleePlayer failed: AnimInstance가 비어 있음");
-			EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
-			return;
-		}
-
-		const float PlayResult = AnimInstance->Montage_Play(MeleeMontage);
-		if (PlayResult > 0.0f && StartSectionName != NAME_None)
-		{
-			AnimInstance->Montage_JumpToSection(StartSectionName, MeleeMontage);
-		}
-
-		bMontageStarted = PlayResult > 0.0f;
-	}
-
-	if (!bMontageStarted)
-	{
-		BO_LOG_GAS(Warning, "GA_MeleePlayer failed: MeleeMontage 재생 실패");
+		BO_LOG_GAS(Warning,
+			"GA_MeleePlayer failed: 첫 콤보 섹션 '%s' 이(가) 몽타주 %s 에 없음",
+			*StartSection.SectionName.ToString(),
+			*GetNameSafe(MeleeComboData->MeleeMontage));
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
 
-	UAnimInstance* AnimInstance = GetAvatarAnimInstance();
-	if (!AnimInstance)
+	SnapToControlYaw();
+
+	// v2: 몽타주 재생은 GAS 표준 PlayMontageAndWait 태스크로 일원화.
+	// 양측(서버/클라)이 동일한 ASC.PlayMontage 경로를 사용 → FRepAnimMontageInfo 가 시뮬레이트 프록시에 자동 복제.
+	MontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
+		this,
+		NAME_None,
+		MeleeComboData->MeleeMontage,
+		1.f,
+		StartSection.SectionName,
+		/*bStopWhenAbilityEnds=*/true,
+		/*AnimRootMotionTranslationScale=*/1.f,
+		/*StartTimeSeconds=*/0.f,
+		/*bAllowInterruptAfterBlendOut=*/false);
+
+	if (!MontageTask)
 	{
-		BO_LOG_GAS(Warning, "GA_MeleePlayer failed: 재생 후 AnimInstance가 비어 있음");
+		BO_LOG_GAS(Warning, "GA_MeleePlayer failed: PlayMontageAndWait 태스크 생성 실패");
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
 
-	ActiveAnimInstance = AnimInstance;
+	MontageTask->OnCompleted.AddDynamic(this, &UBlackoutGA_MeleePlayer::OnMontageCompleted);
+	MontageTask->OnInterrupted.AddDynamic(this, &UBlackoutGA_MeleePlayer::OnMontageInterrupted);
+	MontageTask->OnCancelled.AddDynamic(this, &UBlackoutGA_MeleePlayer::OnMontageCancelled);
+	MontageTask->OnBlendOut.AddDynamic(this, &UBlackoutGA_MeleePlayer::OnMontageBlendOut);
+	MontageTask->ReadyForActivation();
 
-	FOnMontageEnded MontageEndedDelegate;
-	MontageEndedDelegate.BindUObject(this, &UBlackoutGA_MeleePlayer::OnMeleeMontageEnded);
-	AnimInstance->Montage_SetEndDelegate(MontageEndedDelegate, MeleeMontage);
+	// 서버 권위: 첫 섹션의 콤보 윈도우/그레이스 타이머는 서버에서만 예약합니다.
+	if (HasAuthority(&ActivationInfo))
+	{
+		ServerScheduleSectionTimers(0);
+	}
+
+	// 입력 수집은 양측 모두에서. 클라이언트는 표준 GAS 경로로 서버에 InputPressed 를 전파합니다.
+	StartComboInputTask();
 }
 
 void UBlackoutGA_MeleePlayer::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
 {
 	BO_LOG_GAS(Log, "GA_MeleePlayer ended: Cancelled=%s", bWasCancelled ? TEXT("true") : TEXT("false"));
 
-	if (UAnimInstance* AnimInstance = ActiveAnimInstance.Get())
-	{
-		if (bWasCancelled && MeleeMontage && AnimInstance->Montage_IsPlaying(MeleeMontage))
-		{
-			FOnMontageEnded EmptyMontageEndedDelegate;
-			AnimInstance->Montage_SetEndDelegate(EmptyMontageEndedDelegate, MeleeMontage);
-			AnimInstance->Montage_Stop(0.1f, MeleeMontage);
-		}
-	}
-
-	
-	
 	if (ActorInfo && ActorInfo->AvatarActor.IsValid())
 	{
 		if (ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()))
 		{
-			if (bWasCancelled && PlayerCharacter->HasAuthority())
-			{
-				PlayerCharacter->Multicast_StopMeleeMontage(MeleeMontage, 0.1f);
-			}
-
 			if (UBlackoutCombatComponent* CombatComponent = PlayerCharacter->GetCombatComponent())
 			{
 				CombatComponent->EndMeleeAttackWindow();
@@ -175,8 +136,21 @@ void UBlackoutGA_MeleePlayer::EndAbility(const FGameplayAbilitySpecHandle Handle
 		}
 	}
 
+	ClearAllComboTimers();
 	ResetComboState();
-	ActiveAnimInstance = nullptr;
+
+	if (ComboInputTask)
+	{
+		ComboInputTask->EndTask();
+		ComboInputTask = nullptr;
+	}
+
+	if (MontageTask)
+	{
+		// bStopWhenAbilityEnds=true 로 만들었으므로 EndTask 만 호출하면 몽타주가 자연 정지됩니다.
+		MontageTask->EndTask();
+		MontageTask = nullptr;
+	}
 
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
@@ -184,19 +158,340 @@ void UBlackoutGA_MeleePlayer::EndAbility(const FGameplayAbilitySpecHandle Handle
 void UBlackoutGA_MeleePlayer::InputPressed(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo)
 {
 	Super::InputPressed(Handle, ActorInfo, ActivationInfo);
+}
+
+void UBlackoutGA_MeleePlayer::StartComboInputTask()
+{
+	if (!IsActive())
+	{
+		return;
+	}
+
+	ComboInputTask = UAbilityTask_WaitInputPress::WaitInputPress(this, false);
+	if (!ComboInputTask)
+	{
+		BO_LOG_GAS(Warning, "GA_MeleePlayer combo input task 생성 실패");
+		return;
+	}
+
+	ComboInputTask->OnPress.AddDynamic(this, &UBlackoutGA_MeleePlayer::OnComboInputPressed);
+	ComboInputTask->ReadyForActivation();
+}
+
+void UBlackoutGA_MeleePlayer::OnComboInputPressed(float TimeWaited)
+{
+	ComboInputTask = nullptr;
+
+	// v2: 콤보 상태머신은 서버 권위. 클라이언트는 입력 알림만 받고 별도 처리 없음.
+	if (HasAuthority(&CurrentActivationInfo))
+	{
+		ServerProcessComboInput();
+	}
+
+	if (IsActive())
+	{
+		StartComboInputTask();
+	}
+}
+
+void UBlackoutGA_MeleePlayer::ServerProcessComboInput()
+{
+	if (!MeleeComboData)
+	{
+		return;
+	}
+
+	const FBlackoutAbilityInputSyncPayload InputPayload = GetLatestComboInputPayload();
+	if (!IsComboInputPayloadUsable(InputPayload))
+	{
+		return;
+	}
+
+	// 후속 섹션이 없으면 더 이상 진행 불가.
+	if (!MeleeComboData->ComboSections.IsValidIndex(CurrentComboIndex + 1))
+	{
+		BO_LOG_GAS(Verbose, "GA_MeleePlayer combo input ignored: 마지막 콤보 단계");
+		return;
+	}
+
+	if (bComboWindowOpen)
+	{
+		// 윈도우 안: 즉시 다음 섹션 점프.
+		if (!ServerAdvanceToNextComboSection())
+		{
+			BO_LOG_GAS(Warning, "GA_MeleePlayer combo jump failed: CurrentComboIndex=%d", CurrentComboIndex);
+		}
+		return;
+	}
+
+	if (bComboGraceWindowOpen || WasInputWithinComboGrace(InputPayload))
+	{
+		// Grace 안에 들어온 입력: 즉시 다음 섹션 점프.
+		if (!ServerAdvanceToNextComboSection())
+		{
+			BO_LOG_GAS(Warning, "GA_MeleePlayer combo grace jump failed: CurrentComboIndex=%d", CurrentComboIndex);
+		}
+		return;
+	}
+
+	// 윈도우가 아직 열리기 전이면 receive buffer 에 적재.
+	ServerBufferComboInput(InputPayload);
+}
+
+void UBlackoutGA_MeleePlayer::ServerScheduleSectionTimers(int32 SectionIndex)
+{
+	if (!MeleeComboData || !MeleeComboData->ComboSections.IsValidIndex(SectionIndex))
+	{
+		return;
+	}
+
+	const FBlackoutComboSectionDef& Section = MeleeComboData->ComboSections[SectionIndex];
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	FTimerManager& TimerManager = World->GetTimerManager();
+	TimerManager.ClearTimer(ComboWindowOpenTimerHandle);
+	TimerManager.ClearTimer(ComboWindowCloseTimerHandle);
+	TimerManager.ClearTimer(ComboGraceCloseTimerHandle);
+	TimerManager.ClearTimer(ComboInputBufferTimerHandle);
+
+	bComboWindowOpen = false;
+	bComboGraceWindowOpen = false;
+	ComboWindowOpenedServerTime = 0.f;
+	ComboWindowClosedServerTime = 0.f;
+	ActiveComboGraceDuration = 0.f;
+	CurrentSectionEnteredServerTime = GetCurrentServerTimeSeconds();
+
+	const float OpenDelay = FMath::Max(0.f, Section.WindowOpenAtSeconds);
+	const float CloseDelay = FMath::Max(OpenDelay, Section.WindowCloseAtSeconds);
+
+	if (OpenDelay <= KINDA_SMALL_NUMBER)
+	{
+		OnServerComboWindowOpenTimer();
+	}
+	else
+	{
+		TimerManager.SetTimer(
+			ComboWindowOpenTimerHandle,
+			this,
+			&UBlackoutGA_MeleePlayer::OnServerComboWindowOpenTimer,
+			OpenDelay,
+			false);
+	}
+
+	if (CloseDelay > KINDA_SMALL_NUMBER)
+	{
+		TimerManager.SetTimer(
+			ComboWindowCloseTimerHandle,
+			this,
+			&UBlackoutGA_MeleePlayer::OnServerComboWindowCloseTimer,
+			CloseDelay,
+			false);
+	}
+
+	BO_LOG_GAS(Verbose,
+		"GA_MeleePlayer scheduled section timers: Index=%d Section=%s Open=%.3f Close=%.3f",
+		SectionIndex,
+		*Section.SectionName.ToString(),
+		OpenDelay,
+		CloseDelay);
+}
+
+void UBlackoutGA_MeleePlayer::OnServerComboWindowOpenTimer()
+{
+	if (!HasAuthority(&CurrentActivationInfo))
+	{
+		return;
+	}
+
+	bComboWindowOpen = true;
+	bComboGraceWindowOpen = false;
+	ComboWindowOpenedServerTime = GetCurrentServerTimeSeconds();
+	ComboWindowClosedServerTime = 0.f;
+	ActiveComboGraceDuration = 0.f;
+
+	BO_LOG_GAS(Log, "GA_MeleePlayer combo window opened (server): CurrentComboIndex=%d", CurrentComboIndex);
+
+	// 윈도우 열리기 전에 버퍼된 입력이 있으면 즉시 흡수.
+	if (bComboInputQueued)
+	{
+		if (IsBufferedComboInputStillValid())
+		{
+			if (!ServerAdvanceToNextComboSection())
+			{
+				BO_LOG_GAS(Warning, "GA_MeleePlayer buffered combo jump failed: CurrentComboIndex=%d", CurrentComboIndex);
+			}
+		}
+		else
+		{
+			bComboInputQueued = false;
+			bHasQueuedComboInputPayload = false;
+			BO_LOG_GAS(Log, "GA_MeleePlayer buffered combo input expired before window open");
+		}
+	}
+}
+
+void UBlackoutGA_MeleePlayer::OnServerComboWindowCloseTimer()
+{
+	if (!HasAuthority(&CurrentActivationInfo))
+	{
+		return;
+	}
 
 	if (!bComboWindowOpen)
 	{
 		return;
 	}
 
-	if (!ComboSectionNames.IsValidIndex(CurrentComboIndex + 1))
+	bComboWindowOpen = false;
+	ComboWindowClosedServerTime = GetCurrentServerTimeSeconds();
+
+	if (bComboInputQueued)
+	{
+		// 윈도우 닫히기 직전에 들어와서 buffer 에 남아 있던 입력이 있으면 즉시 점프.
+		if (!ServerAdvanceToNextComboSection())
+		{
+			BO_LOG_GAS(Warning, "GA_MeleePlayer combo jump at window close failed: CurrentComboIndex=%d", CurrentComboIndex);
+		}
+		return;
+	}
+
+	// late grace 시작.
+	ActiveComboGraceDuration = GetDynamicComboGraceDuration();
+	if (ActiveComboGraceDuration <= 0.f)
+	{
+		BO_LOG_GAS(Log, "GA_MeleePlayer combo window closed without grace");
+		return;
+	}
+
+	bComboGraceWindowOpen = true;
+
+	if (UWorld* World = GetWorld())
+	{
+		FTimerManager& TimerManager = World->GetTimerManager();
+		TimerManager.ClearTimer(ComboGraceCloseTimerHandle);
+		TimerManager.SetTimer(
+			ComboGraceCloseTimerHandle,
+			this,
+			&UBlackoutGA_MeleePlayer::OnServerComboGraceCloseTimer,
+			ActiveComboGraceDuration,
+			false);
+	}
+
+	BO_LOG_GAS(Log,
+		"GA_MeleePlayer combo grace started (server): Duration=%.3f",
+		ActiveComboGraceDuration);
+}
+
+void UBlackoutGA_MeleePlayer::OnServerComboGraceCloseTimer()
+{
+	if (!HasAuthority(&CurrentActivationInfo))
+	{
+		return;
+	}
+
+	bComboGraceWindowOpen = false;
+	bComboInputQueued = false;
+	bHasQueuedComboInputPayload = false;
+	BO_LOG_GAS(Log, "GA_MeleePlayer combo grace closed (server)");
+}
+
+bool UBlackoutGA_MeleePlayer::ServerAdvanceToNextComboSection()
+{
+	if (!HasAuthority(&CurrentActivationInfo) || !MeleeComboData)
+	{
+		return false;
+	}
+
+	const int32 NextComboIndex = CurrentComboIndex + 1;
+	if (!MeleeComboData->ComboSections.IsValidIndex(NextComboIndex))
+	{
+		bComboInputQueued = false;
+		bHasQueuedComboInputPayload = false;
+		return false;
+	}
+
+	const FBlackoutComboSectionDef& NextSection = MeleeComboData->ComboSections[NextComboIndex];
+	if (NextSection.SectionName == NAME_None
+		|| MeleeComboData->MeleeMontage->GetSectionIndex(NextSection.SectionName) == INDEX_NONE)
+	{
+		bComboInputQueued = false;
+		BO_LOG_GAS(Warning,
+			"GA_MeleePlayer next combo section invalid: Index=%d Section=%s",
+			NextComboIndex,
+			*NextSection.SectionName.ToString());
+		return false;
+	}
+
+	UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo();
+	if (!AbilitySystemComponent)
+	{
+		BO_LOG_GAS(Warning, "GA_MeleePlayer advance failed: ASC가 비어 있음");
+		return false;
+	}
+
+	// v2 핵심: 서버에서만 점프. ASC 의 CurrentMontageJumpToSection 이 FRepAnimMontageInfo 를 갱신하여
+	// 시뮬레이트 프록시와 오너 클라이언트에 자동 전파됩니다.
+	AbilitySystemComponent->CurrentMontageJumpToSection(NextSection.SectionName);
+	SnapToControlYaw();
+
+	CurrentComboIndex = NextComboIndex;
+	bComboInputQueued = false;
+	bHasQueuedComboInputPayload = false;
+
+	BO_LOG_GAS(Log,
+		"GA_MeleePlayer advanced to combo section (server): Index=%d Section=%s",
+		CurrentComboIndex,
+		*NextSection.SectionName.ToString());
+
+	// 새 섹션의 윈도우/그레이스 타이머 예약.
+	ServerScheduleSectionTimers(CurrentComboIndex);
+	return true;
+}
+
+void UBlackoutGA_MeleePlayer::ServerBufferComboInput(const FBlackoutAbilityInputSyncPayload& InputPayload)
+{
+	if (!MeleeComboData || MeleeComboData->ServerReceiveBufferDuration <= 0.f)
 	{
 		return;
 	}
 
 	bComboInputQueued = true;
-	BO_LOG_GAS(Log, "GA_MeleePlayer combo input queued: CurrentComboIndex=%d", CurrentComboIndex);
+	bHasQueuedComboInputPayload = true;
+	QueuedComboInputPayload = InputPayload;
+
+	if (UWorld* World = GetWorld())
+	{
+		FTimerManager& TimerManager = World->GetTimerManager();
+		TimerManager.ClearTimer(ComboInputBufferTimerHandle);
+		TimerManager.SetTimer(
+			ComboInputBufferTimerHandle,
+			this,
+			&UBlackoutGA_MeleePlayer::OnServerComboInputBufferExpired,
+			MeleeComboData->ServerReceiveBufferDuration,
+			false);
+	}
+
+	BO_LOG_GAS(Log, "GA_MeleePlayer combo input buffered (server): CurrentComboIndex=%d", CurrentComboIndex);
+}
+
+void UBlackoutGA_MeleePlayer::OnServerComboInputBufferExpired()
+{
+	if (!HasAuthority(&CurrentActivationInfo))
+	{
+		return;
+	}
+
+	if (!bComboWindowOpen && !bComboGraceWindowOpen)
+	{
+		bComboInputQueued = false;
+		bHasQueuedComboInputPayload = false;
+		BO_LOG_GAS(Log, "GA_MeleePlayer combo input buffer expired (server)");
+	}
 }
 
 UBlackoutGA_MeleePlayer* UBlackoutGA_MeleePlayer::GetActiveMeleeAbilityFromActor(const AActor* OwnerActor)
@@ -230,10 +525,10 @@ UBlackoutGA_MeleePlayer* UBlackoutGA_MeleePlayer::GetActiveMeleeAbilityFromActor
 void UBlackoutGA_MeleePlayer::HandleMeleeAttackWindowBegin()
 {
 	BO_LOG_GAS(Log, "GA_MeleePlayer attack window begin");
-	
+
 	const ABlackoutPlayerCharacter* PlayerCharacter =
 		CurrentActorInfo ? Cast<ABlackoutPlayerCharacter>(CurrentActorInfo->AvatarActor.Get()) : nullptr;
-	
+
 	if (!PlayerCharacter || !PlayerCharacter->HasAuthority())
 	{
 		return;
@@ -241,15 +536,12 @@ void UBlackoutGA_MeleePlayer::HandleMeleeAttackWindowBegin()
 
 	if (UBlackoutCombatComponent* CombatComponent = PlayerCharacter->GetCombatComponent())
 	{
-		// 이번 공격창에서 사용할 데미지 스펙은 시작 시점에 1회 생성
 		const FGameplayEffectSpecHandle DamageSpecHandle = BuildDamageSpec();
 		if (!DamageSpecHandle.IsValid())
 		{
 			BO_LOG_GAS(Warning, "GA_MeleePlayer attack window begin skipped: 근접 데미지 스펙 생성 실패");
 			return;
 		}
-
-		// 전투 컴포넌트에 공격창 시작을 위임
 		CombatComponent->BeginMeleeAttackWindow(DamageSpecHandle);
 	}
 }
@@ -257,16 +549,15 @@ void UBlackoutGA_MeleePlayer::HandleMeleeAttackWindowBegin()
 void UBlackoutGA_MeleePlayer::HandleMeleeAttackWindowTick()
 {
 	const ABlackoutPlayerCharacter* PlayerCharacter =
-	CurrentActorInfo ? Cast<ABlackoutPlayerCharacter>(CurrentActorInfo->AvatarActor.Get()) : nullptr;
-	
+		CurrentActorInfo ? Cast<ABlackoutPlayerCharacter>(CurrentActorInfo->AvatarActor.Get()) : nullptr;
+
 	if (!PlayerCharacter || !PlayerCharacter->HasAuthority())
 	{
 		return;
 	}
-	
+
 	if (UBlackoutCombatComponent* CombatComponent = PlayerCharacter->GetCombatComponent())
 	{
-		// 공격창 유지 동안 반복 스윕을 수행
 		CombatComponent->UpdateMeleeAttackWindow();
 	}
 }
@@ -274,10 +565,10 @@ void UBlackoutGA_MeleePlayer::HandleMeleeAttackWindowTick()
 void UBlackoutGA_MeleePlayer::HandleMeleeAttackWindowEnd()
 {
 	BO_LOG_GAS(Log, "GA_MeleePlayer attack window end");
-	
+
 	const ABlackoutPlayerCharacter* PlayerCharacter =
 		CurrentActorInfo ? Cast<ABlackoutPlayerCharacter>(CurrentActorInfo->AvatarActor.Get()) : nullptr;
-	
+
 	if (!PlayerCharacter || !PlayerCharacter->HasAuthority())
 	{
 		return;
@@ -285,165 +576,206 @@ void UBlackoutGA_MeleePlayer::HandleMeleeAttackWindowEnd()
 
 	if (UBlackoutCombatComponent* CombatComponent = PlayerCharacter->GetCombatComponent())
 	{
-		// 전투 컴포넌트에 공격창 종료를 위임
 		CombatComponent->EndMeleeAttackWindow();
 	}
 }
 
-/*
-void UBlackoutGA_MeleePlayer::HandleMeleeHitNotify()
-{
-	BO_LOG_GAS(Log, "GA_MeleePlayer hit notify");
-
-	const ABlackoutPlayerCharacter* PlayerCharacter = CurrentActorInfo ? Cast<ABlackoutPlayerCharacter>(CurrentActorInfo->AvatarActor.Get()) : nullptr;
-	if (!PlayerCharacter || !PlayerCharacter->HasAuthority())
-	{
-		return;
-	}
-
-	if (UBlackoutCombatComponent* CombatComponent = PlayerCharacter ? PlayerCharacter->GetCombatComponent() : nullptr)
-	{
-		const FGameplayEffectSpecHandle DamageSpecHandle = BuildDamageSpec();
-		if (!DamageSpecHandle.IsValid())
-		{
-			BO_LOG_GAS(Warning, "GA_MeleePlayer hit notify skipped: 근접 데미지 스펙 생성 실패");
-			return;
-		}
-
-		CombatComponent->PerformMeleeHit(DamageSpecHandle);
-	}
-}
-*/
-
 void UBlackoutGA_MeleePlayer::HandleComboWindowOpened()
 {
-	if (bComboWindowOpen)
-	{
-		BO_LOG_GAS(Verbose, "GA_MeleePlayer combo window open ignored: 이미 입력 윈도우가 열려 있음");
-		return;
-	}
-
-	bComboWindowOpen = true;
-	bComboInputQueued = false;
-
-	BO_LOG_GAS(Log, "GA_MeleePlayer combo window opened: CurrentComboIndex=%d", CurrentComboIndex);
+	// v2: 콤보 상태머신 권위에서 분리. 시각 effect 트리거가 필요한 경우 여기서 처리하세요.
+	BO_LOG_GAS(Verbose, "GA_MeleePlayer combo window notify (FX-only, v2)");
 }
 
 void UBlackoutGA_MeleePlayer::HandleComboWindowClosed()
 {
-	if (!bComboWindowOpen)
-	{
-		return;
-	}
-
-	bComboWindowOpen = false;
-
-	if (bComboInputQueued)
-	{
-		if (!JumpToNextComboSection())
-		{
-			BO_LOG_GAS(Warning, "GA_MeleePlayer combo jump failed: CurrentComboIndex=%d", CurrentComboIndex);
-		}
-
-		return;
-	}
-
-	bComboInputQueued = false;
-
-	BO_LOG_GAS(Log, "GA_MeleePlayer combo window closed without queued input");
+	// v2: 콤보 상태머신 권위에서 분리.
+	BO_LOG_GAS(Verbose, "GA_MeleePlayer combo window close notify (FX-only, v2)");
 }
 
-void UBlackoutGA_MeleePlayer::OnMeleeMontageEnded(UAnimMontage* Montage, bool bInterrupted)
+void UBlackoutGA_MeleePlayer::OnMontageCompleted()
 {
-	if (!IsActive() || Montage != MeleeMontage)
-	{
-		return;
-	}
-
-	BO_LOG_GAS(Log,
-		"GA_MeleePlayer montage ended: Interrupted=%s",
-		bInterrupted ? TEXT("true") : TEXT("false"));
-
+	BO_LOG_GAS(Log, "GA_MeleePlayer montage completed");
 	K2_EndAbility();
 }
 
-bool UBlackoutGA_MeleePlayer::JumpToNextComboSection()
+void UBlackoutGA_MeleePlayer::OnMontageInterrupted()
 {
-	if (!ActiveAnimInstance || !MeleeMontage)
+	BO_LOG_GAS(Log, "GA_MeleePlayer montage interrupted");
+	K2_EndAbility();
+}
+
+void UBlackoutGA_MeleePlayer::OnMontageCancelled()
+{
+	BO_LOG_GAS(Log, "GA_MeleePlayer montage cancelled");
+	K2_EndAbility();
+}
+
+void UBlackoutGA_MeleePlayer::OnMontageBlendOut()
+{
+	BO_LOG_GAS(Verbose, "GA_MeleePlayer montage blend out");
+	// blend out 시점에는 ability 를 끝내지 않습니다 — 완전 종료는 OnCompleted/Interrupted/Cancelled 에서 처리.
+}
+
+float UBlackoutGA_MeleePlayer::GetDynamicComboGraceDuration() const
+{
+	if (!MeleeComboData)
 	{
-		BO_LOG_GAS(Warning, "GA_MeleePlayer failed to jump combo section: AnimInstance 또는 MeleeMontage가 유효하지 않음");
-		return false;
+		return 0.f;
 	}
 
-	const int32 NextComboIndex = CurrentComboIndex + 1;
-	if (!ComboSectionNames.IsValidIndex(NextComboIndex) || ComboSectionNames[NextComboIndex] == NAME_None)
+	const ABlackoutPlayerCharacter* PlayerCharacter =
+		CurrentActorInfo ? Cast<ABlackoutPlayerCharacter>(CurrentActorInfo->AvatarActor.Get()) : nullptr;
+	const APlayerState* PlayerState = PlayerCharacter ? PlayerCharacter->GetPlayerState() : nullptr;
+	const float PingSeconds = PlayerState ? PlayerState->GetPingInMilliseconds() * 0.001f : 0.f;
+	const float GraceDuration =
+		MeleeComboData->BaseComboInputGraceDuration
+		+ PingSeconds * MeleeComboData->ComboInputPingScale
+		+ MeleeComboData->ComboInputJitterMargin;
+	return FMath::Clamp(GraceDuration, 0.f, MeleeComboData->MaxComboInputGraceDuration);
+}
+
+float UBlackoutGA_MeleePlayer::GetCurrentServerTimeSeconds() const
+{
+	const UWorld* World = GetWorld();
+	if (!World)
 	{
-		bComboInputQueued = false;
-		BO_LOG_GAS(Warning,
-			"GA_MeleePlayer failed to jump combo section: NextComboIndex=%d 에 유효한 섹션 이름이 없음",
-			NextComboIndex);
-		return false;
+		return 0.f;
 	}
 
-	const FName TargetSectionName = ComboSectionNames[NextComboIndex];
-	if (MeleeMontage->GetSectionIndex(TargetSectionName) == INDEX_NONE)
+	const AGameStateBase* GameState = World->GetGameState();
+	return GameState ? GameState->GetServerWorldTimeSeconds() : World->GetTimeSeconds();
+}
+
+float UBlackoutGA_MeleePlayer::GetInputServerTimeSeconds(const FBlackoutAbilityInputSyncPayload& InputPayload) const
+{
+	if (!MeleeComboData)
 	{
-		bComboInputQueued = false;
-		BO_LOG_GAS(Warning,
-			"GA_MeleePlayer failed to jump combo section: 섹션 %s 이(가) 몽타주 %s 에 없음",
-			*TargetSectionName.ToString(),
-			*GetNameSafe(MeleeMontage));
-		return false;
+		return GetCurrentServerTimeSeconds();
 	}
 
-	if (!ActiveAnimInstance->Montage_IsPlaying(MeleeMontage))
+	const float ServerReceivedTime = InputPayload.ServerReceivedTimeSeconds > 0.f
+		? InputPayload.ServerReceivedTimeSeconds
+		: GetCurrentServerTimeSeconds();
+
+	if (InputPayload.ClientEstimatedServerTimeSeconds <= 0.f)
 	{
-		bComboInputQueued = false;
-		BO_LOG_GAS(Warning,
-			"GA_MeleePlayer failed to jump combo section: 몽타주가 이미 재생 중이 아님 (TargetSection=%s)",
-			*TargetSectionName.ToString());
-		return false;
+		return ServerReceivedTime;
 	}
 
-	const FName PreviousSectionName = ActiveAnimInstance->Montage_GetCurrentSection(MeleeMontage);
-	bComboInputQueued = false;
-	SnapToControllYaw();
-	ActiveAnimInstance->Montage_JumpToSection(TargetSectionName, MeleeMontage);
+	return FMath::Clamp(
+		InputPayload.ClientEstimatedServerTimeSeconds,
+		ServerReceivedTime - MeleeComboData->MaxComboInputTimestampAge,
+		ServerReceivedTime + MeleeComboData->MaxComboInputFutureTolerance);
+}
 
-	const FName CurrentSectionName = ActiveAnimInstance->Montage_GetCurrentSection(MeleeMontage);
-	if (CurrentSectionName != TargetSectionName)
+FBlackoutAbilityInputSyncPayload UBlackoutGA_MeleePlayer::GetLatestComboInputPayload() const
+{
+	if (const UBlackoutAbilitySystemComponent* BlackoutASC = Cast<UBlackoutAbilitySystemComponent>(GetAbilitySystemComponentFromActorInfo()))
 	{
-		BO_LOG_GAS(Warning,
-			"GA_MeleePlayer failed to jump combo section: Previous=%s Target=%s Current=%s",
-			*PreviousSectionName.ToString(),
-			*TargetSectionName.ToString(),
-			*CurrentSectionName.ToString());
-		return false;
-	}
-
-	CurrentComboIndex = NextComboIndex;
-
-	if (ABlackoutPlayerCharacter* PlayerCharacter = CurrentActorInfo ? Cast<ABlackoutPlayerCharacter>(CurrentActorInfo->AvatarActor.Get()) : nullptr)
-	{
-		if (PlayerCharacter->HasAuthority())
+		if (const FBlackoutAbilityInputSyncPayload* Payload = BlackoutASC->GetLatestInputSyncPayload(EBlackoutAbilityInputID::Melee))
 		{
-			PlayerCharacter->Multicast_JumpMeleeMontageSection(MeleeMontage, TargetSectionName);
+			return *Payload;
 		}
 	}
 
-	BO_LOG_GAS(Log,
-		"GA_MeleePlayer jumped to combo section: Index=%d Section=%s",
-		CurrentComboIndex,
-		*TargetSectionName.ToString());
+	FBlackoutAbilityInputSyncPayload FallbackPayload;
+	FallbackPayload.SequenceId = 1;
+	FallbackPayload.InputID = EBlackoutAbilityInputID::Melee;
+	FallbackPayload.AbilitySpecHandle = GetCurrentAbilitySpecHandle();
+	FallbackPayload.ClientEstimatedServerTimeSeconds = GetCurrentServerTimeSeconds();
+	FallbackPayload.ServerReceivedTimeSeconds = FallbackPayload.ClientEstimatedServerTimeSeconds;
+	return FallbackPayload;
+}
+
+bool UBlackoutGA_MeleePlayer::IsComboInputPayloadUsable(const FBlackoutAbilityInputSyncPayload& InputPayload) const
+{
+	if (!MeleeComboData || !InputPayload.IsValid())
+	{
+		return false;
+	}
+
+	if (InputPayload.AbilitySpecHandle.IsValid() && InputPayload.AbilitySpecHandle != GetCurrentAbilitySpecHandle())
+	{
+		return false;
+	}
+
+	const float ServerReceivedTime = InputPayload.ServerReceivedTimeSeconds > 0.f
+		? InputPayload.ServerReceivedTimeSeconds
+		: GetCurrentServerTimeSeconds();
+	const float RawInputServerTime = InputPayload.ClientEstimatedServerTimeSeconds > 0.f
+		? InputPayload.ClientEstimatedServerTimeSeconds
+		: ServerReceivedTime;
+
+	if (RawInputServerTime > ServerReceivedTime + MeleeComboData->MaxComboInputFutureTolerance)
+	{
+		BO_LOG_GAS(Log, "GA_MeleePlayer combo input rejected: 미래 timestamp 허용 범위 초과");
+		return false;
+	}
+
+	if (ServerReceivedTime - RawInputServerTime > MeleeComboData->MaxComboInputTimestampAge)
+	{
+		BO_LOG_GAS(Log, "GA_MeleePlayer combo input rejected: timestamp age 초과");
+		return false;
+	}
 
 	return true;
+}
+
+bool UBlackoutGA_MeleePlayer::WasInputWithinComboGrace(const FBlackoutAbilityInputSyncPayload& InputPayload) const
+{
+	if (ComboWindowClosedServerTime <= 0.f || ActiveComboGraceDuration <= 0.f)
+	{
+		return false;
+	}
+
+	const float InputServerTime = GetInputServerTimeSeconds(InputPayload);
+	return InputServerTime >= ComboWindowClosedServerTime - KINDA_SMALL_NUMBER
+		&& InputServerTime <= ComboWindowClosedServerTime + ActiveComboGraceDuration;
+}
+
+bool UBlackoutGA_MeleePlayer::IsBufferedComboInputStillValid() const
+{
+	if (!bHasQueuedComboInputPayload || !MeleeComboData)
+	{
+		return true;
+	}
+
+	const float InputServerTime = GetInputServerTimeSeconds(QueuedComboInputPayload);
+	const float WindowOpenTime = ComboWindowOpenedServerTime > 0.f
+		? ComboWindowOpenedServerTime
+		: GetCurrentServerTimeSeconds();
+	const float Age = WindowOpenTime - InputServerTime;
+	if (Age < -KINDA_SMALL_NUMBER)
+	{
+		// 입력 시각이 윈도우 오픈 시각보다 미래(클램프 후에도) → 일단 유효로 봅니다.
+		return true;
+	}
+	return Age <= MeleeComboData->ServerReceiveBufferDuration + KINDA_SMALL_NUMBER;
 }
 
 void UBlackoutGA_MeleePlayer::ResetComboState()
 {
 	CurrentComboIndex = INDEX_NONE;
 	bComboWindowOpen = false;
+	bComboGraceWindowOpen = false;
 	bComboInputQueued = false;
+	bHasQueuedComboInputPayload = false;
+	CurrentSectionEnteredServerTime = 0.f;
+	ComboWindowOpenedServerTime = 0.f;
+	ComboWindowClosedServerTime = 0.f;
+	ActiveComboGraceDuration = 0.f;
+}
+
+void UBlackoutGA_MeleePlayer::ClearAllComboTimers()
+{
+	if (UWorld* World = GetWorld())
+	{
+		FTimerManager& TimerManager = World->GetTimerManager();
+		TimerManager.ClearTimer(ComboWindowOpenTimerHandle);
+		TimerManager.ClearTimer(ComboWindowCloseTimerHandle);
+		TimerManager.ClearTimer(ComboGraceCloseTimerHandle);
+		TimerManager.ClearTimer(ComboInputBufferTimerHandle);
+	}
 }
 
 UAnimInstance* UBlackoutGA_MeleePlayer::GetAvatarAnimInstance() const
@@ -453,9 +785,8 @@ UAnimInstance* UBlackoutGA_MeleePlayer::GetAvatarAnimInstance() const
 	return MeshComponent ? MeshComponent->GetAnimInstance() : nullptr;
 }
 
-void UBlackoutGA_MeleePlayer::SnapToControllYaw()
+void UBlackoutGA_MeleePlayer::SnapToControlYaw()
 {
-	
 	if (ABlackoutPlayerCharacter* PlayerCharacter = CurrentActorInfo ? Cast<ABlackoutPlayerCharacter>(CurrentActorInfo->AvatarActor.Get()) : nullptr)
 	{
 		if (AController* Controller = PlayerCharacter->GetController())
@@ -464,16 +795,15 @@ void UBlackoutGA_MeleePlayer::SnapToControllYaw()
 			PlayerCharacter->SetActorRotation(FRotator(0.f, ControlRotation.Yaw, 0.f));
 		}
 	}
-	
 }
 
 FGameplayEffectSpecHandle UBlackoutGA_MeleePlayer::BuildDamageSpec() const
 {
 	FGameplayEffectSpecHandle SpecHandle;
 
-	if (!DamageEffectClass)
+	if (!MeleeComboData || !MeleeComboData->DamageEffectClass)
 	{
-		BO_LOG_GAS(Warning, "GA_MeleePlayer BuildDamageSpec failed: DamageEffectClass가 비어 있음");
+		BO_LOG_GAS(Warning, "GA_MeleePlayer BuildDamageSpec failed: DamageEffectClass 가 비어 있음");
 		return SpecHandle;
 	}
 
@@ -492,7 +822,7 @@ FGameplayEffectSpecHandle UBlackoutGA_MeleePlayer::BuildDamageSpec() const
 		return SpecHandle;
 	}
 
-	SpecHandle = MakeOutgoingGameplayEffectSpec(DamageEffectClass, GetAbilityLevel());
+	SpecHandle = MakeOutgoingGameplayEffectSpec(MeleeComboData->DamageEffectClass, GetAbilityLevel());
 	if (!SpecHandle.IsValid())
 	{
 		BO_LOG_GAS(Warning, "GA_MeleePlayer BuildDamageSpec failed: GameplayEffectSpec 생성 실패");
