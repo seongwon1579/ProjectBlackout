@@ -98,16 +98,49 @@ Unreal Engine **5.7.4 바이너리 빌드(버전 고정)** 기반의 **Dedicated
   - `GA_Ravager_EnergyBurst`: Phase B 광역 에너지 폭발. 제자리 웅크림 차지 후 주변 넓은 반경에 치명 피해. `GCN_Ravager_Howl` 음파 이펙트.
   - `GA_Ravager_Gorenado`: Phase C 궁극기. 다단 히트(Tick) 볼텍스 장판 생성. 플레이어 끌어당김은 `AddForce`/`AddImpulse` 대신 **서버에서 매 Tick마다 `SetActorLocation()`으로 강제 위치 이동** 처리(네트워크 물리 오차 방지). 끌어당김 강도는 볼텍스 중심 거리 반비례 점증.
 
-### 4.1 플레이어 콤보 입력 동기화
-플레이어 근접 공격(`GA_Melee_Player`)과 연속 구르기(`GA_Dodge`)는 `LocalPredicted` GA로 즉시 로컬 반응을 제공하되, 실제 콤보 승인·회피 재시작·스태미나/무적/데미지 판정은 서버가 최종 확정합니다. 클라이언트의 `AnimNotifyState` 시작/종료 상태를 서버에 직접 RPC로 전달하지 않으며, 서버는 자신의 GA 상태와 몽타주 진행 상태를 기준으로 입력 허용 여부를 판단합니다.
+### 4.1 플레이어 콤보 입력 동기화 (v2)
+플레이어 근접 공격(`GA_Melee_Player`)과 연속 구르기(`GA_Dodge`)는 `LocalPredicted` GA로 즉시 로컬 반응을 제공하되, 콤보 섹션 진행·체인 회피 재시작·스태미나/무적/데미지 판정은 모두 서버 권위로 확정합니다. v1에서 사용하던 `Multicast_*Montage` 직접 호출 경로와 `AnimNotifyState` 기반 콤보 윈도우 권위는 **클라/서버 비대칭과 이중 점프 충돌**의 원인이 되어 v2에서 폐기합니다.
 
-- **입력 전달 경로**: 클라이언트는 재입력 의도만 `UAbilityTask_WaitInputPress`와 ASC의 `EAbilityGenericReplicatedEvent::InputPressed` 경로로 서버에 전달합니다. `bReplicateInputDirectly`는 사용하지 않고, 활성 Ability의 prediction key와 연결된 GAS 복제 이벤트를 우선합니다.
-- **입력 동기화 페이로드**: 나쁜 핑 조건에서 입력 도착 순서와 유효 시각을 검증하기 위해 ASC는 입력 이벤트마다 `SequenceId`, `ClientInputTimeSeconds`, `ClientEstimatedServerTimeSeconds`, `InputTag`, `AbilitySpecHandle`을 포함한 경량 페이로드(`FBlackoutAbilityInputSyncPayload`)를 함께 기록합니다. 서버는 이 값을 그대로 신뢰하지 않고, 수신 시각·PlayerState ping·단조 증가하는 `SequenceId`로 과거/미래 입력을 클램프합니다.
-- **버퍼와 grace 분리**:
-  - **Input Buffer**: 서버 윈도우가 아직 열리기 전에 도착한 다음 입력 1개를 짧게 저장합니다. 저장 시간은 액션별 고정값을 사용하며, 근접 콤보는 0.12~0.20초, 연속 구르기는 0.10~0.15초를 기본 튜닝 범위로 둡니다.
-  - **Late Grace**: 서버 윈도우가 닫힌 직후 네트워크 지연으로 늦게 도착한 입력을 제한적으로 허용합니다. grace는 `BaseGrace + RTT * 0.5 + JitterMargin`으로 계산하되, 반드시 액션별 `MaxGrace`로 상한을 둡니다.
-- **서버 판정 순서**: 서버는 입력 수신 시 `Ability 활성 여부 → SequenceId 유효성 → 입력 추정 시각 clamp → 버퍼/윈도우/grace 상태 → 스태미나·쿨다운·상태 태그` 순으로 검증합니다. 검증에 실패한 입력은 무시하고, 성공한 입력만 다음 콤보 섹션 점프 또는 연속 구르기 재시작을 수행합니다.
-- **권위 경계**: timestamp와 ping 기반 보정은 “입력 수락 여부”에만 사용합니다. 히트 판정, I-Frame 부여, 스태미나 소모, 데미지 적용은 서버 현재 상태에서 확정하며, 클라이언트가 보낸 애니메이션 Notify나 적중 결과를 권위 데이터로 사용하지 않습니다.
+#### 4.1.1 권위 모델
+| 영역 | 권위 |
+|---|---|
+| 입력 발생 | 클라이언트 (즉시 예측) |
+| 콤보 상태 (CurrentComboIndex, 윈도우/그레이스 시각) | 서버 |
+| 몽타주 재생·섹션 점프 | 서버 → `FRepAnimMontageInfo` 로 자동 전파 |
+| 히트박스 판정 / 데미지 적용 | 서버 (기존 유지) |
+| AnimNotify / NotifyState | 시각 effect·히트박스 타이밍 보조 전용 (권위 X) |
+
+#### 4.1.2 몽타주 동기화
+- 몽타주 재생은 GAS 표준 `UAbilityTask_PlayMontageAndWait`로 일원화합니다. 서버 GA는 자기 ASC에서 `PlayMontage`를 호출하고, `UAbilitySystemComponent::RepAnimMontageInfo`가 시뮬레이트 프록시에 자동 복제됩니다.
+- 콤보 섹션 점프는 **서버에서만 `Montage_SetNextSectionName(CurrentSection, NextSection)`** 으로 수행합니다. 로컬 예측 클라이언트는 OnRep으로 자연 따라잡고, 별도 `Multicast_JumpMeleeMontageSection`/`Multicast_PlayMeleeMontage`/`Multicast_StopMeleeMontage`는 사용하지 않습니다.
+- 시뮬레이트 프록시 렐러번시 누락 시에도 RepAnimMontageInfo의 OnRep이 NextSectionID를 따라잡아 줍니다.
+
+#### 4.1.3 입력 전파 경로
+- 입력은 `UAbilityTask_WaitInputPress` + GAS `EAbilityGenericReplicatedEvent::InputPressed` 표준 경로로 일원화합니다. `bReplicateInputDirectly`는 사용하지 않습니다.
+- 클라이언트의 `UBlackoutAbilitySystemComponent::HandleAbilityInputPressed`는 활성 GA를 발견하면 `AbilitySpecInputPressed` 호출 직후 **명시적으로 `ServerSetReplicatedEvent(InputPressed, Handle, ScopedPredictionKey, OriginalActivationPredictionKey)`** 를 호출합니다. 이 RPC가 서버 ASC에서 `InvokeReplicatedEvent`를 발화시키고, 서버 GA의 `WaitInputPress::OnPress` 가 자동으로 호출됩니다.
+- `FBlackoutAbilityInputSyncPayload`(`SequenceId`, `ClientInputTimeSeconds`, `ClientEstimatedServerTimeSeconds`, `InputTag`, `AbilitySpecHandle`)는 **메타데이터 부가 채널**로 격하합니다. `Server_RecordAbilityInputSyncPayload` 는 timestamp/시퀀스만 기록하며, 표준 RPC와 중복되는 서버 측 `InputPressed` 재발화는 수행하지 않습니다.
+- 메타데이터는 서버 grace clamp 계산에만 사용하고, 입력 트리거 자체는 표준 GAS 경로가 담당합니다.
+
+#### 4.1.4 콤보 윈도우 — 서버 World Time 타이머
+- 각 콤보 섹션은 데이터로 정의된 `FBlackoutComboSectionDef { SectionName, WindowOpenAtSeconds, WindowCloseAtSeconds, RecoveryEndAtSeconds }` 를 가집니다.
+- 서버 GA는 섹션 진입 시 `GetServerWorldTimeSeconds()` 기준으로 윈도우 open/close 타이머를 `SetTimer`하여 자체적으로 윈도우 상태를 관리합니다.
+- `AnimNotifyState`(콤보 윈도우 begin/end, 체인 윈도우 open) 는 **시각 effect 트리거 및 히트박스 활성/비활성**에만 사용하고, 콤보 상태 머신에 영향을 주지 않습니다.
+
+#### 4.1.5 버퍼 / 그레이스 / 핑 보정
+| 위치 | 길이 (기본) | 역할 |
+|---|---|---|
+| 클라이언트 ring buffer | 250 ms | 윈도우 열리기 전 도착한 다음 입력 1개 보관 |
+| 서버 receive buffer | 150 ms | 윈도우 도래 시 가장 최근 입력 매칭 |
+| Late grace | `BaseGrace + RTT*0.5 + Jitter`, 상한 150 ms | 윈도우 종료 후 도착한 입력 허용 |
+| Section cancel-into-next | 120~180 ms | 콤보 단계 종료 직후 재진입 허용 시간 |
+
+- 서버 판정 순서: `GA 활성 여부 → SequenceId 단조성 → ClientEstimatedServerTime clamp → 윈도우/그레이스 매칭 → 스태미나·쿨다운·상태 태그`.
+- 입력이 어디에도 매칭되지 않으면 **EndAbility를 호출하지 않고** 현재 섹션의 RecoveryEnd까지 재생되도록 두고, 입력 버퍼만 비웁니다. 강제 종료/재시작 체감을 제거하기 위함입니다.
+
+#### 4.1.6 권위 경계
+- timestamp·ping 기반 보정은 “입력 수락 여부” 결정에만 사용합니다.
+- 히트 판정, I-Frame 부여, 스태미나 소모, 데미지 적용은 서버 현재 상태에서 확정하며, 클라이언트가 보낸 애니메이션 Notify나 적중 결과를 권위 데이터로 사용하지 않습니다.
+- 클라이언트의 로컬 예측(섹션 점프 표시, 입력 버퍼 표시)은 서버 RepAnimMontageInfo가 도달하면 자연 reconcile 됩니다. 클라이언트가 자체적으로 `Montage_JumpToSection`을 호출해 권위 결정을 앞서지 않습니다.
 
 ## 5. 데미지 판정 및 조건부 자원 보상 (Gameplay Effect)
 GE와 ExecCalc(실행 계산기)를 사용해, 피격 처리와 기믹 보상을 처리합니다.
@@ -320,7 +353,7 @@ GDD §8.3의 미니멀리즘 HUD 전체 구성 요소를 UI 위젯 레이어로 
 - **PlayMontageAndWait**: GA 내 몽타주 재생 대기 제어.
 - **AnimNotifyState (Melee Hitbox)**: 보스 근접 콤보(예: 약탈자 `GA_Ravager_DoubleSwipe`, 슈루드 `GA_Shrewd_MeleeCombo`) 몽타주 구간에 배치, 해당 프레임만 충돌체 활성화.
 - **AnimNotify (Projectile Spawn)**: 원거리 투사체(약탈자 Shockwave, 슈루드 Explosive Arrow)를 애니메이션 정확한 타이밍에 풀링 스폰.
-- **플레이어 콤보 입력 윈도우**: 플레이어 근접/구르기 재입력은 클라이언트 Notify RPC가 아니라 서버 GA의 입력 buffer와 late grace로 처리합니다. NotifyState는 로컬 피드백과 히트박스 타이밍 보조에 사용하되, 서버 콤보 승인 여부의 단독 권위 데이터로 사용하지 않습니다.
+- **플레이어 콤보 입력 윈도우**: 플레이어 근접/구르기 재입력은 클라이언트 Notify RPC가 아니라 **서버 World Time 타이머**(`FBlackoutComboSectionDef`의 `WindowOpenAtSeconds`/`WindowCloseAtSeconds`)로 판정합니다. AnimNotifyState는 히트박스 활성/비활성과 시각 effect 트리거 전용이며, 콤보 상태 머신 권위에는 관여하지 않습니다. 자세한 권위 모델은 §4.1 참조.
 
 ### 13.2 모션 워핑 (Motion Warping)
 타겟 돌진 공격(`GA_Shrewd_Lunge`, `GA_Ravager_LungeAttack`) 시 애니메이션 고정 이동 거리와 실제 타겟 거리 오차를 해소합니다. 커스텀 AbilityTask와 연동하여 캡슐 트랜지션을 동적으로 증폭/회전, Warp Target에 정확히 착지.
