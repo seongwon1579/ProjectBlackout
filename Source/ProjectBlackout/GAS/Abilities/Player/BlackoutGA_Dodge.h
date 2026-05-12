@@ -66,7 +66,6 @@ private:
 	void OnDodgeMontageBlendOut();
 
 	void StartMontageTask();
-	void EndMontageTaskQuietly();
 
 	void StartChainInputTask();
 
@@ -120,7 +119,7 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<UAbilityTask_WaitInputPress> ChainInputTask;
 
-	FTimerHandle DodgeEndTimerHandle;
+	// DodgeEndTimerHandle 는 v2 에서 제거. PlayMontageAndWait 의 OnCompleted/OnInterrupted 콜백이 GA 종료를 담당합니다.
 	FTimerHandle ChainWindowOpenTimerHandle;
 	FTimerHandle ChainWindowCloseTimerHandle;
 	FTimerHandle ChainGraceCloseTimerHandle;
@@ -136,7 +135,4 @@ private:
 	bool bChainGraceWindowOpen = false;
 	bool bChainInputQueued = false;
 	bool bHasQueuedChainInputPayload = false;
-
-	/** 체인 재시작 중 옛 MontageTask 의 콜백이 GA 를 끝내지 못하도록 막는 가드. */
-	bool bChainRestarting = false;
 };

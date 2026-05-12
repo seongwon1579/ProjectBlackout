@@ -99,11 +99,6 @@ void UBlackoutGA_Dodge::EndAbility(const FGameplayAbilitySpecHandle Handle, cons
 			PlayerCharacter->SetPendingDodgeInput(FVector2D::ZeroVector);
 			PlayerCharacter->SetDodgeMontagePlaying(false);
 		}
-
-		if (UWorld* World = ActorInfo->AvatarActor->GetWorld())
-		{
-			World->GetTimerManager().ClearTimer(DodgeEndTimerHandle);
-		}
 	}
 
 	ClearAllChainTimers();
@@ -115,7 +110,12 @@ void UBlackoutGA_Dodge::EndAbility(const FGameplayAbilitySpecHandle Handle, cons
 		ChainInputTask = nullptr;
 	}
 
-	EndMontageTaskQuietly();
+	if (MontageTask)
+	{
+		// bStopWhenAbilityEnds=true 로 만들었으므로 EndTask 만 호출하면 몽타주가 자연 정지.
+		MontageTask->EndTask();
+		MontageTask = nullptr;
+	}
 
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
@@ -149,21 +149,6 @@ void UBlackoutGA_Dodge::StartMontageTask()
 	MontageTask->OnCancelled.AddDynamic(this, &UBlackoutGA_Dodge::OnDodgeMontageCancelled);
 	MontageTask->OnBlendOut.AddDynamic(this, &UBlackoutGA_Dodge::OnDodgeMontageBlendOut);
 	MontageTask->ReadyForActivation();
-}
-
-void UBlackoutGA_Dodge::EndMontageTaskQuietly()
-{
-	if (!MontageTask)
-	{
-		return;
-	}
-
-	MontageTask->OnCompleted.RemoveDynamic(this, &UBlackoutGA_Dodge::OnDodgeMontageCompleted);
-	MontageTask->OnInterrupted.RemoveDynamic(this, &UBlackoutGA_Dodge::OnDodgeMontageInterrupted);
-	MontageTask->OnCancelled.RemoveDynamic(this, &UBlackoutGA_Dodge::OnDodgeMontageCancelled);
-	MontageTask->OnBlendOut.RemoveDynamic(this, &UBlackoutGA_Dodge::OnDodgeMontageBlendOut);
-	MontageTask->EndTask();
-	MontageTask = nullptr;
 }
 
 void UBlackoutGA_Dodge::StartChainInputTask()
@@ -486,30 +471,18 @@ void UBlackoutGA_Dodge::HandleChainWindowOpened()
 void UBlackoutGA_Dodge::OnDodgeMontageCompleted()
 {
 	BO_LOG_GAS(Log, "GA_Dodge montage completed");
-	if (bChainRestarting)
-	{
-		return;
-	}
 	K2_EndAbility();
 }
 
 void UBlackoutGA_Dodge::OnDodgeMontageInterrupted()
 {
 	BO_LOG_GAS(Log, "GA_Dodge montage interrupted");
-	if (bChainRestarting)
-	{
-		return;
-	}
 	K2_EndAbility();
 }
 
 void UBlackoutGA_Dodge::OnDodgeMontageCancelled()
 {
 	BO_LOG_GAS(Log, "GA_Dodge montage cancelled");
-	if (bChainRestarting)
-	{
-		return;
-	}
 	K2_EndAbility();
 }
 
@@ -536,13 +509,6 @@ bool UBlackoutGA_Dodge::StartDodgeInternal(ABlackoutPlayerCharacter* PlayerChara
 	// 현재 백스텝은 임시로 항상 forward roll. 향후 방향 입력 X 시 백스텝 분기 예정.
 	bIsBackstep = false;
 
-	// 체인 재시작 시 옛 MontageTask 의 콜백이 GA 를 끝내지 못하도록 가드 활성화.
-	if (bIsChainRestart)
-	{
-		bChainRestarting = true;
-		EndMontageTaskQuietly();
-	}
-
 	ResetChainState();
 	ClearAllChainTimers();
 
@@ -560,9 +526,33 @@ bool UBlackoutGA_Dodge::StartDodgeInternal(ABlackoutPlayerCharacter* PlayerChara
 		MovementComponent->StopMovementImmediately();
 	}
 
-	// v2: 몽타주 재생은 GAS 표준 task. ASC.PlayMontage 가 FRepAnimMontageInfo 를 갱신하여
-	// 시뮬레이트 프록시/오너 클라이언트에 자동 복제.
-	StartMontageTask();
+	if (bIsChainRestart)
+	{
+		// v2: 체인 회피는 **동일한 PlayMontageAndWait 태스크 / montage instance** 안에서
+		// 첫 섹션으로 position 만 0 으로 리셋합니다. 새 PlayInstance 를 만들면 클라이언트의
+		// 옛 태스크가 OnInterrupted 를 발화시켜 GA 가 연쇄 종료되므로 사용하지 않습니다.
+		// ASC::CurrentMontageJumpToSection 이 RepAnimMontageInfo 의 Position 만 갱신하여
+		// 시뮬레이트 프록시/오너 클라이언트로 자동 복제됩니다.
+		if (UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo())
+		{
+			const FName FirstSectionName = DodgeData->DodgeMontage->GetSectionName(0);
+			if (FirstSectionName != NAME_None)
+			{
+				AbilitySystemComponent->CurrentMontageJumpToSection(FirstSectionName);
+			}
+			else
+			{
+				BO_LOG_GAS(Warning,
+					"GA_Dodge chain restart: 몽타주 %s 에 named section 이 없어 position 리셋이 무시됨",
+					*GetNameSafe(DodgeData->DodgeMontage));
+			}
+		}
+	}
+	else
+	{
+		// 첫 활성: 새 PlayMontageAndWait 태스크 시작.
+		StartMontageTask();
+	}
 
 	const float LaunchStrength = bIsBackstep ? DodgeData->BackstepStrength : DodgeData->DodgeStrength;
 	PlayerCharacter->LaunchCharacter(
@@ -575,34 +565,6 @@ bool UBlackoutGA_Dodge::StartDodgeInternal(ABlackoutPlayerCharacter* PlayerChara
 	if (HasAuthority(&CurrentActivationInfo))
 	{
 		ServerScheduleChainTimers();
-	}
-
-	const float DodgeEndDelay =
-		(DodgeData->DodgeMontage->GetPlayLength() > 0.f)
-			? DodgeData->DodgeMontage->GetPlayLength()
-			: DodgeData->DodgeDuration;
-
-	if (UWorld* World = PlayerCharacter->GetWorld())
-	{
-		FTimerManager& TimerManager = World->GetTimerManager();
-		TimerManager.ClearTimer(DodgeEndTimerHandle);
-		TimerManager.SetTimer(
-			DodgeEndTimerHandle,
-			[this]()
-			{
-				if (!bChainRestarting && IsActive())
-				{
-					BO_LOG_GAS(Log, "GA_Dodge finished by timer");
-					K2_EndAbility();
-				}
-			},
-			DodgeEndDelay,
-			false);
-	}
-
-	if (bIsChainRestart)
-	{
-		bChainRestarting = false;
 	}
 
 	return true;
