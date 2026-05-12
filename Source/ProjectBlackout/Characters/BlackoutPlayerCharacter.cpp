@@ -276,8 +276,9 @@ bool ABlackoutPlayerCharacter::PlayFireMontage(UAnimMontage* Montage, float Play
 	}
 
 	const float PlayResult = PlayAnimMontage(Montage, PlayRate);
-	BO_LOG_GAS(Log,
-		"PlayFireMontage result=%.2f Local=%s Authority=%s Montage=%s",
+	BO_LOG_GAS(PlayResult > 0.f ? Log : Warning,
+		"PlayFireMontage %s: Result=%.2f Local=%s Authority=%s Montage=%s",
+		PlayResult > 0.f ? TEXT("succeeded") : TEXT("failed"),
 		PlayResult,
 		IsLocallyControlled() ? TEXT("true") : TEXT("false"),
 		HasAuthority() ? TEXT("true") : TEXT("false"),
