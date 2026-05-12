@@ -37,12 +37,9 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, Category = "MotionWarping")
 	FName WarpTargetName = TEXT("MW_Target");
-
-	UPROPERTY(EditDefaultsOnly, Category = "MotionWarping")
-	float WarpReferenceDistance = 400.f;
-
-	UPROPERTY(EditDefaultsOnly, Category = "MotionWarping")
-	float WarpMinPlayRate = 0.3f;
+	
+	UPROPERTY(EditDefaultsOnly, Category= "Ravager" , meta= (ClampMin="0.0"))
+	float DamageMagnitude = 10.0f;
 
 protected:
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;

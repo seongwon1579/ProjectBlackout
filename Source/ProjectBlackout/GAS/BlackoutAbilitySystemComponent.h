@@ -3,11 +3,44 @@
 #include "CoreMinimal.h"
 #include "AbilitySystemComponent.h"
 #include "Core/BlackoutTypes.h"
+#include "GameplayTagContainer.h"
 #include "TimerManager.h"
 #include "BlackoutAbilitySystemComponent.generated.h"
 
 class UGameplayEffect;
 class UBOConsumableData;
+
+USTRUCT()
+struct FBlackoutAbilityInputSyncPayload
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	uint16 SequenceId = 0;
+
+	UPROPERTY()
+	float ClientInputTimeSeconds = 0.0f;
+
+	UPROPERTY()
+	float ClientEstimatedServerTimeSeconds = 0.0f;
+
+	UPROPERTY()
+	float ServerReceivedTimeSeconds = 0.0f;
+
+	UPROPERTY()
+	FGameplayTag InputTag;
+
+	UPROPERTY()
+	EBlackoutAbilityInputID InputID = EBlackoutAbilityInputID::None;
+
+	UPROPERTY()
+	FGameplayAbilitySpecHandle AbilitySpecHandle;
+
+	bool IsValid() const
+	{
+		return InputID != EBlackoutAbilityInputID::None && SequenceId != 0;
+	}
+};
 
 /**
  * 프로젝트 전용 ASC.
@@ -44,6 +77,12 @@ public:
 	void HandleAbilityInputReleased(EBlackoutAbilityInputID InputID);
 
 	/**
+	 * 서버가 마지막으로 수신한 입력 메타데이터를 반환합니다.
+	 * 콤보/구르기처럼 별도 페이로드가 필요한 GA에서 보정 힌트로 사용합니다.
+	 */
+	const FBlackoutAbilityInputSyncPayload* GetLatestInputSyncPayload(EBlackoutAbilityInputID InputID) const;
+
+	/**
 	 * 서버 전용. 모든 GA와 GE를 제거. 미니언 풀 반환(OnReturnToPool) 시 ASC 초기화에 사용.
 	 */
 	void ClearAllAbilitiesAndEffects();
@@ -76,6 +115,20 @@ protected:
 	TSubclassOf<UGameplayEffect> StaminaRegenEffectClass;
 
 private:
+	UFUNCTION(Server, Reliable)
+	void Server_RecordAbilityInputSyncPayload(FBlackoutAbilityInputSyncPayload Payload);
+
+	uint16 GenerateNextInputSequence(EBlackoutAbilityInputID InputID);
+	float GetEstimatedServerTimeSeconds() const;
+	FBlackoutAbilityInputSyncPayload BuildInputSyncPayload(
+		EBlackoutAbilityInputID InputID,
+		FGameplayAbilitySpecHandle AbilitySpecHandle,
+		uint16 SequenceId,
+		float ClientInputTimeSeconds,
+		float ClientEstimatedServerTimeSeconds) const;
+	void RecordAbilityInputSyncPayload(FBlackoutAbilityInputSyncPayload Payload, bool bValidateSequence);
+	bool IsInputSequenceNewer(EBlackoutAbilityInputID InputID, uint16 NewSequenceId) const;
+
 	void StartStaminaRegen();
 	void HandleStaminaRegenTick();
 	void StopStaminaRegen();
@@ -88,6 +141,10 @@ private:
 	FTimerHandle StaminaRegenTickTimerHandle;
 	FTimerHandle StaminaCostMultiplierTimerHandle;
 	FTimerHandle HealthRegenTimerHandle;
+
+	TMap<int32, uint16> LocalInputSequenceByID;
+	TMap<int32, uint16> LastServerInputSequenceByID;
+	TMap<int32, FBlackoutAbilityInputSyncPayload> LatestInputSyncPayloadByID;
 
 	UPROPERTY(Replicated)
 	float StaminaCostMultiplier = 1.0f;
