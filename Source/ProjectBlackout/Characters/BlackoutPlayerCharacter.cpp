@@ -6,7 +6,6 @@
 #include "Framework/BlackoutPlayerState.h"
 #include "AbilitySystemInterface.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
-#include "Core/BlackoutTypes.h"
 #include "GameFramework/PlayerState.h"
 #include "Camera/CameraComponent.h"
 #include "Animation/AnimInstance.h"
@@ -17,7 +16,6 @@
 #include "EnhancedInputComponent.h"
 #include "GAS/Attributes/BlackoutBaseAttributeSet.h"
 #include "Net/UnrealNetwork.h"
-#include "VerseVM/VVMRuntimeError.h"
 
 ABlackoutPlayerCharacter::ABlackoutPlayerCharacter()
 {
@@ -276,13 +274,6 @@ bool ABlackoutPlayerCharacter::PlayFireMontage(UAnimMontage* Montage, float Play
 	}
 
 	const float PlayResult = PlayAnimMontage(Montage, PlayRate);
-	BO_LOG_GAS(PlayResult > 0.f ? Log : Warning,
-		"PlayFireMontage %s: Result=%.2f Local=%s Authority=%s Montage=%s",
-		PlayResult > 0.f ? TEXT("succeeded") : TEXT("failed"),
-		PlayResult,
-		IsLocallyControlled() ? TEXT("true") : TEXT("false"),
-		HasAuthority() ? TEXT("true") : TEXT("false"),
-		*GetNameSafe(Montage));
 
 	return PlayResult > 0.f;
 }
