@@ -252,7 +252,7 @@ void UBlackoutGA_UseRelic::ApplyRelicHealEffect()
 
 void UBlackoutGA_UseRelic::ApplySlowMovementSpeed(const FGameplayAbilityActorInfo* ActorInfo)
 {
-	const ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
+	ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
 	UCharacterMovementComponent* MovementComponent = PlayerCharacter ? PlayerCharacter->GetCharacterMovement() : nullptr;
 	if (!MovementComponent)
 	{
@@ -261,6 +261,11 @@ void UBlackoutGA_UseRelic::ApplySlowMovementSpeed(const FGameplayAbilityActorInf
 
 	CachedWalkSpeed = MovementComponent->MaxWalkSpeed;
 	MovementComponent->MaxWalkSpeed = CachedWalkSpeed * RelicSpeedMultiplier;
+
+	if (PlayerCharacter->HasAuthority())
+	{
+		PlayerCharacter->Client_BeginAbilityMovementOverride(RelicSpeedMultiplier, true, true);
+	}
 }
 
 void UBlackoutGA_UseRelic::RestoreMovementSpeed(const FGameplayAbilityActorInfo* ActorInfo)
@@ -270,10 +275,15 @@ void UBlackoutGA_UseRelic::RestoreMovementSpeed(const FGameplayAbilityActorInfo*
 		return;
 	}
 
-	const ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
+	ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
 	if (UCharacterMovementComponent* MovementComponent = PlayerCharacter ? PlayerCharacter->GetCharacterMovement() : nullptr)
 	{
 		MovementComponent->MaxWalkSpeed = CachedWalkSpeed;
+	}
+
+	if (PlayerCharacter && PlayerCharacter->HasAuthority())
+	{
+		PlayerCharacter->Client_EndAbilityMovementOverride();
 	}
 
 	CachedWalkSpeed = 0.0f;

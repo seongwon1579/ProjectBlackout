@@ -289,7 +289,7 @@ void UBlackoutGA_UseConsumable::StartConsumableCooldown(const UBOConsumableData*
 
 void UBlackoutGA_UseConsumable::ApplySlowMovementSpeed(const FGameplayAbilityActorInfo* ActorInfo)
 {
-	const ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
+	ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
 	UCharacterMovementComponent* MovementComponent = PlayerCharacter ? PlayerCharacter->GetCharacterMovement() : nullptr;
 	if (!MovementComponent)
 	{
@@ -298,6 +298,11 @@ void UBlackoutGA_UseConsumable::ApplySlowMovementSpeed(const FGameplayAbilityAct
 
 	CachedWalkSpeed = MovementComponent->MaxWalkSpeed;
 	MovementComponent->MaxWalkSpeed = CachedWalkSpeed * ConsumableSpeedMultiplier;
+
+	if (PlayerCharacter->HasAuthority())
+	{
+		PlayerCharacter->Client_BeginAbilityMovementOverride(ConsumableSpeedMultiplier, false, false);
+	}
 }
 
 void UBlackoutGA_UseConsumable::RestoreMovementSpeed(const FGameplayAbilityActorInfo* ActorInfo)
@@ -307,10 +312,15 @@ void UBlackoutGA_UseConsumable::RestoreMovementSpeed(const FGameplayAbilityActor
 		return;
 	}
 
-	const ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
+	ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
 	if (UCharacterMovementComponent* MovementComponent = PlayerCharacter ? PlayerCharacter->GetCharacterMovement() : nullptr)
 	{
 		MovementComponent->MaxWalkSpeed = CachedWalkSpeed;
+	}
+
+	if (PlayerCharacter && PlayerCharacter->HasAuthority())
+	{
+		PlayerCharacter->Client_EndAbilityMovementOverride();
 	}
 
 	CachedWalkSpeed = 0.0f;

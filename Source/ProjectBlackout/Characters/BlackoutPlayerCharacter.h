@@ -85,11 +85,11 @@ public:
 	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "Blackout|State")
 	void Server_ReviveFromDowned(float RevivedHealth);
 
-	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
-	void Multicast_PlayDodgeMontage(UAnimMontage* Montage, float PlayRate = 1.f, bool bRestartIfPlaying = false);
+	// 회피 몽타주 RPC/헬퍼는 TDD §4.1 v2 에서 폐기되었습니다.
+	// 재생은 GAS 표준 PlayMontageAndWait + ASC::PlayMontage → FRepAnimMontageInfo 자동 복제.
 
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
-	bool PlayDodgeMontage(UAnimMontage* Montage, float PlayRate = 1.f, bool bRestartIfPlaying = false);
+	/** GA_Dodge 가 회피 진행 상태를 외부에 알리기 위해 호출하는 setter. */
+	void SetDodgeMontagePlaying(bool bPlaying) { bIsDodgeMontagePlaying = bPlaying; }
 
 	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
 	void Multicast_PlayHitReactMontage(UAnimMontage* Montage, float PlayRate = 1.f);
@@ -130,29 +130,21 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Blackout|Animation")
 	UAnimMontage* GetWeaponSwapMontageForSlot(FGameplayTag TargetWeaponSlotTag) const;
 
-	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
-	void Multicast_PlayMeleeMontage(UAnimMontage* Montage, FName StartSection = NAME_None, float PlayRate = 1.f);
-
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
-	bool PlayMeleeMontage(UAnimMontage* Montage, FName StartSection = NAME_None, float PlayRate = 1.f);
-
-	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
-	void Multicast_JumpMeleeMontageSection(UAnimMontage* Montage, FName SectionName);
-
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
-	bool JumpMeleeMontageSection(UAnimMontage* Montage, FName SectionName);
-
-	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
-	void Multicast_StopMeleeMontage(UAnimMontage* Montage, float BlendOutTime = 0.1f);
-
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
-	bool StopMeleeMontage(UAnimMontage* Montage, float BlendOutTime = 0.1f);
+	// 근접 콤보 몽타주 RPC/헬퍼는 v2 (TDD §4.1) 에서 폐기되었습니다.
+	// 몽타주 재생/섹션 점프는 GAS 표준 PlayMontageAndWait + ASC::CurrentMontageJumpToSection 으로 처리하고,
+	// 시뮬레이트 프록시는 FRepAnimMontageInfo OnRep 으로 자연 따라잡습니다.
 
 	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
 	void Multicast_PlayConsumableMontage(UAnimMontage* Montage, float PlayRate = 1.f);
 
 	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
 	void Multicast_StopConsumableMontage(UAnimMontage* Montage, float BlendOutTime = 0.25f);
+
+	UFUNCTION(Client, Reliable, Category = "Blackout|Movement")
+	void Client_BeginAbilityMovementOverride(float SpeedMultiplier, bool bStopMovementImmediately, bool bAddLockedTag);
+
+	UFUNCTION(Client, Reliable, Category = "Blackout|Movement")
+	void Client_EndAbilityMovementOverride();
 
 	UFUNCTION(Server, Unreliable, Category = "Blackout|Animation")
 	void Server_SetAimOffset(FVector2D NewAimOffset);
@@ -309,8 +301,15 @@ protected:
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Animation")
 	bool bIsDodgeMontagePlaying = false;
 
-	UFUNCTION()
-	void HandleDodgeMontageEnded(UAnimMontage* Montage, bool bInterrupted);
+	UPROPERTY(Transient)
+	float CachedAbilityOverrideMaxWalkSpeed = 0.0f;
+
+	UPROPERTY(Transient)
+	bool bAppliedLocalAbilityLockedTag = false;
+
+	// UFUNCTION()
+	// HandleDodgeMontageEnded 는 TDD §4.1 v2 에서 폐기 (PlayDodgeMontage 와 함께 제거).
+	// GA_Dodge::EndAbility 가 SetDodgeMontagePlaying(false) 로 플래그를 직접 정리합니다.
 
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Animation")
 	bool bIsHitReactMontagePlaying = false;
