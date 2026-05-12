@@ -25,18 +25,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Dodge|Cost", meta = (ClampMin = 0.0))
 	float StaminaCost = 25.f;
 
-	/** 전방/방향 회피 시 가속 강도. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Dodge|Motion", meta = (ClampMin = 0.0))
-	float DodgeStrength = 900.f;
-
-	/** 백스텝 시 가속 강도. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Dodge|Motion", meta = (ClampMin = 0.0))
-	float BackstepStrength = 650.f;
-
-	/** 회피 시 살짝 띄울 수직 임펄스. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Dodge|Motion", meta = (ClampMin = 0.0))
-	float UpwardImpulse = 120.f;
-
 	/** 몽타주 길이가 유효하지 않을 때 사용할 fallback 회피 지속 시간. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Dodge|Motion", meta = (ClampMin = 0.01))
 	float DodgeDuration = 0.35f;

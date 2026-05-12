@@ -76,6 +76,15 @@ void UBlackoutGA_Dodge::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
 		MeleeAbility->K2_CancelAbility();
 	}
 
+	// 루트 모션 + LocalPredicted GA 의 CMC 위치 보정 문제 회피.
+	// 서버가 dodge 활성을 확정하기 전 도착하는 ServerMove RPC 들이 root motion 이동을 의심해
+	// ClientAdjustPosition 으로 클라 위치를 pre-dodge 로 되돌리는 현상을 막습니다.
+	// EndAbility 에서 반드시 false 로 되돌립니다.
+	if (UCharacterMovementComponent* MovementComponent = PlayerCharacter->GetCharacterMovement())
+	{
+		MovementComponent->bIgnoreClientMovementErrorChecksAndCorrection = true;
+	}
+
 	if (!StartDodgeInternal(PlayerCharacter, /*bIsChainRestart=*/false))
 	{
 		BO_LOG_GAS(Warning, "GA_Dodge failed: 회피 시작에 실패함");
@@ -98,6 +107,12 @@ void UBlackoutGA_Dodge::EndAbility(const FGameplayAbilitySpecHandle Handle, cons
 		{
 			PlayerCharacter->SetPendingDodgeInput(FVector2D::ZeroVector);
 			PlayerCharacter->SetDodgeMontagePlaying(false);
+
+			// ActivateAbility 에서 켰던 CMC 위치 보정 가드를 반드시 복구.
+			if (UCharacterMovementComponent* MovementComponent = PlayerCharacter->GetCharacterMovement())
+			{
+				MovementComponent->bIgnoreClientMovementErrorChecksAndCorrection = false;
+			}
 		}
 	}
 
@@ -365,16 +380,17 @@ bool UBlackoutGA_Dodge::StartChainedDodge()
 
 	const bool bIsAuthority = HasAuthority(&CurrentActivationInfo);
 
-	// 스태미나 소모는 서버 권위. 클라이언트는 예측하지 않고 서버 확정 후 attribute 복제로 반영됩니다.
-	if (bIsAuthority)
+	// v2.1: 양측 모두 스태미나 체크 + 소모 (LocalPredicted 패턴, 초기 활성과 동일).
+	// 클라이언트는 ApplyModToAttribute 로 로컬 attribute 를 예측 차감 → 부족하면 false 반환 → 예측 점프 안 함.
+	// 서버 권위 attribute 가 자연 보정합니다.
+	if (!ConsumeStamina())
 	{
-		if (!ConsumeStamina())
-		{
-			BO_LOG_GAS(Log, "GA_Dodge chain skipped: 스태미나 부족");
-			bChainInputQueued = false;
-			bHasQueuedChainInputPayload = false;
-			return false;
-		}
+		BO_LOG_GAS(Log,
+			"GA_Dodge chain skipped: 스태미나 부족 (Authority=%s)",
+			bIsAuthority ? TEXT("true") : TEXT("false"));
+		bChainInputQueued = false;
+		bHasQueuedChainInputPayload = false;
+		return false;
 	}
 
 	if (!StartDodgeInternal(PlayerCharacter, /*bIsChainRestart=*/true))
@@ -543,12 +559,6 @@ bool UBlackoutGA_Dodge::StartDodgeInternal(ABlackoutPlayerCharacter* PlayerChara
 		// 첫 활성: 새 PlayMontageAndWait 태스크 시작.
 		StartMontageTask();
 	}
-
-	const float LaunchStrength = bIsBackstep ? DodgeData->BackstepStrength : DodgeData->DodgeStrength;
-	PlayerCharacter->LaunchCharacter(
-		DodgeDirection * LaunchStrength + FVector::UpVector * DodgeData->UpwardImpulse,
-		true,
-		true);
 
 	CurrentDodgeStartedServerTime = GetCurrentServerTimeSeconds();
 

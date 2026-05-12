@@ -13,6 +13,7 @@
 #include "Core/BlackoutLog.h"
 #include "Data/BOMeleeComboData.h"
 #include "GameFramework/Character.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/GameStateBase.h"
 #include "GameFramework/PlayerState.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
@@ -65,6 +66,14 @@ void UBlackoutGA_MeleePlayer::ActivateAbility(const FGameplayAbilitySpecHandle H
 		{
 			CombatComponent->BeginMeleeWeaponAttachmentOverride();
 			CombatComponent->StopAim();
+		}
+
+		// 루트 모션 + LocalPredicted GA 의 CMC 위치 보정 문제 회피.
+		// 콤보 섹션 점프 시 root motion 이 있다면 서버 검증 lag 로 인한 클라 위치 rewind 가 발생합니다.
+		// EndAbility 에서 반드시 false 로 되돌립니다.
+		if (UCharacterMovementComponent* MovementComponent = PlayerCharacter->GetCharacterMovement())
+		{
+			MovementComponent->bIgnoreClientMovementErrorChecksAndCorrection = true;
 		}
 	}
 
@@ -131,6 +140,12 @@ void UBlackoutGA_MeleePlayer::EndAbility(const FGameplayAbilitySpecHandle Handle
 			{
 				CombatComponent->EndMeleeAttackWindow();
 				CombatComponent->EndMeleeWeaponAttachmentOverride();
+			}
+
+			// ActivateAbility 에서 켰던 CMC 위치 보정 가드를 반드시 복구.
+			if (UCharacterMovementComponent* MovementComponent = PlayerCharacter->GetCharacterMovement())
+			{
+				MovementComponent->bIgnoreClientMovementErrorChecksAndCorrection = false;
 			}
 		}
 	}
