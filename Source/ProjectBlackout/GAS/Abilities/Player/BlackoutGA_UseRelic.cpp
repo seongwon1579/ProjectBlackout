@@ -75,7 +75,7 @@ void UBlackoutGA_UseRelic::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 	bRelicApplied = false;
 
 	if (UBlackoutCombatComponent* CombatComponent = PlayerCharacter->GetCombatComponent())
-	{
+	{ 
 		CombatComponent->StopFire();
 		CombatComponent->HandlePrimaryActionReleased();
 		// CombatComponent->StopAim();
