@@ -54,4 +54,10 @@ protected:
 	
 private:
 	int32 NextPlayerClassIndex =0;
+
+	// 엔진이 ChoosePlayerStart / SpawnDefaultPawnFor / FindPlayerStart 경로에서
+	// GetDefaultPawnClassForController_Implementation을 한 로그인당 여러 번 호출함.
+	// 컨트롤러별 캐시로 동일 컨트롤러에 같은 클래스 반환 → 라운드로빈 카운터 한 번만 증가.
+	UPROPERTY()
+	TMap<TObjectPtr<AController>, TSubclassOf<APawn>> ControllerToClass;
 };

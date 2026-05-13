@@ -19,11 +19,18 @@ GetDefaultPawnClassForController_Implementation(AController* InController)
 		return Super::GetDefaultPawnClassForController_Implementation(
 			InController);
 	}
-	
-	const int32 ClassIndex = NextPlayerClassIndex & PlayerClassPool.Num();
+
+	// 같은 컨트롤러 재요청 시 캐시 반환 — 엔진이 한 로그인당 본 함수를 여러 번 호출하므로 카운터 1회만 증가.
+	if (const TSubclassOf<APawn>* Cached = ControllerToClass.Find(InController))
+	{
+		return Cached->Get();
+	}
+
+	const int32 ClassIndex = NextPlayerClassIndex % PlayerClassPool.Num();
 	const TSubclassOf<APawn> SelectedPawn = PlayerClassPool[ClassIndex];
+	ControllerToClass.Add(InController, SelectedPawn);
 	++NextPlayerClassIndex;
-	
+
 	BO_LOG_NET(Log, "플레이어 #%d 클래스 분배 - %s",
 	NextPlayerClassIndex, *GetNameSafe(SelectedPawn.Get()));
 
