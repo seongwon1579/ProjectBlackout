@@ -66,6 +66,9 @@ Unreal Engine **5.7.4 바이너리 빌드(버전 고정)** 기반의 **Dedicated
 - **GA 부여(Granting) 로직**
   - 모든 GA는 오직 **서버(Server) 권한**으로만 부여됩니다.
   - 플레이어는 폰에 빙의될 때(서버 측 `PossessedBy` 시점)에 **`UBOCharacterData(DataAsset)` 에 명시된 `GrantedAbilities` 배열**을 순회하여 ASC에 일괄 주입(`GiveAbility`)합니다. 보스와 몬스터는 `BeginPlay` 시점에 자기 자신의 몬스터 데이터 에셋을 읽어 패턴 GA를 부여받습니다.
+- **예측 실행 전 로컬 유효성 검사**
+  - `LocalPredicted` 플레이어 GA는 서버 activation 전에 `CanActivateAbility`에서 클라이언트가 이미 복제받은 ASC 어트리뷰트, PlayerState 소모품 수량, 상태 태그, 로컬 쿨다운으로 실행 가능 여부를 먼저 검사합니다.
+  - 소모품/유물처럼 몽타주나 이동속도 변경이 즉시 예측되는 GA는 수량 부족, 유물 충전 부족, 회복할 체력 없음, 로컬 쿨다운 중인 경우 클라이언트에서 activation 자체를 거부합니다. 단, 서버 권위 검증은 `ActivateAbility`에서 동일하게 유지하여 복제 지연과 경쟁 상황을 최종 판정합니다.
 
 - **분리된 주요 GA 목록**:
   - `GA_Dodge`: 방향키 기반 회피 동작. 실행 시 몽타주와 함께 순간적인 I-Frame(무적) 이펙트를 부여.

@@ -29,6 +29,32 @@ UBlackoutGA_UseRelic::UBlackoutGA_UseRelic()
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Attacking);
 }
 
+bool UBlackoutGA_UseRelic::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags, FGameplayTagContainer* OptionalRelevantTags) const
+{
+	if (!Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags))
+	{
+		return false;
+	}
+
+	const UAbilitySystemComponent* AbilitySystemComponent = ActorInfo ? ActorInfo->AbilitySystemComponent.Get() : nullptr;
+	const ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
+	if (!AbilitySystemComponent || !PlayerCharacter)
+	{
+		return false;
+	}
+
+	const float CurrentRelicCharges = AbilitySystemComponent->GetNumericAttribute(UBlackoutPlayerAttributeSet::GetRelicChargesAttribute());
+	if (CurrentRelicCharges < static_cast<float>(RelicChargeCost))
+	{
+		return false;
+	}
+
+	const float CurrentHealth = AbilitySystemComponent->GetNumericAttribute(UBlackoutBaseAttributeSet::GetHealthAttribute());
+	const float MaxHealth = AbilitySystemComponent->GetNumericAttribute(UBlackoutBaseAttributeSet::GetMaxHealthAttribute());
+	return MaxHealth > 0.0f && CurrentHealth < MaxHealth;
+}
+
 void UBlackoutGA_UseRelic::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
 	const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {

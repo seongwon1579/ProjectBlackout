@@ -23,6 +23,7 @@ class PROJECTBLACKOUT_API UBlackoutGA_UseConsumable : public UBlackoutGameplayAb
 public:
 	UBlackoutGA_UseConsumable();
 
+	virtual bool CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags = nullptr, const FGameplayTagContainer* TargetTags = nullptr, FGameplayTagContainer* OptionalRelevantTags = nullptr) const override;
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
 
@@ -59,6 +60,7 @@ protected:
 	float ConsumableCooldownEndTime = 0.0f;
 
 private:
+	const UBOConsumableData* ResolveConsumableDataFromSpec(FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo) const;
 	void ConsumeAndApplyEffect();
 
 	UFUNCTION()
@@ -74,4 +76,5 @@ private:
 	float CachedWalkSpeed = 0.0f;
 	bool bKeepActiveAfterMontage = false;
 	bool bConsumableApplied = false;
+	bool bStartedPredictedConsumableCooldown = false;
 };
