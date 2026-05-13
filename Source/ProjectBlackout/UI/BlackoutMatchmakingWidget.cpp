@@ -37,6 +37,7 @@ void UBlackoutMatchmakingWidget::NativeConstruct()
 			this, &UBlackoutMatchmakingWidget::HandleMatchmakingError);
 		MatchmakingSubsystem->OnMatchmakingCancelled.AddDynamic(
 			this, &UBlackoutMatchmakingWidget::HandleMatchmakingCancelled);
+		MatchmakingSubsystem->OnGameStart.AddDynamic(this, &UBlackoutMatchmakingWidget::HandleGameStart);
 	}
 
 	if (StatusText)
@@ -76,6 +77,7 @@ void UBlackoutMatchmakingWidget::NativeDestruct()
 				this, &UBlackoutMatchmakingWidget::HandleMatchmakingError);
 			MatchmakingSubsystem->OnMatchmakingCancelled.RemoveDynamic(
 				this, &UBlackoutMatchmakingWidget::HandleMatchmakingCancelled);
+			MatchmakingSubsystem->OnGameStart.RemoveDynamic(this, &UBlackoutMatchmakingWidget::HandleGameStart);
 		}
 	}
 
@@ -178,6 +180,25 @@ void UBlackoutMatchmakingWidget::HandleMatchmakingCancelled(
 		StatusText->SetText(NSLOCTEXT("BlackoutMatchmaking","Cancelled","취소되었습니다"));
 	}
 	ExitWithResult(false);
+}
+
+void UBlackoutMatchmakingWidget::HandleGameStart(const FString& SessionId,
+	const FString& ServerIp, int32 ServerPort)
+{
+	
+	if (StatusText)
+	{
+		StatusText->SetText(NSLOCTEXT("BlackoutMatchmaking", "Travelling",
+			"전투 시작! 잠시만 기다려주세요…"));
+	}
+	if (PlayerCountText)
+	{
+		PlayerCountText->SetVisibility(ESlateVisibility::Collapsed);
+	}
+	if (CancelButton)
+	{
+		CancelButton->SetIsEnabled(false);
+	}
 }
 
 void UBlackoutMatchmakingWidget::RefreshPlayerCount(int32 Count)
