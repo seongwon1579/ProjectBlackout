@@ -67,6 +67,9 @@ private:
 	UFUNCTION()
 	void HandleMatchmakingCancelled(bool bSessionDestroyed);
 	
+	UFUNCTION()
+	void HandleGameStart(const FString& SessionId , const FString& ServerIp , int32 ServerPort );
+	
 	void RefreshPlayerCount(int32 Count);
 	
 	void ExitWithResult(bool bSuccess);

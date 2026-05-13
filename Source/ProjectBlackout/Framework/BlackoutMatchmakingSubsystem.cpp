@@ -9,6 +9,8 @@
 #include "WebSocketsModule.h"
 #include "GameFramework/PlayerController.h"
 #include "Engine/World.h"
+#include "MoviePlayer.h"
+#include "UI/SBlackoutLoadingScreen.h"
 
 // GameInstance 부팅 시 호출. WebSockets 모듈 로드 + NetworkSettings 기본값 적용.
 void UBlackoutMatchmakingSubsystem::Initialize(
@@ -103,7 +105,7 @@ void UBlackoutMatchmakingSubsystem::CancelMatchmaking()
 }
 
 // 데디 IP:Port 로 ClientTravel. 호출 전 로비 WebSocket 정리.
-void UBlackoutMatchmakingSubsystem::TravelToGameServer(const FString& ServerIp, int32 ServerPort)
+void UBlackoutMatchmakingSubsystem::TravelToGameServer(const FString& ServerIp, int32 ServerPort ,const FString& SessionId)
 {
 	if (ServerIp.IsEmpty() || ServerPort <= 0)
 	{
@@ -124,10 +126,21 @@ void UBlackoutMatchmakingSubsystem::TravelToGameServer(const FString& ServerIp, 
 		BO_LOG_NET(Error, "PlayerController 없음 - travel 불가");
 		return;
 	}
-
-	const FString Addr = FString::Printf(TEXT("%s:%d"), *ServerIp, ServerPort);
+	
+	FString Addr = FString::Printf(TEXT("%s:%d"), *ServerIp, ServerPort);
+	if (!SessionId.IsEmpty())
+	{
+		Addr += FString::Printf(TEXT("?SessionId=%s"), *SessionId);
+	}
 	BO_LOG_NET(Log, "ClientTravel -> %s", *Addr);
-
+	
+	FLoadingScreenAttributes LoadingScreenAttributes;
+	LoadingScreenAttributes.MinimumLoadingScreenDisplayTime=2.0f;
+	LoadingScreenAttributes.bAutoCompleteWhenLoadingCompletes = true;
+	LoadingScreenAttributes.bMoviesAreSkippable = false;
+	LoadingScreenAttributes.WidgetLoadingScreen = SNew(SBlackoutLoadingScreen);
+	GetMoviePlayer()->SetupLoadingScreen(LoadingScreenAttributes);
+	
 	DisconnectLobby();
 	PC->ClientTravel(Addr, TRAVEL_Absolute);
 }
@@ -432,7 +445,7 @@ void UBlackoutMatchmakingSubsystem::HandleWsMessage(const FString& MessageStr)
 
 		if (bAutoTravelOnGameStart)
 		{
-			TravelToGameServer(Ip, Port);
+			TravelToGameServer(Ip, Port,Sid);
 		}
 		return;
 	}

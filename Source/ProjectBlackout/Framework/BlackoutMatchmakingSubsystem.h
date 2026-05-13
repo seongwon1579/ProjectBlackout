@@ -110,7 +110,7 @@ public:
 
 	// 지정 데디 주소로 ClientTravel. 호출 전 로비 WebSocket 자동 종료.
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Matchmaking")
-	void TravelToGameServer(const FString& ServerIp, int32 ServerPort);
+	void TravelToGameServer(const FString& ServerIp, int32 ServerPort  , const FString& SessionId = TEXT(""));
 
 	// 로비 WebSocket 수동 연결. Login 성공 시 자동 호출되므로 외부 호출 보통 불필요.
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Matchmaking")
