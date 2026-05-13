@@ -26,6 +26,7 @@ ABlackoutPlayerCharacter::ABlackoutPlayerCharacter()
 	SpringArm->SetupAttachment(RootComponent);
 	SpringArm->TargetArmLength = 350.f;
 	SpringArm->bUsePawnControlRotation = true;
+	SpringArm->SetUsingAbsoluteRotation(true);
 
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	Camera->SetupAttachment(SpringArm, USpringArmComponent::SocketName);
