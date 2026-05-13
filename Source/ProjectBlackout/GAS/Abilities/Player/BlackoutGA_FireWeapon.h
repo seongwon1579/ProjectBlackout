@@ -45,6 +45,10 @@ protected:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	bool ApplyAmmoCost();
 
+	bool CanFireAtCurrentTime(ABOFirearm* Firearm, const FGameplayAbilityActorInfo* ActorInfo) const;
+
+	void ReserveNextFireTime(ABOFirearm* Firearm, const FGameplayAbilityActorInfo* ActorInfo);
+
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	void PlayFireMontage();
 
@@ -56,5 +60,7 @@ protected:
 
 	TObjectPtr<UAnimMontage> CachedFireMontage = nullptr;
 	bool bWeaponFireAnimationTriggered = false;
+	float NextAllowedFireTimeSeconds = 0.0f;
+	TWeakObjectPtr<ABOFirearm> LastFireRateGateWeapon = nullptr;
 	FTimerHandle FireMontageCompletionTimerHandle;
 };

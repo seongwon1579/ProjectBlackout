@@ -34,6 +34,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Boss|Ravager")
 	void SpawnMinionWave(int32 InPhaseIdx);
 	
+	
 	// ── IBossAggroProvider ────────────────────────────────────────────────────
 	virtual APawn* GetHighestAggroTarget() const override;
 	virtual void   AddThreat(APawn* Source, float Amount) override;
@@ -44,8 +45,8 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Aggro")
 	TObjectPtr<UBOAggroComponent> AggroComp;
 	
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	TObjectPtr<USphereComponent> Hit_Target;
+	// UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	// TObjectPtr<USphereComponent> Hit_Target;
 
 protected:
 	virtual void OnPhaseChanged(EBossPhase NewPhase) override;

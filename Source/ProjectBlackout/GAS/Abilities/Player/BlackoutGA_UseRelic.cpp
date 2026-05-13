@@ -17,13 +17,14 @@ UBlackoutGA_UseRelic::UBlackoutGA_UseRelic()
 {
 	InputID = EBlackoutAbilityInputID::UseRelic;
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
-	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::ServerOnly;
+	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::LocalPredicted;
 
 	FGameplayTagContainer AssetTags;
 	AssetTags.AddTag(BlackoutGameplayTags::Ability_Player_UseRelic);
 	SetAssetTags(AssetTags);
 
-	ActivationOwnedTags.AddTag(BlackoutGameplayTags::State_Locked);
+	//ActivationOwnedTags.AddTag(BlackoutGameplayTags::State_Locked);
+	ActivationOwnedTags.AddTag(BlackoutGameplayTags::State_UseRelic);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Downed);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Locked);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Attacking);
@@ -77,50 +78,57 @@ void UBlackoutGA_UseRelic::ActivateAbility(const FGameplayAbilitySpecHandle Hand
 	{
 		CombatComponent->StopFire();
 		CombatComponent->HandlePrimaryActionReleased();
-		CombatComponent->StopAim();
-	}
-
-	if (UCharacterMovementComponent* MovementComponent = PlayerCharacter->GetCharacterMovement())
-	{
-		MovementComponent->StopMovementImmediately();
+		// CombatComponent->StopAim();
 	}
 
 	ApplySlowMovementSpeed(ActorInfo);
 	BeginWeaponHolsterOverride(ActorInfo);
 
-	if (RelicMontage && PlayerCharacter->HasAuthority())
+	if (RelicMontage)
 	{
 		const float MontageDuration = RelicMontage->GetPlayLength();
 		if (MontageDuration > 0.0f)
 		{
-			PlayerCharacter->Multicast_PlayConsumableMontage(RelicMontage, 1.0f);
-
-			UAbilityTask_WaitGameplayEvent* WaitEventTask = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(this, BlackoutGameplayTags::Event_Montage_RelicApply);
-			if (WaitEventTask)
+			if (PlayerCharacter->IsLocallyControlled())
 			{
-				WaitEventTask->EventReceived.AddDynamic(this, &UBlackoutGA_UseRelic::OnRelicApplyEventReceived);
-				WaitEventTask->ReadyForActivation();
+				PlayerCharacter->PlayAnimMontage(RelicMontage, 1.0f);
 			}
 
-			if (UWorld* World = PlayerCharacter->GetWorld())
+			if (PlayerCharacter->HasAuthority())
 			{
-				World->GetTimerManager().SetTimer(
-					RelicMontageTimerHandle,
-					this,
-					&UBlackoutGA_UseRelic::OnRelicMontageFinished,
-					MontageDuration,
-					false);
+				PlayerCharacter->Multicast_PlayConsumableMontage(RelicMontage, 1.0f);
+
+				UAbilityTask_WaitGameplayEvent* WaitEventTask = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(this, BlackoutGameplayTags::Event_Montage_RelicApply);
+				if (WaitEventTask)
+				{
+					WaitEventTask->EventReceived.AddDynamic(this, &UBlackoutGA_UseRelic::OnRelicApplyEventReceived);
+					WaitEventTask->ReadyForActivation();
+				}
+
+				if (UWorld* World = PlayerCharacter->GetWorld())
+				{
+					World->GetTimerManager().SetTimer(
+						RelicMontageTimerHandle,
+						this,
+						&UBlackoutGA_UseRelic::OnRelicMontageFinished,
+						MontageDuration,
+						false);
+				}
+
+				BO_LOG_GAS(Log, "유물 몽타주 시작: Player=%s Duration=%.2f",
+					*GetNameSafe(PlayerCharacter),
+					MontageDuration);
 			}
 
-			BO_LOG_GAS(Log, "유물 몽타주 시작: Player=%s Duration=%.2f",
-				*GetNameSafe(PlayerCharacter),
-				MontageDuration);
 			return;
 		}
 	}
 
-	ApplyRelicEffect();
-	EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
+	if (PlayerCharacter->HasAuthority())
+	{
+		ApplyRelicEffect();
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
+	}
 }
 
 void UBlackoutGA_UseRelic::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
@@ -151,6 +159,11 @@ void UBlackoutGA_UseRelic::EndAbility(const FGameplayAbilitySpecHandle Handle, c
 void UBlackoutGA_UseRelic::ApplyRelicEffect()
 {
 	if (bRelicApplied)
+	{
+		return;
+	}
+
+	if (!CurrentActorInfo || !CurrentActorInfo->AvatarActor.IsValid() || !CurrentActorInfo->AvatarActor->HasAuthority())
 	{
 		return;
 	}
@@ -252,7 +265,7 @@ void UBlackoutGA_UseRelic::ApplyRelicHealEffect()
 
 void UBlackoutGA_UseRelic::ApplySlowMovementSpeed(const FGameplayAbilityActorInfo* ActorInfo)
 {
-	ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
+	const ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
 	UCharacterMovementComponent* MovementComponent = PlayerCharacter ? PlayerCharacter->GetCharacterMovement() : nullptr;
 	if (!MovementComponent)
 	{
@@ -260,12 +273,9 @@ void UBlackoutGA_UseRelic::ApplySlowMovementSpeed(const FGameplayAbilityActorInf
 	}
 
 	CachedWalkSpeed = MovementComponent->MaxWalkSpeed;
-	MovementComponent->MaxWalkSpeed = CachedWalkSpeed * RelicSpeedMultiplier;
-
-	if (PlayerCharacter->HasAuthority())
-	{
-		PlayerCharacter->Client_BeginAbilityMovementOverride(RelicSpeedMultiplier, true, true);
-	}
+	// 에디터에서 배율이 0으로 남아 있어도 이동 가능하도록 안전한 기본값을 보장합니다.
+	const float EffectiveRelicSpeedMultiplier = RelicSpeedMultiplier > 0.0f ? RelicSpeedMultiplier : 0.35f;
+	MovementComponent->MaxWalkSpeed = CachedWalkSpeed * EffectiveRelicSpeedMultiplier;
 }
 
 void UBlackoutGA_UseRelic::RestoreMovementSpeed(const FGameplayAbilityActorInfo* ActorInfo)
@@ -275,15 +285,10 @@ void UBlackoutGA_UseRelic::RestoreMovementSpeed(const FGameplayAbilityActorInfo*
 		return;
 	}
 
-	ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
+	const ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
 	if (UCharacterMovementComponent* MovementComponent = PlayerCharacter ? PlayerCharacter->GetCharacterMovement() : nullptr)
 	{
 		MovementComponent->MaxWalkSpeed = CachedWalkSpeed;
-	}
-
-	if (PlayerCharacter && PlayerCharacter->HasAuthority())
-	{
-		PlayerCharacter->Client_EndAbilityMovementOverride();
 	}
 
 	CachedWalkSpeed = 0.0f;

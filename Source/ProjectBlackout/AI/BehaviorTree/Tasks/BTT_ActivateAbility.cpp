@@ -1,7 +1,5 @@
 #include "AI/BehaviorTree/Tasks/BTT_ActivateAbility.h"
-#include "AIController.h"
 #include "AbilitySystemComponent.h"
-#include "AbilitySystemGlobals.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "GameplayTagsManager.h"
 #include "Abilities/GameplayAbility.h"
@@ -15,16 +13,16 @@ UBTT_ActivateAbility::UBTT_ActivateAbility()
 
 EBTNodeResult::Type UBTT_ActivateAbility::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
-	// AAIController* AI = OwnerComp.GetAIOwner();
-	// if (!AI || !AI->GetPawn()) return EBTNodeResult::Failed;
-
 	// ── 태그 소스 결정 ────────────────────────────────────────────────────
 	const FGameplayTag Tag = ResolveAbilityTag(OwnerComp);
 	if (!Tag.IsValid()) return EBTNodeResult::Failed;
 
 	// ── 블랙보드에서 타겟 읽기 ────────────────────────────────────────────
 	UBlackboardComponent* BB = OwnerComp.GetBlackboardComponent();
+	if (!BB) return EBTNodeResult::Failed;
+	
 	APawn* Target = BB ? Cast<APawn>(BB->GetValueAsObject(CurrentTargetKey.SelectedKeyName)) : nullptr;
+	if (!Target) return EBTNodeResult::Failed;
 
 	// ── 3. GA 실행 (타겟을 EventData에 담아 HandleGameplayEvent로 전달) ──────
 	UAbilitySystemComponent* ASC = UBTNodeHelper::GetAbilitySystemComponent(OwnerComp);
@@ -32,6 +30,11 @@ EBTNodeResult::Type UBTT_ActivateAbility::ExecuteTask(UBehaviorTreeComponent& Ow
 
 	FGameplayEventData EventData;
 	EventData.Target = Target;
+	
+	if (bPassSignedAngle)
+	{
+		EventData.EventMagnitude = BB->GetValueAsFloat(SignedAngleKey.SelectedKeyName);
+	}
 
 	// ── 4. GA 종료 대기 설정  ────────────────────────────
 	if (bWaitForEnd)

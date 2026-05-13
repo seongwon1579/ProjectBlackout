@@ -58,8 +58,8 @@ protected:
 	virtual void OnPhaseChanged(EBossPhase NewPhase);
 	void BroadcastOnPhaseChanged();
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Boss")
-	TObjectPtr<UBOBossData> BossData;
+	// UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Boss")
+	// TObjectPtr<UBOBossData> BossData;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Boss")
 	EBossPhase CurrentPhase;

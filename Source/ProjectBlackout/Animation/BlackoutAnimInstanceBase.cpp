@@ -55,6 +55,8 @@ void UBlackoutAnimInstanceBase::NativeUpdateAnimation(float DeltaSeconds)
 			bIsDowned = ASC->HasMatchingGameplayTag(BlackoutGameplayTags::State_Downed);
 		}
 
-		bIsLocked = ASC->HasMatchingGameplayTag(BlackoutGameplayTags::State_Locked);
+		// 유물 사용 중에는 다른 액션만 잠그고 이동 블렌드스페이스는 유지합니다.
+		bIsLocked = ASC->HasMatchingGameplayTag(BlackoutGameplayTags::State_Locked)
+			&& !ASC->HasMatchingGameplayTag(BlackoutGameplayTags::State_UseRelic);
 	}
 }

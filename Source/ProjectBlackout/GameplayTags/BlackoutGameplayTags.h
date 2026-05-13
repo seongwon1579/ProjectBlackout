@@ -14,6 +14,7 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Attacking);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Reloading);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_UseConsumable);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_UseRelic);
 	
 	// ─── Character Abilities ───────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Player_Dodge);

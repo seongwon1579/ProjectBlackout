@@ -57,10 +57,10 @@ void ABlackoutBossCharacter::OnDamageReceived(UAbilitySystemComponent* Source,
 
 void ABlackoutBossCharacter::EvaluatePhaseTransition()
 {
-	if (!BossData || !HasAuthority())
-	{
-		return;
-	}
+	// if (!BossData || !HasAuthority())
+	// {
+	// 	return;
+	// }
 
 	// TDD §6. 체력 기반 페이즈 전환 로직
 	// float HealthRatio = CurrentHealth / MaxHealth;
