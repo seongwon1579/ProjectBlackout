@@ -9,6 +9,7 @@
 #include "WebSocketsModule.h"
 #include "GameFramework/PlayerController.h"
 #include "Engine/World.h"
+
 #include "MoviePlayer.h"
 #include "UI/SBlackoutLoadingScreen.h"
 
@@ -134,12 +135,14 @@ void UBlackoutMatchmakingSubsystem::TravelToGameServer(const FString& ServerIp, 
 	}
 	BO_LOG_NET(Log, "ClientTravel -> %s", *Addr);
 	
-	FLoadingScreenAttributes LoadingScreenAttributes;
-	LoadingScreenAttributes.MinimumLoadingScreenDisplayTime=2.0f;
-	LoadingScreenAttributes.bAutoCompleteWhenLoadingCompletes = true;
-	LoadingScreenAttributes.bMoviesAreSkippable = false;
-	LoadingScreenAttributes.WidgetLoadingScreen = SNew(SBlackoutLoadingScreen);
-	GetMoviePlayer()->SetupLoadingScreen(LoadingScreenAttributes);
+	// 임시 우회: MoviePlayer가 ClientTravel 라이프사이클에서 SetIgnoreInput(false) 복구를 못 해
+	// 보스맵 진입 후 viewport input lock이 고착됨. 시연 후 PostLoadMapWithWorld delegate 바인딩으로 본 fix.
+	// FLoadingScreenAttributes LoadingScreenAttributes;
+	// LoadingScreenAttributes.MinimumLoadingScreenDisplayTime=2.0f;
+	// LoadingScreenAttributes.bAutoCompleteWhenLoadingCompletes = true;
+	// LoadingScreenAttributes.bMoviesAreSkippable = false;
+	// LoadingScreenAttributes.WidgetLoadingScreen = SNew(SBlackoutLoadingScreen);
+	// GetMoviePlayer()->SetupLoadingScreen(LoadingScreenAttributes);
 	
 	DisconnectLobby();
 	PC->ClientTravel(Addr, TRAVEL_Absolute);
@@ -321,6 +324,21 @@ void UBlackoutMatchmakingSubsystem::OnStartMatchmakingResponse(FHttpRequestPtr R
 
 	SendJoinSessionMessage(Info.SessionId);
 	OnMatchmakingStarted.Broadcast(Info);
+
+	// 4번째 클라 안전망 — autoMatch 응답이 이미 playing 상태면 game_start WS 이벤트 손실 가능
+	// (서버 측에서 정원 충족 직후 game_start emit, 이 클라는 아직 WS 룸 미참가 상태)
+	if (Info.Status == TEXT("playing") && !Info.ServerIp.IsEmpty() && Info.ServerPort > 0)
+	{
+		BO_LOG_NET(Warning, "정원 충족 시점 진입 - game_start 이벤트 손실 가능, 직접 ClientTravel 트리거");
+		if (bAutoTravelOnGameStart)
+		{
+			TravelToGameServer(Info.ServerIp, Info.ServerPort, Info.SessionId);
+		}
+		else
+		{
+			OnGameStart.Broadcast(Info.SessionId, Info.ServerIp, Info.ServerPort);
+		}
+	}
 }
 
 // 매칭 취소 응답. sessionDestroyed 값을 OnMatchmakingCancelled 로 전달.
