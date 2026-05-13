@@ -8,12 +8,54 @@
 #include "Combat/Components/BlackoutImpactIndicatorComponent.h"
 #include "Combat/Weapons/BOFirearm.h"
 #include "Combat/Weapons/BOShotgunFirearm.h"
+#include "Combat/Weapons/BOWeaponDebugUtils.h"
+#include "Core/BlackoutCollisionChannels.h"
 #include "Core/BlackoutLog.h"
+#include "DrawDebugHelpers.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "GAS/Attributes/BlackoutAmmoAttributeSet.h"
 #include "TimerManager.h"
 #include "Engine/World.h"
 #include "GameFramework/Character.h"
+
+namespace
+{
+	constexpr float PredictedFireDebugTraceDistance = 10000.0f;
+
+	void DrawPredictedFireDebugLine(
+		UWorld* World,
+		const FVector& TraceStart,
+		const FVector& TraceEnd,
+		const AActor* IgnoredOwner,
+		const AActor* IgnoredWeapon,
+		const float Duration,
+		const float Thickness)
+	{
+		if (!World)
+		{
+			return;
+		}
+
+		FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(BlackoutGA_FireWeapon_PredictedDebug), false, IgnoredOwner);
+		if (IgnoredWeapon)
+		{
+			QueryParams.AddIgnoredActor(IgnoredWeapon);
+		}
+
+		FHitResult PredictedHitResult;
+		World->LineTraceSingleByChannel(
+			PredictedHitResult,
+			TraceStart,
+			TraceEnd,
+			BlackoutCollisionChannels::WeaponTrace,
+			QueryParams);
+
+		AActor* DamageTargetActor = BlackoutWeaponDebug::ResolveDamageTargetActor(PredictedHitResult);
+		const FVector DebugEnd = PredictedHitResult.bBlockingHit ? PredictedHitResult.ImpactPoint : TraceEnd;
+		const FColor DebugColor = BlackoutWeaponDebug::GetHitscanDebugColor(PredictedHitResult.bBlockingHit, DamageTargetActor);
+		DrawDebugLine(World, TraceStart, DebugEnd, DebugColor, false, Duration, 0, Thickness);
+	}
+}
 
 UBlackoutGA_FireWeapon::UBlackoutGA_FireWeapon()
 {
@@ -106,13 +148,55 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 	// 2. 사격 애니메이션 몽타주 재생
 	PlayFireMontage();
 
+	const FVector MuzzleLocation = CombatComponent->GetMuzzleTransform().GetLocation();
+	const FVector AimTarget = ImpactIndicatorComponent->GetAimTargetPoint();
+	const FVector BaseFireDirection = (AimTarget - MuzzleLocation).GetSafeNormal();
+	const FVector FireDirection = CombatComponent->GetSpreadDeviatedDirection(BaseFireDirection);
+
+	// 로컬 예측 디버그는 실제 판정을 복제하지 않고 현재 클라가 기대하는 발사선을 즉시 시각화합니다.
+	if (PlayerCharacter->IsLocallyControlled() && EquippedFirearm->UsesHitscan() && EquippedFirearm->ShouldDrawDebugHitscanRay())
+	{
+		if (UWorld* World = PlayerCharacter->GetWorld())
+		{
+			const float DebugDuration = EquippedFirearm->GetDebugHitscanRayDuration();
+			const float DebugThickness = EquippedFirearm->GetDebugHitscanRayThickness();
+
+			if (const ABOShotgunFirearm* ShotgunFirearm = Cast<ABOShotgunFirearm>(EquippedFirearm))
+			{
+				const TArray<FVector> PelletDirections = ShotgunFirearm->BuildPelletDirections(FireDirection);
+				const float PelletTraceDistance = ShotgunFirearm->GetPelletTraceDistance();
+
+				for (const FVector& PelletDirection : PelletDirections)
+				{
+					const FVector PredictedTraceEnd = MuzzleLocation + PelletDirection.GetSafeNormal() * PelletTraceDistance;
+					DrawPredictedFireDebugLine(
+						World,
+						MuzzleLocation,
+						PredictedTraceEnd,
+						EquippedFirearm->GetOwner(),
+						EquippedFirearm,
+						DebugDuration,
+						DebugThickness);
+				}
+			}
+			else
+			{
+				const FVector PredictedTraceEnd = MuzzleLocation + FireDirection.GetSafeNormal() * PredictedFireDebugTraceDistance;
+				DrawPredictedFireDebugLine(
+					World,
+					MuzzleLocation,
+					PredictedTraceEnd,
+					EquippedFirearm->GetOwner(),
+					EquippedFirearm,
+					DebugDuration,
+					DebugThickness);
+			}
+		}
+	}
+
 	// 로컬 예측은 체감용 연출만 담당하고, 실제 월드 판정은 서버에서만 수행합니다.
 	if (PlayerCharacter->HasAuthority())
 	{
-		const FVector MuzzleLocation = CombatComponent->GetMuzzleTransform().GetLocation();
-		const FVector AimTarget = ImpactIndicatorComponent->GetAimTargetPoint();
-		const FVector BaseFireDirection = (AimTarget - MuzzleLocation).GetSafeNormal();
-		const FVector FireDirection = CombatComponent->GetSpreadDeviatedDirection(BaseFireDirection);
 		float CurrentClipAmmoForLog = -1.0f;
 		if (const UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo())
 		{
