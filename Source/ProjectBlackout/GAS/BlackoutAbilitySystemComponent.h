@@ -102,6 +102,11 @@ public:
 	 */
 	void ApplyHealthRegenOverTime(float HealAmountPerTick, float Duration, float TickInterval);
 
+	/**
+	 * 서버 전용. 다운/사망 등 회복이 더 이상 유지되면 안 되는 상태에서 지속 체력 회복을 취소합니다.
+	 */
+	void CancelHealthRegenOverTime();
+
 	float GetStaminaCostMultiplier() const { return StaminaCostMultiplier; }
 
 protected:

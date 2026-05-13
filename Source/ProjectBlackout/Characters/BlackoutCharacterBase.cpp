@@ -253,6 +253,7 @@ void ABlackoutCharacterBase::OnDeath()
 
 	if (AbilitySystemComponent)
 	{
+		AbilitySystemComponent->CancelHealthRegenOverTime();
 		AbilitySystemComponent->RemoveLooseGameplayTag(BlackoutGameplayTags::State_Downed);
 	}
 
@@ -270,6 +271,7 @@ void ABlackoutCharacterBase::OnDowned()
 
 	if (AbilitySystemComponent)
 	{
+		AbilitySystemComponent->CancelHealthRegenOverTime();
 		AbilitySystemComponent->AddLooseGameplayTag(BlackoutGameplayTags::State_Downed);
 	}
 

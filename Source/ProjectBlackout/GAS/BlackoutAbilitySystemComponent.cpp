@@ -449,6 +449,22 @@ void UBlackoutAbilitySystemComponent::ApplyHealthRegenOverTime(float HealAmountP
 		TickCount);
 }
 
+void UBlackoutAbilitySystemComponent::CancelHealthRegenOverTime()
+{
+	if (!IsOwnerActorAuthoritative())
+	{
+		return;
+	}
+
+	if (RemainingHealthRegenTickCount <= 0 && HealthRegenAmountPerTick <= 0.0f)
+	{
+		return;
+	}
+
+	StopHealthRegen();
+	BO_LOG_GAS(Log, "지속 체력 회복 취소: Owner=%s", *GetNameSafe(GetOwner()));
+}
+
 void UBlackoutAbilitySystemComponent::StartStaminaRegen()
 {
 	if (!CanRecoverStamina())
@@ -529,8 +545,8 @@ void UBlackoutAbilitySystemComponent::HandleHealthRegenTick()
 	const float CurrentHealth = GetNumericAttribute(UBlackoutBaseAttributeSet::GetHealthAttribute());
 	const float MaxHealth = GetNumericAttribute(UBlackoutBaseAttributeSet::GetMaxHealthAttribute());
 	
-	// 체력이 0 이하로 내려가면 중단
-	if (MaxHealth <= 0.0f)
+	// 다운/사망 상태로 넘어간 회복 효과는 다음 틱에서 되살리지 않도록 중단합니다.
+	if (MaxHealth <= 0.0f || CurrentHealth <= 0.0f || HasMatchingGameplayTag(BlackoutGameplayTags::State_Downed))
 	{
 		StopHealthRegen();
 		return;
