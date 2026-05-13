@@ -1,6 +1,7 @@
 #include "BlackoutAbilitySystemComponent.h"
 
 #include "Abilities/BlackoutGameplayAbility.h"
+#include "Abilities/Player/BlackoutGA_UseConsumable.h"
 #include "BlackoutLog.h"
 #include "Data/BOConsumableData.h"
 #include "Engine/World.h"
@@ -387,7 +388,7 @@ void UBlackoutAbilitySystemComponent::ApplyTemporaryStaminaCostMultiplier(float 
 		Duration);
 }
 
-void UBlackoutAbilitySystemComponent::ApplyHealthRegenOverTime(float HealAmountPerTick, float Duration, float TickInterval)
+void UBlackoutAbilitySystemComponent::ApplyHealthRegenOverTime(float HealAmountPerTick, float Duration, float TickInterval, FGameplayTag SourceConsumableTag)
 {
 	if (!IsOwnerActorAuthoritative())
 	{
@@ -408,6 +409,7 @@ void UBlackoutAbilitySystemComponent::ApplyHealthRegenOverTime(float HealAmountP
 	const int32 TickCount = Duration > 0.0f ? FMath::Max(1, FMath::CeilToInt(Duration / SafeTickInterval)) : 1;
 	HealthRegenAmountPerTick = HealAmountPerTick;
 	RemainingHealthRegenTickCount = TickCount;
+	ActiveHealthRegenSourceTag = SourceConsumableTag;
 
 	HandleHealthRegenTick();
 	if (RemainingHealthRegenTickCount <= 0)
@@ -447,6 +449,34 @@ void UBlackoutAbilitySystemComponent::ApplyHealthRegenOverTime(float HealAmountP
 		Duration,
 		SafeTickInterval,
 		TickCount);
+}
+
+void UBlackoutAbilitySystemComponent::CancelHealthRegenOverTime()
+{
+	if (!IsOwnerActorAuthoritative())
+	{
+		return;
+	}
+
+	if (RemainingHealthRegenTickCount <= 0 && HealthRegenAmountPerTick <= 0.0f)
+	{
+		return;
+	}
+
+	const FGameplayTag CancelledSourceTag = ActiveHealthRegenSourceTag;
+	StopHealthRegen();
+	if (CancelledSourceTag.IsValid())
+	{
+		ResetConsumableCooldownForTag(CancelledSourceTag);
+		Client_ResetConsumableCooldown(CancelledSourceTag);
+	}
+
+	BO_LOG_GAS(Log, "지속 체력 회복 취소: Owner=%s", *GetNameSafe(GetOwner()));
+}
+
+void UBlackoutAbilitySystemComponent::Client_ResetConsumableCooldown_Implementation(FGameplayTag ConsumableTag)
+{
+	ResetConsumableCooldownForTag(ConsumableTag);
 }
 
 void UBlackoutAbilitySystemComponent::StartStaminaRegen()
@@ -529,10 +559,10 @@ void UBlackoutAbilitySystemComponent::HandleHealthRegenTick()
 	const float CurrentHealth = GetNumericAttribute(UBlackoutBaseAttributeSet::GetHealthAttribute());
 	const float MaxHealth = GetNumericAttribute(UBlackoutBaseAttributeSet::GetMaxHealthAttribute());
 	
-	// 체력이 0 이하로 내려가면 중단
-	if (MaxHealth <= 0.0f)
+	// 다운/사망 상태로 넘어간 회복 효과는 다음 틱에서 되살리지 않도록 중단합니다.
+	if (MaxHealth <= 0.0f || CurrentHealth <= 0.0f || HasMatchingGameplayTag(BlackoutGameplayTags::State_Downed))
 	{
-		StopHealthRegen();
+		CancelHealthRegenOverTime();
 		return;
 	}
 	
@@ -567,6 +597,34 @@ void UBlackoutAbilitySystemComponent::StopHealthRegen()
 
 	HealthRegenAmountPerTick = 0.0f;
 	RemainingHealthRegenTickCount = 0;
+	ActiveHealthRegenSourceTag = FGameplayTag();
+}
+
+void UBlackoutAbilitySystemComponent::ResetConsumableCooldownForTag(FGameplayTag ConsumableTag)
+{
+	if (!ConsumableTag.IsValid())
+	{
+		return;
+	}
+
+	ABILITYLIST_SCOPE_LOCK();
+
+	for (FGameplayAbilitySpec& AbilitySpec : ActivatableAbilities.Items)
+	{
+		const UBOConsumableData* ConsumableData = Cast<UBOConsumableData>(AbilitySpec.SourceObject.Get());
+		if (!ConsumableData || !ConsumableData->ConsumableTag.MatchesTagExact(ConsumableTag))
+		{
+			continue;
+		}
+
+		for (UGameplayAbility* AbilityInstance : AbilitySpec.GetAbilityInstances())
+		{
+			if (UBlackoutGA_UseConsumable* ConsumableAbility = Cast<UBlackoutGA_UseConsumable>(AbilityInstance))
+			{
+				ConsumableAbility->ResetConsumableCooldown();
+			}
+		}
+	}
 }
 
 bool UBlackoutAbilitySystemComponent::CanRecoverStamina() const

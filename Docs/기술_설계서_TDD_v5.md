@@ -66,6 +66,9 @@ Unreal Engine **5.7.4 바이너리 빌드(버전 고정)** 기반의 **Dedicated
 - **GA 부여(Granting) 로직**
   - 모든 GA는 오직 **서버(Server) 권한**으로만 부여됩니다.
   - 플레이어는 폰에 빙의될 때(서버 측 `PossessedBy` 시점)에 **`UBOCharacterData(DataAsset)` 에 명시된 `GrantedAbilities` 배열**을 순회하여 ASC에 일괄 주입(`GiveAbility`)합니다. 보스와 몬스터는 `BeginPlay` 시점에 자기 자신의 몬스터 데이터 에셋을 읽어 패턴 GA를 부여받습니다.
+- **예측 실행 전 로컬 유효성 검사**
+  - `LocalPredicted` 플레이어 GA는 서버 activation 전에 `CanActivateAbility`에서 클라이언트가 이미 복제받은 ASC 어트리뷰트, PlayerState 소모품 수량, 상태 태그, 로컬 쿨다운으로 실행 가능 여부를 먼저 검사합니다.
+  - 소모품/유물처럼 몽타주나 이동속도 변경이 즉시 예측되는 GA는 수량 부족, 유물 충전 부족, 회복할 체력 없음, 로컬 쿨다운 중인 경우 클라이언트에서 activation 자체를 거부합니다. 단, 서버 권위 검증은 `ActivateAbility`에서 동일하게 유지하여 복제 지연과 경쟁 상황을 최종 판정합니다.
 
 - **분리된 주요 GA 목록**:
   - `GA_Dodge`: 방향키 기반 회피 동작. 실행 시 몽타주와 함께 순간적인 I-Frame(무적) 이펙트를 부여.
@@ -76,7 +79,7 @@ Unreal Engine **5.7.4 바이너리 빌드(버전 고정)** 기반의 **Dedicated
   - `GA_Revive`: 쓰러진 아군 구출. 완료 시 **구출을 수행한 플레이어의 `RelicCharges` 어트리뷰트 1회 차감** 로직 포함.
   - `UBlackoutGA_UseConsumable`: 소모품 사용 공통 절차. `UBOConsumableData`를 읽어 PlayerState 소지량 차감, 쿨다운, 공통 GameplayEffect SetByCaller 주입을 담당.
   - `UBlackoutGA_UseBloodRoot`: 블러드 루트 사용. PlayerState의 블러드 루트 소지량 1 차감 후 ASC 지속 체력 회복 타이머를 시작.
-  - `GA_UseRelic`: 유물(Dragon Heart) 사용. Lock-in 애니메이션 재생과 동시에 `GE_RelicHeal` 이펙트로 즉각 체력 회복. 완료 시 `RelicCharges` 1회 차감. 시전 중 `State.Locked` 태그로 이동 및 액션 봉쇄.
+  - `GA_UseRelic`: 유물(Dragon Heart) 사용. 사용 애니메이션 재생과 동시에 `GE_RelicHeal` 이펙트로 즉각 체력 회복. 완료 시 `RelicCharges` 1회 차감. 시전 중 이동 입력은 유지하며, `State.UseRelic` 태그로 유물 사용 상태만 구분합니다. 이동 차단용 `State.Locked` 태그는 부여하지 않습니다.
   - `UBlackoutGA_UseGulSerum`: 굴 혈청 사용. PlayerState의 굴 혈청 소지량 1 차감 후 ASC 임시 스태미나 소비 배율을 적용하여 60초간 스태미나 소비 50% 감소.
 - **미니언 패턴 GA**:
   - `GA_Minion_MeleeAttack`: 미니언(Root Hollow)의 박치기 등 기본 근접 공격. 타격 판정(Sweep, Overlap)에 맞춰 타겟에게 `GE_Damage` 부여.
@@ -168,6 +171,7 @@ GE와 ExecCalc(실행 계산기)를 사용해, 피격 처리와 기믹 보상을
 ### 5.1 플레이어 다운(Downed) 및 관전(Spectator) 모드 제어
 멀티플레이 협동을 위한 다단계 데스 생명 주기를 ASC와 Controller 상태를 통해 구현합니다.
 - **다운 상태 진입 (`GE_Downed`)**: 체력이 0 이하로 떨어지면 즉각 파괴(Destroy)하지 않고 캡슐 콜리전 프로필을 변경한 후 `GE_Downed` 이펙트를 부여합니다. 이 이펙트는 이동 및 액션 입력을 봉쇄하는 전역 태그(`State.Downed`)를 씌우며, 매 초 체력을 깎는 타이머 로직(`GE_BleedOut`)을 동반합니다.
+- 다운 상태 진입 시 블러드 루트 같은 지속 체력 회복 타이머는 즉시 취소합니다. 취소된 지속 회복이 소모품에서 시작된 경우 해당 소모품 쿨다운도 서버와 소유 클라이언트에서 초기화합니다. 다운 이후 남은 회복 틱이 플레이어를 자동으로 되살리는 흐름은 허용하지 않습니다.
 - **부활 (`GA_Revive`)**: 생존 동료의 상호작용 완료 시, 대상 폰의 `GE_Downed`와 `GE_BleedOut`을 `RemoveActiveGameplayEffect`로 강제 해제하고 기본 체력값으로 복구합니다. 구출자의 `RelicCharges`를 1 차감합니다.
 - **완전 사망 및 관전 전환**: 출혈 타이머 소진 시 서버는 해당 플레이어 폰을 `HiddenInGame = true` 및 물리 불가 상태로 만듭니다. 컨트롤러(`APlayerController`)에서는 `ChangeState(NAME_Spectating)` 함수를 호출하여 엔진 자체 관전 모드로 전환하고, `SetViewTargetWithBlend()`로 카메라를 다른 활성 아군 폰으로 강제 바인딩합니다. 관전 중 **[재시작 요청] UI**가 표시되며, 과반수 투표 시 `ABlackoutBattleGameMode`에서 파티 전원을 해당 구역 화톳불로 귀환 처리하는 **`Server_VoteRestart` RPC**를 호출합니다(§7 참조).
 

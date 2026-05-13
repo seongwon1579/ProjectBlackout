@@ -528,6 +528,12 @@ void ABlackoutPlayerCharacter::Multicast_PlayConsumableMontage_Implementation(UA
 		return;
 	}
 
+	if (IsLocallyControlled() && !HasAuthority())
+	{
+		// 로컬 예측 GA에서 이미 재생한 소유 클라이언트는 서버 multicast로 몽타주를 다시 시작하지 않습니다.
+		return;
+	}
+
 	PlayAnimMontage(Montage, PlayRate);
 }
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "GameplayTagContainer.h"
 #include "GAS/Abilities/BlackoutGameplayAbility.h"
 #include "BlackoutGA_UseRelic.generated.h"
 
@@ -10,7 +11,7 @@ struct FGameplayEventData;
 
 /**
  * 유물 사용 어빌리티.
- * Lock-in 몽타주 동안 행동을 봉쇄하고, 적용 시점에 RelicCharges를 차감한 뒤 체력을 즉시 회복합니다.
+ * 사용 몽타주 동안 이동 입력은 유지하고, 적용 시점에 RelicCharges를 차감한 뒤 체력을 즉시 회복합니다.
  */
 UCLASS(Blueprintable)
 class PROJECTBLACKOUT_API UBlackoutGA_UseRelic : public UBlackoutGameplayAbility
@@ -20,6 +21,7 @@ class PROJECTBLACKOUT_API UBlackoutGA_UseRelic : public UBlackoutGameplayAbility
 public:
 	UBlackoutGA_UseRelic();
 
+	virtual bool CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags = nullptr, const FGameplayTagContainer* TargetTags = nullptr, FGameplayTagContainer* OptionalRelevantTags = nullptr) const override;
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
 

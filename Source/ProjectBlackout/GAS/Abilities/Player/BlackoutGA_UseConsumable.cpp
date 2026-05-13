@@ -24,6 +24,29 @@ UBlackoutGA_UseConsumable::UBlackoutGA_UseConsumable()
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Locked);
 }
 
+bool UBlackoutGA_UseConsumable::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags, FGameplayTagContainer* OptionalRelevantTags) const
+{
+	if (!Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags))
+	{
+		return false;
+	}
+
+	const UBOConsumableData* ResolvedConsumableData = ResolveConsumableDataFromSpec(Handle, ActorInfo);
+	const ABlackoutPlayerState* BlackoutPlayerState = ActorInfo ? Cast<ABlackoutPlayerState>(ActorInfo->OwnerActor.Get()) : nullptr;
+	if (!ResolvedConsumableData || !ResolvedConsumableData->ConsumableTag.IsValid() || !BlackoutPlayerState)
+	{
+		return false;
+	}
+
+	if (!IsConsumableCooldownReady(ResolvedConsumableData))
+	{
+		return false;
+	}
+
+	return BlackoutPlayerState->GetConsumableCount(ResolvedConsumableData->ConsumableTag) >= ConsumeAmount;
+}
+
 void UBlackoutGA_UseConsumable::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
 	const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
@@ -71,9 +94,15 @@ void UBlackoutGA_UseConsumable::ActivateAbility(const FGameplayAbilitySpecHandle
 	}
 
 	bConsumableApplied = false;
+	bStartedPredictedConsumableCooldown = false;
 	PendingConsumableData = ResolvedConsumableData;
-
 	ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get());
+	if (PlayerCharacter && !PlayerCharacter->HasAuthority())
+	{
+		StartConsumableCooldown(ResolvedConsumableData);
+		bStartedPredictedConsumableCooldown = true;
+	}
+
 	if (ConsumableMontage)
 	{
 		if (PlayerCharacter)
@@ -144,8 +173,20 @@ void UBlackoutGA_UseConsumable::EndAbility(const FGameplayAbilitySpecHandle Hand
 		EndWeaponHolsterOverride(ActorInfo);
 	}
 
+	if (bWasCancelled && bStartedPredictedConsumableCooldown)
+	{
+		ConsumableCooldownEndTime = 0.0f;
+	}
+
 	PendingConsumableData = nullptr;
+	bStartedPredictedConsumableCooldown = false;
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+}
+
+void UBlackoutGA_UseConsumable::ResetConsumableCooldown()
+{
+	ConsumableCooldownEndTime = 0.0f;
+	bStartedPredictedConsumableCooldown = false;
 }
 
 void UBlackoutGA_UseConsumable::ConsumeAndApplyEffect()
@@ -198,8 +239,13 @@ void UBlackoutGA_UseConsumable::OnConsumableMontageFinished()
 
 const UBOConsumableData* UBlackoutGA_UseConsumable::ResolveConsumableData()
 {
-	UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo();
-	const FGameplayAbilitySpec* AbilitySpec = AbilitySystemComponent ? AbilitySystemComponent->FindAbilitySpecFromHandle(CurrentSpecHandle) : nullptr;
+	return ResolveConsumableDataFromSpec(CurrentSpecHandle, CurrentActorInfo);
+}
+
+const UBOConsumableData* UBlackoutGA_UseConsumable::ResolveConsumableDataFromSpec(FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo) const
+{
+	UAbilitySystemComponent* AbilitySystemComponent = ActorInfo ? ActorInfo->AbilitySystemComponent.Get() : nullptr;
+	const FGameplayAbilitySpec* AbilitySpec = AbilitySystemComponent ? AbilitySystemComponent->FindAbilitySpecFromHandle(Handle) : nullptr;
 	if (AbilitySpec)
 	{
 		if (const UBOConsumableData* SourceConsumableData = Cast<UBOConsumableData>(AbilitySpec->SourceObject.Get()))
@@ -315,11 +361,6 @@ void UBlackoutGA_UseConsumable::ApplySlowMovementSpeed(const FGameplayAbilityAct
 
 	CachedWalkSpeed = MovementComponent->MaxWalkSpeed;
 	MovementComponent->MaxWalkSpeed = CachedWalkSpeed * ConsumableSpeedMultiplier;
-
-	if (PlayerCharacter->HasAuthority())
-	{
-		PlayerCharacter->Client_BeginAbilityMovementOverride(ConsumableSpeedMultiplier, false, false);
-	}
 }
 
 void UBlackoutGA_UseConsumable::RestoreMovementSpeed(const FGameplayAbilityActorInfo* ActorInfo)
@@ -333,11 +374,6 @@ void UBlackoutGA_UseConsumable::RestoreMovementSpeed(const FGameplayAbilityActor
 	if (UCharacterMovementComponent* MovementComponent = PlayerCharacter ? PlayerCharacter->GetCharacterMovement() : nullptr)
 	{
 		MovementComponent->MaxWalkSpeed = CachedWalkSpeed;
-	}
-
-	if (PlayerCharacter && PlayerCharacter->HasAuthority())
-	{
-		PlayerCharacter->Client_EndAbilityMovementOverride();
 	}
 
 	CachedWalkSpeed = 0.0f;

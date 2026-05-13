@@ -28,7 +28,7 @@ bool UBlackoutGA_UseBloodRoot::ApplyConsumableEffect(const UBOConsumableData* Us
 		BlackoutGameplayTags::Data_Consumable_Duration,
 		0.0f);
 
-	BlackoutAbilitySystemComponent->ApplyHealthRegenOverTime(HealAmountPerTick, Duration, HealTickInterval);
+	BlackoutAbilitySystemComponent->ApplyHealthRegenOverTime(HealAmountPerTick, Duration, HealTickInterval, UsedConsumableData->ConsumableTag);
 	return false;
 }
 

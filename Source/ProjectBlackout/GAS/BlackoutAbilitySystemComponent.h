@@ -100,7 +100,12 @@ public:
 	/**
 	 * 서버 전용. 블러드 루트 같은 소모품이 적용하는 지속 체력 회복입니다.
 	 */
-	void ApplyHealthRegenOverTime(float HealAmountPerTick, float Duration, float TickInterval);
+	void ApplyHealthRegenOverTime(float HealAmountPerTick, float Duration, float TickInterval, FGameplayTag SourceConsumableTag = FGameplayTag());
+
+	/**
+	 * 서버 전용. 다운/사망 등 회복이 더 이상 유지되면 안 되는 상태에서 지속 체력 회복을 취소합니다.
+	 */
+	void CancelHealthRegenOverTime();
 
 	float GetStaminaCostMultiplier() const { return StaminaCostMultiplier; }
 
@@ -136,6 +141,10 @@ private:
 	void ClearStaminaCostMultiplier();
 	void HandleHealthRegenTick();
 	void StopHealthRegen();
+	void ResetConsumableCooldownForTag(FGameplayTag ConsumableTag);
+
+	UFUNCTION(Client, Reliable)
+	void Client_ResetConsumableCooldown(FGameplayTag ConsumableTag);
 
 	FTimerHandle StaminaRegenDelayTimerHandle;
 	FTimerHandle StaminaRegenTickTimerHandle;
@@ -151,4 +160,5 @@ private:
 
 	float HealthRegenAmountPerTick = 0.0f;
 	int32 RemainingHealthRegenTickCount = 0;
+	FGameplayTag ActiveHealthRegenSourceTag;
 };
