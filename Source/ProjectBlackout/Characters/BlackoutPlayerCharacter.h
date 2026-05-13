@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "BlackoutCharacterBase.h"
 #include "GameplayTagContainer.h"
+#include "TimerManager.h"
 #include "BlackoutPlayerCharacter.generated.h"
 
 class USpringArmComponent;
@@ -261,6 +262,9 @@ public:
 protected:
 	void ApplyDownedStateLocally();
 	void ClearDownedStateLocally();
+	void RestoreWeaponVisibilityAfterRevive();
+	void ScheduleWeaponVisibilityRestoreAfterRevive();
+	void HandleReviveMontageEnded(UAnimMontage* Montage, bool bInterrupted);
 	
 	
 	
@@ -317,6 +321,8 @@ protected:
 	/** 로컬 클라이언트에서 직전 downed 상태를 기억해 기상 몽타주 전환을 판별합니다. */
 	UPROPERTY(Transient)
 	bool bWasDownedLocally = false;
+
+	FTimerHandle ReviveWeaponRestoreTimerHandle;
 
 	UFUNCTION()
 	void HandleHitReactMontageEnded(UAnimMontage* Montage, bool bInterrupted);

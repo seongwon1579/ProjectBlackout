@@ -678,6 +678,12 @@ void ABlackoutPlayerCharacter::HandleDownedStateChanged()
 	if (bWasDowned && !IsDead() && ReviveMontage)
 	{
 		PlayReviveMontage(ReviveMontage, 1.f);
+		return;
+	}
+
+	if (bWasDowned && !IsDead())
+	{
+		RestoreWeaponVisibilityAfterRevive();
 	}
 }
 
@@ -687,11 +693,17 @@ void ABlackoutPlayerCharacter::ApplyDownedStateLocally()
 	bIsDodgeMontagePlaying = false;
 	bIsWeaponSwapMontagePlaying = false;
 
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(ReviveWeaponRestoreTimerHandle);
+	}
+
 	if (CombatComponent)
 	{
 		CombatComponent->StopFire();
 		CombatComponent->HandlePrimaryActionReleased();
 		CombatComponent->StopAim();
+		CombatComponent->BeginEquippedWeaponHiddenOverride();
 	}
 
 	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
@@ -762,6 +774,11 @@ void ABlackoutPlayerCharacter::OnDeath()
 		CombatComponent->StopAim();
 	}
 
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(ReviveWeaponRestoreTimerHandle);
+	}
+
 	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
 	{
 		MoveComp->DisableMovement();
@@ -787,6 +804,7 @@ void ABlackoutPlayerCharacter::Server_ReviveFromDowned_Implementation(float Revi
 	bIsDowned = false;
 	AbilitySystemComponent->SetNumericAttributeBase(UBlackoutBaseAttributeSet::GetHealthAttribute(), ClampedHealth);
 	ClearDownedStateLocally();
+	ScheduleWeaponVisibilityRestoreAfterRevive();
 	BO_LOG_GAS(Log, "ReviveFromDowned: Target=%s Health=%.1f", *GetName(), ClampedHealth);
 }
 
@@ -889,6 +907,12 @@ bool ABlackoutPlayerCharacter::PlayReviveMontage(UAnimMontage* Montage, float Pl
 	}
 
 	const float PlayResult = PlayAnimMontage(Montage, PlayRate);
+	if (PlayResult > 0.f)
+	{
+		FOnMontageEnded MontageEndedDelegate;
+		MontageEndedDelegate.BindUObject(this, &ABlackoutPlayerCharacter::HandleReviveMontageEnded);
+		AnimInstance->Montage_SetEndDelegate(MontageEndedDelegate, Montage);
+	}
 	BO_LOG_GAS(Log,
 		"PlayReviveMontage result=%.2f Local=%s Authority=%s Montage=%s",
 		PlayResult,
@@ -977,6 +1001,54 @@ bool ABlackoutPlayerCharacter::StopRevivePerformMontage(UAnimMontage* Montage, f
 void ABlackoutPlayerCharacter::Multicast_PlayReviveMontage_Implementation(UAnimMontage* Montage, float PlayRate)
 {
 	PlayReviveMontage(Montage, PlayRate);
+}
+
+void ABlackoutPlayerCharacter::RestoreWeaponVisibilityAfterRevive()
+{
+	if (CombatComponent)
+	{
+		CombatComponent->EndEquippedWeaponHiddenOverride();
+	}
+}
+
+void ABlackoutPlayerCharacter::ScheduleWeaponVisibilityRestoreAfterRevive()
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	if (!CombatComponent)
+	{
+		return;
+	}
+
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(ReviveWeaponRestoreTimerHandle);
+
+		const float RestoreDelay = ReviveMontage ? FMath::Max(ReviveMontage->GetPlayLength(), 0.0f) : 0.0f;
+		if (RestoreDelay <= 0.0f)
+		{
+			RestoreWeaponVisibilityAfterRevive();
+			return;
+		}
+
+		World->GetTimerManager().SetTimer(
+			ReviveWeaponRestoreTimerHandle,
+			this,
+			&ABlackoutPlayerCharacter::RestoreWeaponVisibilityAfterRevive,
+			RestoreDelay,
+			false);
+	}
+}
+
+void ABlackoutPlayerCharacter::HandleReviveMontageEnded(UAnimMontage* Montage, bool bInterrupted)
+{
+	if (!IsDowned() && !IsDead())
+	{
+		RestoreWeaponVisibilityAfterRevive();
+	}
 }
 
 void ABlackoutPlayerCharacter::CacheAimDefaults()

@@ -74,6 +74,25 @@ void ABlackoutPlayerController::Client_ShowDamageNumber_Implementation(float Dam
 	ReceiveShowDamageNumber(DamageAmount, bIsCritical);
 }
 
+void ABlackoutPlayerController::Client_ShowDamageNumberAtLocation_Implementation(
+	float DamageAmount,
+	FVector WorldLocation,
+	bool bIsCritical)
+{
+	TryInitHUD();
+
+	if (ABlackoutHUD* BlackoutHUD = Cast<ABlackoutHUD>(GetHUD()))
+	{
+		if (BlackoutHUD->ShowDamageNumberAtWorldLocation(DamageAmount, WorldLocation, bIsCritical))
+		{
+			return;
+		}
+	}
+
+	// HUD가 아직 준비되지 않았을 때도 최소한의 표시 경로는 유지합니다.
+	ReceiveShowDamageNumber(DamageAmount, bIsCritical);
+}
+
 #pragma region InputSetup
 
 void ABlackoutPlayerController::SetupInputComponent()

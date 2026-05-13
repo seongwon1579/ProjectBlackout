@@ -5,6 +5,7 @@
 #include "Animation/AnimMontage.h"
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
+#include "Combat/Components/BlackoutHitboxComponent.h"
 #include "Combat/Components/BlackoutImpactIndicatorComponent.h"
 #include "Combat/Weapons/BOFirearm.h"
 #include "Combat/Weapons/BOShotgunFirearm.h"
@@ -12,11 +13,14 @@
 #include "Core/BlackoutCollisionChannels.h"
 #include "Core/BlackoutLog.h"
 #include "DrawDebugHelpers.h"
+#include "Interfaces/BlackoutDamageable.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "GAS/Attributes/BlackoutAmmoAttributeSet.h"
 #include "TimerManager.h"
 #include "Engine/World.h"
 #include "GameFramework/Character.h"
+#include "GameFramework/PlayerController.h"
+#include "UI/BlackoutHUD.h"
 
 namespace
 {
@@ -54,6 +58,82 @@ namespace
 		const FVector DebugEnd = PredictedHitResult.bBlockingHit ? PredictedHitResult.ImpactPoint : TraceEnd;
 		const FColor DebugColor = BlackoutWeaponDebug::GetHitscanDebugColor(PredictedHitResult.bBlockingHit, DamageTargetActor);
 		DrawDebugLine(World, TraceStart, DebugEnd, DebugColor, false, Duration, 0, Thickness);
+	}
+
+	bool TryShowPredictedDamageNumber(
+		ABlackoutPlayerCharacter* PlayerCharacter,
+		const FHitResult& PredictedHitResult,
+		const float PredictedDamageAmount)
+	{
+		if (!PlayerCharacter || !PlayerCharacter->IsLocallyControlled() || !PredictedHitResult.bBlockingHit)
+		{
+			return false;
+		}
+
+		bool bCanShowDamageNumber = false;
+		bool bIsCritical = false;
+
+		if (UBlackoutHitboxComponent* HitboxComponent = Cast<UBlackoutHitboxComponent>(PredictedHitResult.GetComponent()))
+		{
+			bCanShowDamageNumber = HitboxComponent->GetOwner() && Cast<IBlackoutDamageable>(HitboxComponent->GetOwner());
+			bIsCritical = HitboxComponent->GetPartTag().MatchesTagExact(BlackoutGameplayTags::Body_WeakSpot);
+		}
+		else if (AActor* HitActor = PredictedHitResult.GetActor())
+		{
+			if (IBlackoutDamageable* Damageable = Cast<IBlackoutDamageable>(HitActor))
+			{
+				bCanShowDamageNumber = true;
+				bIsCritical = Damageable->GetHitPartTag(PredictedHitResult.BoneName).MatchesTagExact(BlackoutGameplayTags::Body_WeakSpot);
+			}
+		}
+
+		if (!bCanShowDamageNumber)
+		{
+			return false;
+		}
+
+		APlayerController* PlayerController = Cast<APlayerController>(PlayerCharacter->GetController());
+		ABlackoutHUD* BlackoutHUD = PlayerController ? Cast<ABlackoutHUD>(PlayerController->GetHUD()) : nullptr;
+		if (!BlackoutHUD)
+		{
+			return false;
+		}
+
+		return BlackoutHUD->ShowDamageNumberAtWorldLocation(
+			PredictedDamageAmount,
+			PredictedHitResult.ImpactPoint,
+			bIsCritical);
+	}
+
+	void ShowPredictedDamageNumberFromTrace(
+		ABlackoutPlayerCharacter* PlayerCharacter,
+		UWorld* World,
+		const FVector& TraceStart,
+		const FVector& TraceEnd,
+		const AActor* IgnoredOwner,
+		const AActor* IgnoredWeapon,
+		const float PredictedDamageAmount)
+	{
+		if (!World || !PlayerCharacter || !PlayerCharacter->IsLocallyControlled())
+		{
+			return;
+		}
+
+		FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(BlackoutGA_FireWeapon_PredictedDamageNumber), false, IgnoredOwner);
+		if (IgnoredWeapon)
+		{
+			QueryParams.AddIgnoredActor(IgnoredWeapon);
+		}
+
+		FHitResult PredictedHitResult;
+		World->LineTraceSingleByChannel(
+			PredictedHitResult,
+			TraceStart,
+			TraceEnd,
+			BlackoutCollisionChannels::WeaponTrace,
+			QueryParams);
+
+		TryShowPredictedDamageNumber(PlayerCharacter, PredictedHitResult, PredictedDamageAmount);
 	}
 }
 
@@ -190,6 +270,45 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 					EquippedFirearm,
 					DebugDuration,
 					DebugThickness);
+			}
+		}
+	}
+
+	// 로컬 예측 숫자는 정확한 서버 계산 대신 즉시 피드백을 우선합니다.
+	if (PlayerCharacter->IsLocallyControlled() && EquippedFirearm->UsesHitscan())
+	{
+		if (UWorld* World = PlayerCharacter->GetWorld())
+		{
+			if (const ABOShotgunFirearm* ShotgunFirearm = Cast<ABOShotgunFirearm>(EquippedFirearm))
+			{
+				const TArray<FVector> PelletDirections = ShotgunFirearm->BuildPelletDirections(FireDirection);
+				const float PelletTraceDistance = ShotgunFirearm->GetPelletTraceDistance();
+				const float PredictedPelletDamage = ShotgunFirearm->GetDamagePerPellet();
+
+				for (const FVector& PelletDirection : PelletDirections)
+				{
+					const FVector PredictedTraceEnd = MuzzleLocation + PelletDirection.GetSafeNormal() * PelletTraceDistance;
+					ShowPredictedDamageNumberFromTrace(
+						PlayerCharacter,
+						World,
+						MuzzleLocation,
+						PredictedTraceEnd,
+						EquippedFirearm->GetOwner(),
+						EquippedFirearm,
+						PredictedPelletDamage);
+				}
+			}
+			else
+			{
+				const FVector PredictedTraceEnd = MuzzleLocation + FireDirection.GetSafeNormal() * PredictedFireDebugTraceDistance;
+				ShowPredictedDamageNumberFromTrace(
+					PlayerCharacter,
+					World,
+					MuzzleLocation,
+					PredictedTraceEnd,
+					EquippedFirearm->GetOwner(),
+					EquippedFirearm,
+					EquippedFirearm->GetBaseDamage());
 			}
 		}
 	}
@@ -331,6 +450,7 @@ FGameplayEffectSpecHandle UBlackoutGA_FireWeapon::BuildDamageSpec(const ABOFirea
 		if (SpecHandle.IsValid())
 		{
 			SpecHandle.Data->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Damage, Firearm->GetBaseDamage());
+			SpecHandle.Data->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_DamageNumber_PredictedOnly, 1.0f);
 		}
 	}
 	else
@@ -358,6 +478,7 @@ FGameplayEffectSpecHandle UBlackoutGA_FireWeapon::BuildPelletDamageSpec(const AB
 		if (SpecHandle.IsValid())
 		{
 			SpecHandle.Data->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Damage, Firearm->GetDamagePerPellet());
+			SpecHandle.Data->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_DamageNumber_PredictedOnly, 1.0f);
 		}
 	}
 	else

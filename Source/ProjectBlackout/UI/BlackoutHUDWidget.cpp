@@ -1,12 +1,16 @@
 #include "UI/BlackoutHUDWidget.h"
 
+#include "Blueprint/WidgetLayoutLibrary.h"
+#include "Components/CanvasPanel.h"
+#include "Components/CanvasPanelSlot.h"
 #include "Core/BlackoutLog.h"
 #include "Components/Border.h"
-#include "Components/CanvasPanelSlot.h"
 #include "Components/Image.h"
 #include "Components/Widget.h"
+#include "GameFramework/PlayerController.h"
 #include "Rendering/DrawElements.h"
 #include "Styling/CoreStyle.h"
+#include "UI/BlackoutDamageNumberWidget.h"
 #include "UI/BlackoutConsumableSlotsWidget.h"
 #include "UI/BlackoutHUDWidgetController.h"
 #include "UI/BlackoutRelicWidget.h"
@@ -82,6 +86,55 @@ void UBlackoutHUDWidget::SetWidgetController(UBlackoutHUDWidgetController* InWid
 	WidgetController->OnConsumableSlotsChanged.AddDynamic(this, &UBlackoutHUDWidget::HandleConsumableSlotsChanged);
 
 	ReceiveWidgetControllerSet();
+}
+
+bool UBlackoutHUDWidget::ShowDamageNumberAtWorldLocation(
+	float DamageAmount,
+	const FVector& WorldLocation,
+	bool bIsCritical)
+{
+	APlayerController* OwningPlayerController = GetOwningPlayer();
+	if (!OwningPlayerController || !OwningPlayerController->IsLocalController())
+	{
+		return false;
+	}
+
+	if (CNV_DamageNumbers && DamageNumberWidgetClass)
+	{
+		UBlackoutDamageNumberWidget* DamageNumberWidget =
+			CreateWidget<UBlackoutDamageNumberWidget>(OwningPlayerController, DamageNumberWidgetClass);
+		if (DamageNumberWidget)
+		{
+			if (UCanvasPanelSlot* CanvasPanelSlot = CNV_DamageNumbers->AddChildToCanvas(DamageNumberWidget))
+			{
+				const FVector2D RandomOffset(
+					FMath::FRandRange(-DamageNumberRandomOffsetX, DamageNumberRandomOffsetX),
+					FMath::FRandRange(-DamageNumberRandomOffsetY, DamageNumberRandomOffsetY));
+
+				DamageNumberWidget->SetCanvasSlot(CanvasPanelSlot);
+				DamageNumberWidget->InitializeDamageNumber(
+					DamageAmount,
+					bIsCritical,
+					WorldLocation,
+					RandomOffset);
+				return true;
+			}
+		}
+	}
+
+	FVector2D ScreenPosition = FVector2D::ZeroVector;
+	if (!UWidgetLayoutLibrary::ProjectWorldLocationToWidgetPosition(
+		OwningPlayerController,
+		WorldLocation,
+		ScreenPosition,
+		true))
+	{
+		return false;
+	}
+
+	// 실제 숫자 WBP 생성은 블루프린트에서 처리하고, C++은 좌표 전달만 담당합니다.
+	ReceiveDamageNumberRequested(DamageAmount, ScreenPosition, bIsCritical);
+	return true;
 }
 
 void UBlackoutHUDWidget::UnbindWidgetControllerCallbacks()
