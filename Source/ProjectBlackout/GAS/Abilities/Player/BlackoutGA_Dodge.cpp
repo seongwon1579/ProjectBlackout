@@ -36,29 +36,54 @@ void UBlackoutGA_Dodge::InputPressed(const FGameplayAbilitySpecHandle Handle, co
 	Super::InputPressed(Handle, ActorInfo, ActivationInfo);
 }
 
+bool UBlackoutGA_Dodge::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags,
+	FGameplayTagContainer* OptionalRelevantTags) const
+{
+	if (!Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags))
+	{
+		return false;
+	}
+
+	if (!ActorInfo || !ActorInfo->AvatarActor.IsValid())
+	{
+		return false;
+	}
+
+	if (!DodgeData || !DodgeData->DodgeMontage)
+	{
+		return false;
+	}
+
+	const UAbilitySystemComponent* AbilitySystemComponent = ActorInfo->AbilitySystemComponent.Get();
+	if (!AbilitySystemComponent)
+	{
+		return false;
+	}
+
+	const UBlackoutAbilitySystemComponent* BlackoutASC = Cast<UBlackoutAbilitySystemComponent>(AbilitySystemComponent);
+	const float StaminaCostMultiplier = BlackoutASC ? BlackoutASC->GetStaminaCostMultiplier() : 1.f;
+	const float ModifiedStaminaCost = DodgeData->StaminaCost * StaminaCostMultiplier;
+	const float CurrentStamina = AbilitySystemComponent->GetNumericAttribute(UBlackoutPlayerAttributeSet::GetStaminaAttribute());
+	if (CurrentStamina < ModifiedStaminaCost)
+	{
+		return false;
+	}
+
+	return true;
+}
+
 void UBlackoutGA_Dodge::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
 	const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
 	BO_LOG_GAS(Log, "GA_Dodge activate requested");
 
-	if (!ActorInfo || !ActorInfo->AvatarActor.IsValid())
-	{
-		BO_LOG_GAS(Warning, "GA_Dodge failed: ActorInfo 또는 AvatarActor가 유효하지 않음");
-		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
-		return;
-	}
-
-	if (!DodgeData || !DodgeData->DodgeMontage)
-	{
-		BO_LOG_GAS(Warning, "GA_Dodge failed: DodgeData 또는 DodgeMontage 가 비어 있음");
-		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
-		return;
-	}
-
+	// 사전 조건(ActorInfo/DodgeData/스태미나/Blocked tags)은 CanActivateAbility 에서 이미 검증됨.
+	// 여기서는 실제 활성에 필요한 cast 와 commit 만 수행합니다.
 	ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get());
 	if (!PlayerCharacter || !ConsumeStamina())
 	{
-		BO_LOG_GAS(Warning, "GA_Dodge failed: PlayerCharacter가 없거나 스태미나가 부족함");
+		BO_LOG_GAS(Warning, "GA_Dodge failed: PlayerCharacter가 없거나 스태미나 차감 실패");
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
@@ -76,13 +101,15 @@ void UBlackoutGA_Dodge::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
 		MeleeAbility->K2_CancelAbility();
 	}
 
-	// 루트 모션 + LocalPredicted GA 의 CMC 위치 보정 문제 회피.
-	// 서버가 dodge 활성을 확정하기 전 도착하는 ServerMove RPC 들이 root motion 이동을 의심해
-	// ClientAdjustPosition 으로 클라 위치를 pre-dodge 로 되돌리는 현상을 막습니다.
-	// EndAbility 에서 반드시 false 로 되돌립니다.
+	// v2.3 (옵션 A — 클라 권위 위치 동기화):
+	// - bIgnoreClientMovementErrorChecksAndCorrection: 서버가 ClientAdjustPosition RPC 를 보내지 않음 (jitter 차단).
+	// - bServerAcceptClientAuthoritativePosition: 매 ServerMove 마다 서버가 클라 보고 위치를 그대로 채택.
+	//   두 플래그 조합으로 root motion 진행 중 server↔client 위치가 자연 동기화 → EndAbility 시 워프 없음.
+	// PvE 코옵 전제. EndAbility 에서 반드시 false 로 복구.
 	if (UCharacterMovementComponent* MovementComponent = PlayerCharacter->GetCharacterMovement())
 	{
 		MovementComponent->bIgnoreClientMovementErrorChecksAndCorrection = true;
+		MovementComponent->bServerAcceptClientAuthoritativePosition = true;
 	}
 
 	if (!StartDodgeInternal(PlayerCharacter, /*bIsChainRestart=*/false))
@@ -108,10 +135,11 @@ void UBlackoutGA_Dodge::EndAbility(const FGameplayAbilitySpecHandle Handle, cons
 			PlayerCharacter->SetPendingDodgeInput(FVector2D::ZeroVector);
 			PlayerCharacter->SetDodgeMontagePlaying(false);
 
-			// ActivateAbility 에서 켰던 CMC 위치 보정 가드를 반드시 복구.
+			// v2.3: ActivateAbility 에서 켰던 클라 권위 동기화 플래그 복구.
 			if (UCharacterMovementComponent* MovementComponent = PlayerCharacter->GetCharacterMovement())
 			{
 				MovementComponent->bIgnoreClientMovementErrorChecksAndCorrection = false;
+				MovementComponent->bServerAcceptClientAuthoritativePosition = false;
 			}
 		}
 	}
