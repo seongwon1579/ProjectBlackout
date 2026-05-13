@@ -44,5 +44,10 @@ private:
 	// HTTP 응답 콜백
 	void OnFinishResponse(FHttpRequestPtr Request, FHttpResponsePtr Response , bool bSucceeded);
 	
+	// 데디 시작시 매칭 서버에 등록
+	void RegisterToMatchmakingServer();
+	void OnRegisterResponse(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bSucceeded);
+	
 	FString CurrentSessionId;
+	FString ServerId; // /server/register 응답
 };
