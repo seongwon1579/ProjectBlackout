@@ -14,6 +14,7 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Attacking);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Reloading);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_UseConsumable);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_UseRelic);
 	
 	// ─── Character Abilities ───────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Player_Dodge);
@@ -61,8 +62,13 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Weapon_Primary);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Weapon_Secondary);
 
-	// ─── Reload Animation ─────────────────────────────────────────────────────
+	// ─── Shoot Animation ─────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Animation_Fire_RustyLeverAction);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Animation_Fire_Sporebloom);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Animation_Fire_ChicagoTypewriter);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Animation_Fire_SecondaryCommon);
+	
+	// ─── Reload Animation ─────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Animation_Reload_ChicagoTypewriter);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Animation_Reload_RepeaterPistol);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Animation_Reload_Sporebloom);
@@ -85,6 +91,12 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_FromSingle_SwipeL);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_FromSingle_SwipeR);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_FromSingle_Double);
+	
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_Swipe_L);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_Swipe_LFromR);
+	
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_Swipe_R);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_Swipe_RFromL);
 	
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_FlashKick);
 	

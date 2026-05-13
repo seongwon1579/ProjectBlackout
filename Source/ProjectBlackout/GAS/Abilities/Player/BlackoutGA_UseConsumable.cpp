@@ -17,7 +17,7 @@
 UBlackoutGA_UseConsumable::UBlackoutGA_UseConsumable()
 {
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
-	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::ServerOnly;
+	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::LocalPredicted;
 
 	ActivationOwnedTags.AddTag(BlackoutGameplayTags::State_UseConsumable);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Downed);
@@ -73,41 +73,53 @@ void UBlackoutGA_UseConsumable::ActivateAbility(const FGameplayAbilitySpecHandle
 	bConsumableApplied = false;
 	PendingConsumableData = ResolvedConsumableData;
 
+	ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get());
 	if (ConsumableMontage)
 	{
-		ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get());
-		if (PlayerCharacter && PlayerCharacter->HasAuthority())
+		if (PlayerCharacter)
 		{
 			const float MontageDuration = ConsumableMontage->GetPlayLength();
 			if (MontageDuration > 0.f)
 			{
 				ApplySlowMovementSpeed(ActorInfo);
 				BeginWeaponHolsterOverride(ActorInfo);
-				PlayerCharacter->Multicast_PlayConsumableMontage(ConsumableMontage, 1.f);
-
-				UAbilityTask_WaitGameplayEvent* WaitEventTask = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(this, BlackoutGameplayTags::Event_Montage_ConsumableApply);
-				if (WaitEventTask)
+				if (PlayerCharacter->IsLocallyControlled())
 				{
-					WaitEventTask->EventReceived.AddDynamic(this, &UBlackoutGA_UseConsumable::OnConsumableApplyEventReceived);
-					WaitEventTask->ReadyForActivation();
+					PlayerCharacter->PlayAnimMontage(ConsumableMontage, 1.f);
 				}
 
-				if (UWorld* World = PlayerCharacter->GetWorld())
+				if (PlayerCharacter->HasAuthority())
 				{
-					World->GetTimerManager().SetTimer(ConsumableMontageTimerHandle, this, &UBlackoutGA_UseConsumable::OnConsumableMontageFinished, MontageDuration, false);
+					PlayerCharacter->Multicast_PlayConsumableMontage(ConsumableMontage, 1.f);
+
+					UAbilityTask_WaitGameplayEvent* WaitEventTask = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(this, BlackoutGameplayTags::Event_Montage_ConsumableApply);
+					if (WaitEventTask)
+					{
+						WaitEventTask->EventReceived.AddDynamic(this, &UBlackoutGA_UseConsumable::OnConsumableApplyEventReceived);
+						WaitEventTask->ReadyForActivation();
+					}
+
+					if (UWorld* World = PlayerCharacter->GetWorld())
+					{
+						World->GetTimerManager().SetTimer(ConsumableMontageTimerHandle, this, &UBlackoutGA_UseConsumable::OnConsumableMontageFinished, MontageDuration, false);
+					}
+
+					BO_LOG_GAS(Log, "소모품 몽타주 시작: Player=%s Data=%s Duration=%.2f",
+						*BlackoutPlayerState->GetPlayerName(),
+						*GetNameSafe(ResolvedConsumableData),
+						MontageDuration);
 				}
 
-				BO_LOG_GAS(Log, "소모품 몽타주 시작: Player=%s Data=%s Duration=%.2f",
-					*BlackoutPlayerState->GetPlayerName(),
-					*GetNameSafe(ResolvedConsumableData),
-					MontageDuration);
 				return;
 			}
 		}
 	}
 
-	ConsumeAndApplyEffect();
-	EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
+	if (PlayerCharacter && PlayerCharacter->HasAuthority())
+	{
+		ConsumeAndApplyEffect();
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
+	}
 }
 
 void UBlackoutGA_UseConsumable::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
@@ -139,6 +151,11 @@ void UBlackoutGA_UseConsumable::EndAbility(const FGameplayAbilitySpecHandle Hand
 void UBlackoutGA_UseConsumable::ConsumeAndApplyEffect()
 {
 	if (bConsumableApplied || !PendingConsumableData)
+	{
+		return;
+	}
+
+	if (!CurrentActorInfo || !CurrentActorInfo->AvatarActor.IsValid() || !CurrentActorInfo->AvatarActor->HasAuthority())
 	{
 		return;
 	}
@@ -289,7 +306,7 @@ void UBlackoutGA_UseConsumable::StartConsumableCooldown(const UBOConsumableData*
 
 void UBlackoutGA_UseConsumable::ApplySlowMovementSpeed(const FGameplayAbilityActorInfo* ActorInfo)
 {
-	const ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
+	ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
 	UCharacterMovementComponent* MovementComponent = PlayerCharacter ? PlayerCharacter->GetCharacterMovement() : nullptr;
 	if (!MovementComponent)
 	{
@@ -298,6 +315,11 @@ void UBlackoutGA_UseConsumable::ApplySlowMovementSpeed(const FGameplayAbilityAct
 
 	CachedWalkSpeed = MovementComponent->MaxWalkSpeed;
 	MovementComponent->MaxWalkSpeed = CachedWalkSpeed * ConsumableSpeedMultiplier;
+
+	if (PlayerCharacter->HasAuthority())
+	{
+		PlayerCharacter->Client_BeginAbilityMovementOverride(ConsumableSpeedMultiplier, false, false);
+	}
 }
 
 void UBlackoutGA_UseConsumable::RestoreMovementSpeed(const FGameplayAbilityActorInfo* ActorInfo)
@@ -307,10 +329,15 @@ void UBlackoutGA_UseConsumable::RestoreMovementSpeed(const FGameplayAbilityActor
 		return;
 	}
 
-	const ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
+	ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
 	if (UCharacterMovementComponent* MovementComponent = PlayerCharacter ? PlayerCharacter->GetCharacterMovement() : nullptr)
 	{
 		MovementComponent->MaxWalkSpeed = CachedWalkSpeed;
+	}
+
+	if (PlayerCharacter && PlayerCharacter->HasAuthority())
+	{
+		PlayerCharacter->Client_EndAbilityMovementOverride();
 	}
 
 	CachedWalkSpeed = 0.0f;

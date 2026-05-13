@@ -11,6 +11,7 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(State_Attacking,     "State.Attacking");
 	UE_DEFINE_GAMEPLAY_TAG(State_Reloading,     "State.Reloading");
 	UE_DEFINE_GAMEPLAY_TAG(State_UseConsumable, "State.UseConsumable");
+	UE_DEFINE_GAMEPLAY_TAG(State_UseRelic,      "State.UseRelic");
 	
 	// ─── Character Abilities ───────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Player_Dodge,			"Ability.Player.Dodge");
@@ -58,8 +59,14 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(Weapon_Primary,   "Weapon.Primary");
 	UE_DEFINE_GAMEPLAY_TAG(Weapon_Secondary, "Weapon.Secondary");
 
+	// ─── Shoot Animation ─────────────────────────────────────────────────────
+	UE_DEFINE_GAMEPLAY_TAG(Animation_Fire_RustyLeverAction,		"Animation.Fire.RustyLeverAction");
+	UE_DEFINE_GAMEPLAY_TAG(Animation_Fire_Sporebloom,			"Animation.Fire.Sporebloom");
+	UE_DEFINE_GAMEPLAY_TAG(Animation_Fire_ChicagoTypewriter,	"Animation.Fire.ChicagoTypewriter");
+	UE_DEFINE_GAMEPLAY_TAG(Animation_Fire_SecondaryCommon,		"Animation.Fire.SecondaryCommon");
+	
 	// ─── Reload Animation ─────────────────────────────────────────────────────
-	UE_DEFINE_GAMEPLAY_TAG(Animation_Fire_RustyLeverAction,      "Animation.Fire.RustyLeverAction");
+	
 	UE_DEFINE_GAMEPLAY_TAG(Animation_Reload_ChicagoTypewriter, "Animation.Reload.ChicagoTypewriter");
 	UE_DEFINE_GAMEPLAY_TAG(Animation_Reload_RepeaterPistol,    "Animation.Reload.RepeaterPistol");
 	UE_DEFINE_GAMEPLAY_TAG(Animation_Reload_Sporebloom,        "Animation.Reload.Sporebloom");
@@ -82,6 +89,12 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_FromSingle_SwipeL, "Ability.Ravager.FromSingle.SwipeL");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_FromSingle_SwipeR, "Ability.Ravager.FromSingle.SwipeR");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_FromSingle_Double, "Ability.Ravager.FromSingle.Double");
+	
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Swipe_L, "Ability.Ravager.Swipe.L");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Swipe_LFromR, "Ability.Ravager.Swipe.LFromR");
+	
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Swipe_R, "Ability.Ravager.Swipe.R");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Swipe_RFromL, "Ability.Ravager.Swipe.RFromL");
 	
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_FlashKick, "Ability.Ravager.FlashKick");
 	

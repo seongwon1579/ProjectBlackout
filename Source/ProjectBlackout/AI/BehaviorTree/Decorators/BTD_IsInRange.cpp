@@ -7,7 +7,7 @@
 
 UBTD_IsInRange::UBTD_IsInRange()
 {
-	
+	NodeName = TEXT("IsInRange");
 }
 
 bool UBTD_IsInRange::CalculateRawConditionValue(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) const

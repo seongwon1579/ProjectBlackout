@@ -106,9 +106,12 @@ void UGA_BossMeleeAttack::OnMontageCancelled()
 
 void UGA_BossMeleeAttack::OnCollision(FGameplayEventData Payload)
 {
+	UE_LOG(LogTemp, Warning, TEXT("데미지 입힘"))
+	
 	AActor* Avatar = GetAvatarActorFromActorInfo();
 	if (!Avatar) return;
 	
+	//TODO: 순회로 하지 말고 Map으로 변경 필요
 	for (const FName& CompName : HitboxComponentNames)
 	{
 		UPrimitiveComponent* Hitbox = nullptr;
@@ -158,6 +161,32 @@ void UGA_BossMeleeAttack::EndHitBox(FGameplayEventData Payload)
 
 void UGA_BossMeleeAttack::OffCollision(const FHitResult& Result)
 {
+	if (!DamageEffectClass)
+	{
+		return;
+	}
+	
+	IBlackoutDamageable* Damageable = Cast<IBlackoutDamageable>(Result.GetActor());
+	if (!Damageable)
+	{
+		return;
+	}
+	UAbilitySystemComponent* OwnerASC = GetAbilitySystemComponentFromActorInfo();
+	if (!OwnerASC)
+	{
+		return;
+	}
+	
+	FGameplayEffectContextHandle EffectContext = OwnerASC->MakeEffectContext();
+	EffectContext.AddSourceObject(GetAvatarActorFromActorInfo());
+	
+	FGameplayEffectSpecHandle SpecHandle= OwnerASC->MakeOutgoingSpec(DamageEffectClass, GetAbilityLevel(), EffectContext);
+	if (SpecHandle.IsValid())
+	{
+		SpecHandle.Data -> SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Damage , DamageMagnitude);
+		Damageable->ReceiveDamageFromHitbox(SpecHandle,Result.BoneName);
+	}
+	
 	for (TObjectPtr<UAbilityTask_BossMeleeHitbox>& Task : ActiveHitboxTasks)
 	{
 		if (Task)
@@ -168,34 +197,3 @@ void UGA_BossMeleeAttack::OffCollision(const FHitResult& Result)
 	ActiveHitboxTasks.Empty();
 }
 
-
-
-// void UGA_BossMeleeAttack::OffCollision(const FHitResult& HitResult)
-// {
-// 	if (!DamageEffectClass)
-// 	{
-// 		return;
-// 	}
-//
-// 	AActor* HitActor = HitResult.GetActor();
-// 	IBlackoutDamageable* Damageable = Cast<IBlackoutDamageable>(HitActor);
-// 	if (!Damageable)
-// 	{
-// 		return;
-// 	}
-//
-// 	UAbilitySystemComponent* OwnerASC = GetAbilitySystemComponentFromActorInfo();
-// 	if (!OwnerASC)
-// 	{
-// 		return;
-// 	}
-//
-// 	FGameplayEffectContextHandle EffectContext = OwnerASC->MakeEffectContext();
-// 	EffectContext.AddSourceObject(GetAvatarActorFromActorInfo());
-//
-// 	FGameplayEffectSpecHandle SpecHandle = OwnerASC->MakeOutgoingSpec(DamageEffectClass, GetAbilityLevel(), EffectContext);
-// 	if (SpecHandle.IsValid())
-// 	{
-// 		Damageable->ReceiveDamageFromHitbox(SpecHandle, HitResult.BoneName);
-// 	}
-// }

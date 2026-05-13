@@ -261,6 +261,8 @@ classDiagram
         +I-Frame 무적
         +Root Motion 구르기
         +Tag: State.Invulnerable
+        +입력 buffer / late grace
+        +timestamp 검증
     }
 
     class GA_UseRelic {
@@ -295,7 +297,22 @@ classDiagram
     class GA_Melee_Player {
         +AnimNotifyState Hitbox
         +강철검 / 고철해머 분기
-        +콤보 연계
+        +콤보 입력 buffer
+        +동적 late grace
+        +timestamp 검증
+    }
+
+    class UBlackoutAbilitySystemComponent {
+        +GenericReplicatedEvent InputPressed
+        +입력 SequenceId 기록
+        +입력 timestamp clamp
+    }
+
+    class FBlackoutAbilityInputSyncPayload {
+        +SequenceId
+        +ClientInputTimeSeconds
+        +ClientEstimatedServerTimeSeconds
+        +InputTag
     }
 
     class ExecCalc_DamageCalc {
@@ -319,6 +336,9 @@ classDiagram
     GA_FireWeapon --> ABOShotgunFirearm : 산탄 펠릿 사격
     GA_FireWeapon --> ExecCalc_DamageCalc : 피격 시
     GA_Melee_Player --> ExecCalc_DamageCalc : 피격 시
+    GA_Melee_Player ..> UBlackoutAbilitySystemComponent : WaitInputPress
+    GA_Dodge ..> UBlackoutAbilitySystemComponent : WaitInputPress
+    UBlackoutAbilitySystemComponent ..> FBlackoutAbilityInputSyncPayload : 기록 / 검증
     UBlackoutGA_UseConsumable <|-- UBlackoutGA_UseBloodRoot
     UBlackoutGA_UseConsumable <|-- UBlackoutGA_UseGulSerum
     ExecCalc_DamageCalc --> ExecCalc_CombatReward : 사망 시

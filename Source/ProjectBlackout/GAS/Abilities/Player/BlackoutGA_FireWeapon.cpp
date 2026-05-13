@@ -45,6 +45,22 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 		return;
 	}
 
+	// 단발/반자동 무기는 몽타주 유무와 무관하게 발사 간격을 강제로 보장합니다.
+	if (!CanFireAtCurrentTime(EquippedFirearm, ActorInfo))
+	{
+		const float CurrentTimeSeconds = ActorInfo && ActorInfo->AvatarActor.IsValid() && ActorInfo->AvatarActor->GetWorld()
+			? ActorInfo->AvatarActor->GetWorld()->GetTimeSeconds()
+			: -1.0f;
+		BO_LOG_GAS(Log,
+			"GA_FireWeapon skipped by fire-rate gate: Character=%s Weapon=%s Current=%.3f Next=%.3f",
+			*GetNameSafe(PlayerCharacter),
+			*GetNameSafe(EquippedFirearm),
+			CurrentTimeSeconds,
+			NextAllowedFireTimeSeconds);
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
+		return;
+	}
+
 	if (!CommitAbility(Handle, ActorInfo, ActivationInfo))
 	{
 		BO_LOG_GAS(Warning, "GA_FireWeapon failed: CommitAbility 실패");
@@ -59,6 +75,8 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
+
+	ReserveNextFireTime(EquippedFirearm, ActorInfo);
 
 	BO_LOG_GAS(Log, "GA_FireWeapon activated: Character=%s, Weapon=%s", *GetNameSafe(ActorInfo ? ActorInfo->AvatarActor.Get() : nullptr), *GetNameSafe(EquippedFirearm));
 
@@ -88,30 +106,55 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 	// 2. 사격 애니메이션 몽타주 재생
 	PlayFireMontage();
 
-	// 3. 트레이스 수행 또는 발사체 스폰 (무기 컴포넌트 정보 기반)
-	const FVector MuzzleLocation = CombatComponent->GetMuzzleTransform().GetLocation();
-	const FVector AimTarget = ImpactIndicatorComponent->GetAimTargetPoint();
-	const FVector BaseFireDirection = (AimTarget - MuzzleLocation).GetSafeNormal();
-	const FVector FireDirection = CombatComponent->GetSpreadDeviatedDirection(BaseFireDirection);
-	if (ABOShotgunFirearm* ShotgunFirearm = Cast<ABOShotgunFirearm>(EquippedFirearm))
+	// 로컬 예측은 체감용 연출만 담당하고, 실제 월드 판정은 서버에서만 수행합니다.
+	if (PlayerCharacter->HasAuthority())
 	{
-		const FGameplayEffectSpecHandle PelletDamageSpecHandle = BuildPelletDamageSpec(ShotgunFirearm);
-		ShotgunFirearm->FireShotgun(FireDirection, PelletDamageSpecHandle);
+		const FVector MuzzleLocation = CombatComponent->GetMuzzleTransform().GetLocation();
+		const FVector AimTarget = ImpactIndicatorComponent->GetAimTargetPoint();
+		const FVector BaseFireDirection = (AimTarget - MuzzleLocation).GetSafeNormal();
+		const FVector FireDirection = CombatComponent->GetSpreadDeviatedDirection(BaseFireDirection);
+		float CurrentClipAmmoForLog = -1.0f;
+		if (const UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo())
+		{
+			const FGameplayTag EquippedWeaponSlotTag = CombatComponent->GetEquippedWeaponSlotTag();
+			CurrentClipAmmoForLog = EquippedWeaponSlotTag == BlackoutGameplayTags::Weapon_Secondary
+				? AbilitySystemComponent->GetNumericAttribute(UBlackoutAmmoAttributeSet::GetSecondaryClipAmmoAttribute())
+				: AbilitySystemComponent->GetNumericAttribute(UBlackoutAmmoAttributeSet::GetPrimaryClipAmmoAttribute());
+		}
+
+		BO_LOG_GAS(Log,
+			"GA_FireWeapon authoritative shot: Character=%s Weapon=%s ClipAmmo=%.0f Time=%.3f Automatic=%s Shotgun=%s",
+			*GetNameSafe(PlayerCharacter),
+			*GetNameSafe(EquippedFirearm),
+			CurrentClipAmmoForLog,
+			PlayerCharacter->GetWorld() ? PlayerCharacter->GetWorld()->GetTimeSeconds() : -1.0f,
+			EquippedFirearm->IsAutomatic() ? TEXT("true") : TEXT("false"),
+			Cast<ABOShotgunFirearm>(EquippedFirearm) ? TEXT("true") : TEXT("false"));
+
+		if (ABOShotgunFirearm* ShotgunFirearm = Cast<ABOShotgunFirearm>(EquippedFirearm))
+		{
+			const FGameplayEffectSpecHandle PelletDamageSpecHandle = BuildPelletDamageSpec(ShotgunFirearm);
+			ShotgunFirearm->FireShotgun(FireDirection, PelletDamageSpecHandle);
+		}
+		else
+		{
+			const FGameplayEffectSpecHandle DamageSpecHandle = BuildDamageSpec(EquippedFirearm);
+			EquippedFirearm->Fire(FireDirection, DamageSpecHandle);
+		}
+
+		// 실제 월드에 영향을 주는 큐는 서버에서만 실행합니다.
+		if (UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo())
+		{
+			AbilitySystemComponent->ExecuteGameplayCue(BlackoutGameplayTags::GameplayCue_Weapon_Fire);
+		}
 	}
 	else
 	{
-		const FGameplayEffectSpecHandle DamageSpecHandle = BuildDamageSpec(EquippedFirearm);
-		EquippedFirearm->Fire(FireDirection, DamageSpecHandle);
+		BO_LOG_GAS(Verbose, "GA_FireWeapon predicted client: 실제 사격 판정은 서버에서 대기");
 	}
 
 	// 4. 탄퍼짐 누적 및 반동 적용
 	CombatComponent->OnShotFired();
-
-	// 5. 사격 GameplayCue 트리거
-	if (UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo())
-	{
-		AbilitySystemComponent->ExecuteGameplayCue(BlackoutGameplayTags::GameplayCue_Weapon_Fire);
-	}
 
 	if (CachedFireMontage)
 	{
@@ -254,26 +297,98 @@ bool UBlackoutGA_FireWeapon::ApplyAmmoCost()
 	}
 
 	const FGameplayTag WeaponSlotTag = CombatComponent->GetEquippedWeaponSlotTag();
+	const float PrimaryClipAmmoBefore = AbilitySystemComponent->GetNumericAttribute(UBlackoutAmmoAttributeSet::GetPrimaryClipAmmoAttribute());
+	const float SecondaryClipAmmoBefore = AbilitySystemComponent->GetNumericAttribute(UBlackoutAmmoAttributeSet::GetSecondaryClipAmmoAttribute());
+	BO_LOG_GAS(Log,
+		"ApplyAmmoCost before: Character=%s Slot=%s Primary=%.0f Secondary=%.0f Local=%s Authority=%s",
+		*GetNameSafe(PlayerCharacter),
+		*WeaponSlotTag.ToString(),
+		PrimaryClipAmmoBefore,
+		SecondaryClipAmmoBefore,
+		PlayerCharacter && PlayerCharacter->IsLocallyControlled() ? TEXT("true") : TEXT("false"),
+		PlayerCharacter && PlayerCharacter->HasAuthority() ? TEXT("true") : TEXT("false"));
+
 	if (WeaponSlotTag == BlackoutGameplayTags::Weapon_Secondary)
 	{
-		const float SecondaryClipAmmo = AbilitySystemComponent->GetNumericAttribute(UBlackoutAmmoAttributeSet::GetSecondaryClipAmmoAttribute());
+		const float SecondaryClipAmmo = SecondaryClipAmmoBefore;
 		if (SecondaryClipAmmo < 1.0f)
 		{
+			BO_LOG_GAS(Warning,
+				"ApplyAmmoCost failed: 보조 무기 탄약 부족 Character=%s Secondary=%.0f",
+				*GetNameSafe(PlayerCharacter),
+				SecondaryClipAmmo);
 			return false;
 		}
 
 		AbilitySystemComponent->ApplyModToAttribute(UBlackoutAmmoAttributeSet::GetSecondaryClipAmmoAttribute(), EGameplayModOp::Additive, -1.0f);
+		BO_LOG_GAS(Log,
+			"ApplyAmmoCost after: Character=%s Slot=%s Primary=%.0f Secondary=%.0f",
+			*GetNameSafe(PlayerCharacter),
+			*WeaponSlotTag.ToString(),
+			AbilitySystemComponent->GetNumericAttribute(UBlackoutAmmoAttributeSet::GetPrimaryClipAmmoAttribute()),
+			AbilitySystemComponent->GetNumericAttribute(UBlackoutAmmoAttributeSet::GetSecondaryClipAmmoAttribute()));
 		return true;
 	}
 
-	const float PrimaryClipAmmo = AbilitySystemComponent->GetNumericAttribute(UBlackoutAmmoAttributeSet::GetPrimaryClipAmmoAttribute());
+	const float PrimaryClipAmmo = PrimaryClipAmmoBefore;
 	if (PrimaryClipAmmo < 1.0f)
 	{
+		BO_LOG_GAS(Warning,
+			"ApplyAmmoCost failed: 주 무기 탄약 부족 Character=%s Primary=%.0f",
+			*GetNameSafe(PlayerCharacter),
+			PrimaryClipAmmo);
 		return false;
 	}
 
 	AbilitySystemComponent->ApplyModToAttribute(UBlackoutAmmoAttributeSet::GetPrimaryClipAmmoAttribute(), EGameplayModOp::Additive, -1.0f);
+	BO_LOG_GAS(Log,
+		"ApplyAmmoCost after: Character=%s Slot=%s Primary=%.0f Secondary=%.0f",
+		*GetNameSafe(PlayerCharacter),
+		*WeaponSlotTag.ToString(),
+		AbilitySystemComponent->GetNumericAttribute(UBlackoutAmmoAttributeSet::GetPrimaryClipAmmoAttribute()),
+		AbilitySystemComponent->GetNumericAttribute(UBlackoutAmmoAttributeSet::GetSecondaryClipAmmoAttribute()));
 	return true;
+}
+
+bool UBlackoutGA_FireWeapon::CanFireAtCurrentTime(ABOFirearm* Firearm, const FGameplayAbilityActorInfo* ActorInfo) const
+{
+	if (!Firearm || LastFireRateGateWeapon.Get() != Firearm)
+	{
+		return true;
+	}
+
+	const UWorld* World = ActorInfo && ActorInfo->AvatarActor.IsValid() ? ActorInfo->AvatarActor->GetWorld() : nullptr;
+	if (!World)
+	{
+		return true;
+	}
+
+	return World->GetTimeSeconds() + KINDA_SMALL_NUMBER >= NextAllowedFireTimeSeconds;
+}
+
+void UBlackoutGA_FireWeapon::ReserveNextFireTime(ABOFirearm* Firearm, const FGameplayAbilityActorInfo* ActorInfo)
+{
+	if (!Firearm)
+	{
+		return;
+	}
+
+	const UWorld* World = ActorInfo && ActorInfo->AvatarActor.IsValid() ? ActorInfo->AvatarActor->GetWorld() : nullptr;
+	if (!World)
+	{
+		return;
+	}
+
+	LastFireRateGateWeapon = Firearm;
+
+	const float FireRate = Firearm->GetFireRate();
+	if (FireRate <= 0.0f)
+	{
+		NextAllowedFireTimeSeconds = World->GetTimeSeconds();
+		return;
+	}
+
+	NextAllowedFireTimeSeconds = World->GetTimeSeconds() + (1.0f / FireRate);
 }
 
 void UBlackoutGA_FireWeapon::PlayFireMontage()
