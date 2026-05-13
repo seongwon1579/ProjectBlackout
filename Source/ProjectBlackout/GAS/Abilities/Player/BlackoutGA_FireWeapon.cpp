@@ -204,6 +204,9 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 
 	const FGameplayTag FireAnimTag = EquippedFirearm->GetFireAnimTag();
 	CachedFireMontage = PlayerCharacter ? PlayerCharacter->GetFireMontageForTag(FireAnimTag) : nullptr;
+	const bool bShouldWaitForFireMontageCompletion =
+		CachedFireMontage
+		&& !FireAnimTag.MatchesTagExact(BlackoutGameplayTags::Animation_Fire_ChicagoTypewriter);
 	bWeaponFireAnimationTriggered = false;
 
 	if (FireAnimTag.IsValid() && !CachedFireMontage)
@@ -359,7 +362,7 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 	// 4. 탄퍼짐 누적 및 반동 적용
 	CombatComponent->OnShotFired();
 
-	if (CachedFireMontage)
+	if (bShouldWaitForFireMontageCompletion)
 	{
 		if (PlayerCharacter->HasAuthority())
 		{
@@ -388,7 +391,7 @@ void UBlackoutGA_FireWeapon::EndAbility(const FGameplayAbilitySpecHandle Handle,
 	{
 		ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get());
 		UBlackoutCombatComponent* CombatComponent = PlayerCharacter ? PlayerCharacter->GetCombatComponent() : nullptr;
-		ABOFirearm* EquippedFirearm = CombatComponent ? CombatComponent->GetEquippedFirearm() : nullptr;
+		ABOFirearm* EquippedFirearm = CombatComponent ? CombatComponent ->GetEquippedFirearm() : nullptr;
 
 		if (bWasCancelled && PlayerCharacter && CachedFireMontage)
 		{

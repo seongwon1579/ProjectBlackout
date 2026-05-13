@@ -7,9 +7,15 @@
 #include "Core/BlackoutLog.h"
 #include "EngineUtils.h"
 #include "GAS/Attributes/BlackoutBaseAttributeSet.h"
+#include "GAS/Attributes/BlackoutPlayerAttributeSet.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "TimerManager.h"
+
+namespace
+{
+	constexpr float ReviveRelicChargeCost = 1.0f;
+}
 
 UBlackoutGA_Revive::UBlackoutGA_Revive()
 {
@@ -49,6 +55,27 @@ void UBlackoutGA_Revive::ActivateAbility(const FGameplayAbilitySpecHandle Handle
 		return;
 	}
 
+	UAbilitySystemComponent* ReviverAbilitySystemComponent = GetAbilitySystemComponentFromActorInfo();
+	if (!ReviverAbilitySystemComponent)
+	{
+		BO_LOG_GAS(Warning, "GA_Revive failed: ReviverAbilitySystemComponent가 비어 있음");
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		return;
+	}
+
+	// 부활은 유물을 소모하는 상호작용이므로 시작 전에 최소 1개 보유 여부를 확인합니다.
+	const float CurrentRelicCharges = ReviverAbilitySystemComponent->GetNumericAttribute(UBlackoutPlayerAttributeSet::GetRelicChargesAttribute());
+	if (CurrentRelicCharges < ReviveRelicChargeCost)
+	{
+		BO_LOG_GAS(Warning,
+			"GA_Revive failed: 유물 충전 수가 부족함 Reviver=%s Current=%.0f Need=%.0f",
+			*GetNameSafe(CachedReviver.Get()),
+			CurrentRelicCharges,
+			ReviveRelicChargeCost);
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		return;
+	}
+
 	if (!CommitAbility(Handle, ActorInfo, ActivationInfo))
 	{
 		BO_LOG_GAS(Warning, "GA_Revive failed: CommitAbility 실패");
@@ -83,8 +110,6 @@ void UBlackoutGA_Revive::ActivateAbility(const FGameplayAbilitySpecHandle Handle
 	{
 		MovementComponent->StopMovementImmediately();
 	}
-	
-	
 
 	ReviveElapsedTime = 0.0f;
 
@@ -218,6 +243,14 @@ void UBlackoutGA_Revive::FinishRevive()
 
 	if (CachedReviver && CachedReviver->HasAuthority())
 	{
+		UAbilitySystemComponent* ReviverAbilitySystemComponent = GetAbilitySystemComponentFromActorInfo();
+		if (!ReviverAbilitySystemComponent)
+		{
+			BO_LOG_GAS(Warning, "GA_Revive failed: ReviverAbilitySystemComponent가 비어 있음");
+			CancelRevive();
+			return;
+		}
+
 		UAbilitySystemComponent* TargetAbilitySystemComponent = CachedTarget->GetAbilitySystemComponent();
 		if (!TargetAbilitySystemComponent)
 		{
@@ -234,14 +267,32 @@ void UBlackoutGA_Revive::FinishRevive()
 			return;
 		}
 
+		// 입력 유지 중 다른 사용처로 유물이 빠질 수 있으므로 완료 직전에 다시 한 번 확인합니다.
+		const float CurrentRelicCharges = ReviverAbilitySystemComponent->GetNumericAttribute(UBlackoutPlayerAttributeSet::GetRelicChargesAttribute());
+		if (CurrentRelicCharges < ReviveRelicChargeCost)
+		{
+			BO_LOG_GAS(Warning,
+				"GA_Revive failed: 완료 시점에 유물 충전 수가 부족함 Reviver=%s Current=%.0f Need=%.0f",
+				*GetNameSafe(CachedReviver.Get()),
+				CurrentRelicCharges,
+				ReviveRelicChargeCost);
+			CancelRevive();
+			return;
+		}
+
 		const float RevivedHealth = FMath::Max(1.0f, MaxHealth * RevivedHealthPercent);
+		ReviverAbilitySystemComponent->ApplyModToAttribute(
+			UBlackoutPlayerAttributeSet::GetRelicChargesAttribute(),
+			EGameplayModOp::Additive,
+			-ReviveRelicChargeCost);
 		CachedTarget->Server_ReviveFromDowned(RevivedHealth);
 
 		BO_LOG_GAS(Log,
-			"GA_Revive succeeded: Reviver=%s Target=%s RevivedHealth=%.1f",
+			"GA_Revive succeeded: Reviver=%s Target=%s RevivedHealth=%.1f RemainingRelics=%.0f",
 			*GetNameSafe(CachedReviver.Get()),
 			*GetNameSafe(CachedTarget.Get()),
-			RevivedHealth);
+			RevivedHealth,
+			ReviverAbilitySystemComponent->GetNumericAttribute(UBlackoutPlayerAttributeSet::GetRelicChargesAttribute()));
 	}
 
 	K2_EndAbility();
