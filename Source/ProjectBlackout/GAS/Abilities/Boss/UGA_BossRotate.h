@@ -24,22 +24,34 @@ public:
 
 protected:
 	UPROPERTY(EditAnywhere, Category = "Montage")
-	UAnimMontage* LeftTurn45;
-
-	UPROPERTY(EditAnywhere, Category = "Montage")
-	UAnimMontage* RightTurn45;
-
-	UPROPERTY(EditAnywhere, Category = "Montage")
 	UAnimMontage* LeftTurn90;
 
 	UPROPERTY(EditAnywhere, Category = "Montage")
 	UAnimMontage* RightTurn90;
 	
+	UPROPERTY(EditAnywhere, Category = "Montage")
+	UAnimMontage* LeftTurn135;
+	
+	UPROPERTY(EditAnywhere, Category = "Montage")
+	UAnimMontage* RightTurn135;
+
+	UPROPERTY(EditAnywhere, Category = "Montage")
+	UAnimMontage* LeftTurn180;
+
+	UPROPERTY(EditAnywhere, Category = "Montage")
+	UAnimMontage* RightTurn180;
+	
 	UPROPERTY(EditDefaultsOnly, Category = "MotionWarping")
 	FName WarpTargetName = TEXT("MW_Target");
 	
 	UPROPERTY(EditAnywhere, Category = "Condition")
-	float LargeAngleThreshold = 67.5f;
+	float To90Threshold = 25.f;
+	
+	UPROPERTY(EditAnywhere, Category = "Condition")
+	float To135Threshold = 90.f;
+	
+	UPROPERTY(EditAnywhere, Category = "Condition")
+	float To180Threshold = 135.f;
 	
 	UFUNCTION()
 	void OnMontageEnded();

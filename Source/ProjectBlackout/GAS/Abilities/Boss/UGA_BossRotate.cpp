@@ -5,6 +5,7 @@
 
 #include <ThirdParty/ShaderConductor/ShaderConductor/External/DirectXShaderCompiler/include/dxc/DXIL/DxilConstants.h>
 
+#include "BORavagerBoss.h"
 #include "Abilities/Tasks/AbilityTask.h"
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 
@@ -26,16 +27,42 @@ void UUGA_BossRotate::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
 	const float AbsAngle = FMath::Abs(SignedAngle);
 	UAnimMontage* Montage = nullptr;
 	
-	if (AbsAngle >= LargeAngleThreshold)
+	if (To180Threshold <= AbsAngle)
+	{
+		Montage = (SignedAngle > 0) ? RightTurn180 : LeftTurn180;
+	}
+	else if (To135Threshold <= AbsAngle)
+	{
+		Montage = (SignedAngle > 0) ? RightTurn135 : LeftTurn135;
+	}
+	else if (To90Threshold <= AbsAngle)
+	{
 		Montage = (SignedAngle > 0) ? RightTurn90 : LeftTurn90;
-	else
-		Montage = (SignedAngle > 0) ? RightTurn45 : LeftTurn45;
+	}
 	
 	if (!Montage)
 	{
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
+	
+	ABlackoutBossCharacter* Boss = Cast<ABlackoutBossCharacter>(ActorInfo->AvatarActor.Get());
+	if (!Boss || !Boss->MotionWarpingComponent)
+	{
+		return;
+	}
+	
+	if (Target && Boss->MotionWarpingComponent)
+	{
+		Boss->MotionWarpingComponent->AddOrUpdateWarpTargetFromComponent(
+			WarpTargetName,
+			Target->GetRootComponent(),
+			NAME_None,
+			true,
+			FVector::ZeroVector
+		);
+	}
+	
 	
 	auto* Task = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this, NAME_None, Montage, 1.f);
 	Task->OnCompleted.AddDynamic(this, &UUGA_BossRotate::OnMontageEnded);
