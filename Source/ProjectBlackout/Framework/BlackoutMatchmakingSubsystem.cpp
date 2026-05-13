@@ -9,6 +9,8 @@
 #include "WebSocketsModule.h"
 #include "GameFramework/PlayerController.h"
 #include "Engine/World.h"
+#include "MoviePlayer.h"
+#include "UI/SBlackoutLoadingScreen.h"
 
 // GameInstance 부팅 시 호출. WebSockets 모듈 로드 + NetworkSettings 기본값 적용.
 void UBlackoutMatchmakingSubsystem::Initialize(
@@ -131,7 +133,14 @@ void UBlackoutMatchmakingSubsystem::TravelToGameServer(const FString& ServerIp, 
 		Addr += FString::Printf(TEXT("?SessionId=%s"), *SessionId);
 	}
 	BO_LOG_NET(Log, "ClientTravel -> %s", *Addr);
-
+	
+	FLoadingScreenAttributes LoadingScreenAttributes;
+	LoadingScreenAttributes.MinimumLoadingScreenDisplayTime=2.0f;
+	LoadingScreenAttributes.bAutoCompleteWhenLoadingCompletes = true;
+	LoadingScreenAttributes.bMoviesAreSkippable = false;
+	LoadingScreenAttributes.WidgetLoadingScreen = SNew(SBlackoutLoadingScreen);
+	GetMoviePlayer()->SetupLoadingScreen(LoadingScreenAttributes);
+	
 	DisconnectLobby();
 	PC->ClientTravel(Addr, TRAVEL_Absolute);
 }

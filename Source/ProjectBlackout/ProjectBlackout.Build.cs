@@ -36,7 +36,7 @@ public class ProjectBlackout : ModuleRules
 			"MotionWarping"
 		});
 
-		PrivateDependencyModuleNames.AddRange(new string[] { });
+		PrivateDependencyModuleNames.AddRange(new string[] {"MoviePlayer" });
 
 		PublicIncludePaths.AddRange(new string[] {
 			"ProjectBlackout",
