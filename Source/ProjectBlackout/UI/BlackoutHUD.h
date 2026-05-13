@@ -18,6 +18,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|HUD")
 	void InitHUD();
 
+	bool ShowDamageNumberAtWorldLocation(float DamageAmount, const FVector& WorldLocation, bool bIsCritical);
+
 	UFUNCTION(BlueprintPure, Category = "Blackout|HUD")
 	UBlackoutHUDWidget* GetHUDWidget() const { return HUDWidget; }
 

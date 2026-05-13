@@ -9,11 +9,13 @@
 #include "BlackoutHUDWidget.generated.h"
 
 class ABOWeaponBase;
+class UBlackoutDamageNumberWidget;
 class UBlackoutConsumableSlotsWidget;
 class UBlackoutHUDWidgetController;
 class UBlackoutRelicWidget;
 class UBlackoutValueBarWidget;
 class UBlackoutWeaponAmmoWidget;
+class UCanvasPanel;
 class UWidget;
 
 UCLASS(BlueprintType, Blueprintable)
@@ -27,6 +29,8 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Blackout|HUD")
 	UBlackoutHUDWidgetController* GetWidgetController() const { return WidgetController; }
+
+	bool ShowDamageNumberAtWorldLocation(float DamageAmount, const FVector& WorldLocation, bool bIsCritical);
 
 protected:
 	virtual void NativeOnInitialized() override;
@@ -61,6 +65,18 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
 	TObjectPtr<UWidget> ImpactIndicatorWidget;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
+	TObjectPtr<UCanvasPanel> CNV_DamageNumbers;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD")
+	TSubclassOf<UBlackoutDamageNumberWidget> DamageNumberWidgetClass;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD", meta = (ClampMin = 0.0f))
+	float DamageNumberRandomOffsetX = 20.0f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD", meta = (ClampMin = 0.0f))
+	float DamageNumberRandomOffsetY = 12.0f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD")
 	FLinearColor TrajectoryNormalColor = FLinearColor(1.f, 1.f, 1.f, 0.75f);
@@ -131,6 +147,9 @@ protected:
 	void ReceiveConsumableSlotsChanged(
 		const FBlackoutConsumableSlotData& BloodRootData,
 		const FBlackoutConsumableSlotData& GulSerumData);
+
+	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Damage Number Requested"), Category = "Blackout|HUD")
+	void ReceiveDamageNumberRequested(float DamageAmount, FVector2D ScreenPosition, bool bIsCritical);
 
 private:
 	void UnbindWidgetControllerCallbacks();

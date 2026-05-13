@@ -76,6 +76,7 @@ void UBlackoutGA_Revive::ActivateAbility(const FGameplayAbilitySpecHandle Handle
 		CombatComponent->StopFire();
 		CombatComponent->HandlePrimaryActionReleased();
 		CombatComponent->StopAim();
+		CombatComponent->BeginEquippedWeaponHolsterOverride();
 	}
 
 	if (UCharacterMovementComponent* MovementComponent = CachedReviver->GetCharacterMovement())
@@ -143,6 +144,14 @@ void UBlackoutGA_Revive::EndAbility(const FGameplayAbilitySpecHandle Handle, con
 		if (CachedReviver->HasAuthority())
 		{
 			CachedReviver->Multicast_StopRevivePerformMontage(RevivePerformMontage, 0.1f);
+		}
+	}
+
+	if (CachedReviver)
+	{
+		if (UBlackoutCombatComponent* CombatComponent = CachedReviver->GetCombatComponent())
+		{
+			CombatComponent->EndEquippedWeaponHolsterOverride();
 		}
 	}
 

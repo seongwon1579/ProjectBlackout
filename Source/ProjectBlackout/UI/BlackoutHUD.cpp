@@ -30,6 +30,19 @@ void ABlackoutHUD::InitHUD()
 	CreateWidgetController();
 }
 
+bool ABlackoutHUD::ShowDamageNumberAtWorldLocation(
+	float DamageAmount,
+	const FVector& WorldLocation,
+	bool bIsCritical)
+{
+	if (!HUDWidget)
+	{
+		return false;
+	}
+
+	return HUDWidget->ShowDamageNumberAtWorldLocation(DamageAmount, WorldLocation, bIsCritical);
+}
+
 void ABlackoutHUD::CreateHUDWidget()
 {
 	if (HUDWidget)

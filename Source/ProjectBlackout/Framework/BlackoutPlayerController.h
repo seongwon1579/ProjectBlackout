@@ -37,6 +37,9 @@ public:
 	UFUNCTION(BlueprintImplementableEvent, meta=(DisplayName="On Show Damage Number"), Category = "Blackout|Controller")
 	void ReceiveShowDamageNumber(float DamageAmount, bool bIsCritical);
 
+	UFUNCTION(Client, Unreliable, BlueprintCallable, Category = "Blackout|Controller")
+	void Client_ShowDamageNumberAtLocation(float DamageAmount, FVector WorldLocation, bool bIsCritical);
+
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Controller")
 	void EnterSpectatorMode();
 	
