@@ -4,15 +4,12 @@
 #include "AbilitySystemInterface.h"
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 #include "Abilities/Tasks/AbilityTask_WaitInputPress.h"
-#include "Animation/AnimInstance.h"
 #include "Animation/AnimMontage.h"
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
 #include "Combat/Weapons/BOMeleeWeapon.h"
-#include "Components/SkeletalMeshComponent.h"
 #include "Core/BlackoutLog.h"
 #include "Data/BOMeleeComboData.h"
-#include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/GameStateBase.h"
 #include "GameFramework/PlayerState.h"
@@ -102,7 +99,7 @@ void UBlackoutGA_MeleePlayer::ActivateAbility(const FGameplayAbilitySpecHandle H
 
 	// v2.1: 양측(서버+클라이언트) 모두 콤보 윈도우/그레이스 타이머를 동일하게 스케줄합니다.
 	// 같은 server world time + 같은 DA 시각값을 사용하므로 양쪽의 윈도우 상태가 거의 동기화됩니다.
-	// 클라이언트의 윈도우는 로컬 예측 점프(AdvanceToNextComboSection)에 사용됩니다.
+	// 클라이언트의 윈도우는 입력 전파 보조 상태로만 유지하고, 섹션 전환은 서버 복제를 따릅니다.
 	ScheduleSectionTimers(0);
 
 	// 입력 수집은 양측 모두에서. 클라이언트는 표준 GAS 경로로 서버에 InputPressed 를 전파합니다.
@@ -207,9 +204,17 @@ void UBlackoutGA_MeleePlayer::OnComboInputPressed(float TimeWaited)
 {
 	ComboInputTask = nullptr;
 
-	// v2.1: 양측 모두 콤보 입력을 처리합니다. 클라이언트는 로컬 예측 점프를,
-	// 서버는 권위 점프(+ RepAnimMontageInfo 갱신)를 수행합니다.
-	ProcessComboInput();
+	if (HasAuthority(&CurrentActivationInfo))
+	{
+		// 서버만 콤보 상태와 몽타주 섹션 전환을 확정합니다.
+		ProcessComboInput();
+	}
+	else
+	{
+		// 클라이언트는 이미 ASC 입력 복제 경로로 서버에 입력을 보냈으므로,
+		// 로컬 섹션 점프는 수행하지 않고 RepAnimMontageInfo 보정을 기다립니다.
+		BO_LOG_GAS(Verbose, "GA_MeleePlayer combo input forwarded to server");
+	}
 
 	if (IsActive())
 	{
@@ -229,6 +234,7 @@ void UBlackoutGA_MeleePlayer::ProcessComboInput()
 	{
 		return;
 	}
+	LastProcessedComboInputSequenceId = InputPayload.SequenceId;
 
 	// 후속 섹션이 없으면 더 이상 진행 불가.
 	if (!MeleeComboData->ComboSections.IsValidIndex(CurrentComboIndex + 1))
@@ -240,7 +246,7 @@ void UBlackoutGA_MeleePlayer::ProcessComboInput()
 	if (bComboWindowOpen)
 	{
 		// 윈도우 안: 즉시 다음 섹션 점프.
-		if (!AdvanceToNextComboSection())
+		if (!AdvanceToNextComboSection(InputPayload))
 		{
 			BO_LOG_GAS(Warning, "GA_MeleePlayer combo jump failed: CurrentComboIndex=%d", CurrentComboIndex);
 		}
@@ -250,7 +256,7 @@ void UBlackoutGA_MeleePlayer::ProcessComboInput()
 	if (bComboGraceWindowOpen || WasInputWithinComboGrace(InputPayload))
 	{
 		// Grace 안에 들어온 입력: 즉시 다음 섹션 점프.
-		if (!AdvanceToNextComboSection())
+		if (!AdvanceToNextComboSection(InputPayload))
 		{
 			BO_LOG_GAS(Warning, "GA_MeleePlayer combo grace jump failed: CurrentComboIndex=%d", CurrentComboIndex);
 		}
@@ -342,7 +348,7 @@ void UBlackoutGA_MeleePlayer::OnComboWindowOpenTimer()
 	{
 		if (IsBufferedComboInputStillValid())
 		{
-			if (!AdvanceToNextComboSection())
+			if (!AdvanceToNextComboSection(QueuedComboInputPayload))
 			{
 				BO_LOG_GAS(Warning, "GA_MeleePlayer buffered combo jump failed: CurrentComboIndex=%d", CurrentComboIndex);
 			}
@@ -369,7 +375,7 @@ void UBlackoutGA_MeleePlayer::OnComboWindowCloseTimer()
 	if (bComboInputQueued)
 	{
 		// 윈도우 닫히기 직전에 들어와서 buffer 에 남아 있던 입력이 있으면 즉시 점프.
-		if (!AdvanceToNextComboSection())
+		if (!AdvanceToNextComboSection(QueuedComboInputPayload))
 		{
 			BO_LOG_GAS(Warning, "GA_MeleePlayer combo jump at window close failed: CurrentComboIndex=%d", CurrentComboIndex);
 		}
@@ -409,7 +415,7 @@ void UBlackoutGA_MeleePlayer::OnComboGraceCloseTimer()
 	BO_LOG_GAS(Log, "GA_MeleePlayer combo grace closed");
 }
 
-bool UBlackoutGA_MeleePlayer::AdvanceToNextComboSection()
+bool UBlackoutGA_MeleePlayer::AdvanceToNextComboSection(const FBlackoutAbilityInputSyncPayload& InputPayload)
 {
 	if (!MeleeComboData)
 	{
@@ -436,33 +442,31 @@ bool UBlackoutGA_MeleePlayer::AdvanceToNextComboSection()
 		return false;
 	}
 
-	const bool bIsAuthority = HasAuthority(&CurrentActivationInfo);
-
-	if (bIsAuthority)
+	if (!HasAuthority(&CurrentActivationInfo))
 	{
-		// 서버 권위: ASC::CurrentMontageJumpToSection 이 RepAnimMontageInfo 를 갱신하여
-		// 시뮬레이트 프록시 / 오너 클라이언트로 자동 전파합니다.
-		UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo();
-		if (!AbilitySystemComponent)
-		{
-			BO_LOG_GAS(Warning, "GA_MeleePlayer advance failed: ASC가 비어 있음");
-			return false;
-		}
-		AbilitySystemComponent->CurrentMontageJumpToSection(NextSection.SectionName);
-	}
-	else
-	{
-		// 클라이언트 로컬 예측: AnimInstance 에 직접 jump.
-		// ASC::CurrentMontageJumpToSection 을 호출하면 ServerCurrentMontageJumpToSectionName RPC 가
-		// 추가로 발생해 서버 권위를 우회할 수 있으므로, 로컬 시각 갱신만 수행합니다.
-		// 서버와 어긋나면 RepAnimMontageInfo OnRep 의 Position 보정으로 snap-back 됩니다.
-		if (UAnimInstance* AnimInstance = GetAvatarAnimInstance())
-		{
-			AnimInstance->Montage_JumpToSection(NextSection.SectionName, MeleeComboData->MeleeMontage);
-		}
+		BO_LOG_GAS(Verbose, "GA_MeleePlayer advance ignored on client: 서버 권위 전환 대기");
+		return false;
 	}
 
-	SnapToControlYaw();
+	// 서버 권위: ASC::CurrentMontageJumpToSection 이 RepAnimMontageInfo 를 갱신하여
+	// 시뮬레이트 프록시 / 오너 클라이언트로 자동 전파합니다.
+	UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo();
+	if (!AbilitySystemComponent)
+	{
+		BO_LOG_GAS(Warning, "GA_MeleePlayer advance failed: ASC가 비어 있음");
+		return false;
+	}
+
+	SnapToControlYaw(&InputPayload);
+	AbilitySystemComponent->CurrentMontageJumpToSection(NextSection.SectionName);
+	if (ABlackoutPlayerCharacter* PlayerCharacter = CurrentActorInfo ? Cast<ABlackoutPlayerCharacter>(CurrentActorInfo->AvatarActor.Get()) : nullptr)
+	{
+		PlayerCharacter->Client_JumpMontageToSection(
+			MeleeComboData->MeleeMontage,
+			NextSection.SectionName,
+			InputPayload.bHasControlYaw,
+			InputPayload.ControlYawDegrees);
+	}
 
 	CurrentComboIndex = NextComboIndex;
 	bComboInputQueued = false;
@@ -472,9 +476,9 @@ bool UBlackoutGA_MeleePlayer::AdvanceToNextComboSection()
 		"GA_MeleePlayer advanced to combo section: Index=%d Section=%s Authority=%s",
 		CurrentComboIndex,
 		*NextSection.SectionName.ToString(),
-		bIsAuthority ? TEXT("true") : TEXT("false"));
+		TEXT("true"));
 
-	// 새 섹션의 윈도우/그레이스 타이머 예약 (양측 모두).
+	// 새 섹션의 윈도우/그레이스 타이머 예약 (서버 권위).
 	ScheduleSectionTimers(CurrentComboIndex);
 	return true;
 }
@@ -715,6 +719,16 @@ bool UBlackoutGA_MeleePlayer::IsComboInputPayloadUsable(const FBlackoutAbilityIn
 		return false;
 	}
 
+	if (LastProcessedComboInputSequenceId != 0)
+	{
+		const uint16 SequenceDelta = InputPayload.SequenceId - LastProcessedComboInputSequenceId;
+		if (SequenceDelta == 0 || SequenceDelta >= 32768)
+		{
+			BO_LOG_GAS(Verbose, "GA_MeleePlayer combo input rejected: 이미 처리한 sequence");
+			return false;
+		}
+	}
+
 	if (InputPayload.AbilitySpecHandle.IsValid() && InputPayload.AbilitySpecHandle != GetCurrentAbilitySpecHandle())
 	{
 		return false;
@@ -785,6 +799,7 @@ void UBlackoutGA_MeleePlayer::ResetComboState()
 	ComboWindowOpenedServerTime = 0.f;
 	ComboWindowClosedServerTime = 0.f;
 	ActiveComboGraceDuration = 0.f;
+	LastProcessedComboInputSequenceId = 0;
 }
 
 void UBlackoutGA_MeleePlayer::ClearAllComboTimers()
@@ -799,17 +814,16 @@ void UBlackoutGA_MeleePlayer::ClearAllComboTimers()
 	}
 }
 
-UAnimInstance* UBlackoutGA_MeleePlayer::GetAvatarAnimInstance() const
-{
-	const ACharacter* Character = CurrentActorInfo ? Cast<ACharacter>(CurrentActorInfo->AvatarActor.Get()) : nullptr;
-	USkeletalMeshComponent* MeshComponent = Character ? Character->GetMesh() : nullptr;
-	return MeshComponent ? MeshComponent->GetAnimInstance() : nullptr;
-}
-
-void UBlackoutGA_MeleePlayer::SnapToControlYaw()
+void UBlackoutGA_MeleePlayer::SnapToControlYaw(const FBlackoutAbilityInputSyncPayload* InputPayload)
 {
 	if (ABlackoutPlayerCharacter* PlayerCharacter = CurrentActorInfo ? Cast<ABlackoutPlayerCharacter>(CurrentActorInfo->AvatarActor.Get()) : nullptr)
 	{
+		if (InputPayload && InputPayload->bHasControlYaw)
+		{
+			PlayerCharacter->SetActorRotation(FRotator(0.f, InputPayload->ControlYawDegrees, 0.f));
+			return;
+		}
+
 		if (AController* Controller = PlayerCharacter->GetController())
 		{
 			const FRotator ControlRotation = Controller->GetControlRotation();

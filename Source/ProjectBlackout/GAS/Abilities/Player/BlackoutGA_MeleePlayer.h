@@ -7,7 +7,6 @@
 #include "BlackoutGA_MeleePlayer.generated.h"
 
 class UAnimMontage;
-class UAnimInstance;
 class UGameplayEffect;
 class UAbilityTask_PlayMontageAndWait;
 class UAbilityTask_WaitInputPress;
@@ -91,8 +90,8 @@ private:
 	void OnComboInputPressed(float TimeWaited);
 
 	/**
-	 * 입력을 평가하여 콤보 진행/버퍼/grace 매칭을 수행합니다.
-	 * v2.1: 양쪽(서버+클라)에서 동일하게 실행. 권위 의존 동작(RepAnimMontageInfo 갱신)만 내부에서 게이트됩니다.
+	 * 서버에서 입력을 평가하여 콤보 진행/버퍼/grace 매칭을 수행합니다.
+	 * 클라이언트는 입력 복제만 담당하고, 섹션 전환은 RepAnimMontageInfo 로 따라갑니다.
 	 */
 	void ProcessComboInput();
 
@@ -110,9 +109,9 @@ private:
 
 	/**
 	 * 다음 섹션으로 점프. 서버는 ASC::CurrentMontageJumpToSection (RepAnimMontageInfo 자동 복제),
-	 * 클라이언트는 AnimInstance::Montage_JumpToSection 로 RPC 없이 로컬 예측만 수행합니다.
+	 * 클라이언트는 직접 섹션 점프를 수행하지 않고 서버 복제를 기다립니다.
 	 */
-	bool AdvanceToNextComboSection();
+	bool AdvanceToNextComboSection(const FBlackoutAbilityInputSyncPayload& InputPayload);
 
 	/** 입력을 receive buffer 에 임시 저장합니다. */
 	void BufferComboInput(const FBlackoutAbilityInputSyncPayload& InputPayload);
@@ -135,8 +134,7 @@ private:
 	FBlackoutAbilityInputSyncPayload GetLatestComboInputPayload() const;
 	FGameplayEffectSpecHandle BuildDamageSpec() const;
 	void ResetComboState();
-	UAnimInstance* GetAvatarAnimInstance() const;
-	void SnapToControlYaw();
+	void SnapToControlYaw(const FBlackoutAbilityInputSyncPayload* InputPayload = nullptr);
 	void ClearAllComboTimers();
 
 	UPROPERTY(Transient)
@@ -160,4 +158,5 @@ private:
 	bool bComboGraceWindowOpen = false;
 	bool bComboInputQueued = false;
 	bool bHasQueuedComboInputPayload = false;
+	uint16 LastProcessedComboInputSequenceId = 0;
 };

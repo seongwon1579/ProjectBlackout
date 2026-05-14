@@ -521,6 +521,32 @@ UAnimMontage* ABlackoutPlayerCharacter::GetWeaponSwapMontageForSlot(FGameplayTag
 // 재생: UAbilityTask_PlayMontageAndWait → ASC::PlayMontage → FRepAnimMontageInfo 자동 복제
 // 섹션 점프: 서버에서 ASC::CurrentMontageJumpToSection 호출 → RepAnimMontageInfo 로 클라이언트 자동 따라잡음
 
+void ABlackoutPlayerCharacter::Client_JumpMontageToSection_Implementation(UAnimMontage* Montage, FName SectionName, bool bApplyControlYaw, float ControlYawDegrees)
+{
+	if (!Montage || SectionName == NAME_None || HasAuthority() || !IsLocallyControlled())
+	{
+		return;
+	}
+
+	if (bApplyControlYaw)
+	{
+		SetActorRotation(FRotator(0.f, ControlYawDegrees, 0.f));
+	}
+
+	UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+	if (!AnimInstance || !AnimInstance->Montage_IsPlaying(Montage))
+	{
+		BO_LOG_GAS(Verbose,
+			"Client_JumpMontageToSection skipped: Montage=%s Section=%s",
+			*GetNameSafe(Montage),
+			*SectionName.ToString());
+		return;
+	}
+
+	// 서버가 승인한 섹션 전환만 오너 클라이언트의 예측 몽타주 인스턴스에 반영합니다.
+	AnimInstance->Montage_JumpToSection(SectionName, Montage);
+}
+
 void ABlackoutPlayerCharacter::Multicast_PlayConsumableMontage_Implementation(UAnimMontage* Montage, float PlayRate)
 {
 	if (!Montage)
