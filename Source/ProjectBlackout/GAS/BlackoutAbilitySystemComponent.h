@@ -28,6 +28,18 @@ struct FBlackoutAbilityInputSyncPayload
 	float ServerReceivedTimeSeconds = 0.0f;
 
 	UPROPERTY()
+	float ControlYawDegrees = 0.0f;
+
+	UPROPERTY()
+	bool bHasControlYaw = false;
+
+	UPROPERTY()
+	FVector2D MoveInput = FVector2D::ZeroVector;
+
+	UPROPERTY()
+	bool bHasMoveInput = false;
+
+	UPROPERTY()
 	FGameplayTag InputTag;
 
 	UPROPERTY()
@@ -35,6 +47,9 @@ struct FBlackoutAbilityInputSyncPayload
 
 	UPROPERTY()
 	FGameplayAbilitySpecHandle AbilitySpecHandle;
+
+	UPROPERTY()
+	bool bWasAbilityActive = false;
 
 	bool IsValid() const
 	{
@@ -130,8 +145,10 @@ private:
 		FGameplayAbilitySpecHandle AbilitySpecHandle,
 		uint16 SequenceId,
 		float ClientInputTimeSeconds,
-		float ClientEstimatedServerTimeSeconds) const;
-	void RecordAbilityInputSyncPayload(FBlackoutAbilityInputSyncPayload Payload, bool bValidateSequence);
+		float ClientEstimatedServerTimeSeconds,
+		bool bWasAbilityActive) const;
+	bool RecordAbilityInputSyncPayload(FBlackoutAbilityInputSyncPayload Payload, bool bValidateSequence);
+	void NotifyActiveAbilityInputPressedFromPayload(EBlackoutAbilityInputID InputID);
 	bool IsInputSequenceNewer(EBlackoutAbilityInputID InputID, uint16 NewSequenceId) const;
 
 	void StartStaminaRegen();

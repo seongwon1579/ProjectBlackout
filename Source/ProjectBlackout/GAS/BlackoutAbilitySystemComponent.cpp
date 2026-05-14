@@ -3,9 +3,12 @@
 #include "Abilities/BlackoutGameplayAbility.h"
 #include "Abilities/Player/BlackoutGA_UseConsumable.h"
 #include "BlackoutLog.h"
+#include "Characters/BlackoutPlayerCharacter.h"
 #include "Data/BOConsumableData.h"
 #include "Engine/World.h"
+#include "GameFramework/Controller.h"
 #include "GameFramework/GameStateBase.h"
+#include "GameFramework/Pawn.h"
 #include "GameplayEffect.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "GAS/Attributes/BlackoutBaseAttributeSet.h"
@@ -117,20 +120,22 @@ void UBlackoutAbilitySystemComponent::HandleAbilityInputPressed(EBlackoutAbility
 
 		bFoundMatchingAbility = true;
 		AbilitySpec.InputPressed = true;
+		const bool bWasAbilityActive = AbilitySpec.IsActive();
 
 		const FBlackoutAbilityInputSyncPayload InputPayload = BuildInputSyncPayload(
 			InputID,
 			AbilitySpec.Handle,
 			InputSequenceId,
 			ClientInputTimeSeconds,
-			ClientEstimatedServerTimeSeconds);
+			ClientEstimatedServerTimeSeconds,
+			bWasAbilityActive);
 		RecordAbilityInputSyncPayload(InputPayload, IsOwnerActorAuthoritative());
 		if (!IsOwnerActorAuthoritative())
 		{
 			Server_RecordAbilityInputSyncPayload(InputPayload);
 		}
 
-		if (AbilitySpec.IsActive())
+		if (bWasAbilityActive)
 		{
 			// 활성 GA의 prediction key 추출.
 			// 콤보/체인 재입력은 새 ScopedPredictionWindow 를 만들지 않고 기존 activation key 를 재사용합니다.
@@ -227,9 +232,12 @@ const FBlackoutAbilityInputSyncPayload* UBlackoutAbilitySystemComponent::GetLate
 void UBlackoutAbilitySystemComponent::Server_RecordAbilityInputSyncPayload_Implementation(FBlackoutAbilityInputSyncPayload Payload)
 {
 	// TDD §4.1 v2: 이 RPC 는 timestamp/sequence 메타데이터 부가 채널입니다.
-	// 입력 트리거(InputPressed 복제 이벤트) 자체는 표준 GAS 경로(`ServerSetReplicatedEvent`)가 담당하므로,
-	// 여기서는 grace clamp 계산에 사용할 페이로드만 기록합니다.
-	RecordAbilityInputSyncPayload(Payload, true);
+	// 활성 GA 재입력인 경우에는 ServerSetReplicatedEvent 누락/타이밍 차이를 보완하기 위해
+	// 서버 WaitInputPress 안전망도 함께 발화합니다.
+	if (RecordAbilityInputSyncPayload(Payload, true) && Payload.bWasAbilityActive)
+	{
+		NotifyActiveAbilityInputPressedFromPayload(Payload.InputID);
+	}
 }
 
 uint16 UBlackoutAbilitySystemComponent::GenerateNextInputSequence(EBlackoutAbilityInputID InputID)
@@ -262,7 +270,8 @@ FBlackoutAbilityInputSyncPayload UBlackoutAbilitySystemComponent::BuildInputSync
 	FGameplayAbilitySpecHandle AbilitySpecHandle,
 	uint16 SequenceId,
 	float ClientInputTimeSeconds,
-	float ClientEstimatedServerTimeSeconds) const
+	float ClientEstimatedServerTimeSeconds,
+	bool bWasAbilityActive) const
 {
 	FBlackoutAbilityInputSyncPayload Payload;
 	Payload.SequenceId = SequenceId;
@@ -271,14 +280,41 @@ FBlackoutAbilityInputSyncPayload UBlackoutAbilitySystemComponent::BuildInputSync
 	Payload.ServerReceivedTimeSeconds = GetEstimatedServerTimeSeconds();
 	Payload.InputID = InputID;
 	Payload.AbilitySpecHandle = AbilitySpecHandle;
+	Payload.bWasAbilityActive = bWasAbilityActive;
+
+	const APawn* AvatarPawn = AbilityActorInfo.IsValid() ? Cast<APawn>(AbilityActorInfo->AvatarActor.Get()) : nullptr;
+	const AController* Controller = AbilityActorInfo.IsValid() ? AbilityActorInfo->PlayerController.Get() : nullptr;
+	if (!Controller)
+	{
+		Controller = AvatarPawn ? AvatarPawn->GetController() : nullptr;
+	}
+
+	if (Controller)
+	{
+		Payload.ControlYawDegrees = FRotator::NormalizeAxis(Controller->GetControlRotation().Yaw);
+		Payload.bHasControlYaw = true;
+	}
+
+	if (const ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(AvatarPawn))
+	{
+		const FVector2D PendingDodgeInput = PlayerCharacter->GetPendingDodgeInput();
+		const FVector2D CachedMoveInput = PlayerCharacter->GetCachedMoveInput();
+		const FVector2D MoveInput = !PendingDodgeInput.IsNearlyZero() ? PendingDodgeInput : CachedMoveInput;
+		if (!MoveInput.IsNearlyZero())
+		{
+			Payload.MoveInput = MoveInput;
+			Payload.bHasMoveInput = true;
+		}
+	}
+
 	return Payload;
 }
 
-void UBlackoutAbilitySystemComponent::RecordAbilityInputSyncPayload(FBlackoutAbilityInputSyncPayload Payload, bool bValidateSequence)
+bool UBlackoutAbilitySystemComponent::RecordAbilityInputSyncPayload(FBlackoutAbilityInputSyncPayload Payload, bool bValidateSequence)
 {
 	if (!Payload.IsValid())
 	{
-		return;
+		return false;
 	}
 
 	if (bValidateSequence && !IsInputSequenceNewer(Payload.InputID, Payload.SequenceId))
@@ -287,7 +323,7 @@ void UBlackoutAbilitySystemComponent::RecordAbilityInputSyncPayload(FBlackoutAbi
 			"InputSyncPayload rejected: InputID=%d Sequence=%u",
 			static_cast<int32>(Payload.InputID),
 			Payload.SequenceId);
-		return;
+		return false;
 	}
 
 	const int32 RawInputID = static_cast<int32>(Payload.InputID);
@@ -297,6 +333,44 @@ void UBlackoutAbilitySystemComponent::RecordAbilityInputSyncPayload(FBlackoutAbi
 	if (bValidateSequence)
 	{
 		LastServerInputSequenceByID.FindOrAdd(RawInputID) = Payload.SequenceId;
+	}
+
+	return true;
+}
+
+void UBlackoutAbilitySystemComponent::NotifyActiveAbilityInputPressedFromPayload(EBlackoutAbilityInputID InputID)
+{
+	if (!IsOwnerActorAuthoritative() || InputID == EBlackoutAbilityInputID::None)
+	{
+		return;
+	}
+
+	const int32 RawInputID = static_cast<int32>(InputID);
+
+	ABILITYLIST_SCOPE_LOCK();
+
+	for (FGameplayAbilitySpec& AbilitySpec : ActivatableAbilities.Items)
+	{
+		if (AbilitySpec.InputID != RawInputID || !AbilitySpec.IsActive())
+		{
+			continue;
+		}
+
+		const FGameplayAbilityActivationInfo* ActivationInfo = &AbilitySpec.ActivationInfo;
+		const TArray<UGameplayAbility*> AbilityInstances = AbilitySpec.GetAbilityInstances();
+		if (AbilityInstances.Num() > 0 && AbilityInstances.Last())
+		{
+			ActivationInfo = &AbilityInstances.Last()->GetCurrentActivationInfoRef();
+		}
+		const FPredictionKey ActivationKey = ActivationInfo->GetActivationPredictionKey();
+
+		// ServerSetReplicatedEvent 가 타이밍 문제로 WaitInputPress 를 깨우지 못하는 경우를 위한 안전망입니다.
+		AbilitySpec.InputPressed = true;
+		AbilitySpecInputPressed(AbilitySpec);
+		InvokeReplicatedEvent(
+			EAbilityGenericReplicatedEvent::InputPressed,
+			AbilitySpec.Handle,
+			ActivationKey);
 	}
 }
 

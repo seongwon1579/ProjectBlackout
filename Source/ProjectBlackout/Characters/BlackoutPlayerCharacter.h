@@ -77,9 +77,6 @@ public:
 
 	void SetPendingDodgeInput(const FVector2D& NewInput) { PendingDodgeInput = NewInput; }
 
-	UFUNCTION(Server, Reliable, Category = "Blackout|Input")
-	void Server_SetPendingDodgeInput(FVector2D NewInput);
-
 	UFUNCTION(Server, Reliable, Category = "Blackout|Debug")
 	void Server_RequestDebugSelfDamage(float DamageAmount);
 
@@ -134,6 +131,13 @@ public:
 	// 근접 콤보 몽타주 RPC/헬퍼는 v2 (TDD §4.1) 에서 폐기되었습니다.
 	// 몽타주 재생/섹션 점프는 GAS 표준 PlayMontageAndWait + ASC::CurrentMontageJumpToSection 으로 처리하고,
 	// 시뮬레이트 프록시는 FRepAnimMontageInfo OnRep 으로 자연 따라잡습니다.
+	// 오너 클라이언트는 로컬 예측 몽타주 인스턴스가 있어 서버 승인 후 Client RPC 로 섹션/회전을 보정합니다.
+	UFUNCTION(Client, Reliable, Category = "Blackout|Animation")
+	void Client_JumpMontageToSection(UAnimMontage* Montage, FName SectionName, bool bApplyControlYaw = false, float ControlYawDegrees = 0.f);
+
+	// 루트 모션 회피 체인 재시작은 원격 프록시에서 회전/몽타주 리셋을 같은 틱에 맞춰 적용합니다.
+	UFUNCTION(NetMulticast, Unreliable, Category = "Blackout|Animation")
+	void Multicast_SyncDodgeChainRestart(UAnimMontage* Montage, FName SectionName, float ServerYawDegrees);
 
 	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
 	void Multicast_PlayConsumableMontage(UAnimMontage* Montage, float PlayRate = 1.f);

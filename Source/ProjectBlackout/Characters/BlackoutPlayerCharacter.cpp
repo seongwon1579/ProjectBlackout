@@ -30,6 +30,12 @@ ABlackoutPlayerCharacter::ABlackoutPlayerCharacter(const FObjectInitializer& Obj
 	SpringArm->bUsePawnControlRotation = true;
 	SpringArm->SetUsingAbsoluteRotation(true);
 
+	// 네트워크 위치 보정으로 캡슐이 순간 튀어도 카메라는 부드럽게 따라가도록 함 (시각적 jitter 흡수).
+	// 회전 lag 은 켜지 않음 — TPS 조준 반응성 우선.
+	SpringArm->bEnableCameraLag = true;
+	SpringArm->CameraLagSpeed = 10.0f;
+	SpringArm->CameraLagMaxDistance = 50.0f;
+
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	Camera->SetupAttachment(SpringArm, USpringArmComponent::SocketName);
 	Camera->bUsePawnControlRotation = false;
@@ -158,11 +164,6 @@ void ABlackoutPlayerCharacter::OnRep_PlayerState()
 			InitializeAttributes();
 		}
 	}
-}
-
-void ABlackoutPlayerCharacter::Server_SetPendingDodgeInput_Implementation(FVector2D NewInput)
-{
-	PendingDodgeInput = NewInput;
 }
 
 void ABlackoutPlayerCharacter::Server_RequestDebugSelfDamage_Implementation(float DamageAmount)
@@ -522,6 +523,69 @@ UAnimMontage* ABlackoutPlayerCharacter::GetWeaponSwapMontageForSlot(FGameplayTag
 // 근접 콤보 몽타주 RPC/헬퍼는 TDD §4.1 v2 에서 폐기되었습니다.
 // 재생: UAbilityTask_PlayMontageAndWait → ASC::PlayMontage → FRepAnimMontageInfo 자동 복제
 // 섹션 점프: 서버에서 ASC::CurrentMontageJumpToSection 호출 → RepAnimMontageInfo 로 클라이언트 자동 따라잡음
+
+void ABlackoutPlayerCharacter::Client_JumpMontageToSection_Implementation(UAnimMontage* Montage, FName SectionName, bool bApplyControlYaw, float ControlYawDegrees)
+{
+	if (!Montage || SectionName == NAME_None || HasAuthority() || !IsLocallyControlled())
+	{
+		return;
+	}
+
+	if (bApplyControlYaw)
+	{
+		SetActorRotation(FRotator(0.f, ControlYawDegrees, 0.f));
+	}
+
+	UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+	if (!AnimInstance || !AnimInstance->Montage_IsPlaying(Montage))
+	{
+		BO_LOG_GAS(Verbose,
+			"Client_JumpMontageToSection skipped: Montage=%s Section=%s",
+			*GetNameSafe(Montage),
+			*SectionName.ToString());
+		return;
+	}
+
+	// 서버가 승인한 섹션 전환만 오너 클라이언트의 예측 몽타주 인스턴스에 반영합니다.
+	AnimInstance->Montage_JumpToSection(SectionName, Montage);
+}
+
+void ABlackoutPlayerCharacter::Multicast_SyncDodgeChainRestart_Implementation(UAnimMontage* Montage, FName SectionName, float ServerYawDegrees)
+{
+	if (!Montage || SectionName == NAME_None || HasAuthority() || IsLocallyControlled())
+	{
+		return;
+	}
+
+	// 시뮬레이트 프록시에서 루트 모션 방향과 몽타주 위치가 한 프레임 어긋나지 않도록 함께 맞춥니다.
+	SetActorRotation(FRotator(0.f, ServerYawDegrees, 0.f));
+
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		MoveComp->StopMovementImmediately();
+	}
+
+	UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+	if (!AnimInstance)
+	{
+		BO_LOG_GAS(Warning, "Multicast_SyncDodgeChainRestart failed: AnimInstance가 비어 있음");
+		return;
+	}
+
+	if (!AnimInstance->Montage_IsPlaying(Montage))
+	{
+		const float PlayResult = PlayAnimMontage(Montage, 1.f);
+		if (PlayResult <= 0.f)
+		{
+			BO_LOG_GAS(Warning,
+				"Multicast_SyncDodgeChainRestart failed: 회피 몽타주 재생 실패 Montage=%s",
+				*GetNameSafe(Montage));
+			return;
+		}
+	}
+
+	AnimInstance->Montage_JumpToSection(SectionName, Montage);
+}
 
 void ABlackoutPlayerCharacter::Multicast_PlayConsumableMontage_Implementation(UAnimMontage* Montage, float PlayRate)
 {

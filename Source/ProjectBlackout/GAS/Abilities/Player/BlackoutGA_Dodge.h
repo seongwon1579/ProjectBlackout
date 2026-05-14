@@ -82,8 +82,8 @@ private:
 	void OnChainInputPressed(float TimeWaited);
 
 	/**
-	 * 입력 평가. 윈도우/그레이스/buffer 매칭.
-	 * v2.1: 양쪽(서버+클라)에서 동일하게 실행. 권위 의존 동작만 내부에서 게이트됩니다.
+	 * 서버에서 입력을 평가하여 윈도우/그레이스/buffer 매칭을 수행합니다.
+	 * 클라이언트는 입력 복제만 담당하고, 체인 재시작은 RepAnimMontageInfo 로 따라갑니다.
 	 */
 	void ProcessChainInput();
 
@@ -96,9 +96,9 @@ private:
 	void OnChainInputBufferExpired();
 
 	/**
-	 * 체인 회피 시작 — 양쪽에서 실행. 스태미나 소모는 서버에서만, 시각 점프는 양쪽에서 수행됩니다.
+	 * 서버 권위 체인 회피 시작. 스태미나 소모와 몽타주 위치 리셋은 서버에서만 수행됩니다.
 	 */
-	bool StartChainedDodge();
+	bool StartChainedDodge(const FBlackoutAbilityInputSyncPayload& InputPayload);
 
 	/** 체인 입력을 receive buffer 에 임시 저장합니다. */
 	void BufferChainInput(const FBlackoutAbilityInputSyncPayload& InputPayload);
@@ -113,8 +113,8 @@ private:
 	float GetInputServerTimeSeconds(const FBlackoutAbilityInputSyncPayload& InputPayload) const;
 	FBlackoutAbilityInputSyncPayload GetLatestChainInputPayload() const;
 
-	/** 회피 모션 실행: 방향 계산 → CMC Launch + 몽타주 재생 시작 + 체인 윈도우 예약(서버 한정). */
-	bool StartDodgeInternal(ABlackoutPlayerCharacter* PlayerCharacter, bool bIsChainRestart);
+	/** 회피 모션 실행: 방향 계산 → 몽타주 재생/위치 리셋 → 체인 윈도우 예약. 체인 재시작은 서버 한정입니다. */
+	bool StartDodgeInternal(ABlackoutPlayerCharacter* PlayerCharacter, bool bIsChainRestart, const FBlackoutAbilityInputSyncPayload* InputPayload = nullptr);
 
 	/**
 	 * TODO(stamina-cost): TDD §4.1 v2 에서는 GE Cost 로 처리하도록 명시.
@@ -122,7 +122,7 @@ private:
 	 */
 	bool ConsumeStamina() const;
 
-	FVector CalculateDodgeDirection(const FGameplayAbilityActorInfo* ActorInfo, bool& bOutIsBackstep, bool bPreferControlForwardWhenNoInput = false) const;
+	FVector CalculateDodgeDirection(const FGameplayAbilityActorInfo* ActorInfo, bool& bOutIsBackstep, bool bPreferControlForwardWhenNoInput = false, const FBlackoutAbilityInputSyncPayload* InputPayload = nullptr) const;
 
 	void ClearAllChainTimers();
 	void ResetChainState();
@@ -149,4 +149,5 @@ private:
 	bool bChainGraceWindowOpen = false;
 	bool bChainInputQueued = false;
 	bool bHasQueuedChainInputPayload = false;
+	uint16 LastProcessedChainInputSequenceId = 0;
 };

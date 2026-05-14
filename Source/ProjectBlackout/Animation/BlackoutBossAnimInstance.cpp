@@ -1,6 +1,5 @@
 #include "Animation/BlackoutBossAnimInstance.h"
 
-#include "EditorCategoryUtils.h"
 #include "Characters/BlackoutBossCharacter.h"
 #include "ProjectBlackoutCharacter.h"
 #include "GameFramework/CharacterMovementComponent.h"

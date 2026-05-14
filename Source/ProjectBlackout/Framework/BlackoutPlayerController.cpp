@@ -289,9 +289,6 @@ void ABlackoutPlayerController::OnDodgePressed()
 
 		// 로컬 예측용
 		PlayerCharacter->SetPendingDodgeInput(DodgeInput);
-
-		// 서버 권한용
-		PlayerCharacter->Server_SetPendingDodgeInput(DodgeInput);
 	}
 
 	HandleAbilityInputPressed(EBlackoutAbilityInputID::Dodge);
