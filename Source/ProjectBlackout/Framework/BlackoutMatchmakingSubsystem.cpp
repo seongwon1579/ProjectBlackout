@@ -25,15 +25,57 @@ void UBlackoutMatchmakingSubsystem::Initialize(
 		bAutoTravelOnGameStart = Settings->bAutoTravelOnGameStart;
 		BO_LOG_NET(Log, "Matchmaking Subsystem 초기화 - API=%s WS=%s",*Settings->ApiBaseUrl,*Settings->LobbyWsUrl);
 	}
+
+	// 로딩 화면 라이프사이클 명시 바인딩 — ClientTravel 시 자동 표시 + 맵 로드 완료 시 명시 종료.
+	// ClientTravel 비동기 흐름에서 bAutoCompleteWhenLoadingCompletes 만으론 dismiss 보장 안 됨 → 명시 StopMovie 필요.
+	PreLoadMapHandle = FCoreUObjectDelegates::PreLoadMap.AddUObject(this, &UBlackoutMatchmakingSubsystem::HandlePreLoadMap);
+	PostLoadMapHandle = FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(this, &UBlackoutMatchmakingSubsystem::HandlePostLoadMap);
 }
 
 // GameInstance 종료 시 WebSocket 정리 + 토큰 폐기.
 void UBlackoutMatchmakingSubsystem::Deinitialize()
 {
+	if (PreLoadMapHandle.IsValid())
+	{
+		FCoreUObjectDelegates::PreLoadMap.Remove(PreLoadMapHandle);
+		PreLoadMapHandle.Reset();
+	}
+	if (PostLoadMapHandle.IsValid())
+	{
+		FCoreUObjectDelegates::PostLoadMapWithWorld.Remove(PostLoadMapHandle);
+		PostLoadMapHandle.Reset();
+	}
+
 	DisconnectLobby();
 	AccessToken.Empty();
 	CachedPlayerName.Empty();
 	Super::Deinitialize();
+}
+
+// 맵 로드 직전 — MoviePlayer 에 Slate 로딩 위젯 셋업. PreLoadMap → PlayMovie 흐름이 엔진 내부에서 자동 진행.
+void UBlackoutMatchmakingSubsystem::HandlePreLoadMap(const FString& MapName)
+{
+	BO_LOG_NET(Log, "PreLoadMap: %s — 로딩 화면 셋업", *MapName);
+
+	FLoadingScreenAttributes LoadingScreenAttributes;
+	LoadingScreenAttributes.MinimumLoadingScreenDisplayTime = 2.0f;
+	LoadingScreenAttributes.bAutoCompleteWhenLoadingCompletes = false;
+	LoadingScreenAttributes.bMoviesAreSkippable = false;
+	LoadingScreenAttributes.WidgetLoadingScreen = SNew(SBlackoutLoadingScreen);
+	GetMoviePlayer()->SetupLoadingScreen(LoadingScreenAttributes);
+}
+
+// 맵 로드 완료 — MoviePlayer 명시 종료. viewport input lock 해소까지 보장.
+// bAutoComplete 비활성 + 명시 StopMovie 패턴이 ClientTravel 흐름에서 가장 안정적.
+void UBlackoutMatchmakingSubsystem::HandlePostLoadMap(UWorld* LoadedWorld)
+{
+	BO_LOG_NET(Log, "PostLoadMapWithWorld — 로딩 화면 종료");
+
+	if (GetMoviePlayer()->IsMovieCurrentlyPlaying())
+	{
+		GetMoviePlayer()->StopMovie();
+	}
+	GetMoviePlayer()->WaitForMovieToFinish();
 }
 
 // POST /auth/login — JSON body로 계정 전송. 응답은 OnLoginResponse.
@@ -127,23 +169,24 @@ void UBlackoutMatchmakingSubsystem::TravelToGameServer(const FString& ServerIp, 
 		BO_LOG_NET(Error, "PlayerController 없음 - travel 불가");
 		return;
 	}
-	
+
+	// 메인메뉴/매칭 위젯이 SetInputModeUIOnly 로 viewport 를 잠가둔 상태로 Travel 진입 시
+	// 새 World 의 PlayerController 가 입력을 못 받음. Travel 직전 명시 GameOnly 로 복구.
+	{
+		FInputModeGameOnly InputMode;
+		PC->SetInputMode(InputMode);
+		PC->bShowMouseCursor = false;
+	}
+
 	FString Addr = FString::Printf(TEXT("%s:%d"), *ServerIp, ServerPort);
 	if (!SessionId.IsEmpty())
 	{
 		Addr += FString::Printf(TEXT("?SessionId=%s"), *SessionId);
 	}
 	BO_LOG_NET(Log, "ClientTravel -> %s", *Addr);
-	
-	// 임시 우회: MoviePlayer가 ClientTravel 라이프사이클에서 SetIgnoreInput(false) 복구를 못 해
-	// 보스맵 진입 후 viewport input lock이 고착됨. 시연 후 PostLoadMapWithWorld delegate 바인딩으로 본 fix.
-	// FLoadingScreenAttributes LoadingScreenAttributes;
-	// LoadingScreenAttributes.MinimumLoadingScreenDisplayTime=2.0f;
-	// LoadingScreenAttributes.bAutoCompleteWhenLoadingCompletes = true;
-	// LoadingScreenAttributes.bMoviesAreSkippable = false;
-	// LoadingScreenAttributes.WidgetLoadingScreen = SNew(SBlackoutLoadingScreen);
-	// GetMoviePlayer()->SetupLoadingScreen(LoadingScreenAttributes);
-	
+
+	// 로딩 화면은 PreLoadMap delegate(Initialize 에서 바인딩) 가 자동 셋업.
+	// 라이프사이클 종료는 PostLoadMapWithWorld delegate 가 명시 StopMovie 로 처리.
 	DisconnectLobby();
 	PC->ClientTravel(Addr, TRAVEL_Absolute);
 }

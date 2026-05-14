@@ -169,6 +169,14 @@ public:
 	FOnBlackoutMatchmakingFailed OnMatchmakingFailed;
 
 private:
+	// PreLoadMap 시점에 MoviePlayer SetupLoadingScreen — ClientTravel 시 자동 로딩 화면 표시.
+	// PostLoadMapWithWorld 시점에 StopMovie + WaitForMovieToFinish — viewport input lock 명시 해소.
+	void HandlePreLoadMap(const FString& MapName);
+	void HandlePostLoadMap(UWorld* LoadedWorld);
+
+	FDelegateHandle PreLoadMapHandle;
+	FDelegateHandle PostLoadMapHandle;
+
 	// Authorization: Bearer <token> 헤더 주입. AccessToken 비어있으면 skip.
 	void SetAuthHeader(const FHttpRequestRef& Request) const;
 
