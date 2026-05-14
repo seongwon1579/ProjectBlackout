@@ -4,13 +4,13 @@
 
 #include "CoreMinimal.h"
 #include "BehaviorTree/BTDecorator.h"
-#include "BTD_CanEvadeSide.generated.h"
+#include "BTD_CanEvade.generated.h"
 
 /**
  * 
  */
 UCLASS(Blueprintable)
-class PROJECTBLACKOUT_API UBTD_CanEvadeSide : public UBTDecorator
+class PROJECTBLACKOUT_API UBTD_CanEvade : public UBTDecorator
 {
 	GENERATED_BODY()
 
@@ -20,5 +20,10 @@ protected:
 
 	virtual bool CalculateRawConditionValue(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) const override;
 	virtual FString GetStaticDescription() const override;
+	
+	bool IsBlocked(const APawn* Owner, const FVector& Direction) const ;
+	
+	UPROPERTY(EditAnywhere, Category= "Blackout|Blackboard|Input")
+	FBlackboardKeySelector EvadeDirectionKey;
 
 };
