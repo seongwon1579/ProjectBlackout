@@ -41,6 +41,7 @@ private:
 	UFUNCTION()
 	void HandleSprintTick();
 
+	bool ShouldDrainSprintStamina() const;
 	void ApplySprintSpeed(const FGameplayAbilityActorInfo* ActorInfo);
 	void RestoreWalkSpeed(const FGameplayAbilityActorInfo* ActorInfo) const;
 	bool ConsumeSprintStamina() const;

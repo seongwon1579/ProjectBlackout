@@ -13,9 +13,12 @@ class UBlackoutDamageNumberWidget;
 class UBlackoutConsumableSlotsWidget;
 class UBlackoutHUDWidgetController;
 class UBlackoutRelicWidget;
+class UBlackoutRevivePromptWidget;
 class UBlackoutValueBarWidget;
 class UBlackoutWeaponAmmoWidget;
 class UCanvasPanel;
+class UProgressBar;
+class UTextBlock;
 class UWidget;
 
 UCLASS(BlueprintType, Blueprintable)
@@ -34,6 +37,7 @@ public:
 
 protected:
 	virtual void NativeOnInitialized() override;
+	virtual void NativeConstruct() override;
 	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
 	virtual int32 NativePaint(
 		const FPaintArgs& Args,
@@ -67,6 +71,21 @@ protected:
 	TObjectPtr<UWidget> ImpactIndicatorWidget;
 
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
+	TObjectPtr<UBlackoutRevivePromptWidget> RevivePromptWidget;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
+	TObjectPtr<UWidget> RevivePromptContainer;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
+	TObjectPtr<UTextBlock> RevivePromptTextWidget;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
+	TObjectPtr<UTextBlock> ReviveStatusTextWidget;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
+	TObjectPtr<UProgressBar> ReviveProgressBarWidget;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
 	TObjectPtr<UCanvasPanel> CNV_DamageNumbers;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD")
@@ -98,6 +117,12 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD")
 	FLinearColor ImpactIndicatorOccludedColor = FLinearColor(1.0f, 0.7f, 0.0f, 1.0f);
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD")
+	FLinearColor RevivePromptDefaultColor = FLinearColor::White;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD")
+	FLinearColor RevivePromptErrorColor = FLinearColor(1.0f, 0.2f, 0.2f, 1.0f);
 
 	/**
 	 * 탄퍼짐이 최대일 때 인디케이터 위젯에 적용되는 RenderScale 배율.
@@ -148,12 +173,18 @@ protected:
 		const FBlackoutConsumableSlotData& BloodRootData,
 		const FBlackoutConsumableSlotData& GulSerumData);
 
+	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Revive Prompt Updated"), Category = "Blackout|HUD")
+	void ReceiveRevivePromptUpdated(const FBlackoutRevivePromptData& RevivePromptData);
+
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Damage Number Requested"), Category = "Blackout|HUD")
 	void ReceiveDamageNumberRequested(float DamageAmount, FVector2D ScreenPosition, bool bIsCritical);
 
 private:
 	void UnbindWidgetControllerCallbacks();
+	void EnsureRevivePromptWidget();
+	void ResolveRevivePromptBindingsFromTree();
 	void UpdateImpactIndicator(const FBlackoutImpactIndicatorData& ImpactIndicatorData);
+	void UpdateRevivePrompt(const FBlackoutRevivePromptData& RevivePromptData);
 	void ApplyImpactIndicatorColor(const FLinearColor& IndicatorColor) const;
 	int32 PaintProjectileTrajectoryDots(const FGeometry& AllottedGeometry, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle) const;
 	FLinearColor ResolveTrajectoryColor(EBlackoutTrajectoryVisualState VisualState) const;

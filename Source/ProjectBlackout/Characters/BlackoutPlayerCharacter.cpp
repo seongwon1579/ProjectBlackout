@@ -64,6 +64,7 @@ void ABlackoutPlayerCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProper
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME_CONDITION(ABlackoutPlayerCharacter, ReplicatedAimOffset, COND_SkipOwner);
+	DOREPLIFETIME(ABlackoutPlayerCharacter, bIsReviveInteractionActive);
 }
 
 void ABlackoutPlayerCharacter::Tick(float DeltaSeconds)
@@ -715,6 +716,46 @@ void ABlackoutPlayerCharacter::HandleAimStateChanged(bool bNewAiming)
 	ApplyAimMovementMode(bNewAiming);
 }
 
+bool ABlackoutPlayerCharacter::TryBeginReviveInteraction(ABlackoutPlayerCharacter* Reviver)
+{
+	if (!HasAuthority() || !Reviver || IsDead() || !IsDowned())
+	{
+		return false;
+	}
+
+	if (bIsReviveInteractionActive)
+	{
+		if (!ActiveReviver.IsValid())
+		{
+			bIsReviveInteractionActive = false;
+		}
+		else
+		{
+			return ActiveReviver.Get() == Reviver;
+		}
+	}
+
+	bIsReviveInteractionActive = true;
+	ActiveReviver = Reviver;
+	return true;
+}
+
+void ABlackoutPlayerCharacter::EndReviveInteraction(ABlackoutPlayerCharacter* Reviver)
+{
+	if (!HasAuthority() || !bIsReviveInteractionActive)
+	{
+		return;
+	}
+
+	if (ActiveReviver.IsValid() && Reviver && ActiveReviver.Get() != Reviver)
+	{
+		return;
+	}
+
+	bIsReviveInteractionActive = false;
+	ActiveReviver = nullptr;
+}
+
 void ABlackoutPlayerCharacter::OnHitReact()
 {
 	Super::OnHitReact();
@@ -815,6 +856,8 @@ void ABlackoutPlayerCharacter::OnDowned()
 
 	Super::OnDowned();
 
+	EndReviveInteraction(nullptr);
+
 	ApplyDownedStateLocally();
 
 	if (DownedEnterMontage)
@@ -836,6 +879,8 @@ void ABlackoutPlayerCharacter::OnDeath()
 	}
 
 	Super::OnDeath();
+
+	EndReviveInteraction(nullptr);
 
 	bIsHitReactMontagePlaying = false;
 	bIsDodgeMontagePlaying = false;
@@ -877,6 +922,7 @@ void ABlackoutPlayerCharacter::Server_ReviveFromDowned_Implementation(float Revi
 
 	AbilitySystemComponent->RemoveLooseGameplayTag(BlackoutGameplayTags::State_Downed);
 	bIsDowned = false;
+	EndReviveInteraction(nullptr);
 	AbilitySystemComponent->SetNumericAttributeBase(UBlackoutBaseAttributeSet::GetHealthAttribute(), ClampedHealth);
 	ClearDownedStateLocally();
 	ScheduleWeaponVisibilityRestoreAfterRevive();

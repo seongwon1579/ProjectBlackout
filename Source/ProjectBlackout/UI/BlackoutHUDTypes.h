@@ -16,6 +16,16 @@ enum class EBlackoutTrajectoryVisualState : uint8
 	Occluded
 };
 
+UENUM(BlueprintType)
+enum class EBlackoutRevivePromptState : uint8
+{
+	Hidden,
+	Available,
+	MissingRelic,
+	Busy,
+	InProgress
+};
+
 USTRUCT(BlueprintType)
 struct FBlackoutTrajectoryPointData
 {
@@ -77,4 +87,31 @@ struct FBlackoutImpactIndicatorData
 	/** 현재 탄퍼짐을 0(기본)~1(최대) 범위로 정규화한 값. 인디케이터 크기·크로스헤어 확장에 사용합니다. */
 	UPROPERTY(BlueprintReadOnly, Category = "Blackout|HUD")
 	float SpreadNormalized = 0.0f;
+};
+
+USTRUCT(BlueprintType)
+struct FBlackoutRevivePromptData
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|HUD")
+	bool bIsVisible = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|HUD")
+	bool bShowProgress = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|HUD")
+	bool bIsStatusError = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|HUD")
+	float ProgressNormalized = 0.0f;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|HUD")
+	EBlackoutRevivePromptState State = EBlackoutRevivePromptState::Hidden;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|HUD")
+	FText PromptText;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|HUD")
+	FText StatusText;
 };

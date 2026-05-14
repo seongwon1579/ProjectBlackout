@@ -12,6 +12,7 @@
 #include "BlackoutHUDWidgetController.generated.h"
 
 class ABOWeaponBase;
+class ABlackoutPlayerCharacter;
 class ABlackoutPlayerController;
 class ABlackoutPlayerState;
 class UAbilitySystemComponent;
@@ -48,6 +49,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|HUD")
 	bool GetImpactIndicatorData(FBlackoutImpactIndicatorData& OutIndicatorData) const;
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|HUD")
+	bool GetRevivePromptData(FBlackoutRevivePromptData& OutPromptData) const;
 
 	UPROPERTY(BlueprintAssignable, Category = "Blackout|HUD")
 	FBlackoutHUDValueChangedSignature OnHealthChanged;
@@ -96,6 +100,7 @@ private:
 	void BroadcastConsumableSlots(int32 BloodRootCount, int32 GulSerumCount) const;
 	FBlackoutWeaponAmmoSlotData MakeWeaponAmmoSlotData(ABOWeaponBase* Weapon, FGameplayTag WeaponSlotTag, bool bIsEquipped) const;
 	FBlackoutConsumableSlotData MakeConsumableSlotData(UBOConsumableData* ConsumableData) const;
+	ABlackoutPlayerCharacter* FindNearbyDownedPlayer(const ABlackoutPlayerCharacter* LocalPlayerCharacter, float ReviveRange) const;
 	float GetAttributeValue(const FGameplayAttribute& Attribute) const;
 	FGameplayTag GetEquippedWeaponSlotTag() const;
 	int32 GetEquippedCrosshairType() const;

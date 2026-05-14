@@ -107,11 +107,39 @@ void UBlackoutGA_Sprint::EndAbility(const FGameplayAbilitySpecHandle Handle, con
 
 void UBlackoutGA_Sprint::HandleSprintTick()
 {
-	if (!IsActive() || !ConsumeSprintStamina())
+	if (!IsActive())
 	{
 		BO_LOG_GAS(Log, "GA_Sprint finishing: 비활성 상태이거나 스태미나가 부족함");
 		K2_EndAbility();
+		return;
 	}
+
+	if (!ShouldDrainSprintStamina())
+	{
+		return;
+	}
+
+	if (!ConsumeSprintStamina())
+	{
+		BO_LOG_GAS(Log, "GA_Sprint finishing: 스태미나가 부족함");
+		K2_EndAbility();
+	}
+}
+
+bool UBlackoutGA_Sprint::ShouldDrainSprintStamina() const
+{
+	const ABlackoutPlayerCharacter* PlayerCharacter =
+		CurrentActorInfo ? Cast<ABlackoutPlayerCharacter>(CurrentActorInfo->AvatarActor.Get()) : nullptr;
+	const UBlackoutPlayerMovementComponent* MovementComponent =
+		PlayerCharacter ? Cast<UBlackoutPlayerMovementComponent>(PlayerCharacter->GetCharacterMovement()) : nullptr;
+	if (!MovementComponent)
+	{
+		return true;
+	}
+
+	const bool bHasMovementInput = MovementComponent->GetCurrentAcceleration().SizeSquared2D() > 1.0f;
+	const bool bIsActuallyMoving = MovementComponent->Velocity.SizeSquared2D() > 1.0f;
+	return bHasMovementInput || bIsActuallyMoving;
 }
 
 void UBlackoutGA_Sprint::ApplySprintSpeed(const FGameplayAbilityActorInfo* ActorInfo)

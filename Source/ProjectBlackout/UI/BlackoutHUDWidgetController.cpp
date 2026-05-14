@@ -9,13 +9,22 @@
 #include "Core/BlackoutLog.h"
 #include "Data/BOCharacterData.h"
 #include "Data/BOConsumableData.h"
+#include "EngineUtils.h"
 #include "Framework/BlackoutPlayerController.h"
 #include "Framework/BlackoutPlayerState.h"
+#include "GAS/Abilities/Player/BlackoutGA_Revive.h"
 #include "GAS/Attributes/BlackoutAmmoAttributeSet.h"
 #include "GAS/Attributes/BlackoutBaseAttributeSet.h"
 #include "GAS/Attributes/BlackoutPlayerAttributeSet.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "Blueprint/WidgetLayoutLibrary.h"
+
+namespace
+{
+	const FText RevivePromptText = FText::FromString(TEXT("E : 부활"));
+	const FText MissingRelicText = FText::FromString(TEXT("유물이 없습니다"));
+	const FText ReviveBusyText = FText::FromString(TEXT("부활중입니다"));
+}
 
 bool UBlackoutHUDWidgetController::Initialize(APlayerController* InPlayerController)
 {
@@ -151,6 +160,69 @@ bool UBlackoutHUDWidgetController::GetImpactIndicatorData(FBlackoutImpactIndicat
 	// 전투 컴포넌트는 월드 좌표만 만들고, 화면 좌표 변환은 HUD 계층에서 처리합니다.
 	ProjectTrajectoryPoints(OutIndicatorData.TrajectoryPoints);
 
+	return true;
+}
+
+bool UBlackoutHUDWidgetController::GetRevivePromptData(FBlackoutRevivePromptData& OutPromptData) const
+{
+	OutPromptData = FBlackoutRevivePromptData();
+
+	const ABlackoutPlayerController* BlackoutPlayerController = PlayerController.Get();
+	const ABlackoutPlayerCharacter* LocalPlayerCharacter =
+		BlackoutPlayerController ? Cast<ABlackoutPlayerCharacter>(BlackoutPlayerController->GetPawn()) : nullptr;
+	if (!BlackoutPlayerController || !BlackoutPlayerController->IsLocalController() || !LocalPlayerCharacter)
+	{
+		return false;
+	}
+
+	if (LocalPlayerCharacter->IsDead() || LocalPlayerCharacter->IsDowned())
+	{
+		return false;
+	}
+
+	if (const UBlackoutGA_Revive* ActiveReviveAbility = UBlackoutGA_Revive::GetActiveReviveAbilityFromActor(LocalPlayerCharacter))
+	{
+		if (ActiveReviveAbility->GetReviveTarget())
+		{
+			OutPromptData.bIsVisible = true;
+			OutPromptData.bShowProgress = true;
+			OutPromptData.ProgressNormalized = ActiveReviveAbility->GetReviveProgressNormalized();
+			OutPromptData.State = EBlackoutRevivePromptState::InProgress;
+			OutPromptData.PromptText = RevivePromptText;
+			return true;
+		}
+	}
+
+	const float ReviveRange = UBlackoutGA_Revive::GetReviveRangeForActor(LocalPlayerCharacter);
+	ABlackoutPlayerCharacter* NearbyDownedPlayer = FindNearbyDownedPlayer(LocalPlayerCharacter, ReviveRange);
+	if (!NearbyDownedPlayer)
+	{
+		return false;
+	}
+
+	OutPromptData.bIsVisible = true;
+	OutPromptData.PromptText = RevivePromptText;
+
+	if (NearbyDownedPlayer->IsReviveInteractionActive())
+	{
+		OutPromptData.State = EBlackoutRevivePromptState::Busy;
+		OutPromptData.bIsStatusError = true;
+		OutPromptData.StatusText = ReviveBusyText;
+		return true;
+	}
+
+	const int32 CurrentRelicCharges = FMath::Max(
+		0,
+		FMath::RoundToInt(GetAttributeValue(UBlackoutPlayerAttributeSet::GetRelicChargesAttribute())));
+	if (CurrentRelicCharges <= 0)
+	{
+		OutPromptData.State = EBlackoutRevivePromptState::MissingRelic;
+		OutPromptData.bIsStatusError = true;
+		OutPromptData.StatusText = MissingRelicText;
+		return true;
+	}
+
+	OutPromptData.State = EBlackoutRevivePromptState::Available;
 	return true;
 }
 
@@ -420,6 +492,42 @@ FBlackoutConsumableSlotData UBlackoutHUDWidgetController::MakeConsumableSlotData
 	SlotData.Icon = ConsumableData->Icon.LoadSynchronous();
 
 	return SlotData;
+}
+
+ABlackoutPlayerCharacter* UBlackoutHUDWidgetController::FindNearbyDownedPlayer(
+	const ABlackoutPlayerCharacter* LocalPlayerCharacter,
+	float ReviveRange) const
+{
+	if (!LocalPlayerCharacter || !LocalPlayerCharacter->GetWorld())
+	{
+		return nullptr;
+	}
+
+	const float MaxRangeSquared = FMath::Square(FMath::Max(0.0f, ReviveRange));
+	ABlackoutPlayerCharacter* BestTarget = nullptr;
+	float BestDistanceSquared = TNumericLimits<float>::Max();
+
+	for (TActorIterator<ABlackoutPlayerCharacter> It(LocalPlayerCharacter->GetWorld()); It; ++It)
+	{
+		ABlackoutPlayerCharacter* Candidate = *It;
+		if (!Candidate || Candidate == LocalPlayerCharacter || Candidate->IsDead() || !Candidate->IsDowned())
+		{
+			continue;
+		}
+
+		const float DistanceSquared = FVector::DistSquared(
+			LocalPlayerCharacter->GetActorLocation(),
+			Candidate->GetActorLocation());
+		if (DistanceSquared > MaxRangeSquared || DistanceSquared >= BestDistanceSquared)
+		{
+			continue;
+		}
+
+		BestDistanceSquared = DistanceSquared;
+		BestTarget = Candidate;
+	}
+
+	return BestTarget;
 }
 
 float UBlackoutHUDWidgetController::GetAttributeValue(const FGameplayAttribute& Attribute) const

@@ -1,5 +1,6 @@
 #include "GAS/Abilities/Player/BlackoutGA_Revive.h"
 
+#include "AbilitySystemInterface.h"
 #include "AbilitySystemComponent.h"
 #include "Animation/AnimMontage.h"
 #include "Characters/BlackoutPlayerCharacter.h"
@@ -15,6 +16,21 @@
 namespace
 {
 	constexpr float ReviveRelicChargeCost = 1.0f;
+
+	const UAbilitySystemComponent* ResolveAbilitySystemComponentFromActor(const AActor* AvatarActor)
+	{
+		if (!AvatarActor)
+		{
+			return nullptr;
+		}
+
+		if (const IAbilitySystemInterface* AbilitySystemInterface = Cast<IAbilitySystemInterface>(AvatarActor))
+		{
+			return AbilitySystemInterface->GetAbilitySystemComponent();
+		}
+
+		return nullptr;
+	}
 }
 
 UBlackoutGA_Revive::UBlackoutGA_Revive()
@@ -25,6 +41,73 @@ UBlackoutGA_Revive::UBlackoutGA_Revive()
 	ActivationOwnedTags.AddTag(BlackoutGameplayTags::State_Locked);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Downed);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Locked);
+}
+
+const UBlackoutGA_Revive* UBlackoutGA_Revive::GetActiveReviveAbilityFromActor(const AActor* AvatarActor)
+{
+	const UAbilitySystemComponent* AbilitySystemComponent = ResolveAbilitySystemComponentFromActor(AvatarActor);
+	if (!AbilitySystemComponent)
+	{
+		return nullptr;
+	}
+
+	for (const FGameplayAbilitySpec& AbilitySpec : AbilitySystemComponent->GetActivatableAbilities())
+	{
+		for (UGameplayAbility* AbilityInstance : AbilitySpec.GetAbilityInstances())
+		{
+			const UBlackoutGA_Revive* ReviveAbility = Cast<UBlackoutGA_Revive>(AbilityInstance);
+			if (ReviveAbility && ReviveAbility->IsActive())
+			{
+				return ReviveAbility;
+			}
+		}
+	}
+
+	return nullptr;
+}
+
+float UBlackoutGA_Revive::GetReviveRangeForActor(const AActor* AvatarActor)
+{
+	const UAbilitySystemComponent* AbilitySystemComponent = ResolveAbilitySystemComponentFromActor(AvatarActor);
+	const UBlackoutGA_Revive* FallbackAbility = GetDefault<UBlackoutGA_Revive>();
+	float ResolvedReviveRange = FallbackAbility ? FallbackAbility->ReviveRange : 250.0f;
+
+	if (!AbilitySystemComponent)
+	{
+		return ResolvedReviveRange;
+	}
+
+	for (const FGameplayAbilitySpec& AbilitySpec : AbilitySystemComponent->GetActivatableAbilities())
+	{
+		if (const UBlackoutGA_Revive* ReviveAbility = Cast<UBlackoutGA_Revive>(AbilitySpec.Ability))
+		{
+			ResolvedReviveRange = ReviveAbility->ReviveRange;
+			break;
+		}
+	}
+
+	return ResolvedReviveRange;
+}
+
+float UBlackoutGA_Revive::GetReviveProgressNormalized() const
+{
+	if (!IsActive())
+	{
+		return 0.0f;
+	}
+
+	if (ReviveDuration <= KINDA_SMALL_NUMBER)
+	{
+		return 1.0f;
+	}
+
+	if (const UWorld* World = GetWorld())
+	{
+		const float ElapsedTime = FMath::Max(0.0f, World->GetTimeSeconds() - LocalReviveStartTimeSeconds);
+		return FMath::Clamp(ElapsedTime / ReviveDuration, 0.0f, 1.0f);
+	}
+
+	return 0.0f;
 }
 
 void UBlackoutGA_Revive::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
@@ -55,10 +138,21 @@ void UBlackoutGA_Revive::ActivateAbility(const FGameplayAbilitySpecHandle Handle
 		return;
 	}
 
+	if (CachedReviver->HasAuthority() && !CachedTarget->TryBeginReviveInteraction(CachedReviver.Get()))
+	{
+		BO_LOG_GAS(Warning, "GA_Revive failed: 다른 플레이어가 이미 같은 대상을 부활 중임");
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		return;
+	}
+
 	UAbilitySystemComponent* ReviverAbilitySystemComponent = GetAbilitySystemComponentFromActorInfo();
 	if (!ReviverAbilitySystemComponent)
 	{
 		BO_LOG_GAS(Warning, "GA_Revive failed: ReviverAbilitySystemComponent가 비어 있음");
+		if (CachedReviver->HasAuthority() && CachedTarget)
+		{
+			CachedTarget->EndReviveInteraction(CachedReviver.Get());
+		}
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
@@ -72,6 +166,10 @@ void UBlackoutGA_Revive::ActivateAbility(const FGameplayAbilitySpecHandle Handle
 			*GetNameSafe(CachedReviver.Get()),
 			CurrentRelicCharges,
 			ReviveRelicChargeCost);
+		if (CachedReviver->HasAuthority() && CachedTarget)
+		{
+			CachedTarget->EndReviveInteraction(CachedReviver.Get());
+		}
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
@@ -79,6 +177,10 @@ void UBlackoutGA_Revive::ActivateAbility(const FGameplayAbilitySpecHandle Handle
 	if (!CommitAbility(Handle, ActorInfo, ActivationInfo))
 	{
 		BO_LOG_GAS(Warning, "GA_Revive failed: CommitAbility 실패");
+		if (CachedReviver->HasAuthority() && CachedTarget)
+		{
+			CachedTarget->EndReviveInteraction(CachedReviver.Get());
+		}
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
@@ -112,6 +214,7 @@ void UBlackoutGA_Revive::ActivateAbility(const FGameplayAbilitySpecHandle Handle
 	}
 
 	ReviveElapsedTime = 0.0f;
+	LocalReviveStartTimeSeconds = CachedReviver->GetWorld() ? CachedReviver->GetWorld()->GetTimeSeconds() : 0.0f;
 
 	if (CachedReviver->HasAuthority())
 	{
@@ -180,9 +283,15 @@ void UBlackoutGA_Revive::EndAbility(const FGameplayAbilitySpecHandle Handle, con
 		}
 	}
 
+	if (CachedReviver && CachedReviver->HasAuthority() && CachedTarget)
+	{
+		CachedTarget->EndReviveInteraction(CachedReviver.Get());
+	}
+
 	CachedReviver = nullptr;
 	CachedTarget = nullptr;
 	ReviveElapsedTime = 0.0f;
+	LocalReviveStartTimeSeconds = 0.0f;
 
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
@@ -359,6 +468,11 @@ bool UBlackoutGA_Revive::CanReviveTarget(const ABlackoutPlayerCharacter* Reviver
 	}
 
 	if (Target->IsDead() || !Target->IsDowned())
+	{
+		return false;
+	}
+
+	if (Target->IsReviveInteractionActive() && Target != CachedTarget.Get())
 	{
 		return false;
 	}

@@ -1,11 +1,15 @@
 #include "UI/BlackoutHUDWidget.h"
 
+#include "Blueprint/WidgetTree.h"
 #include "Blueprint/WidgetLayoutLibrary.h"
+#include "Components/PanelWidget.h"
 #include "Components/CanvasPanel.h"
 #include "Components/CanvasPanelSlot.h"
 #include "Core/BlackoutLog.h"
 #include "Components/Border.h"
 #include "Components/Image.h"
+#include "Components/ProgressBar.h"
+#include "Components/TextBlock.h"
 #include "Components/Widget.h"
 #include "GameFramework/PlayerController.h"
 #include "Rendering/DrawElements.h"
@@ -14,25 +18,53 @@
 #include "UI/BlackoutConsumableSlotsWidget.h"
 #include "UI/BlackoutHUDWidgetController.h"
 #include "UI/BlackoutRelicWidget.h"
+#include "UI/BlackoutRevivePromptWidget.h"
 #include "UI/BlackoutValueBarWidget.h"
 #include "UI/BlackoutWeaponAmmoWidget.h"
+
+namespace
+{
+	const TCHAR* DefaultRevivePromptWidgetClassPath =
+		TEXT("/Game/_BP/UI/WBP/WBP_RevivePrompt.WBP_RevivePrompt_C");
+}
 
 void UBlackoutHUDWidget::NativeOnInitialized()
 {
 	Super::NativeOnInitialized();
+
+	ResolveRevivePromptBindingsFromTree();
+	EnsureRevivePromptWidget();
+}
+
+void UBlackoutHUDWidget::NativeConstruct()
+{
+	Super::NativeConstruct();
+
+	ResolveRevivePromptBindingsFromTree();
+	EnsureRevivePromptWidget();
 }
 
 void UBlackoutHUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
 
+	ResolveRevivePromptBindingsFromTree();
+
+	if (!RevivePromptWidget && !RevivePromptContainer && !RevivePromptTextWidget && !ReviveStatusTextWidget && !ReviveProgressBarWidget)
+	{
+		EnsureRevivePromptWidget();
+	}
+
 	FBlackoutImpactIndicatorData ImpactIndicatorData;
+	FBlackoutRevivePromptData RevivePromptData;
 	if (WidgetController)
 	{
 		WidgetController->GetImpactIndicatorData(ImpactIndicatorData);
+		WidgetController->GetRevivePromptData(RevivePromptData);
 	}
 
 	UpdateImpactIndicator(ImpactIndicatorData);
+	UpdateRevivePrompt(RevivePromptData);
 	ReceiveSpreadUpdated(ImpactIndicatorData.SpreadNormalized);
 }
 
@@ -155,6 +187,106 @@ void UBlackoutHUDWidget::UnbindWidgetControllerCallbacks()
 	WidgetController->OnConsumableSlotsChanged.RemoveAll(this);
 }
 
+void UBlackoutHUDWidget::EnsureRevivePromptWidget()
+{
+	ResolveRevivePromptBindingsFromTree();
+
+	if (RevivePromptWidget)
+	{
+		return;
+	}
+
+	UPanelWidget* RootPanel = Cast<UPanelWidget>(GetRootWidget());
+	if (!RootPanel)
+	{
+		BO_LOG_CORE(Warning, "HUD 루트가 PanelWidget이 아니어서 부활 프롬프트 위젯을 자동 배치하지 못했습니다.");
+		return;
+	}
+
+	TSubclassOf<UBlackoutRevivePromptWidget> PromptWidgetClass =
+		LoadClass<UBlackoutRevivePromptWidget>(nullptr, DefaultRevivePromptWidgetClassPath);
+	if (!PromptWidgetClass)
+	{
+		BO_LOG_CORE(Warning, "WBP_RevivePrompt 클래스를 찾지 못해 기본 C++ 위젯으로 대체합니다.");
+		PromptWidgetClass = UBlackoutRevivePromptWidget::StaticClass();
+	}
+
+	UBlackoutRevivePromptWidget* CreatedRevivePromptWidget = CreateWidget<UBlackoutRevivePromptWidget>(
+		GetOwningPlayer(),
+		PromptWidgetClass);
+	if (!CreatedRevivePromptWidget)
+	{
+		BO_LOG_CORE(Error, "부활 프롬프트 위젯 인스턴스를 생성하지 못했습니다.");
+		return;
+	}
+
+	RevivePromptWidget = CreatedRevivePromptWidget;
+	RevivePromptWidget->SetVisibility(ESlateVisibility::Hidden);
+
+	if (UCanvasPanel* CanvasRoot = Cast<UCanvasPanel>(RootPanel))
+	{
+		if (UCanvasPanelSlot* CanvasSlot = CanvasRoot->AddChildToCanvas(RevivePromptWidget))
+		{
+			CanvasSlot->SetAutoSize(true);
+			CanvasSlot->SetAnchors(FAnchors(0.5f, 0.78f, 0.5f, 0.78f));
+			CanvasSlot->SetAlignment(FVector2D(0.5f, 0.5f));
+			CanvasSlot->SetPosition(FVector2D::ZeroVector);
+		}
+		return;
+	}
+
+	RootPanel->AddChild(RevivePromptWidget);
+}
+
+void UBlackoutHUDWidget::ResolveRevivePromptBindingsFromTree()
+{
+	if (!WidgetTree)
+	{
+		return;
+	}
+
+	if (!RevivePromptWidget)
+	{
+		RevivePromptWidget = Cast<UBlackoutRevivePromptWidget>(WidgetTree->FindWidget(TEXT("RevivePromptWidget")));
+	}
+
+	if (!RevivePromptContainer)
+	{
+		RevivePromptContainer = WidgetTree->FindWidget(TEXT("RevivePromptContainer"));
+	}
+
+	if (!RevivePromptTextWidget)
+	{
+		RevivePromptTextWidget = Cast<UTextBlock>(WidgetTree->FindWidget(TEXT("RevivePromptTextWidget")));
+	}
+
+	if (!ReviveStatusTextWidget)
+	{
+		ReviveStatusTextWidget = Cast<UTextBlock>(WidgetTree->FindWidget(TEXT("ReviveStatusTextWidget")));
+	}
+
+	if (!ReviveProgressBarWidget)
+	{
+		ReviveProgressBarWidget = Cast<UProgressBar>(WidgetTree->FindWidget(TEXT("ReviveProgressBarWidget")));
+	}
+
+	if (RevivePromptWidget)
+	{
+		return;
+	}
+
+	TArray<UWidget*> AllWidgets;
+	WidgetTree->GetAllWidgets(AllWidgets);
+	for (UWidget* CandidateWidget : AllWidgets)
+	{
+		if (UBlackoutRevivePromptWidget* CandidateRevivePromptWidget = Cast<UBlackoutRevivePromptWidget>(CandidateWidget))
+		{
+			RevivePromptWidget = CandidateRevivePromptWidget;
+			break;
+		}
+	}
+}
+
 void UBlackoutHUDWidget::UpdateImpactIndicator(const FBlackoutImpactIndicatorData& ImpactIndicatorData)
 {
 	CachedTrajectoryPoints = ImpactIndicatorData.bIsVisible
@@ -205,6 +337,60 @@ void UBlackoutHUDWidget::UpdateImpactIndicator(const FBlackoutImpactIndicatorDat
 
 	ImpactIndicatorWidget->SetRenderTransformPivot(FVector2D(0.5f, 0.5f));
 	ImpactIndicatorWidget->SetRenderTranslation(ImpactIndicatorData.ScreenPosition);
+}
+
+void UBlackoutHUDWidget::UpdateRevivePrompt(const FBlackoutRevivePromptData& RevivePromptData)
+{
+	ResolveRevivePromptBindingsFromTree();
+
+	if (RevivePromptData.bIsVisible &&
+		!RevivePromptWidget &&
+		!RevivePromptContainer &&
+		!RevivePromptTextWidget &&
+		!ReviveStatusTextWidget &&
+		!ReviveProgressBarWidget)
+	{
+		EnsureRevivePromptWidget();
+	}
+
+	if (RevivePromptWidget)
+	{
+		RevivePromptWidget->SetRevivePromptData(RevivePromptData);
+	}
+
+	const ESlateVisibility VisibleState = ESlateVisibility::HitTestInvisible;
+	const ESlateVisibility HiddenState = ESlateVisibility::Hidden;
+	const bool bShowPrompt = RevivePromptData.bIsVisible;
+	const bool bShowStatus = bShowPrompt && !RevivePromptData.StatusText.IsEmpty();
+	const bool bShowProgress = bShowPrompt && RevivePromptData.bShowProgress;
+
+	if (RevivePromptContainer)
+	{
+		RevivePromptContainer->SetVisibility(bShowPrompt ? VisibleState : HiddenState);
+	}
+
+	if (RevivePromptTextWidget)
+	{
+		RevivePromptTextWidget->SetText(RevivePromptData.PromptText);
+		RevivePromptTextWidget->SetColorAndOpacity(FSlateColor(RevivePromptDefaultColor));
+		RevivePromptTextWidget->SetVisibility(bShowPrompt ? VisibleState : HiddenState);
+	}
+
+	if (ReviveStatusTextWidget)
+	{
+		ReviveStatusTextWidget->SetText(RevivePromptData.StatusText);
+		ReviveStatusTextWidget->SetColorAndOpacity(FSlateColor(
+			RevivePromptData.bIsStatusError ? RevivePromptErrorColor : RevivePromptDefaultColor));
+		ReviveStatusTextWidget->SetVisibility(bShowStatus ? VisibleState : HiddenState);
+	}
+
+	if (ReviveProgressBarWidget)
+	{
+		ReviveProgressBarWidget->SetPercent(RevivePromptData.ProgressNormalized);
+		ReviveProgressBarWidget->SetVisibility(bShowProgress ? VisibleState : HiddenState);
+	}
+
+	ReceiveRevivePromptUpdated(RevivePromptData);
 }
 
 int32 UBlackoutHUDWidget::PaintProjectileTrajectoryDots(

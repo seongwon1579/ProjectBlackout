@@ -18,8 +18,17 @@ class PROJECTBLACKOUT_API UBlackoutGA_Revive : public UBlackoutGameplayAbility
 public:
 	UBlackoutGA_Revive();
 
+	static const UBlackoutGA_Revive* GetActiveReviveAbilityFromActor(const AActor* AvatarActor);
+	static float GetReviveRangeForActor(const AActor* AvatarActor);
+
 	virtual void InputReleased(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
 		const FGameplayAbilityActivationInfo ActivationInfo) override;
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|Ability")
+	float GetReviveProgressNormalized() const;
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|Ability")
+	ABlackoutPlayerCharacter* GetReviveTarget() const { return CachedTarget.Get(); }
 
 protected:
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
@@ -60,4 +69,5 @@ private:
 
 	FTimerHandle ReviveTickTimerHandle;
 	float ReviveElapsedTime = 0.0f;
+	float LocalReviveStartTimeSeconds = 0.0f;
 };

@@ -172,6 +172,12 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Blackout|Animation")
 	bool IsReviveMontagePlaying() const { return bIsReviveMontagePlaying; }
 
+	UFUNCTION(BlueprintPure, Category = "Blackout|Interaction")
+	bool IsReviveInteractionActive() const { return bIsReviveInteractionActive; }
+
+	bool TryBeginReviveInteraction(ABlackoutPlayerCharacter* Reviver);
+	void EndReviveInteraction(ABlackoutPlayerCharacter* Reviver);
+
 	void SetLocalSprintCameraActive(bool bActive) { bIsLocalSprintCameraActive = bActive; }
 
 	UFUNCTION(BlueprintPure, Category = "Blackout|Animation")
@@ -330,12 +336,18 @@ protected:
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Animation")
 	bool bIsReviveMontagePlaying = false;
 
+	UPROPERTY(Transient, Replicated, BlueprintReadOnly, Category = "Blackout|Interaction")
+	bool bIsReviveInteractionActive = false;
+
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Camera")
 	bool bIsLocalSprintCameraActive = false;
 
 	/** 로컬 클라이언트에서 직전 downed 상태를 기억해 기상 몽타주 전환을 판별합니다. */
 	UPROPERTY(Transient)
 	bool bWasDownedLocally = false;
+
+	UPROPERTY(Transient)
+	TWeakObjectPtr<ABlackoutPlayerCharacter> ActiveReviver;
 
 	FTimerHandle ReviveWeaponRestoreTimerHandle;
 
