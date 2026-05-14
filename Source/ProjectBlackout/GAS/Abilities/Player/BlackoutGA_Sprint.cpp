@@ -2,6 +2,7 @@
 
 #include "AbilitySystemComponent.h"
 #include "Characters/BlackoutPlayerCharacter.h"
+#include "Characters/BlackoutPlayerMovementComponent.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
 #include "Core/BlackoutLog.h"
 #include "GAS/BlackoutAbilitySystemComponent.h"
@@ -51,6 +52,11 @@ void UBlackoutGA_Sprint::ActivateAbility(const FGameplayAbilitySpecHandle Handle
 
 	BO_LOG_GAS(Log, "GA_Sprint activated: Character=%s", *GetNameSafe(ActorInfo->AvatarActor.Get()));
 
+	if (ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()))
+	{
+		PlayerCharacter->SetLocalSprintCameraActive(true);
+	}
+
 	if (UBlackoutCombatComponent* CombatComponent = ActorInfo->AvatarActor->FindComponentByClass<UBlackoutCombatComponent>())
 	{
 		CombatComponent->StopAim();
@@ -83,6 +89,11 @@ void UBlackoutGA_Sprint::EndAbility(const FGameplayAbilitySpecHandle Handle, con
 
 	if (ActorInfo && ActorInfo->AvatarActor.IsValid())
 	{
+		if (ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()))
+		{
+			PlayerCharacter->SetLocalSprintCameraActive(false);
+		}
+
 		if (UWorld* World = ActorInfo->AvatarActor->GetWorld())
 		{
 			World->GetTimerManager().ClearTimer(SprintDrainTimerHandle);
@@ -106,22 +117,23 @@ void UBlackoutGA_Sprint::HandleSprintTick()
 void UBlackoutGA_Sprint::ApplySprintSpeed(const FGameplayAbilityActorInfo* ActorInfo)
 {
 	const ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
-	UCharacterMovementComponent* MovementComponent = PlayerCharacter ? PlayerCharacter->GetCharacterMovement() : nullptr;
+	UBlackoutPlayerMovementComponent* MovementComponent =
+		PlayerCharacter ? Cast<UBlackoutPlayerMovementComponent>(PlayerCharacter->GetCharacterMovement()) : nullptr;
 	if (!MovementComponent)
 	{
 		return;
 	}
 
-	CachedWalkSpeed = MovementComponent->MaxWalkSpeed;
-	MovementComponent->MaxWalkSpeed = CachedWalkSpeed * SprintSpeedMultiplier;
+	MovementComponent->SetSprintRequested(true);
 }
 
 void UBlackoutGA_Sprint::RestoreWalkSpeed(const FGameplayAbilityActorInfo* ActorInfo) const
 {
 	const ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
-	if (UCharacterMovementComponent* MovementComponent = PlayerCharacter ? PlayerCharacter->GetCharacterMovement() : nullptr)
+	if (UBlackoutPlayerMovementComponent* MovementComponent =
+		PlayerCharacter ? Cast<UBlackoutPlayerMovementComponent>(PlayerCharacter->GetCharacterMovement()) : nullptr)
 	{
-		MovementComponent->MaxWalkSpeed = CachedWalkSpeed > 0.0f ? CachedWalkSpeed : MovementComponent->MaxWalkSpeed;
+		MovementComponent->SetSprintRequested(false);
 	}
 }
 

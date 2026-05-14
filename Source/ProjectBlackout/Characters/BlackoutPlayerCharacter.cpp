@@ -1,5 +1,6 @@
 #include "BlackoutPlayerCharacter.h"
 #include "BlackoutAbilitySystemComponent.h"
+#include "Characters/BlackoutPlayerMovementComponent.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
 #include "Combat/Components/BlackoutImpactIndicatorComponent.h"
 #include "Data/BOCharacterData.h"
@@ -17,7 +18,8 @@
 #include "GAS/Attributes/BlackoutBaseAttributeSet.h"
 #include "Net/UnrealNetwork.h"
 
-ABlackoutPlayerCharacter::ABlackoutPlayerCharacter()
+ABlackoutPlayerCharacter::ABlackoutPlayerCharacter(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer.SetDefaultSubobjectClass<UBlackoutPlayerMovementComponent>(ACharacter::CharacterMovementComponentName))
 {
 	PrimaryActorTick.bCanEverTick = true;
 
@@ -216,7 +218,7 @@ void ABlackoutPlayerCharacter::Server_SetAimOffset_Implementation(FVector2D NewA
 		FMath::Clamp(NewAimOffset.Y, -90.f, 90.f));
 }
 
-// Multicast_PlayDodgeMontage_Implementation 은 TDD §4.1 v2 에서 폐기되었습니다.
+
 // 회피 몽타주 재생은 GAS 표준 PlayMontageAndWait → ASC::PlayMontage 경로로 처리됩니다.
 
 void ABlackoutPlayerCharacter::Multicast_PlayHitReactMontage_Implementation(UAnimMontage* Montage, float PlayRate)
@@ -1193,7 +1195,12 @@ float ABlackoutPlayerCharacter::ResolveTargetCameraFOV(bool bIsAiming) const
 		return AimFOV;
 	}
 
-	if (AbilitySystemComponent && AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Sprinting))
+	if (bIsDodgeMontagePlaying)
+	{
+		return DodgeFOV;
+	}
+
+	if (bIsLocalSprintCameraActive)
 	{
 		return SprintFOV;
 	}

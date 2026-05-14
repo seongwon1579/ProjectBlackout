@@ -22,7 +22,7 @@ class PROJECTBLACKOUT_API ABlackoutCharacterBase : public ACharacter, public IAb
 	GENERATED_BODY()
 
 public:
-	ABlackoutCharacterBase();
+	ABlackoutCharacterBase(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 	virtual FGameplayTag GetHitPartTag(FName BoneName) const override;

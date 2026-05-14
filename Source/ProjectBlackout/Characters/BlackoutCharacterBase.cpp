@@ -135,7 +135,8 @@ namespace
 	}
 }
 
-ABlackoutCharacterBase::ABlackoutCharacterBase()
+ABlackoutCharacterBase::ABlackoutCharacterBase(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	PrimaryActorTick.bCanEverTick = false;
 	bReplicates = true;
