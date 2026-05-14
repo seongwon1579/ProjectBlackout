@@ -135,6 +135,10 @@ public:
 	UFUNCTION(Client, Reliable, Category = "Blackout|Animation")
 	void Client_JumpMontageToSection(UAnimMontage* Montage, FName SectionName, bool bApplyControlYaw = false, float ControlYawDegrees = 0.f);
 
+	// 루트 모션 회피 체인 재시작은 원격 프록시에서 회전/몽타주 리셋을 같은 틱에 맞춰 적용합니다.
+	UFUNCTION(NetMulticast, Unreliable, Category = "Blackout|Animation")
+	void Multicast_SyncDodgeChainRestart(UAnimMontage* Montage, FName SectionName, float ServerYawDegrees);
+
 	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
 	void Multicast_PlayConsumableMontage(UAnimMontage* Montage, float PlayRate = 1.f);
 
