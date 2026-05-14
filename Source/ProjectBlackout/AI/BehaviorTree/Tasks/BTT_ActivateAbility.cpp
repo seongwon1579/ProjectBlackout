@@ -7,7 +7,7 @@
 
 UBTT_ActivateAbility::UBTT_ActivateAbility()
 {
-	NodeName = "Activate Boss Ability";
+	NodeName = TEXT("Activate Ability");
 	bCreateNodeInstance = true;
 }
 
@@ -21,7 +21,7 @@ EBTNodeResult::Type UBTT_ActivateAbility::ExecuteTask(UBehaviorTreeComponent& Ow
 	UBlackboardComponent* BB = OwnerComp.GetBlackboardComponent();
 	if (!BB) return EBTNodeResult::Failed;
 	
-	APawn* Target = BB ? Cast<APawn>(BB->GetValueAsObject(CurrentTargetKey.SelectedKeyName)) : nullptr;
+	APawn* Target = BB ? Cast<APawn>(BB->GetValueAsObject(TargetKey.SelectedKeyName)) : nullptr;
 	if (!Target) return EBTNodeResult::Failed;
 
 	// ── 3. GA 실행 (타겟을 EventData에 담아 HandleGameplayEvent로 전달) ──────
@@ -31,10 +31,7 @@ EBTNodeResult::Type UBTT_ActivateAbility::ExecuteTask(UBehaviorTreeComponent& Ow
 	FGameplayEventData EventData;
 	EventData.Target = Target;
 	
-	if (bPassSignedAngle)
-	{
-		EventData.EventMagnitude = BB->GetValueAsFloat(SignedAngleKey.SelectedKeyName);
-	}
+	PrepareEventData(EventData, BB);
 
 	// ── 4. GA 종료 대기 설정  ────────────────────────────
 	if (bWaitForEnd)
@@ -101,42 +98,10 @@ void UBTT_ActivateAbility::UnbindDelegate()
 
 FString UBTT_ActivateAbility::GetStaticDescription() const
 {
-	if (bReadTagFromBlackboard)
-	{
-		return FString::Printf(TEXT("Activate GA from BB: %s"), *SelectedGameAbilityTagKey.SelectedKeyName.ToString());
-	}
 	return FString::Printf(TEXT("Activate GA: %s"), *AbilityTag.ToString());
 }
 
 FGameplayTag UBTT_ActivateAbility::ResolveAbilityTag(UBehaviorTreeComponent& OwnerComp) const
 {
-	if (!bReadTagFromBlackboard)
-	{
-		return AbilityTag;
-	}
-
-	if (SelectedGameAbilityTagKey.SelectedKeyName.IsNone())
-	{
-		return FGameplayTag::EmptyTag;
-	}
-
-	UBlackboardComponent* BB = OwnerComp.GetBlackboardComponent();
-	if (!BB) return FGameplayTag::EmptyTag;
-
-	const FName TagName = BB->GetValueAsName(SelectedGameAbilityTagKey.SelectedKeyName);
-	if (TagName.IsNone())
-	{
-		UE_LOG(LogTemp, Warning, TEXT("ActivateBossAbility: BB 키[%s]에서 읽은 태그 이름이 None입니다. BTTask_SelectPattern이 필요합니다."),
-			*SelectedGameAbilityTagKey.SelectedKeyName.ToString());
-		return FGameplayTag::EmptyTag;
-	}
-
-	const FGameplayTag Tag = UGameplayTagsManager::Get().RequestGameplayTag(TagName, false);
-	if (!Tag.IsValid())
-	{
-		UE_LOG(LogTemp, Error, TEXT("ActivateBossAbility: [%s]는 등록된 GameplayTag가 아닙니다. 태그 테이블을 확인하세요."),
-			*TagName.ToString());
-	}
-
-	return Tag;
+	return AbilityTag;
 }
