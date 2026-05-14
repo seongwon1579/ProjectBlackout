@@ -387,6 +387,9 @@ protected:
 	float AimFOV = 80.f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Camera")
+	float SprintFOV = 96.f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Camera")
 	float AimCameraInterpSpeed = 12.f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Movement")
@@ -403,6 +406,7 @@ protected:
 	
 	virtual void Tick(float DeltaSeconds) override;
 	void UpdateAimCamera(float DeltaSeconds);
+	float ResolveTargetCameraFOV(bool bIsAiming) const;
 	void UpdateAimMovementMode();
 	void CacheAimDefaults();
 	void ApplyAimMovementMode(bool bIsAiming);

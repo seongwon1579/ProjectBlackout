@@ -1157,7 +1157,7 @@ void ABlackoutPlayerCharacter::UpdateAimCamera(float DeltaSeconds)
 
 	const float TargetArmLength = bIsAiming ? AimArmLength : DefaultArmLength;
 	const FVector TargetSocketOffset = bIsAiming ? AimSocketOffset : DefaultSocketOffset;
-	const float TargetFOV = bIsAiming ? AimFOV : DefaultFOV;
+	const float TargetFOV = ResolveTargetCameraFOV(bIsAiming);
 
 	
 	//aim 모드 카메라 숄더에 고정 
@@ -1178,6 +1178,21 @@ void ABlackoutPlayerCharacter::UpdateAimCamera(float DeltaSeconds)
 		TargetFOV,
 		DeltaSeconds,
 		AimCameraInterpSpeed));
+}
+
+float ABlackoutPlayerCharacter::ResolveTargetCameraFOV(bool bIsAiming) const
+{
+	if (bIsAiming)
+	{
+		return AimFOV;
+	}
+
+	if (AbilitySystemComponent && AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Sprinting))
+	{
+		return SprintFOV;
+	}
+
+	return DefaultFOV;
 }
 
 void ABlackoutPlayerCharacter::UpdateAimMovementMode()
