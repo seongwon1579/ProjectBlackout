@@ -582,6 +582,7 @@ bool UBlackoutGA_Dodge::StartDodgeInternal(ABlackoutPlayerCharacter* PlayerChara
 			if (UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo())
 			{
 				AbilitySystemComponent->CurrentMontageJumpToSection(FirstSectionName);
+				PlayerCharacter->Multicast_SyncDodgeChainRestart(DodgeData->DodgeMontage, FirstSectionName, TargetRotation.Yaw);
 				PlayerCharacter->Client_JumpMontageToSection(DodgeData->DodgeMontage, FirstSectionName, true, TargetRotation.Yaw);
 			}
 		}

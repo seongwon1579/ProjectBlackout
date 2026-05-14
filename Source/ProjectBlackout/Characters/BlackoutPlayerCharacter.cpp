@@ -542,6 +542,43 @@ void ABlackoutPlayerCharacter::Client_JumpMontageToSection_Implementation(UAnimM
 	AnimInstance->Montage_JumpToSection(SectionName, Montage);
 }
 
+void ABlackoutPlayerCharacter::Multicast_SyncDodgeChainRestart_Implementation(UAnimMontage* Montage, FName SectionName, float ServerYawDegrees)
+{
+	if (!Montage || SectionName == NAME_None || HasAuthority() || IsLocallyControlled())
+	{
+		return;
+	}
+
+	// 시뮬레이트 프록시에서 루트 모션 방향과 몽타주 위치가 한 프레임 어긋나지 않도록 함께 맞춥니다.
+	SetActorRotation(FRotator(0.f, ServerYawDegrees, 0.f));
+
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		MoveComp->StopMovementImmediately();
+	}
+
+	UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+	if (!AnimInstance)
+	{
+		BO_LOG_GAS(Warning, "Multicast_SyncDodgeChainRestart failed: AnimInstance가 비어 있음");
+		return;
+	}
+
+	if (!AnimInstance->Montage_IsPlaying(Montage))
+	{
+		const float PlayResult = PlayAnimMontage(Montage, 1.f);
+		if (PlayResult <= 0.f)
+		{
+			BO_LOG_GAS(Warning,
+				"Multicast_SyncDodgeChainRestart failed: 회피 몽타주 재생 실패 Montage=%s",
+				*GetNameSafe(Montage));
+			return;
+		}
+	}
+
+	AnimInstance->Montage_JumpToSection(SectionName, Montage);
+}
+
 void ABlackoutPlayerCharacter::Multicast_PlayConsumableMontage_Implementation(UAnimMontage* Montage, float PlayRate)
 {
 	if (!Montage)
