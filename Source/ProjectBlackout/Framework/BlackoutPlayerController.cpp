@@ -8,7 +8,6 @@
 #include "BlackoutLog.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
-#include "Engine/GameViewportClient.h"
 #include "InputMappingContext.h"
 #include "UI/BlackoutHUD.h"
 
@@ -18,16 +17,14 @@ void ABlackoutPlayerController::AcknowledgePossession(APawn* P)
 
 	TryInitHUD();
 
-	// 안전망: ClientTravel 후 MoviePlayer가 viewport input lock(bIgnoreInput / NoCapture / DoNotLock) 잔존시키는 케이스 강제 해소.
-	// 원인 추적은 시연 후 후속 PR에서 — 지금은 입력 살리는 게 우선.
-	if (UWorld* World = GetWorld())
+	// 모든 possess path(매칭 / open 콘솔 / 미래 우회 경로) 안전망 — possess 도착 시 게임 모드로 복구.
+	// MainMenuGameMode 가 SetInputModeUIOnly 로 viewport 를 잠가둔 잔재 해소.
+	// 표준 API 사용으로 PauseMenu 등 BP 측 InputMode 변경 흐름과 충돌 없음.
+	if (IsLocalPlayerController())
 	{
-		if (UGameViewportClient* Viewport = World->GetGameViewport())
-		{
-			Viewport->SetIgnoreInput(false);
-			Viewport->SetMouseCaptureMode(EMouseCaptureMode::CapturePermanently);
-			Viewport->SetMouseLockMode(EMouseLockMode::LockOnCapture);
-		}
+		FInputModeGameOnly InputMode;
+		SetInputMode(InputMode);
+		bShowMouseCursor = false;
 	}
 }
 
