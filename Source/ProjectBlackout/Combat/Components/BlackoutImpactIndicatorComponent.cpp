@@ -88,7 +88,7 @@ bool UBlackoutImpactIndicatorComponent::GetImpactIndicatorData(FBlackoutImpactIn
 
 	if (!bHasCachedIndicatorData || HasImpactIndicatorUpdateInputChanged(UpdateKey))
 	{
-		(bool)RefreshCachedImpactIndicatorData(UpdateKey, SpreadNormalized);
+		(void)RefreshCachedImpactIndicatorData(UpdateKey, SpreadNormalized);
 	}
 
 	// 탄퍼짐은 매 틱 달라질 수 있으므로 착탄 예측을 다시 돌리지 않고 캐시에 값만 덮어씁니다.

@@ -28,6 +28,12 @@ ABlackoutPlayerCharacter::ABlackoutPlayerCharacter()
 	SpringArm->bUsePawnControlRotation = true;
 	SpringArm->SetUsingAbsoluteRotation(true);
 
+	// 네트워크 위치 보정으로 캡슐이 순간 튀어도 카메라는 부드럽게 따라가도록 함 (시각적 jitter 흡수).
+	// 회전 lag 은 켜지 않음 — TPS 조준 반응성 우선.
+	SpringArm->bEnableCameraLag = true;
+	SpringArm->CameraLagSpeed = 10.0f;
+	SpringArm->CameraLagMaxDistance = 50.0f;
+
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	Camera->SetupAttachment(SpringArm, USpringArmComponent::SocketName);
 	Camera->bUsePawnControlRotation = false;
