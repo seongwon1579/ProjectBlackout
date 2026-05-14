@@ -69,6 +69,9 @@ public:
 	float GetProjectileCollisionRadius() const;
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	float GetProjectileImpactFuseArmDistance() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	float GetBaseSpreadDegrees() const;
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
@@ -94,6 +97,15 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	float GetRecoilRecoveryFraction() const;
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|Debug")
+	bool ShouldDrawDebugHitscanRay() const { return bDrawDebugHitscanRay; }
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|Debug")
+	float GetDebugHitscanRayDuration() const { return DebugHitscanRayDuration; }
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|Debug")
+	float GetDebugHitscanRayThickness() const { return DebugHitscanRayThickness; }
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
 	bool PlayWeaponFireAnimation();

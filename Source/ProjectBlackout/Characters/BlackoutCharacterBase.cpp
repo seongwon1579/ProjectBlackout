@@ -6,8 +6,11 @@
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Core/BlackoutCollisionChannels.h"
+#include "Framework/BlackoutPlayerController.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "GAS/Attributes/BlackoutBaseAttributeSet.h"
+#include "GameFramework/Controller.h"
+#include "GameFramework/Pawn.h"
 #include "Net/UnrealNetwork.h"
 
 namespace
@@ -24,9 +27,116 @@ namespace
 		
 		return InAbilitySystemComponent->HasAnyMatchingGameplayTags(InvulnerableTags);
 	}
+
+	ABlackoutPlayerController* ResolveBlackoutPlayerControllerFromActor(AActor* SourceActor)
+	{
+		AActor* CurrentActor = SourceActor;
+		for (int32 Depth = 0; CurrentActor && Depth < 4; ++Depth)
+		{
+			if (ABlackoutPlayerController* BlackoutPlayerController = Cast<ABlackoutPlayerController>(CurrentActor))
+			{
+				return BlackoutPlayerController;
+			}
+
+			if (AController* SourceController = Cast<AController>(CurrentActor))
+			{
+				if (ABlackoutPlayerController* BlackoutPlayerController = Cast<ABlackoutPlayerController>(SourceController))
+				{
+					return BlackoutPlayerController;
+				}
+			}
+
+			if (APawn* SourcePawn = Cast<APawn>(CurrentActor))
+			{
+				if (ABlackoutPlayerController* BlackoutPlayerController =
+					Cast<ABlackoutPlayerController>(SourcePawn->GetController()))
+				{
+					return BlackoutPlayerController;
+				}
+			}
+
+			CurrentActor = CurrentActor->GetOwner();
+		}
+
+		return nullptr;
+	}
+
+	ABlackoutPlayerController* ResolveDamageNumberOwner(const FGameplayEffectSpecHandle& SpecHandle)
+	{
+		if (!SpecHandle.IsValid() || !SpecHandle.Data.IsValid())
+		{
+			return nullptr;
+		}
+
+		const FGameplayEffectContextHandle& EffectContext = SpecHandle.Data->GetContext();
+		TArray<AActor*, TInlineAllocator<3>> SourceCandidates;
+		SourceCandidates.Add(EffectContext.GetEffectCauser());
+		SourceCandidates.Add(EffectContext.GetInstigator());
+		SourceCandidates.Add(EffectContext.GetOriginalInstigator());
+
+		for (AActor* SourceCandidate : SourceCandidates)
+		{
+			if (ABlackoutPlayerController* BlackoutPlayerController =
+				ResolveBlackoutPlayerControllerFromActor(SourceCandidate))
+			{
+				return BlackoutPlayerController;
+			}
+		}
+
+		return nullptr;
+	}
+
+	FVector ResolveDamageNumberWorldLocation(const ABlackoutCharacterBase* TargetCharacter, FName BoneName)
+	{
+		if (!TargetCharacter)
+		{
+			return FVector::ZeroVector;
+		}
+
+		if (const USkeletalMeshComponent* CharacterMesh = TargetCharacter->GetMesh())
+		{
+			if (BoneName != NAME_None && CharacterMesh->GetBoneIndex(BoneName) != INDEX_NONE)
+			{
+				return CharacterMesh->GetBoneLocation(BoneName) + FVector(0.f, 0.f, 12.f);
+			}
+		}
+
+		const UCapsuleComponent* CapsuleComponent = TargetCharacter->GetCapsuleComponent();
+		const float HeightOffset = CapsuleComponent ? CapsuleComponent->GetScaledCapsuleHalfHeight() : 50.f;
+		return TargetCharacter->GetActorLocation() + FVector(0.f, 0.f, HeightOffset);
+	}
+
+	bool IsCriticalDamageSpec(const FGameplayEffectSpecHandle& SpecHandle, const FGameplayTag& HitPartTag)
+	{
+		if (!SpecHandle.IsValid() || !SpecHandle.Data.IsValid())
+		{
+			return false;
+		}
+
+		if (SpecHandle.Data->GetSetByCallerMagnitude(BlackoutGameplayTags::Body_WeakSpot, false, 0.f) > 0.f)
+		{
+			return true;
+		}
+
+		return HitPartTag.MatchesTagExact(BlackoutGameplayTags::Body_WeakSpot);
+	}
+
+	bool ShouldSuppressAuthoritativeDamageNumber(const FGameplayEffectSpecHandle& SpecHandle)
+	{
+		if (!SpecHandle.IsValid() || !SpecHandle.Data.IsValid())
+		{
+			return false;
+		}
+
+		return SpecHandle.Data->GetSetByCallerMagnitude(
+			BlackoutGameplayTags::Data_DamageNumber_PredictedOnly,
+			false,
+			0.0f) > 0.0f;
+	}
 }
 
-ABlackoutCharacterBase::ABlackoutCharacterBase()
+ABlackoutCharacterBase::ABlackoutCharacterBase(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	PrimaryActorTick.bCanEverTick = false;
 	bReplicates = true;
@@ -90,6 +200,22 @@ bool ABlackoutCharacterBase::ApplyIncomingDamageSpec(const FGameplayEffectSpecHa
 	const float HealthAfter =
 		AbilitySystemComponent->GetNumericAttribute(UBlackoutBaseAttributeSet::GetHealthAttribute());
 
+	const float AppliedDamage = FMath::Max(0.f, HealthBefore - HealthAfter);
+	if (AppliedDamage > 0.f && !ShouldSuppressAuthoritativeDamageNumber(SpecHandle))
+	{
+		if (ABlackoutPlayerController* SourcePlayerController = ResolveDamageNumberOwner(SpecHandle))
+		{
+			const bool bIsCritical = IsCriticalDamageSpec(SpecHandle, GetHitPartTag(BoneName));
+			const FVector DamageNumberWorldLocation = ResolveDamageNumberWorldLocation(this, BoneName);
+
+			// 실제 적용된 데미지만 서버에서 계산해 사격한 클라 HUD로 전달합니다.
+			SourcePlayerController->Client_ShowDamageNumberAtLocation(
+				AppliedDamage,
+				DamageNumberWorldLocation,
+				bIsCritical);
+		}
+	}
+
 	if (HealthBefore > 0.f && HealthAfter <= 0.f)
 	{
 		if (CanEnterDownedState())
@@ -128,6 +254,7 @@ void ABlackoutCharacterBase::OnDeath()
 
 	if (AbilitySystemComponent)
 	{
+		AbilitySystemComponent->CancelHealthRegenOverTime();
 		AbilitySystemComponent->RemoveLooseGameplayTag(BlackoutGameplayTags::State_Downed);
 	}
 
@@ -145,6 +272,7 @@ void ABlackoutCharacterBase::OnDowned()
 
 	if (AbilitySystemComponent)
 	{
+		AbilitySystemComponent->CancelHealthRegenOverTime();
 		AbilitySystemComponent->AddLooseGameplayTag(BlackoutGameplayTags::State_Downed);
 	}
 

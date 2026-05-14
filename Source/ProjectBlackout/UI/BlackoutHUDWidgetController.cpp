@@ -47,6 +47,10 @@ void UBlackoutHUDWidgetController::BindCallbacksToDependencies()
 			.AddUObject(this, &UBlackoutHUDWidgetController::HandleStaminaChanged);
 		ASC->GetGameplayAttributeValueChangeDelegate(UBlackoutPlayerAttributeSet::GetMaxStaminaAttribute())
 			.AddUObject(this, &UBlackoutHUDWidgetController::HandleMaxStaminaChanged);
+		ASC->GetGameplayAttributeValueChangeDelegate(UBlackoutPlayerAttributeSet::GetRelicChargesAttribute())
+			.AddUObject(this, &UBlackoutHUDWidgetController::HandleRelicChargesChanged);
+		ASC->GetGameplayAttributeValueChangeDelegate(UBlackoutPlayerAttributeSet::GetMaxRelicChargesAttribute())
+			.AddUObject(this, &UBlackoutHUDWidgetController::HandleMaxRelicChargesChanged);
 		ASC->GetGameplayAttributeValueChangeDelegate(UBlackoutAmmoAttributeSet::GetPrimaryClipAmmoAttribute())
 			.AddUObject(this, &UBlackoutHUDWidgetController::HandleAmmoChanged);
 		ASC->GetGameplayAttributeValueChangeDelegate(UBlackoutAmmoAttributeSet::GetPrimaryMaxClipAttribute())
@@ -110,6 +114,7 @@ void UBlackoutHUDWidgetController::BroadcastInitialValues()
 	BroadcastEquippedWeapon();
 	BroadcastAiming();
 	BroadcastWeaponAmmoDisplay(false);
+	BroadcastRelicCharges();
 	BroadcastConsumables();
 }
 
@@ -136,10 +141,15 @@ bool UBlackoutHUDWidgetController::GetImpactIndicatorData(FBlackoutImpactIndicat
 		ScreenPosition,
 		true))
 	{
+		OutIndicatorData.bIsVisible = false;
+		OutIndicatorData.TrajectoryPoints.Reset();
 		return false;
 	}
 
 	OutIndicatorData.ScreenPosition = ScreenPosition;
+
+	// 전투 컴포넌트는 월드 좌표만 만들고, 화면 좌표 변환은 HUD 계층에서 처리합니다.
+	ProjectTrajectoryPoints(OutIndicatorData.TrajectoryPoints);
 
 	return true;
 }
@@ -300,6 +310,17 @@ void UBlackoutHUDWidgetController::BroadcastWeaponAmmoDisplay(bool bPlaySwapAnim
 	OnWeaponAmmoDisplayChanged.Broadcast(PrimarySlotData, SecondarySlotData, bPlaySwapAnimation);
 }
 
+void UBlackoutHUDWidgetController::BroadcastRelicCharges() const
+{
+	const int32 MaxCharges = FMath::Max(0, FMath::RoundToInt(GetAttributeValue(UBlackoutPlayerAttributeSet::GetMaxRelicChargesAttribute())));
+	const int32 CurrentCharges = FMath::Clamp(
+		FMath::RoundToInt(GetAttributeValue(UBlackoutPlayerAttributeSet::GetRelicChargesAttribute())),
+		0,
+		MaxCharges);
+
+	OnRelicChargesChanged.Broadcast(CurrentCharges, MaxCharges);
+}
+
 void UBlackoutHUDWidgetController::BroadcastConsumables() const
 {
 	const ABlackoutPlayerState* BlackoutPlayerState = PlayerState.Get();
@@ -430,6 +451,33 @@ int32 UBlackoutHUDWidgetController::GetEquippedCrosshairType() const
 	return EquippedWeapon ? EquippedWeapon->GetCrosshairType() : 0;
 }
 
+void UBlackoutHUDWidgetController::ProjectTrajectoryPoints(TArray<FBlackoutTrajectoryPointData>& TrajectoryPoints) const
+{
+	ABlackoutPlayerController* BlackoutPlayerController = PlayerController.Get();
+	if (!BlackoutPlayerController || TrajectoryPoints.Num() <= 0)
+	{
+		TrajectoryPoints.Reset();
+		return;
+	}
+
+	for (int32 PointIndex = TrajectoryPoints.Num() - 1; PointIndex >= 0; --PointIndex)
+	{
+		FVector2D ScreenPosition = FVector2D::ZeroVector;
+		if (!UWidgetLayoutLibrary::ProjectWorldLocationToWidgetPosition(
+			BlackoutPlayerController,
+			TrajectoryPoints[PointIndex].WorldLocation,
+			ScreenPosition,
+			true))
+		{
+			// 화면 좌표로 투영할 수 없는 포인트는 점 렌더링 대상에서 제외합니다.
+			TrajectoryPoints.RemoveAt(PointIndex);
+			continue;
+		}
+
+		TrajectoryPoints[PointIndex].ScreenPosition = ScreenPosition;
+	}
+}
+
 void UBlackoutHUDWidgetController::HandleHealthChanged(const FOnAttributeChangeData& ChangeData)
 {
 	BroadcastHealth();
@@ -448,6 +496,16 @@ void UBlackoutHUDWidgetController::HandleStaminaChanged(const FOnAttributeChange
 void UBlackoutHUDWidgetController::HandleMaxStaminaChanged(const FOnAttributeChangeData& ChangeData)
 {
 	BroadcastStamina();
+}
+
+void UBlackoutHUDWidgetController::HandleRelicChargesChanged(const FOnAttributeChangeData& ChangeData)
+{
+	BroadcastRelicCharges();
+}
+
+void UBlackoutHUDWidgetController::HandleMaxRelicChargesChanged(const FOnAttributeChangeData& ChangeData)
+{
+	BroadcastRelicCharges();
 }
 
 void UBlackoutHUDWidgetController::HandleAmmoChanged(const FOnAttributeChangeData& ChangeData)

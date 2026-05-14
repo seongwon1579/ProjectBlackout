@@ -16,6 +16,16 @@ void ABlackoutPlayerController::AcknowledgePossession(APawn* P)
 	Super::AcknowledgePossession(P);
 
 	TryInitHUD();
+
+	// 모든 possess path(매칭 / open 콘솔 / 미래 우회 경로) 안전망 — possess 도착 시 게임 모드로 복구.
+	// MainMenuGameMode 가 SetInputModeUIOnly 로 viewport 를 잠가둔 잔재 해소.
+	// 표준 API 사용으로 PauseMenu 등 BP 측 InputMode 변경 흐름과 충돌 없음.
+	if (IsLocalPlayerController())
+	{
+		FInputModeGameOnly InputMode;
+		SetInputMode(InputMode);
+		bShowMouseCursor = false;
+	}
 }
 
 void ABlackoutPlayerController::OnPossess(APawn* InPawn)
@@ -71,6 +81,25 @@ void ABlackoutPlayerController::Client_OpenClassSelectUI_Implementation()
 
 void ABlackoutPlayerController::Client_ShowDamageNumber_Implementation(float DamageAmount, bool bIsCritical)
 {
+	ReceiveShowDamageNumber(DamageAmount, bIsCritical);
+}
+
+void ABlackoutPlayerController::Client_ShowDamageNumberAtLocation_Implementation(
+	float DamageAmount,
+	FVector WorldLocation,
+	bool bIsCritical)
+{
+	TryInitHUD();
+
+	if (ABlackoutHUD* BlackoutHUD = Cast<ABlackoutHUD>(GetHUD()))
+	{
+		if (BlackoutHUD->ShowDamageNumberAtWorldLocation(DamageAmount, WorldLocation, bIsCritical))
+		{
+			return;
+		}
+	}
+
+	// HUD가 아직 준비되지 않았을 때도 최소한의 표시 경로는 유지합니다.
 	ReceiveShowDamageNumber(DamageAmount, bIsCritical);
 }
 
@@ -170,6 +199,13 @@ void ABlackoutPlayerController::SetupInputComponent()
 		EnhancedInputComponent->BindAction(UseConsumable2Action, ETriggerEvent::Completed, this, &ABlackoutPlayerController::OnUseConsumable2Released);
 		EnhancedInputComponent->BindAction(UseConsumable2Action, ETriggerEvent::Canceled, this, &ABlackoutPlayerController::OnUseConsumable2Released);
 	}
+
+	if (UseRelicAction)
+	{
+		EnhancedInputComponent->BindAction(UseRelicAction, ETriggerEvent::Started, this, &ABlackoutPlayerController::OnUseRelicPressed);
+		EnhancedInputComponent->BindAction(UseRelicAction, ETriggerEvent::Completed, this, &ABlackoutPlayerController::OnUseRelicReleased);
+		EnhancedInputComponent->BindAction(UseRelicAction, ETriggerEvent::Canceled, this, &ABlackoutPlayerController::OnUseRelicReleased);
+	}
 	
 }
 
@@ -207,18 +243,12 @@ void ABlackoutPlayerController::OnAimPressed()
 		return;
 	}
 
-	if (UBlackoutCombatComponent* CombatComponent = GetBlackoutCombatComponent())
-	{
-		CombatComponent->StartAim();
-	}
+	HandleAbilityInputPressed(EBlackoutAbilityInputID::Aim);
 }
 
 void ABlackoutPlayerController::OnAimReleased()
 {
-	if (UBlackoutCombatComponent* CombatComponent = GetBlackoutCombatComponent())
-	{
-		CombatComponent->StopAim();
-	}
+	HandleAbilityInputReleased(EBlackoutAbilityInputID::Aim);
 }
 
 void ABlackoutPlayerController::OnReloadPressed()
@@ -256,9 +286,6 @@ void ABlackoutPlayerController::OnDodgePressed()
 
 		// 로컬 예측용
 		PlayerCharacter->SetPendingDodgeInput(DodgeInput);
-
-		// 서버 권한용
-		PlayerCharacter->Server_SetPendingDodgeInput(DodgeInput);
 	}
 
 	HandleAbilityInputPressed(EBlackoutAbilityInputID::Dodge);
@@ -338,6 +365,21 @@ void ABlackoutPlayerController::OnUseConsumable2Pressed()
 void ABlackoutPlayerController::OnUseConsumable2Released()
 {
 	HandleAbilityInputReleased(EBlackoutAbilityInputID::UseConsumable2);
+}
+
+void ABlackoutPlayerController::OnUseRelicPressed()
+{
+	if (IsHitReactInputBlocked())
+	{
+		return;
+	}
+
+	HandleAbilityInputPressed(EBlackoutAbilityInputID::UseRelic);
+}
+
+void ABlackoutPlayerController::OnUseRelicReleased()
+{
+	HandleAbilityInputReleased(EBlackoutAbilityInputID::UseRelic);
 }
 
 bool ABlackoutPlayerController::IsHitReactInputBlocked() const

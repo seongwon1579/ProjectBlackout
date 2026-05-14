@@ -54,6 +54,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	float GetCollisionRadius() const;
 
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	virtual float GetImpactFuseArmDistance() const;
+
 protected:
 	virtual void BeginPlay() override;
 

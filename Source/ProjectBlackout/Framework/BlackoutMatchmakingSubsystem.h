@@ -4,6 +4,7 @@
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "Interfaces/IHttpRequest.h"
 #include "HttpFwd.h"
+
 #include "IWebSocket.h"
 #include "BlackoutMatchmakingSubsystem.generated.h"
 
@@ -110,7 +111,7 @@ public:
 
 	// 지정 데디 주소로 ClientTravel. 호출 전 로비 WebSocket 자동 종료.
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Matchmaking")
-	void TravelToGameServer(const FString& ServerIp, int32 ServerPort);
+	void TravelToGameServer(const FString& ServerIp, int32 ServerPort  , const FString& SessionId = TEXT(""));
 
 	// 로비 WebSocket 수동 연결. Login 성공 시 자동 호출되므로 외부 호출 보통 불필요.
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Matchmaking")
@@ -119,6 +120,11 @@ public:
 	// 로비 WebSocket 종료 + CurrentSessionId 초기화.
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Matchmaking")
 	void DisconnectLobby();
+	
+	// 로그인 상태 해제 AccessToken / CachedPlayerName 폐기 , 로비 WS 종료
+	// 서버 호출 없음 ( JWT 제거 상태 ) 호출직후 UI 상태 갱신
+	UFUNCTION(BlueprintCallable , Category="Blackout|Matchmaking")
+	void Logout();
 
 	UFUNCTION(BlueprintPure, Category = "Blackout|Matchmaking")
 	bool IsLobbyConnected() const;
@@ -163,6 +169,14 @@ public:
 	FOnBlackoutMatchmakingFailed OnMatchmakingFailed;
 
 private:
+	// PreLoadMap 시점에 MoviePlayer SetupLoadingScreen — ClientTravel 시 자동 로딩 화면 표시.
+	// PostLoadMapWithWorld 시점에 StopMovie + WaitForMovieToFinish — viewport input lock 명시 해소.
+	void HandlePreLoadMap(const FString& MapName);
+	void HandlePostLoadMap(UWorld* LoadedWorld);
+
+	FDelegateHandle PreLoadMapHandle;
+	FDelegateHandle PostLoadMapHandle;
+
 	// Authorization: Bearer <token> 헤더 주입. AccessToken 비어있으면 skip.
 	void SetAuthHeader(const FHttpRequestRef& Request) const;
 

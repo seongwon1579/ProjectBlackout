@@ -57,7 +57,7 @@ void UGA_Wraith_BowShove::ActivateAbility(
 
 	UAbilityTask_WaitGameplayEvent* WaitStartTask =
 		UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(
-			this, BlackoutGameplayTags::Event_Enemy_Attack_SweepStart, nullptr,
+			this, BlackoutGameplayTags::Event_Enemy_Attack_OnCollision, nullptr,
 			true, true
 		);
 
@@ -71,6 +71,22 @@ void UGA_Wraith_BowShove::ActivateAbility(
 
 void UGA_Wraith_BowShove::OnSweepStartEvent(FGameplayEventData Payload)
 {
+	// BowMesh 검색 (Wraith Character 메인 Mesh의 child component — 소켓이 거기에 있음)
+	UMeshComponent* BowMesh = nullptr;
+	if (AActor* Avatar = GetAvatarActorFromActorInfo())
+	{
+		TArray<UMeshComponent*> MeshComps;
+		Avatar->GetComponents<UMeshComponent>(MeshComps);
+		for (UMeshComponent* Comp : MeshComps)
+		{
+			if (Comp && Comp->GetName().Equals(TEXT("BowMesh"), ESearchCase::IgnoreCase))
+			{
+				BowMesh = Comp;
+				break;
+			}
+		}
+	}
+
 	// 휘두름 Cue
 	if (UAbilitySystemComponent* SourceASC =
 		GetAbilitySystemComponentFromActorInfo())
@@ -85,9 +101,9 @@ void UGA_Wraith_BowShove::OnSweepStartEvent(FGameplayEventData Payload)
 			BlackoutGameplayTags::GameplayCue_Wraith_BowShove, CueParameters);
 	}
 
-	// 활대 스윕 시작
+	// 활대 스윕 시작 (BowMesh 소켓 사용)
 	ActiveSweepTask = UAbilityTask_BossMeleeSweep::CreateSweepTask(
-		this, StartSocketName, EndSocketName, SweepRadius);
+		this, StartSocketName, EndSocketName, SweepRadius, BowMesh);
 	if (ActiveSweepTask)
 	{
 		ActiveSweepTask->OnHit.AddDynamic(
@@ -98,7 +114,7 @@ void UGA_Wraith_BowShove::OnSweepStartEvent(FGameplayEventData Payload)
 	// 스윕 끝 이벤트 대기
 	UAbilityTask_WaitGameplayEvent* WaitEndTask =
 		UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(
-			this, BlackoutGameplayTags::Event_Enemy_Attack_SweepEnd, nullptr,
+			this, BlackoutGameplayTags::Event_Enemy_Attack_OffCollision, nullptr,
 			true, true);
 	
 	if (WaitEndTask)

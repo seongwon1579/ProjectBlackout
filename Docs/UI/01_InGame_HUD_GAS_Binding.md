@@ -34,6 +34,7 @@ classDiagram
     class UBlackoutHUDWidget {
         -UW_Crosshair* CrosshairWidget
         -UWidget* ImpactIndicatorWidget
+        -TArray~FBlackoutTrajectoryPointData~ CachedTrajectoryPoints
         -UW_HealthBar* HealthBarWidget
         -UW_StaminaBar* StaminaBarWidget
         -UW_AmmoDisplay* AmmoDisplayWidget
@@ -42,8 +43,10 @@ classDiagram
         +SetWidgetController(UBlackoutHUDWidgetController*) void
         +NativeOnInitialized() void
         +NativeTick(FGeometry, float) void
+        +NativePaint(...) int32
         #ReceiveAimingChanged(bool bIsAiming, int32 CrosshairType) void
         -UpdateImpactIndicator(FBlackoutImpactIndicatorData) void
+        -PaintProjectileTrajectory(FPaintContext, TArray~FBlackoutTrajectoryPointData~) void
     }
 
     class UBlackoutHUDWidgetController {
@@ -60,6 +63,7 @@ classDiagram
         +BindCallbacksToDependencies() void
         +BroadcastInitialValues() void
         +GetImpactIndicatorData(FBlackoutImpactIndicatorData&) bool
+        -ProjectTrajectoryPoints(TArray~FBlackoutTrajectoryPointData~&) void
         +OnAimingChanged(bool bIsAiming, int32 CrosshairType)
         +OnConsumableSlotsChanged(FBlackoutConsumableSlotData BloodRootData, FBlackoutConsumableSlotData GulSerumData)
         -HandleHealthChanged(FOnAttributeChangeData) void
@@ -81,6 +85,31 @@ classDiagram
     class UBlackoutImpactIndicatorComponent {
         <<ActorComponent>>
         +GetImpactIndicatorData(FBlackoutImpactIndicatorData&) bool
+    }
+
+    class EBlackoutTrajectoryVisualState {
+        <<Enum>>
+        Normal
+        FuseInactive
+        Occluded
+    }
+
+    class FBlackoutTrajectoryPointData {
+        <<Struct>>
+        +FVector WorldLocation
+        +FVector2D ScreenPosition
+        +float DistanceFromMuzzle
+        +EBlackoutTrajectoryVisualState VisualState
+    }
+
+    class FBlackoutImpactIndicatorData {
+        <<Struct>>
+        +bool bIsVisible
+        +bool bUsesProjectilePrediction
+        +bool bProjectileImpactFuseInactive
+        +FVector WorldLocation
+        +FVector2D ScreenPosition
+        +TArray~FBlackoutTrajectoryPointData~ TrajectoryPoints
     }
 
     class UW_HealthBar {
@@ -209,10 +238,12 @@ classDiagram
     UBlackoutConsumableSlotsWidget o-- UBlackoutConsumableSlotWidget
 
     UBlackoutHUDWidget --> UBlackoutHUDWidgetController : receives display events
+    UBlackoutHUDWidget --> FBlackoutTrajectoryPointData : paints projectile path
     UBlackoutHUDWidgetController --> ABlackoutPlayerState : resolves ASC owner
     UBlackoutHUDWidgetController --> ABlackoutPlayerCharacter : resolves pawn
     UBlackoutHUDWidgetController --> UBlackoutCombatComponent : binds weapon events
     UBlackoutHUDWidgetController --> UBlackoutImpactIndicatorComponent : requests impact indicator data
+    UBlackoutHUDWidgetController --> FBlackoutTrajectoryPointData : fills ScreenPosition
     UBlackoutHUDWidgetController --> UBlackoutBaseAttributeSet : reads Health
     UBlackoutHUDWidgetController --> UBlackoutPlayerAttributeSet : reads Stamina
     UBlackoutHUDWidgetController --> UBlackoutAmmoAttributeSet : reads Ammo
@@ -264,5 +295,7 @@ sequenceDiagram
 - **탄약 표시 전환**: 현재 슬롯이 주무기면 Primary 어트리뷰트, 보조무기면 Secondary 어트리뷰트를 표시합니다. 근접무기처럼 탄약이 없으면 `UW_AmmoDisplay`를 숨기거나 비활성화합니다.
 - **소모품 표시**: 현재 소지 수량은 `ABlackoutPlayerState`의 Replicated 프로퍼티가 소유하고, 아이콘·최대 수량·쿨다운은 `UBOConsumableData`에서 조회합니다. 회복량·지속시간 같은 효과 수치는 `EffectMagnitudes`의 GameplayTag 키로 조회합니다.
 - **소모품 슬롯 데이터**: `UBlackoutHUDWidgetController`는 `PlayerState` 수량과 `UBOConsumableData` 정적 데이터를 합쳐 `FBlackoutConsumableSlotData`를 만들고, `UBlackoutConsumableSlotsWidget`은 이를 하위 슬롯에 전달합니다. 슬롯 위젯은 ASC/DataAsset을 직접 조회하지 않습니다.
-- **Tick 예외**: `UBlackoutHUDWidget`은 착탄 인디케이터 위치/색상 갱신을 위해 Tick에서 `UBlackoutImpactIndicatorComponent`의 결과를 조회할 수 있습니다. 실제 라인트레이스/투사체 예측 계산은 전투 전용 컴포넌트가 담당하며, 다른 HUD 요소는 Tick을 사용하지 않습니다.
+- **Tick 예외**: `UBlackoutHUDWidget`은 착탄 인디케이터 위치/색상과 유탄 궤적 표시 갱신을 위해 Tick에서 `UBlackoutImpactIndicatorComponent`의 결과를 조회할 수 있습니다. 실제 라인트레이스/투사체 예측 계산은 전투 전용 컴포넌트가 입력 키 변경 시에만 수행하며, 다른 HUD 요소는 Tick을 사용하지 않습니다.
+- **유탄 궤적 렌더링**: `UBlackoutImpactIndicatorComponent`는 첫 blocking hit까지의 월드 궤적 포인트를 전달하고, `UBlackoutHUDWidgetController`가 각 포인트의 `ScreenPosition`을 채웁니다. `UBlackoutHUDWidget`은 캐시된 화면 좌표를 `NativePaint`에서 선 또는 점선으로 그립니다.
+- **궤적 상태 표현**: `FBlackoutTrajectoryPointData::VisualState`로 정상 구간, 신관 미활성 구간, 시야 가림 구간을 구분해 HUD가 색상과 투명도를 선택합니다. 기존 True Hit 끝점 인디케이터는 유지합니다.
 - **초기값 브로드캐스트**: Delegate 바인딩 직후 현재 Attribute 값을 한 번 브로드캐스트하여 첫 프레임 빈 UI를 방지합니다.

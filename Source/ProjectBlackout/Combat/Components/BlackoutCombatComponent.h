@@ -61,6 +61,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Blackout|Combat")
 	bool IsAiming() const { return bIsAiming; }
 
+	UFUNCTION(BlueprintPure, Category = "Blackout|Combat")
+	bool CanAim() const;
+
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	void TryReload();
 
@@ -84,6 +87,12 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	void EndEquippedWeaponHolsterOverride();
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	void BeginEquippedWeaponHiddenOverride();
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	void EndEquippedWeaponHiddenOverride();
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	ABOWeaponBase* GetEquippedWeapon() const { return EquippedWeapon; }
@@ -174,8 +183,14 @@ protected:
 	UFUNCTION()
 	void OnRep_EquippedWeaponHolsterOverride();
 
+	UFUNCTION()
+	void OnRep_EquippedWeaponHiddenOverride();
+
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_ApplyEquippedWeaponHolsterOverride(bool bNewHolsterOverride);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_ApplyEquippedWeaponHiddenOverride(bool bNewHiddenOverride);
 
 	UPROPERTY(Transient, ReplicatedUsing = OnRep_EquippedWeapon, BlueprintReadOnly, Category = "Blackout|Combat")
 	TObjectPtr<ABOWeaponBase> EquippedWeapon;
@@ -197,6 +212,9 @@ protected:
 
 	UPROPERTY(ReplicatedUsing = OnRep_EquippedWeaponHolsterOverride, BlueprintReadOnly, Category = "Blackout|Combat")
 	bool bEquippedWeaponHolsterOverride = false;
+
+	UPROPERTY(ReplicatedUsing = OnRep_EquippedWeaponHiddenOverride, BlueprintReadOnly, Category = "Blackout|Combat")
+	bool bEquippedWeaponHiddenOverride = false;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
 	FName EquippedWeaponSocketName = TEXT("WeaponSocket");

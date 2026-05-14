@@ -2,14 +2,18 @@
 
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemInterface.h"
+#include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
+#include "Abilities/Tasks/AbilityTask_WaitInputPress.h"
+#include "Animation/AnimMontage.h"
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
-#include "Animation/AnimMontage.h"
-#include "GAS/Abilities/Player/BlackoutGA_MeleePlayer.h"
-#include "GAS/BlackoutAbilitySystemComponent.h"
 #include "Core/BlackoutLog.h"
+#include "Data/BODodgeData.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/GameStateBase.h"
+#include "GameFramework/PlayerState.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
+#include "GAS/Abilities/Player/BlackoutGA_MeleePlayer.h"
 #include "GAS/Attributes/BlackoutPlayerAttributeSet.h"
 #include "TimerManager.h"
 
@@ -17,10 +21,9 @@ UBlackoutGA_Dodge::UBlackoutGA_Dodge()
 {
 	InputID = EBlackoutAbilityInputID::Dodge;
 
-	// i-frame 을 위한 임시 제거 
-	//ActivationOwnedTags.AddTag(BlackoutGameplayTags::State_Invulnerable);
+	// i-frame 을 위한 임시 제거
+	// ActivationOwnedTags.AddTag(BlackoutGameplayTags::State_Invulnerable);
 
-	
 	ActivationOwnedTags.AddTag(BlackoutGameplayTags::State_Locked);
 	CancelAbilitiesWithTag.AddTag(BlackoutGameplayTags::Ability_Player_Reload);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Downed);
@@ -31,42 +34,443 @@ void UBlackoutGA_Dodge::InputPressed(const FGameplayAbilitySpecHandle Handle, co
 	const FGameplayAbilityActivationInfo ActivationInfo)
 {
 	Super::InputPressed(Handle, ActorInfo, ActivationInfo);
+}
 
-	if (!IsActive() || !bChainWindowOpen)
+bool UBlackoutGA_Dodge::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags,
+	FGameplayTagContainer* OptionalRelevantTags) const
+{
+	if (!Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags))
+	{
+		return false;
+	}
+
+	if (!ActorInfo || !ActorInfo->AvatarActor.IsValid())
+	{
+		return false;
+	}
+
+	if (!DodgeData || !DodgeData->DodgeMontage)
+	{
+		return false;
+	}
+
+	const UAbilitySystemComponent* AbilitySystemComponent = ActorInfo->AbilitySystemComponent.Get();
+	if (!AbilitySystemComponent)
+	{
+		return false;
+	}
+
+	const UBlackoutAbilitySystemComponent* BlackoutASC = Cast<UBlackoutAbilitySystemComponent>(AbilitySystemComponent);
+	const float StaminaCostMultiplier = BlackoutASC ? BlackoutASC->GetStaminaCostMultiplier() : 1.f;
+	const float ModifiedStaminaCost = DodgeData->StaminaCost * StaminaCostMultiplier;
+	const float CurrentStamina = AbilitySystemComponent->GetNumericAttribute(UBlackoutPlayerAttributeSet::GetStaminaAttribute());
+	if (CurrentStamina < ModifiedStaminaCost)
+	{
+		return false;
+	}
+
+	return true;
+}
+
+void UBlackoutGA_Dodge::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+{
+	BO_LOG_GAS(Log, "GA_Dodge activate requested");
+
+	// 사전 조건(ActorInfo/DodgeData/스태미나/Blocked tags)은 CanActivateAbility 에서 이미 검증됨.
+	// 여기서는 실제 활성에 필요한 cast 와 commit 만 수행합니다.
+	ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get());
+	if (!PlayerCharacter || !ConsumeStamina())
+	{
+		BO_LOG_GAS(Warning, "GA_Dodge failed: PlayerCharacter가 없거나 스태미나 차감 실패");
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		return;
+	}
+
+	if (!CommitAbility(Handle, ActorInfo, ActivationInfo))
+	{
+		BO_LOG_GAS(Warning, "GA_Dodge failed: CommitAbility 실패");
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		return;
+	}
+
+	if (UBlackoutGA_MeleePlayer* MeleeAbility = UBlackoutGA_MeleePlayer::GetActiveMeleeAbilityFromActor(PlayerCharacter))
+	{
+		BO_LOG_GAS(Log, "GA_Dodge cancelling active melee before dodge");
+		MeleeAbility->K2_CancelAbility();
+	}
+
+	// v2.3 (옵션 A — 클라 권위 위치 동기화):
+	// - bIgnoreClientMovementErrorChecksAndCorrection: 서버가 ClientAdjustPosition RPC 를 보내지 않음 (jitter 차단).
+	// - bServerAcceptClientAuthoritativePosition: 매 ServerMove 마다 서버가 클라 보고 위치를 그대로 채택.
+	//   두 플래그 조합으로 root motion 진행 중 server↔client 위치가 자연 동기화 → EndAbility 시 워프 없음.
+	// PvE 코옵 전제. EndAbility 에서 반드시 false 로 복구.
+	if (UCharacterMovementComponent* MovementComponent = PlayerCharacter->GetCharacterMovement())
+	{
+		MovementComponent->bIgnoreClientMovementErrorChecksAndCorrection = true;
+		MovementComponent->bServerAcceptClientAuthoritativePosition = true;
+	}
+
+	LastProcessedChainInputSequenceId = 0;
+
+	const FBlackoutAbilityInputSyncPayload DodgeInputPayload = GetLatestChainInputPayload();
+	if (!StartDodgeInternal(PlayerCharacter, /*bIsChainRestart=*/false, &DodgeInputPayload))
+	{
+		BO_LOG_GAS(Warning, "GA_Dodge failed: 회피 시작에 실패함");
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		return;
+	}
+
+	// 입력 수집은 양측 모두에서. 클라이언트는 표준 GAS 경로로 서버에 InputPressed 를 전파합니다.
+	StartChainInputTask();
+}
+
+void UBlackoutGA_Dodge::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
+{
+	BO_LOG_GAS(Log, "GA_Dodge ended: Cancelled=%s", bWasCancelled ? TEXT("true") : TEXT("false"));
+
+	if (ActorInfo && ActorInfo->AvatarActor.IsValid())
+	{
+		if (ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()))
+		{
+			PlayerCharacter->SetPendingDodgeInput(FVector2D::ZeroVector);
+			PlayerCharacter->SetDodgeMontagePlaying(false);
+
+			// v2.3: ActivateAbility 에서 켰던 클라 권위 동기화 플래그 복구.
+			if (UCharacterMovementComponent* MovementComponent = PlayerCharacter->GetCharacterMovement())
+			{
+				MovementComponent->bIgnoreClientMovementErrorChecksAndCorrection = false;
+				MovementComponent->bServerAcceptClientAuthoritativePosition = false;
+			}
+		}
+	}
+
+	ClearAllChainTimers();
+	ResetChainState();
+	LastProcessedChainInputSequenceId = 0;
+
+	if (ChainInputTask)
+	{
+		ChainInputTask->EndTask();
+		ChainInputTask = nullptr;
+	}
+
+	if (MontageTask)
+	{
+		// bStopWhenAbilityEnds=true 로 만들었으므로 EndTask 만 호출하면 몽타주가 자연 정지.
+		MontageTask->EndTask();
+		MontageTask = nullptr;
+	}
+
+	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+}
+
+void UBlackoutGA_Dodge::StartMontageTask()
+{
+	if (!DodgeData || !DodgeData->DodgeMontage)
 	{
 		return;
 	}
 
-	ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
-	if (!PlayerCharacter)
+	MontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
+		this,
+		NAME_None,
+		DodgeData->DodgeMontage,
+		1.f,
+		NAME_None,
+		true,
+		1.f,
+		0.f,
+		false);
+
+	if (!MontageTask)
+	{
+		BO_LOG_GAS(Warning, "GA_Dodge montage task 생성 실패");
+		return;
+	}
+
+	MontageTask->OnCompleted.AddDynamic(this, &UBlackoutGA_Dodge::OnDodgeMontageCompleted);
+	MontageTask->OnInterrupted.AddDynamic(this, &UBlackoutGA_Dodge::OnDodgeMontageInterrupted);
+	MontageTask->OnCancelled.AddDynamic(this, &UBlackoutGA_Dodge::OnDodgeMontageCancelled);
+	MontageTask->OnBlendOut.AddDynamic(this, &UBlackoutGA_Dodge::OnDodgeMontageBlendOut);
+	MontageTask->ReadyForActivation();
+}
+
+void UBlackoutGA_Dodge::StartChainInputTask()
+{
+	if (!IsActive())
 	{
 		return;
 	}
 
-	if (!ConsumeStamina())
+	ChainInputTask = UAbilityTask_WaitInputPress::WaitInputPress(this, false);
+	if (!ChainInputTask)
 	{
-		BO_LOG_GAS(Log, "GA_Dodge follow-up skipped: 스태미나 부족");
+		BO_LOG_GAS(Warning, "GA_Dodge chain input task 생성 실패");
 		return;
 	}
 
-	bool bIsBackstep = false;
-	const FVector DodgeDirection = CalculateDodgeDirection(ActorInfo, bIsBackstep, true);
-	if (DodgeDirection.IsNearlyZero())
+	ChainInputTask->OnPress.AddDynamic(this, &UBlackoutGA_Dodge::OnChainInputPressed);
+	ChainInputTask->ReadyForActivation();
+}
+
+void UBlackoutGA_Dodge::OnChainInputPressed(float TimeWaited)
+{
+	ChainInputTask = nullptr;
+
+	if (HasAuthority(&CurrentActivationInfo))
 	{
-		BO_LOG_GAS(Warning, "GA_Dodge follow-up failed: 회피 방향 계산 결과가 0 벡터");
+		// 서버만 체인 회피 재시작과 몽타주 위치 리셋을 확정합니다.
+		ProcessChainInput();
+	}
+	else
+	{
+		// 클라이언트는 이미 ASC 입력 복제 경로로 서버에 입력을 보냈으므로,
+		// 로컬 체인 재시작은 수행하지 않고 RepAnimMontageInfo 보정을 기다립니다.
+		BO_LOG_GAS(Verbose, "GA_Dodge chain input forwarded to server");
+	}
+
+	if (IsActive())
+	{
+		StartChainInputTask();
+	}
+}
+
+void UBlackoutGA_Dodge::ProcessChainInput()
+{
+	if (!DodgeData)
+	{
+		return;
+	}
+
+	const FBlackoutAbilityInputSyncPayload InputPayload = GetLatestChainInputPayload();
+	if (!IsChainInputPayloadUsable(InputPayload))
+	{
+		return;
+	}
+	LastProcessedChainInputSequenceId = InputPayload.SequenceId;
+
+	if (bChainWindowOpen)
+	{
+		StartChainedDodge(InputPayload);
+		return;
+	}
+
+	if (bChainGraceWindowOpen || WasInputWithinChainGrace(InputPayload))
+	{
+		StartChainedDodge(InputPayload);
+		return;
+	}
+
+	// 윈도우 도래 전 입력 → buffer 적재.
+	BufferChainInput(InputPayload);
+}
+
+void UBlackoutGA_Dodge::ScheduleChainTimers()
+{
+	if (!DodgeData)
+	{
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	FTimerManager& TimerManager = World->GetTimerManager();
+	TimerManager.ClearTimer(ChainWindowOpenTimerHandle);
+	TimerManager.ClearTimer(ChainWindowCloseTimerHandle);
+	TimerManager.ClearTimer(ChainGraceCloseTimerHandle);
+	TimerManager.ClearTimer(ChainInputBufferTimerHandle);
+
+	bChainWindowOpen = false;
+	bChainGraceWindowOpen = false;
+	ChainWindowOpenedServerTime = 0.f;
+	ChainWindowClosedServerTime = 0.f;
+	ActiveChainGraceDuration = 0.f;
+
+	const float OpenDelay = FMath::Max(0.f, DodgeData->ChainWindowOpenAtSeconds);
+	const float CloseDelay = FMath::Max(OpenDelay, DodgeData->ChainWindowCloseAtSeconds);
+
+	if (OpenDelay <= KINDA_SMALL_NUMBER)
+	{
+		OnChainWindowOpenTimer();
+	}
+	else
+	{
+		TimerManager.SetTimer(
+			ChainWindowOpenTimerHandle,
+			this,
+			&UBlackoutGA_Dodge::OnChainWindowOpenTimer,
+			OpenDelay,
+			false);
+	}
+
+	if (CloseDelay > KINDA_SMALL_NUMBER)
+	{
+		TimerManager.SetTimer(
+			ChainWindowCloseTimerHandle,
+			this,
+			&UBlackoutGA_Dodge::OnChainWindowCloseTimer,
+			CloseDelay,
+			false);
+	}
+
+	BO_LOG_GAS(Log,
+		"GA_Dodge scheduled chain timers: Open=%.3f Close=%.3f Authority=%s",
+		OpenDelay,
+		CloseDelay,
+		HasAuthority(&CurrentActivationInfo) ? TEXT("true") : TEXT("false"));
+}
+
+void UBlackoutGA_Dodge::OnChainWindowOpenTimer()
+{
+	bChainWindowOpen = true;
+	bChainGraceWindowOpen = false;
+	ChainWindowOpenedServerTime = GetCurrentServerTimeSeconds();
+	ChainWindowClosedServerTime = 0.f;
+	ActiveChainGraceDuration = 0.f;
+
+	BO_LOG_GAS(Log,
+		"GA_Dodge chain window opened: Authority=%s",
+		HasAuthority(&CurrentActivationInfo) ? TEXT("true") : TEXT("false"));
+
+	if (bChainInputQueued)
+	{
+		if (IsBufferedChainInputStillValid())
+		{
+			StartChainedDodge(QueuedChainInputPayload);
+		}
+		else
+		{
+			bChainInputQueued = false;
+			bHasQueuedChainInputPayload = false;
+			BO_LOG_GAS(Log, "GA_Dodge buffered chain input expired before window open");
+		}
+	}
+}
+
+void UBlackoutGA_Dodge::OnChainWindowCloseTimer()
+{
+	if (!bChainWindowOpen)
+	{
 		return;
 	}
 
 	bChainWindowOpen = false;
-	bIsBackstep = false;
+	ChainWindowClosedServerTime = GetCurrentServerTimeSeconds();
 
-	if (!StartDodgeInternal(PlayerCharacter, DodgeDirection, bIsBackstep, true))
+	if (bChainInputQueued)
 	{
-		BO_LOG_GAS(Warning, "GA_Dodge follow-up failed: 회피 재시작에 실패함");
+		StartChainedDodge(QueuedChainInputPayload);
 		return;
 	}
 
-	BO_LOG_GAS(Log, "GA_Dodge follow-up started immediately");
+	ActiveChainGraceDuration = GetDynamicChainGraceDuration();
+	if (ActiveChainGraceDuration <= 0.f)
+	{
+		BO_LOG_GAS(Log, "GA_Dodge chain window closed without grace");
+		return;
+	}
+
+	bChainGraceWindowOpen = true;
+
+	if (UWorld* World = GetWorld())
+	{
+		FTimerManager& TimerManager = World->GetTimerManager();
+		TimerManager.ClearTimer(ChainGraceCloseTimerHandle);
+		TimerManager.SetTimer(
+			ChainGraceCloseTimerHandle,
+			this,
+			&UBlackoutGA_Dodge::OnChainGraceCloseTimer,
+			ActiveChainGraceDuration,
+			false);
+	}
+
+	BO_LOG_GAS(Log, "GA_Dodge chain grace started: Duration=%.3f", ActiveChainGraceDuration);
+}
+
+void UBlackoutGA_Dodge::OnChainGraceCloseTimer()
+{
+	bChainGraceWindowOpen = false;
+	bChainInputQueued = false;
+	bHasQueuedChainInputPayload = false;
+	BO_LOG_GAS(Log, "GA_Dodge chain grace closed");
+}
+
+void UBlackoutGA_Dodge::OnChainInputBufferExpired()
+{
+	if (!bChainWindowOpen && !bChainGraceWindowOpen)
+	{
+		bChainInputQueued = false;
+		bHasQueuedChainInputPayload = false;
+		BO_LOG_GAS(Log, "GA_Dodge chain input buffer expired");
+	}
+}
+
+bool UBlackoutGA_Dodge::StartChainedDodge(const FBlackoutAbilityInputSyncPayload& InputPayload)
+{
+	if (!HasAuthority(&CurrentActivationInfo))
+	{
+		BO_LOG_GAS(Verbose, "GA_Dodge chain ignored on client: 서버 권위 재시작 대기");
+		bChainInputQueued = false;
+		bHasQueuedChainInputPayload = false;
+		return false;
+	}
+
+	ABlackoutPlayerCharacter* PlayerCharacter = CurrentActorInfo ? Cast<ABlackoutPlayerCharacter>(CurrentActorInfo->AvatarActor.Get()) : nullptr;
+	if (!PlayerCharacter)
+	{
+		return false;
+	}
+
+	// 체인 회피는 서버에서만 스태미나를 확정 차감합니다.
+	if (!ConsumeStamina())
+	{
+		BO_LOG_GAS(Log, "GA_Dodge chain skipped: 스태미나 부족");
+		bChainInputQueued = false;
+		bHasQueuedChainInputPayload = false;
+		return false;
+	}
+
+	if (!StartDodgeInternal(PlayerCharacter, /*bIsChainRestart=*/true, &InputPayload))
+	{
+		BO_LOG_GAS(Warning, "GA_Dodge chain failed: 회피 재시작에 실패함");
+		return false;
+	}
+
+	BO_LOG_GAS(Log, "GA_Dodge chain started: Authority=true");
+	return true;
+}
+
+void UBlackoutGA_Dodge::BufferChainInput(const FBlackoutAbilityInputSyncPayload& InputPayload)
+{
+	if (!DodgeData || DodgeData->ServerReceiveBufferDuration <= 0.f)
+	{
+		return;
+	}
+
+	bChainInputQueued = true;
+	bHasQueuedChainInputPayload = true;
+	QueuedChainInputPayload = InputPayload;
+
+	if (UWorld* World = GetWorld())
+	{
+		FTimerManager& TimerManager = World->GetTimerManager();
+		TimerManager.ClearTimer(ChainInputBufferTimerHandle);
+		TimerManager.SetTimer(
+			ChainInputBufferTimerHandle,
+			this,
+			&UBlackoutGA_Dodge::OnChainInputBufferExpired,
+			DodgeData->ServerReceiveBufferDuration,
+			false);
+	}
+
+	BO_LOG_GAS(Log, "GA_Dodge chain input buffered");
 }
 
 UBlackoutGA_Dodge* UBlackoutGA_Dodge::GetActiveDodgeAbilityFromActor(const AActor* OwnerActor)
@@ -99,114 +503,57 @@ UBlackoutGA_Dodge* UBlackoutGA_Dodge::GetActiveDodgeAbilityFromActor(const AActo
 
 void UBlackoutGA_Dodge::HandleChainWindowOpened()
 {
-	if (!IsActive())
-	{
-		return;
-	}
-
-	bChainWindowOpen = true;
-	BO_LOG_GAS(Log, "GA_Dodge chain window opened");
+	// v2: 체인 상태머신 권위에서 분리. 시각 effect 트리거가 필요한 경우 여기서 처리하세요.
+	BO_LOG_GAS(Verbose, "GA_Dodge chain window notify (FX-only, v2)");
 }
 
-
-
-void UBlackoutGA_Dodge::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
-	const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+void UBlackoutGA_Dodge::OnDodgeMontageCompleted()
 {
-	BO_LOG_GAS(Log, "GA_Dodge activate requested");
-
-	if (!ActorInfo || !ActorInfo->AvatarActor.IsValid())
-	{
-		BO_LOG_GAS(Warning, "GA_Dodge failed: ActorInfo 또는 AvatarActor가 유효하지 않음");
-		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
-		return;
-	}
-
-	ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get());
-	if (!PlayerCharacter || !ConsumeStamina())
-	{
-		BO_LOG_GAS(Warning, "GA_Dodge failed: PlayerCharacter가 없거나 스태미나가 부족함");
-		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
-		return;
-	}
-
-	if (!CommitAbility(Handle, ActorInfo, ActivationInfo))
-	{
-		BO_LOG_GAS(Warning, "GA_Dodge failed: CommitAbility 실패");
-		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
-		return;
-	}
-
-	if (UBlackoutGA_MeleePlayer* MeleeAbility = UBlackoutGA_MeleePlayer::GetActiveMeleeAbilityFromActor(PlayerCharacter))
-	{
-		BO_LOG_GAS(Log, "GA_Dodge cancelling active melee before dodge");
-		MeleeAbility->K2_CancelAbility();
-	}
-
-	// TODO : 백스텝 임시 항상 FALSE  , 추후 방향입력 X DODGE 실행시 백스텝 추가 예정 
-	bool bIsBackstep = false;
-	const FVector DodgeDirection = CalculateDodgeDirection(ActorInfo, bIsBackstep);
-	if (DodgeDirection.IsNearlyZero())
-	{
-		BO_LOG_GAS(Warning, "GA_Dodge failed: 회피 방향 계산 결과가 0 벡터");
-		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
-		return;
-	}
-
-	bIsBackstep = false; // 현재는 forward roll만 사용
-
-	if (!StartDodgeInternal(PlayerCharacter, DodgeDirection, bIsBackstep, false))
-	{
-		BO_LOG_GAS(Warning, "GA_Dodge failed: 회피 시작에 실패함");
-		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
-	}
-}
-
-void UBlackoutGA_Dodge::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
-	const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
-{
-	BO_LOG_GAS(Log, "GA_Dodge ended: Cancelled=%s", bWasCancelled ? TEXT("true") : TEXT("false"));
-
-	if (ActorInfo && ActorInfo->AvatarActor.IsValid())
-	{
-		if (ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()))
-		{
-			PlayerCharacter->SetPendingDodgeInput(FVector2D::ZeroVector);
-		}
-
-		if (UWorld* World = ActorInfo->AvatarActor->GetWorld())
-		{
-			World->GetTimerManager().ClearTimer(DodgeEndTimerHandle);
-		}
-	}
-
-	bChainWindowOpen = false;
-
-	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
-}
-
-void UBlackoutGA_Dodge::OnDodgeFinished()
-{
-	if (!IsActive())
-	{
-		return;
-	}
-
-	BO_LOG_GAS(Log, "GA_Dodge finished by timer");
+	BO_LOG_GAS(Log, "GA_Dodge montage completed");
 	K2_EndAbility();
 }
 
-bool UBlackoutGA_Dodge::StartDodgeInternal(ABlackoutPlayerCharacter* PlayerCharacter, const FVector& DodgeDirection, bool bIsBackstep, bool bRestartMontage)
+void UBlackoutGA_Dodge::OnDodgeMontageInterrupted()
 {
-	if (!PlayerCharacter)
+	BO_LOG_GAS(Log, "GA_Dodge montage interrupted");
+	K2_EndAbility();
+}
+
+void UBlackoutGA_Dodge::OnDodgeMontageCancelled()
+{
+	BO_LOG_GAS(Log, "GA_Dodge montage cancelled");
+	K2_EndAbility();
+}
+
+void UBlackoutGA_Dodge::OnDodgeMontageBlendOut()
+{
+	BO_LOG_GAS(Verbose, "GA_Dodge montage blend out");
+}
+
+bool UBlackoutGA_Dodge::StartDodgeInternal(ABlackoutPlayerCharacter* PlayerCharacter, bool bIsChainRestart, const FBlackoutAbilityInputSyncPayload* InputPayload)
+{
+	if (!PlayerCharacter || !DodgeData || !DodgeData->DodgeMontage)
 	{
 		return false;
 	}
 
-	bChainWindowOpen = false;
+	bool bIsBackstep = false;
+	const FVector DodgeDirection = CalculateDodgeDirection(CurrentActorInfo, bIsBackstep, bIsChainRestart, InputPayload);
+	if (DodgeDirection.IsNearlyZero())
+	{
+		BO_LOG_GAS(Warning, "GA_Dodge: 회피 방향 계산 결과가 0 벡터");
+		return false;
+	}
+
+	// 현재 백스텝은 임시로 항상 forward roll. 향후 방향 입력 X 시 백스텝 분기 예정.
+	bIsBackstep = false;
+
+	ResetChainState();
+	ClearAllChainTimers();
 
 	const FRotator TargetRotation(0.f, DodgeDirection.Rotation().Yaw, 0.f);
 	PlayerCharacter->SetActorRotation(TargetRotation);
+	PlayerCharacter->SetDodgeMontagePlaying(true);
 
 	if (UBlackoutCombatComponent* CombatComponent = PlayerCharacter->GetCombatComponent())
 	{
@@ -218,63 +565,70 @@ bool UBlackoutGA_Dodge::StartDodgeInternal(ABlackoutPlayerCharacter* PlayerChara
 		MovementComponent->StopMovementImmediately();
 	}
 
-	if (DodgeMontage)
+	if (bIsChainRestart)
 	{
-		if (PlayerCharacter->IsLocallyControlled())
+		if (!HasAuthority(&CurrentActivationInfo))
 		{
-			PlayerCharacter->PlayDodgeMontage(DodgeMontage, 1.f, bRestartMontage);
+			BO_LOG_GAS(Verbose, "GA_Dodge chain restart ignored on client: 서버 RepAnimMontageInfo 대기");
+			return false;
 		}
 
-		if (PlayerCharacter->HasAuthority())
+		// v2: 체인 회피는 **동일한 PlayMontageAndWait 태스크 / montage instance** 안에서
+		// 첫 섹션으로 position 만 0 으로 리셋합니다.
+		const FName FirstSectionName = DodgeData->DodgeMontage->GetSectionName(0);
+		if (FirstSectionName != NAME_None)
 		{
-			PlayerCharacter->Multicast_PlayDodgeMontage(DodgeMontage, 1.f, bRestartMontage);
+			// 서버 권위: ASC::CurrentMontageJumpToSection 이 RepAnimMontageInfo Position 을 갱신해 자동 복제.
+			if (UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo())
+			{
+				AbilitySystemComponent->CurrentMontageJumpToSection(FirstSectionName);
+				PlayerCharacter->Multicast_SyncDodgeChainRestart(DodgeData->DodgeMontage, FirstSectionName, TargetRotation.Yaw);
+				PlayerCharacter->Client_JumpMontageToSection(DodgeData->DodgeMontage, FirstSectionName, true, TargetRotation.Yaw);
+			}
+		}
+		else
+		{
+			BO_LOG_GAS(Warning,
+				"GA_Dodge chain restart: 몽타주 %s 에 named section 이 없어 position 리셋이 무시됨",
+				*GetNameSafe(DodgeData->DodgeMontage));
 		}
 	}
 	else
 	{
-		BO_LOG_GAS(Warning, "GA_Dodge: DodgeMontage가 설정되지 않아 몽타주를 재생하지 못함");
+		// 첫 활성: 새 PlayMontageAndWait 태스크 시작.
+		StartMontageTask();
 	}
 
-	const float LaunchStrength = bIsBackstep ? BackstepStrength : DodgeStrength;
-	PlayerCharacter->LaunchCharacter(DodgeDirection * LaunchStrength + FVector::UpVector * UpwardImpulse, true, true);
+	CurrentDodgeStartedServerTime = GetCurrentServerTimeSeconds();
 
-	const float DodgeEndDelay =
-		(DodgeMontage && DodgeMontage->GetPlayLength() > 0.f)
-			? DodgeMontage->GetPlayLength()
-			: DodgeDuration;
-
-	if (UWorld* World = PlayerCharacter->GetWorld())
-	{
-		World->GetTimerManager().ClearTimer(DodgeEndTimerHandle);
-		World->GetTimerManager().SetTimer(
-			DodgeEndTimerHandle,
-			this,
-			&UBlackoutGA_Dodge::OnDodgeFinished,
-			DodgeEndDelay,
-			false);
-	}
+	// 체인 윈도우/그레이스 타이머 예약. 체인 재시작 시에는 서버 권위 상태만 갱신됩니다.
+	ScheduleChainTimers();
 
 	return true;
 }
 
 bool UBlackoutGA_Dodge::ConsumeStamina() const
 {
+	// TODO(stamina-cost): TDD §4.1 v2 는 GE Cost 사용을 명시. 후속 PR 에서 GE 기반으로 교체 예정.
 	UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo();
-	if (!AbilitySystemComponent)
+	if (!AbilitySystemComponent || !DodgeData)
 	{
 		return false;
 	}
 
 	const UBlackoutAbilitySystemComponent* BlackoutASC = Cast<UBlackoutAbilitySystemComponent>(AbilitySystemComponent);
-	const float StaminaCostMultiplier = BlackoutASC ? BlackoutASC->GetStaminaCostMultiplier() : 1.0f;
-	const float ModifiedStaminaCost = StaminaCost * StaminaCostMultiplier;
+	const float StaminaCostMultiplier = BlackoutASC ? BlackoutASC->GetStaminaCostMultiplier() : 1.f;
+	const float ModifiedStaminaCost = DodgeData->StaminaCost * StaminaCostMultiplier;
 	const float CurrentStamina = AbilitySystemComponent->GetNumericAttribute(UBlackoutPlayerAttributeSet::GetStaminaAttribute());
 	if (CurrentStamina < ModifiedStaminaCost)
 	{
 		return false;
 	}
 
-	AbilitySystemComponent->ApplyModToAttribute(UBlackoutPlayerAttributeSet::GetStaminaAttribute(), EGameplayModOp::Additive, -ModifiedStaminaCost);
+	AbilitySystemComponent->ApplyModToAttribute(
+		UBlackoutPlayerAttributeSet::GetStaminaAttribute(),
+		EGameplayModOp::Additive,
+		-ModifiedStaminaCost);
 
 	if (UBlackoutAbilitySystemComponent* BlackoutAbilitySystemComponent = Cast<UBlackoutAbilitySystemComponent>(AbilitySystemComponent))
 	{
@@ -284,7 +638,7 @@ bool UBlackoutGA_Dodge::ConsumeStamina() const
 	return true;
 }
 
-FVector UBlackoutGA_Dodge::CalculateDodgeDirection(const FGameplayAbilityActorInfo* ActorInfo, bool& bOutIsBackstep, bool bPreferControlForwardWhenNoInput) const
+FVector UBlackoutGA_Dodge::CalculateDodgeDirection(const FGameplayAbilityActorInfo* ActorInfo, bool& bOutIsBackstep, bool bPreferControlForwardWhenNoInput, const FBlackoutAbilityInputSyncPayload* InputPayload) const
 {
 	bOutIsBackstep = false;
 
@@ -296,17 +650,24 @@ FVector UBlackoutGA_Dodge::CalculateDodgeDirection(const FGameplayAbilityActorIn
 
 	const FVector2D PendingDodgeInput = PlayerCharacter->GetPendingDodgeInput();
 	const FVector2D CachedMoveInput = PlayerCharacter->GetCachedMoveInput();
-	const FVector2D InputToUse = !PendingDodgeInput.IsNearlyZero() ? PendingDodgeInput : CachedMoveInput;
+	const FVector2D PayloadMoveInput = (InputPayload && InputPayload->bHasMoveInput) ? InputPayload->MoveInput : FVector2D::ZeroVector;
+	const FVector2D InputToUse = !PayloadMoveInput.IsNearlyZero()
+		? PayloadMoveInput
+		: (!PendingDodgeInput.IsNearlyZero() ? PendingDodgeInput : CachedMoveInput);
+	const float ControlYaw = (InputPayload && InputPayload->bHasControlYaw)
+		? InputPayload->ControlYawDegrees
+		: PlayerCharacter->GetControlRotation().Yaw;
 
 	BO_LOG_GAS(Log,
-		"DodgeInput: Pending=(%.2f, %.2f), Cached=(%.2f, %.2f)",
+		"DodgeInput: Payload=(%.2f, %.2f), Pending=(%.2f, %.2f), Cached=(%.2f, %.2f), ControlYaw=%.2f",
+		PayloadMoveInput.X, PayloadMoveInput.Y,
 		PendingDodgeInput.X, PendingDodgeInput.Y,
-		CachedMoveInput.X, CachedMoveInput.Y);
+		CachedMoveInput.X, CachedMoveInput.Y,
+		ControlYaw);
 
 	if (!InputToUse.IsNearlyZero())
 	{
-		const FRotator ControlRotation = PlayerCharacter->GetControlRotation();
-		const FRotator YawRotation(0.f, ControlRotation.Yaw, 0.f);
+		const FRotator YawRotation(0.f, ControlYaw, 0.f);
 
 		const FVector ControlForward = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
 		const FVector ControlRight = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
@@ -322,12 +683,10 @@ FVector UBlackoutGA_Dodge::CalculateDodgeDirection(const FGameplayAbilityActorIn
 
 	if (bPreferControlForwardWhenNoInput)
 	{
-		const FRotator ControlRotation = PlayerCharacter->GetControlRotation();
-		const FRotator YawRotation(0.f, ControlRotation.Yaw, 0.f);
+		const FRotator YawRotation(0.f, ControlYaw, 0.f);
 		return FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X).GetSafeNormal2D();
 	}
 
-	// 서버에서 입력 전송 타이밍이 어긋나도 최소한 실제 이동 방향은 따라가도록 보조
 	const FVector LastMovementDirection = PlayerCharacter->GetLastMovementInputVector().GetSafeNormal2D();
 	if (!LastMovementDirection.IsNearlyZero())
 	{
@@ -341,5 +700,173 @@ FVector UBlackoutGA_Dodge::CalculateDodgeDirection(const FGameplayAbilityActorIn
 	}
 
 	return PlayerCharacter->GetActorForwardVector().GetSafeNormal2D();
-	
+}
+
+bool UBlackoutGA_Dodge::IsChainInputPayloadUsable(const FBlackoutAbilityInputSyncPayload& InputPayload) const
+{
+	if (!DodgeData || !InputPayload.IsValid())
+	{
+		return false;
+	}
+
+	if (LastProcessedChainInputSequenceId != 0)
+	{
+		const uint16 SequenceDelta = InputPayload.SequenceId - LastProcessedChainInputSequenceId;
+		if (SequenceDelta == 0 || SequenceDelta >= 32768)
+		{
+			BO_LOG_GAS(Verbose, "GA_Dodge chain input rejected: 이미 처리한 sequence");
+			return false;
+		}
+	}
+
+	if (InputPayload.AbilitySpecHandle.IsValid() && InputPayload.AbilitySpecHandle != GetCurrentAbilitySpecHandle())
+	{
+		return false;
+	}
+
+	const float ServerReceivedTime = InputPayload.ServerReceivedTimeSeconds > 0.f
+		? InputPayload.ServerReceivedTimeSeconds
+		: GetCurrentServerTimeSeconds();
+	const float RawInputServerTime = InputPayload.ClientEstimatedServerTimeSeconds > 0.f
+		? InputPayload.ClientEstimatedServerTimeSeconds
+		: ServerReceivedTime;
+
+	if (RawInputServerTime > ServerReceivedTime + DodgeData->MaxChainInputFutureTolerance)
+	{
+		BO_LOG_GAS(Log, "GA_Dodge chain input rejected: 미래 timestamp 허용 범위 초과");
+		return false;
+	}
+
+	if (ServerReceivedTime - RawInputServerTime > DodgeData->MaxChainInputTimestampAge)
+	{
+		BO_LOG_GAS(Log, "GA_Dodge chain input rejected: timestamp age 초과");
+		return false;
+	}
+
+	return true;
+}
+
+bool UBlackoutGA_Dodge::WasInputWithinChainGrace(const FBlackoutAbilityInputSyncPayload& InputPayload) const
+{
+	if (ChainWindowClosedServerTime <= 0.f || ActiveChainGraceDuration <= 0.f)
+	{
+		return false;
+	}
+
+	const float InputServerTime = GetInputServerTimeSeconds(InputPayload);
+	return InputServerTime >= ChainWindowClosedServerTime - KINDA_SMALL_NUMBER
+		&& InputServerTime <= ChainWindowClosedServerTime + ActiveChainGraceDuration;
+}
+
+bool UBlackoutGA_Dodge::IsBufferedChainInputStillValid() const
+{
+	if (!bHasQueuedChainInputPayload || !DodgeData)
+	{
+		return true;
+	}
+
+	const float InputServerTime = GetInputServerTimeSeconds(QueuedChainInputPayload);
+	const float WindowOpenTime = ChainWindowOpenedServerTime > 0.f
+		? ChainWindowOpenedServerTime
+		: GetCurrentServerTimeSeconds();
+	const float Age = WindowOpenTime - InputServerTime;
+	if (Age < -KINDA_SMALL_NUMBER)
+	{
+		return true;
+	}
+	return Age <= DodgeData->ServerReceiveBufferDuration + KINDA_SMALL_NUMBER;
+}
+
+float UBlackoutGA_Dodge::GetDynamicChainGraceDuration() const
+{
+	if (!DodgeData)
+	{
+		return 0.f;
+	}
+
+	const ABlackoutPlayerCharacter* PlayerCharacter =
+		CurrentActorInfo ? Cast<ABlackoutPlayerCharacter>(CurrentActorInfo->AvatarActor.Get()) : nullptr;
+	const APlayerState* PlayerState = PlayerCharacter ? PlayerCharacter->GetPlayerState() : nullptr;
+	const float PingSeconds = PlayerState ? PlayerState->GetPingInMilliseconds() * 0.001f : 0.f;
+	const float GraceDuration =
+		DodgeData->BaseChainInputGraceDuration
+		+ PingSeconds * DodgeData->ChainInputPingScale
+		+ DodgeData->ChainInputJitterMargin;
+	return FMath::Clamp(GraceDuration, 0.f, DodgeData->MaxChainInputGraceDuration);
+}
+
+float UBlackoutGA_Dodge::GetCurrentServerTimeSeconds() const
+{
+	const UWorld* World = GetWorld();
+	if (!World)
+	{
+		return 0.f;
+	}
+
+	const AGameStateBase* GameState = World->GetGameState();
+	return GameState ? GameState->GetServerWorldTimeSeconds() : World->GetTimeSeconds();
+}
+
+float UBlackoutGA_Dodge::GetInputServerTimeSeconds(const FBlackoutAbilityInputSyncPayload& InputPayload) const
+{
+	if (!DodgeData)
+	{
+		return GetCurrentServerTimeSeconds();
+	}
+
+	const float ServerReceivedTime = InputPayload.ServerReceivedTimeSeconds > 0.f
+		? InputPayload.ServerReceivedTimeSeconds
+		: GetCurrentServerTimeSeconds();
+
+	if (InputPayload.ClientEstimatedServerTimeSeconds <= 0.f)
+	{
+		return ServerReceivedTime;
+	}
+
+	return FMath::Clamp(
+		InputPayload.ClientEstimatedServerTimeSeconds,
+		ServerReceivedTime - DodgeData->MaxChainInputTimestampAge,
+		ServerReceivedTime + DodgeData->MaxChainInputFutureTolerance);
+}
+
+FBlackoutAbilityInputSyncPayload UBlackoutGA_Dodge::GetLatestChainInputPayload() const
+{
+	if (const UBlackoutAbilitySystemComponent* BlackoutASC = Cast<UBlackoutAbilitySystemComponent>(GetAbilitySystemComponentFromActorInfo()))
+	{
+		if (const FBlackoutAbilityInputSyncPayload* Payload = BlackoutASC->GetLatestInputSyncPayload(EBlackoutAbilityInputID::Dodge))
+		{
+			return *Payload;
+		}
+	}
+
+	FBlackoutAbilityInputSyncPayload FallbackPayload;
+	FallbackPayload.SequenceId = 1;
+	FallbackPayload.InputID = EBlackoutAbilityInputID::Dodge;
+	FallbackPayload.AbilitySpecHandle = GetCurrentAbilitySpecHandle();
+	FallbackPayload.ClientEstimatedServerTimeSeconds = GetCurrentServerTimeSeconds();
+	FallbackPayload.ServerReceivedTimeSeconds = FallbackPayload.ClientEstimatedServerTimeSeconds;
+	return FallbackPayload;
+}
+
+void UBlackoutGA_Dodge::ClearAllChainTimers()
+{
+	if (UWorld* World = GetWorld())
+	{
+		FTimerManager& TimerManager = World->GetTimerManager();
+		TimerManager.ClearTimer(ChainWindowOpenTimerHandle);
+		TimerManager.ClearTimer(ChainWindowCloseTimerHandle);
+		TimerManager.ClearTimer(ChainGraceCloseTimerHandle);
+		TimerManager.ClearTimer(ChainInputBufferTimerHandle);
+	}
+}
+
+void UBlackoutGA_Dodge::ResetChainState()
+{
+	bChainWindowOpen = false;
+	bChainGraceWindowOpen = false;
+	bChainInputQueued = false;
+	bHasQueuedChainInputPayload = false;
+	ChainWindowOpenedServerTime = 0.f;
+	ChainWindowClosedServerTime = 0.f;
+	ActiveChainGraceDuration = 0.f;
 }

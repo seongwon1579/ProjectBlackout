@@ -261,6 +261,8 @@ classDiagram
         +I-Frame 무적
         +Root Motion 구르기
         +Tag: State.Invulnerable
+        +입력 buffer / late grace
+        +timestamp 검증
     }
 
     class GA_UseRelic {
@@ -295,7 +297,22 @@ classDiagram
     class GA_Melee_Player {
         +AnimNotifyState Hitbox
         +강철검 / 고철해머 분기
-        +콤보 연계
+        +콤보 입력 buffer
+        +동적 late grace
+        +timestamp 검증
+    }
+
+    class UBlackoutAbilitySystemComponent {
+        +GenericReplicatedEvent InputPressed
+        +입력 SequenceId 기록
+        +입력 timestamp clamp
+    }
+
+    class FBlackoutAbilityInputSyncPayload {
+        +SequenceId
+        +ClientInputTimeSeconds
+        +ClientEstimatedServerTimeSeconds
+        +InputTag
     }
 
     class ExecCalc_DamageCalc {
@@ -319,6 +336,9 @@ classDiagram
     GA_FireWeapon --> ABOShotgunFirearm : 산탄 펠릿 사격
     GA_FireWeapon --> ExecCalc_DamageCalc : 피격 시
     GA_Melee_Player --> ExecCalc_DamageCalc : 피격 시
+    GA_Melee_Player ..> UBlackoutAbilitySystemComponent : WaitInputPress
+    GA_Dodge ..> UBlackoutAbilitySystemComponent : WaitInputPress
+    UBlackoutAbilitySystemComponent ..> FBlackoutAbilityInputSyncPayload : 기록 / 검증
     UBlackoutGA_UseConsumable <|-- UBlackoutGA_UseBloodRoot
     UBlackoutGA_UseConsumable <|-- UBlackoutGA_UseGulSerum
     ExecCalc_DamageCalc --> ExecCalc_CombatReward : 사망 시
@@ -418,12 +438,40 @@ classDiagram
 
     class UBlackoutImpactIndicatorComponent {
         <<ActorComponent>>
+        -FBlackoutImpactIndicatorUpdateKey LastUpdateKey
+        -FBlackoutImpactIndicatorData CachedIndicatorData
         +GetImpactIndicatorData(FBlackoutImpactIndicatorData&) bool
         +GetAimTargetHitResult(FHitResult&, FVector& TraceEnd) bool
         +GetTrueImpactHitResult(FHitResult&, FVector& ImpactPoint, FVector& TraceEnd) bool
+        -BuildImpactIndicatorUpdateKey(FBlackoutImpactIndicatorUpdateKey&) bool
+        -HasImpactIndicatorUpdateInputChanged(FBlackoutImpactIndicatorUpdateKey) bool
+        -RefreshCachedImpactIndicatorData(FBlackoutImpactIndicatorUpdateKey) bool
         -GetHitscanImpactHitResult(FHitResult&, FVector&, FVector&) bool
-        -GetProjectileImpactHitResult(FHitResult&, FVector&, FVector&) bool
+        -GetProjectileImpactHitResult(FHitResult&, FVector&, FVector&, TArray~FBlackoutTrajectoryPointData~*, float*) bool
         -PerformWeaponTrace(FVector Start, FVector End, AActor* IgnoredActor, FHitResult&) bool
+    }
+
+    class FBlackoutImpactIndicatorUpdateKey {
+        <<Struct>>
+        +bool bIsAiming
+        +FRotator CameraRotation
+        +FVector MuzzleLocation
+        +TWeakObjectPtr~ABOFirearm~ EquippedFirearm
+    }
+
+    class EBlackoutTrajectoryVisualState {
+        <<Enum>>
+        Normal
+        FuseInactive
+        Occluded
+    }
+
+    class FBlackoutTrajectoryPointData {
+        <<Struct>>
+        +FVector WorldLocation
+        +FVector2D ScreenPosition
+        +float DistanceFromMuzzle
+        +EBlackoutTrajectoryVisualState VisualState
     }
 
     class FBlackoutImpactIndicatorData {
@@ -432,8 +480,11 @@ classDiagram
         +bool bHasBlockingHit
         +bool bTargetMismatch
         +bool bUsesProjectilePrediction
+        +bool bIsOccludedFromCamera
+        +bool bProjectileImpactFuseInactive
         +FVector WorldLocation
         +FVector2D ScreenPosition
+        +TArray~FBlackoutTrajectoryPointData~ TrajectoryPoints
     }
 
     class ABOFirearm {
@@ -442,12 +493,15 @@ classDiagram
         +GetProjectileLaunchSpeed() float
         +GetProjectileGravityScale() float
         +GetProjectileCollisionRadius() float
+        +GetProjectileImpactFuseArmDistance() float
     }
 
     ABlackoutPlayerCharacter --> UBlackoutCombatComponent : has
     ABlackoutPlayerCharacter --> UBlackoutImpactIndicatorComponent : has
     UBlackoutImpactIndicatorComponent --> UBlackoutCombatComponent : reads combat state
     UBlackoutImpactIndicatorComponent --> ABOFirearm : reads weapon/projectile data
+    UBlackoutImpactIndicatorComponent --> FBlackoutImpactIndicatorUpdateKey : caches update key
+    UBlackoutImpactIndicatorComponent --> FBlackoutTrajectoryPointData : fills projectile path
     UBlackoutImpactIndicatorComponent --> FBlackoutImpactIndicatorData : fills
 ```
 

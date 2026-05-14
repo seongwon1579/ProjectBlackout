@@ -10,6 +10,9 @@
 #include "GameFramework/PlayerController.h"
 #include "Engine/World.h"
 
+#include "MoviePlayer.h"
+#include "UI/SBlackoutLoadingScreen.h"
+
 // GameInstance 부팅 시 호출. WebSockets 모듈 로드 + NetworkSettings 기본값 적용.
 void UBlackoutMatchmakingSubsystem::Initialize(
 	FSubsystemCollectionBase& Collection)
@@ -22,15 +25,57 @@ void UBlackoutMatchmakingSubsystem::Initialize(
 		bAutoTravelOnGameStart = Settings->bAutoTravelOnGameStart;
 		BO_LOG_NET(Log, "Matchmaking Subsystem 초기화 - API=%s WS=%s",*Settings->ApiBaseUrl,*Settings->LobbyWsUrl);
 	}
+
+	// 로딩 화면 라이프사이클 명시 바인딩 — ClientTravel 시 자동 표시 + 맵 로드 완료 시 명시 종료.
+	// ClientTravel 비동기 흐름에서 bAutoCompleteWhenLoadingCompletes 만으론 dismiss 보장 안 됨 → 명시 StopMovie 필요.
+	PreLoadMapHandle = FCoreUObjectDelegates::PreLoadMap.AddUObject(this, &UBlackoutMatchmakingSubsystem::HandlePreLoadMap);
+	PostLoadMapHandle = FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(this, &UBlackoutMatchmakingSubsystem::HandlePostLoadMap);
 }
 
 // GameInstance 종료 시 WebSocket 정리 + 토큰 폐기.
 void UBlackoutMatchmakingSubsystem::Deinitialize()
 {
+	if (PreLoadMapHandle.IsValid())
+	{
+		FCoreUObjectDelegates::PreLoadMap.Remove(PreLoadMapHandle);
+		PreLoadMapHandle.Reset();
+	}
+	if (PostLoadMapHandle.IsValid())
+	{
+		FCoreUObjectDelegates::PostLoadMapWithWorld.Remove(PostLoadMapHandle);
+		PostLoadMapHandle.Reset();
+	}
+
 	DisconnectLobby();
 	AccessToken.Empty();
 	CachedPlayerName.Empty();
 	Super::Deinitialize();
+}
+
+// 맵 로드 직전 — MoviePlayer 에 Slate 로딩 위젯 셋업. PreLoadMap → PlayMovie 흐름이 엔진 내부에서 자동 진행.
+void UBlackoutMatchmakingSubsystem::HandlePreLoadMap(const FString& MapName)
+{
+	BO_LOG_NET(Log, "PreLoadMap: %s — 로딩 화면 셋업", *MapName);
+
+	FLoadingScreenAttributes LoadingScreenAttributes;
+	LoadingScreenAttributes.MinimumLoadingScreenDisplayTime = 2.0f;
+	LoadingScreenAttributes.bAutoCompleteWhenLoadingCompletes = false;
+	LoadingScreenAttributes.bMoviesAreSkippable = false;
+	LoadingScreenAttributes.WidgetLoadingScreen = SNew(SBlackoutLoadingScreen);
+	GetMoviePlayer()->SetupLoadingScreen(LoadingScreenAttributes);
+}
+
+// 맵 로드 완료 — MoviePlayer 명시 종료. viewport input lock 해소까지 보장.
+// bAutoComplete 비활성 + 명시 StopMovie 패턴이 ClientTravel 흐름에서 가장 안정적.
+void UBlackoutMatchmakingSubsystem::HandlePostLoadMap(UWorld* LoadedWorld)
+{
+	BO_LOG_NET(Log, "PostLoadMapWithWorld — 로딩 화면 종료");
+
+	if (GetMoviePlayer()->IsMovieCurrentlyPlaying())
+	{
+		GetMoviePlayer()->StopMovie();
+	}
+	GetMoviePlayer()->WaitForMovieToFinish();
 }
 
 // POST /auth/login — JSON body로 계정 전송. 응답은 OnLoginResponse.
@@ -103,7 +148,7 @@ void UBlackoutMatchmakingSubsystem::CancelMatchmaking()
 }
 
 // 데디 IP:Port 로 ClientTravel. 호출 전 로비 WebSocket 정리.
-void UBlackoutMatchmakingSubsystem::TravelToGameServer(const FString& ServerIp, int32 ServerPort)
+void UBlackoutMatchmakingSubsystem::TravelToGameServer(const FString& ServerIp, int32 ServerPort ,const FString& SessionId)
 {
 	if (ServerIp.IsEmpty() || ServerPort <= 0)
 	{
@@ -125,9 +170,23 @@ void UBlackoutMatchmakingSubsystem::TravelToGameServer(const FString& ServerIp, 
 		return;
 	}
 
-	const FString Addr = FString::Printf(TEXT("%s:%d"), *ServerIp, ServerPort);
+	// 메인메뉴/매칭 위젯이 SetInputModeUIOnly 로 viewport 를 잠가둔 상태로 Travel 진입 시
+	// 새 World 의 PlayerController 가 입력을 못 받음. Travel 직전 명시 GameOnly 로 복구.
+	{
+		FInputModeGameOnly InputMode;
+		PC->SetInputMode(InputMode);
+		PC->bShowMouseCursor = false;
+	}
+
+	FString Addr = FString::Printf(TEXT("%s:%d"), *ServerIp, ServerPort);
+	if (!SessionId.IsEmpty())
+	{
+		Addr += FString::Printf(TEXT("?SessionId=%s"), *SessionId);
+	}
 	BO_LOG_NET(Log, "ClientTravel -> %s", *Addr);
 
+	// 로딩 화면은 PreLoadMap delegate(Initialize 에서 바인딩) 가 자동 셋업.
+	// 라이프사이클 종료는 PostLoadMapWithWorld delegate 가 명시 StopMovie 로 처리.
 	DisconnectLobby();
 	PC->ClientTravel(Addr, TRAVEL_Absolute);
 }
@@ -170,6 +229,19 @@ void UBlackoutMatchmakingSubsystem::DisconnectLobby()
 		WebSocket.Reset();
 	}
 	CurrentSessionId.Empty();
+}
+
+void UBlackoutMatchmakingSubsystem::Logout()
+{
+	
+	if (AccessToken.IsEmpty() && CachedPlayerName.IsEmpty())
+	{
+		return;
+	}
+	BO_LOG_NET(Log,"로그아웃 - %s",*CachedPlayerName);
+	AccessToken.Empty();
+	CachedPlayerName.Empty();
+	DisconnectLobby();
 }
 
 
@@ -295,6 +367,21 @@ void UBlackoutMatchmakingSubsystem::OnStartMatchmakingResponse(FHttpRequestPtr R
 
 	SendJoinSessionMessage(Info.SessionId);
 	OnMatchmakingStarted.Broadcast(Info);
+
+	// 4번째 클라 안전망 — autoMatch 응답이 이미 playing 상태면 game_start WS 이벤트 손실 가능
+	// (서버 측에서 정원 충족 직후 game_start emit, 이 클라는 아직 WS 룸 미참가 상태)
+	if (Info.Status == TEXT("playing") && !Info.ServerIp.IsEmpty() && Info.ServerPort > 0)
+	{
+		BO_LOG_NET(Warning, "정원 충족 시점 진입 - game_start 이벤트 손실 가능, 직접 ClientTravel 트리거");
+		if (bAutoTravelOnGameStart)
+		{
+			TravelToGameServer(Info.ServerIp, Info.ServerPort, Info.SessionId);
+		}
+		else
+		{
+			OnGameStart.Broadcast(Info.SessionId, Info.ServerIp, Info.ServerPort);
+		}
+	}
 }
 
 // 매칭 취소 응답. sessionDestroyed 값을 OnMatchmakingCancelled 로 전달.
@@ -419,7 +506,7 @@ void UBlackoutMatchmakingSubsystem::HandleWsMessage(const FString& MessageStr)
 
 		if (bAutoTravelOnGameStart)
 		{
-			TravelToGameServer(Ip, Port);
+			TravelToGameServer(Ip, Port,Sid);
 		}
 		return;
 	}

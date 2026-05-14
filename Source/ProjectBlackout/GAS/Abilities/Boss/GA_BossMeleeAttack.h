@@ -9,19 +9,7 @@
 
 struct FHitResult;
 struct FGameplayEventData;
-class UAbilityTask_BossMeleeSweep;
-
-USTRUCT(BlueprintType)
-struct FBossSweepSocketPair
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditDefaultsOnly)
-	FName StartSocket;
-
-	UPROPERTY(EditDefaultsOnly)
-	FName EndSocket;
-};
+class UAbilityTask_BossMeleeHitbox;
 
 /**
  * 보스 근접 공격 베이스 어빌리티.
@@ -43,31 +31,25 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Combat")
 	TSubclassOf<UGameplayEffect> DamageEffectClass;
 
-	/** 스윕 소켓 쌍 목록 (입 공격: 1개, 양발 공격: 2개 등 자유롭게 추가) */
+	/** 활성화할 히트박스 컴포넌트 이름 목록 (보스 BP에서 추가한 컴포넌트 이름) */
 	UPROPERTY(EditDefaultsOnly, Category = "Combat")
-	TArray<FBossSweepSocketPair> SweepSocketPairs;
-
-	/** 스윕 구체 반지름 (cm) */
-	UPROPERTY(EditDefaultsOnly, Category = "Combat")
-	float SweepRadius = 30.f;
+	TArray<FName> HitboxComponentNames;
 
 	UPROPERTY(EditDefaultsOnly, Category = "MotionWarping")
 	FName WarpTargetName = TEXT("MW_Target");
-
-	UPROPERTY(EditDefaultsOnly, Category = "MotionWarping")
-	float WarpReferenceDistance = 400.f;
-
-	UPROPERTY(EditDefaultsOnly, Category = "MotionWarping")
-	float WarpMinPlayRate = 0.3f;
+	
+	UPROPERTY(EditDefaultsOnly, Category= "Ravager" , meta= (ClampMin="0.0"))
+	float DamageMagnitude = 10.0f;
 
 protected:
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
-
+	
+	
 private:
 	void SetupMotionWarp(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayEventData* TriggerEventData);
 	void PlayAttackMontage();
-	void WaitForSweepStart();
+	void WaitForCollisionEvent();
 
 	UFUNCTION()
 	void OnMontageEnded();
@@ -79,13 +61,13 @@ private:
 	void OnMontageCancelled();
 
 	UFUNCTION()
-	void OnSweepStartEvent(FGameplayEventData Payload);
+	void OnCollision(FGameplayEventData Payload);
 
 	UFUNCTION()
-	void OnSweepEndEvent(FGameplayEventData Payload);
+	void OffCollision(const FHitResult& HitResult);
 
 	UFUNCTION()
-	void OnMeleeSweepHit(const FHitResult& HitResult);
+	void EndHitBox(FGameplayEventData Payload);
 
-	TArray<TObjectPtr<UAbilityTask_BossMeleeSweep>> ActiveSweepTasks;
+	TArray<TObjectPtr<UAbilityTask_BossMeleeHitbox>> ActiveHitboxTasks;
 };

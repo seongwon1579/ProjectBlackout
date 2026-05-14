@@ -1,9 +1,14 @@
 #include "BlackoutAbilitySystemComponent.h"
 
 #include "Abilities/BlackoutGameplayAbility.h"
+#include "Abilities/Player/BlackoutGA_UseConsumable.h"
 #include "BlackoutLog.h"
+#include "Characters/BlackoutPlayerCharacter.h"
 #include "Data/BOConsumableData.h"
 #include "Engine/World.h"
+#include "GameFramework/Controller.h"
+#include "GameFramework/GameStateBase.h"
+#include "GameFramework/Pawn.h"
 #include "GameplayEffect.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "GAS/Attributes/BlackoutBaseAttributeSet.h"
@@ -100,6 +105,9 @@ void UBlackoutAbilitySystemComponent::HandleAbilityInputPressed(EBlackoutAbility
 
 	const int32 RawInputID = static_cast<int32>(InputID);
 	bool bFoundMatchingAbility = false;
+	const uint16 InputSequenceId = GenerateNextInputSequence(InputID);
+	const float ClientInputTimeSeconds = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0f;
+	const float ClientEstimatedServerTimeSeconds = GetEstimatedServerTimeSeconds();
 
 	ABILITYLIST_SCOPE_LOCK();
 
@@ -112,16 +120,52 @@ void UBlackoutAbilitySystemComponent::HandleAbilityInputPressed(EBlackoutAbility
 
 		bFoundMatchingAbility = true;
 		AbilitySpec.InputPressed = true;
+		const bool bWasAbilityActive = AbilitySpec.IsActive();
 
-		if (AbilitySpec.IsActive())
+		const FBlackoutAbilityInputSyncPayload InputPayload = BuildInputSyncPayload(
+			InputID,
+			AbilitySpec.Handle,
+			InputSequenceId,
+			ClientInputTimeSeconds,
+			ClientEstimatedServerTimeSeconds,
+			bWasAbilityActive);
+		RecordAbilityInputSyncPayload(InputPayload, IsOwnerActorAuthoritative());
+		if (!IsOwnerActorAuthoritative())
 		{
+			Server_RecordAbilityInputSyncPayload(InputPayload);
+		}
+
+		if (bWasAbilityActive)
+		{
+			// 활성 GA의 prediction key 추출.
+			// 콤보/체인 재입력은 새 ScopedPredictionWindow 를 만들지 않고 기존 activation key 를 재사용합니다.
+			const FGameplayAbilityActivationInfo* ActivationInfo = &AbilitySpec.ActivationInfo;
+			const TArray<UGameplayAbility*> AbilityInstances = AbilitySpec.GetAbilityInstances();
+			if (AbilityInstances.Num() > 0 && AbilityInstances.Last())
+			{
+				ActivationInfo = &AbilityInstances.Last()->GetCurrentActivationInfoRef();
+			}
+			const FPredictionKey ActivationKey = ActivationInfo->GetActivationPredictionKey();
+
+			// 로컬: 자신의 GA 인스턴스에 InputPressed 를 전달하고 로컬 WaitInputPress 를 발화.
+			AbilitySpecInputPressed(AbilitySpec);
+			InvokeReplicatedEvent(
+				EAbilityGenericReplicatedEvent::InputPressed,
+				AbilitySpec.Handle,
+				ActivationKey);
+
+			// 원격(클라이언트 → 서버): 표준 GAS 복제 이벤트 경로.
+			// ServerSetReplicatedEvent 가 서버에서 InvokeReplicatedEvent 를 발화시켜
+			// 서버 GA 의 WaitInputPress::OnPress 가 호출됩니다.
+			// CurrentPredictionKey 인자에도 activation key 를 그대로 넘겨 재사용합니다.
 			if (!IsOwnerActorAuthoritative())
 			{
-				ServerSetInputPressed(AbilitySpec.Handle);
+				ServerSetReplicatedEvent(
+					EAbilityGenericReplicatedEvent::InputPressed,
+					AbilitySpec.Handle,
+					ActivationKey,
+					ActivationKey);
 			}
-
-			AbilitySpecInputPressed(AbilitySpec);
-			//InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::InputPressed, AbilitySpec.Handle, AbilitySpec.ActivationInfo.GetActivationPredictionKey());
 			continue;
 		}
 
@@ -157,15 +201,195 @@ void UBlackoutAbilitySystemComponent::HandleAbilityInputReleased(EBlackoutAbilit
 
 		if (AbilitySpec.IsActive())
 		{
-			if (!IsOwnerActorAuthoritative())
+			if (AbilitySpec.Ability && AbilitySpec.Ability->bReplicateInputDirectly && !IsOwnerActorAuthoritative())
 			{
 				ServerSetInputReleased(AbilitySpec.Handle);
 			}
 
 			AbilitySpecInputReleased(AbilitySpec);
-			//InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::InputReleased, AbilitySpec.Handle, AbilitySpec.ActivationInfo.GetActivationPredictionKey());
+
+			const FGameplayAbilityActivationInfo* ActivationInfo = &AbilitySpec.ActivationInfo;
+			const TArray<UGameplayAbility*> AbilityInstances = AbilitySpec.GetAbilityInstances();
+			if (AbilityInstances.Num() > 0 && AbilityInstances.Last())
+			{
+				ActivationInfo = &AbilityInstances.Last()->GetCurrentActivationInfoRef();
+			}
+
+			InvokeReplicatedEvent(
+				EAbilityGenericReplicatedEvent::InputReleased,
+				AbilitySpec.Handle,
+				ActivationInfo->GetActivationPredictionKey());
 		}
 	}
+}
+
+const FBlackoutAbilityInputSyncPayload* UBlackoutAbilitySystemComponent::GetLatestInputSyncPayload(EBlackoutAbilityInputID InputID) const
+{
+	const int32 RawInputID = static_cast<int32>(InputID);
+	return LatestInputSyncPayloadByID.Find(RawInputID);
+}
+
+void UBlackoutAbilitySystemComponent::Server_RecordAbilityInputSyncPayload_Implementation(FBlackoutAbilityInputSyncPayload Payload)
+{
+	// TDD §4.1 v2: 이 RPC 는 timestamp/sequence 메타데이터 부가 채널입니다.
+	// 활성 GA 재입력인 경우에는 ServerSetReplicatedEvent 누락/타이밍 차이를 보완하기 위해
+	// 서버 WaitInputPress 안전망도 함께 발화합니다.
+	if (RecordAbilityInputSyncPayload(Payload, true) && Payload.bWasAbilityActive)
+	{
+		NotifyActiveAbilityInputPressedFromPayload(Payload.InputID);
+	}
+}
+
+uint16 UBlackoutAbilitySystemComponent::GenerateNextInputSequence(EBlackoutAbilityInputID InputID)
+{
+	const int32 RawInputID = static_cast<int32>(InputID);
+	uint16& SequenceId = LocalInputSequenceByID.FindOrAdd(RawInputID);
+	++SequenceId;
+	if (SequenceId == 0)
+	{
+		++SequenceId;
+	}
+
+	return SequenceId;
+}
+
+float UBlackoutAbilitySystemComponent::GetEstimatedServerTimeSeconds() const
+{
+	const UWorld* World = GetWorld();
+	if (!World)
+	{
+		return 0.0f;
+	}
+
+	const AGameStateBase* GameState = World->GetGameState();
+	return GameState ? GameState->GetServerWorldTimeSeconds() : World->GetTimeSeconds();
+}
+
+FBlackoutAbilityInputSyncPayload UBlackoutAbilitySystemComponent::BuildInputSyncPayload(
+	EBlackoutAbilityInputID InputID,
+	FGameplayAbilitySpecHandle AbilitySpecHandle,
+	uint16 SequenceId,
+	float ClientInputTimeSeconds,
+	float ClientEstimatedServerTimeSeconds,
+	bool bWasAbilityActive) const
+{
+	FBlackoutAbilityInputSyncPayload Payload;
+	Payload.SequenceId = SequenceId;
+	Payload.ClientInputTimeSeconds = ClientInputTimeSeconds;
+	Payload.ClientEstimatedServerTimeSeconds = ClientEstimatedServerTimeSeconds;
+	Payload.ServerReceivedTimeSeconds = GetEstimatedServerTimeSeconds();
+	Payload.InputID = InputID;
+	Payload.AbilitySpecHandle = AbilitySpecHandle;
+	Payload.bWasAbilityActive = bWasAbilityActive;
+
+	const APawn* AvatarPawn = AbilityActorInfo.IsValid() ? Cast<APawn>(AbilityActorInfo->AvatarActor.Get()) : nullptr;
+	const AController* Controller = AbilityActorInfo.IsValid() ? AbilityActorInfo->PlayerController.Get() : nullptr;
+	if (!Controller)
+	{
+		Controller = AvatarPawn ? AvatarPawn->GetController() : nullptr;
+	}
+
+	if (Controller)
+	{
+		Payload.ControlYawDegrees = FRotator::NormalizeAxis(Controller->GetControlRotation().Yaw);
+		Payload.bHasControlYaw = true;
+	}
+
+	if (const ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(AvatarPawn))
+	{
+		const FVector2D PendingDodgeInput = PlayerCharacter->GetPendingDodgeInput();
+		const FVector2D CachedMoveInput = PlayerCharacter->GetCachedMoveInput();
+		const FVector2D MoveInput = !PendingDodgeInput.IsNearlyZero() ? PendingDodgeInput : CachedMoveInput;
+		if (!MoveInput.IsNearlyZero())
+		{
+			Payload.MoveInput = MoveInput;
+			Payload.bHasMoveInput = true;
+		}
+	}
+
+	return Payload;
+}
+
+bool UBlackoutAbilitySystemComponent::RecordAbilityInputSyncPayload(FBlackoutAbilityInputSyncPayload Payload, bool bValidateSequence)
+{
+	if (!Payload.IsValid())
+	{
+		return false;
+	}
+
+	if (bValidateSequence && !IsInputSequenceNewer(Payload.InputID, Payload.SequenceId))
+	{
+		BO_LOG_GAS(Verbose,
+			"InputSyncPayload rejected: InputID=%d Sequence=%u",
+			static_cast<int32>(Payload.InputID),
+			Payload.SequenceId);
+		return false;
+	}
+
+	const int32 RawInputID = static_cast<int32>(Payload.InputID);
+	Payload.ServerReceivedTimeSeconds = GetEstimatedServerTimeSeconds();
+	LatestInputSyncPayloadByID.FindOrAdd(RawInputID) = Payload;
+
+	if (bValidateSequence)
+	{
+		LastServerInputSequenceByID.FindOrAdd(RawInputID) = Payload.SequenceId;
+	}
+
+	return true;
+}
+
+void UBlackoutAbilitySystemComponent::NotifyActiveAbilityInputPressedFromPayload(EBlackoutAbilityInputID InputID)
+{
+	if (!IsOwnerActorAuthoritative() || InputID == EBlackoutAbilityInputID::None)
+	{
+		return;
+	}
+
+	const int32 RawInputID = static_cast<int32>(InputID);
+
+	ABILITYLIST_SCOPE_LOCK();
+
+	for (FGameplayAbilitySpec& AbilitySpec : ActivatableAbilities.Items)
+	{
+		if (AbilitySpec.InputID != RawInputID || !AbilitySpec.IsActive())
+		{
+			continue;
+		}
+
+		const FGameplayAbilityActivationInfo* ActivationInfo = &AbilitySpec.ActivationInfo;
+		const TArray<UGameplayAbility*> AbilityInstances = AbilitySpec.GetAbilityInstances();
+		if (AbilityInstances.Num() > 0 && AbilityInstances.Last())
+		{
+			ActivationInfo = &AbilityInstances.Last()->GetCurrentActivationInfoRef();
+		}
+		const FPredictionKey ActivationKey = ActivationInfo->GetActivationPredictionKey();
+
+		// ServerSetReplicatedEvent 가 타이밍 문제로 WaitInputPress 를 깨우지 못하는 경우를 위한 안전망입니다.
+		AbilitySpec.InputPressed = true;
+		AbilitySpecInputPressed(AbilitySpec);
+		InvokeReplicatedEvent(
+			EAbilityGenericReplicatedEvent::InputPressed,
+			AbilitySpec.Handle,
+			ActivationKey);
+	}
+}
+
+bool UBlackoutAbilitySystemComponent::IsInputSequenceNewer(EBlackoutAbilityInputID InputID, uint16 NewSequenceId) const
+{
+	if (NewSequenceId == 0)
+	{
+		return false;
+	}
+
+	const int32 RawInputID = static_cast<int32>(InputID);
+	const uint16* LastSequenceId = LastServerInputSequenceByID.Find(RawInputID);
+	if (!LastSequenceId)
+	{
+		return true;
+	}
+
+	const uint16 Delta = NewSequenceId - *LastSequenceId;
+	return Delta != 0 && Delta < 32768;
 }
 
 void UBlackoutAbilitySystemComponent::ClearAllAbilitiesAndEffects()
@@ -238,7 +462,7 @@ void UBlackoutAbilitySystemComponent::ApplyTemporaryStaminaCostMultiplier(float 
 		Duration);
 }
 
-void UBlackoutAbilitySystemComponent::ApplyHealthRegenOverTime(float HealAmountPerTick, float Duration, float TickInterval)
+void UBlackoutAbilitySystemComponent::ApplyHealthRegenOverTime(float HealAmountPerTick, float Duration, float TickInterval, FGameplayTag SourceConsumableTag)
 {
 	if (!IsOwnerActorAuthoritative())
 	{
@@ -259,6 +483,7 @@ void UBlackoutAbilitySystemComponent::ApplyHealthRegenOverTime(float HealAmountP
 	const int32 TickCount = Duration > 0.0f ? FMath::Max(1, FMath::CeilToInt(Duration / SafeTickInterval)) : 1;
 	HealthRegenAmountPerTick = HealAmountPerTick;
 	RemainingHealthRegenTickCount = TickCount;
+	ActiveHealthRegenSourceTag = SourceConsumableTag;
 
 	HandleHealthRegenTick();
 	if (RemainingHealthRegenTickCount <= 0)
@@ -298,6 +523,34 @@ void UBlackoutAbilitySystemComponent::ApplyHealthRegenOverTime(float HealAmountP
 		Duration,
 		SafeTickInterval,
 		TickCount);
+}
+
+void UBlackoutAbilitySystemComponent::CancelHealthRegenOverTime()
+{
+	if (!IsOwnerActorAuthoritative())
+	{
+		return;
+	}
+
+	if (RemainingHealthRegenTickCount <= 0 && HealthRegenAmountPerTick <= 0.0f)
+	{
+		return;
+	}
+
+	const FGameplayTag CancelledSourceTag = ActiveHealthRegenSourceTag;
+	StopHealthRegen();
+	if (CancelledSourceTag.IsValid())
+	{
+		ResetConsumableCooldownForTag(CancelledSourceTag);
+		Client_ResetConsumableCooldown(CancelledSourceTag);
+	}
+
+	BO_LOG_GAS(Log, "지속 체력 회복 취소: Owner=%s", *GetNameSafe(GetOwner()));
+}
+
+void UBlackoutAbilitySystemComponent::Client_ResetConsumableCooldown_Implementation(FGameplayTag ConsumableTag)
+{
+	ResetConsumableCooldownForTag(ConsumableTag);
 }
 
 void UBlackoutAbilitySystemComponent::StartStaminaRegen()
@@ -380,10 +633,10 @@ void UBlackoutAbilitySystemComponent::HandleHealthRegenTick()
 	const float CurrentHealth = GetNumericAttribute(UBlackoutBaseAttributeSet::GetHealthAttribute());
 	const float MaxHealth = GetNumericAttribute(UBlackoutBaseAttributeSet::GetMaxHealthAttribute());
 	
-	// 체력이 0 이하로 내려가면 중단
-	if (MaxHealth <= 0.0f)
+	// 다운/사망 상태로 넘어간 회복 효과는 다음 틱에서 되살리지 않도록 중단합니다.
+	if (MaxHealth <= 0.0f || CurrentHealth <= 0.0f || HasMatchingGameplayTag(BlackoutGameplayTags::State_Downed))
 	{
-		StopHealthRegen();
+		CancelHealthRegenOverTime();
 		return;
 	}
 	
@@ -418,6 +671,34 @@ void UBlackoutAbilitySystemComponent::StopHealthRegen()
 
 	HealthRegenAmountPerTick = 0.0f;
 	RemainingHealthRegenTickCount = 0;
+	ActiveHealthRegenSourceTag = FGameplayTag();
+}
+
+void UBlackoutAbilitySystemComponent::ResetConsumableCooldownForTag(FGameplayTag ConsumableTag)
+{
+	if (!ConsumableTag.IsValid())
+	{
+		return;
+	}
+
+	ABILITYLIST_SCOPE_LOCK();
+
+	for (FGameplayAbilitySpec& AbilitySpec : ActivatableAbilities.Items)
+	{
+		const UBOConsumableData* ConsumableData = Cast<UBOConsumableData>(AbilitySpec.SourceObject.Get());
+		if (!ConsumableData || !ConsumableData->ConsumableTag.MatchesTagExact(ConsumableTag))
+		{
+			continue;
+		}
+
+		for (UGameplayAbility* AbilityInstance : AbilitySpec.GetAbilityInstances())
+		{
+			if (UBlackoutGA_UseConsumable* ConsumableAbility = Cast<UBlackoutGA_UseConsumable>(AbilityInstance))
+			{
+				ConsumableAbility->ResetConsumableCooldown();
+			}
+		}
+	}
 }
 
 bool UBlackoutAbilitySystemComponent::CanRecoverStamina() const

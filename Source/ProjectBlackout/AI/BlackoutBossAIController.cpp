@@ -3,6 +3,7 @@
 #include "BehaviorTree/BlackboardComponent.h"
 #include "Perception/AIPerceptionComponent.h"
 #include "Perception/AISenseConfig_Sight.h"
+#include "GameFramework/PlayerController.h"
 
 // #include "AI/ActionPipeline.h"
 // #include "AI/BossPhaseManager.h"
@@ -34,14 +35,15 @@ void ABlackoutBossAIController::OnPossess(APawn* InPawn)
 	if (BehaviorTreeAsset)
 	{
 		RunBehaviorTree(BehaviorTreeAsset);
-		if (UBlackboardComponent* BlackBoard = GetBlackboardComponent())
-		{
-			APawn* PlayerPawn = GetWorld()->GetFirstPlayerController()
-										  ? GetWorld()->GetFirstPlayerController()->GetPawn()
-										  : nullptr;
-			if (PlayerPawn)
-				BlackBoard->SetValueAsObject(TEXT("CurrentTarget"), PlayerPawn);
-		}
+
+		CurrentTargetIndex = 0;
+		GetWorldTimerManager().SetTimerForNextTick(this, &ABlackoutBossAIController::CycleTarget);
+
+		GetWorldTimerManager().SetTimer(
+			TargetCycleTimerHandle,
+			this, &ABlackoutBossAIController::CycleTarget,
+			10.f, true
+		);
 	}
 
 	// PhaseManager = NewObject<UBossPhaseManager>(this);
@@ -56,7 +58,32 @@ void ABlackoutBossAIController::OnUnPossess()
 	// if (PhaseManager) PhaseManager->Stop(TEXT("UnPossessed"));
 	// if (BTRunner)     BTRunner->Stop();
 
+	GetWorldTimerManager().ClearTimer(TargetCycleTimerHandle);
 	AAIController::OnUnPossess();
+}
+
+// ── Target Cycling ────────────────────────────────────────────────────────────
+
+void ABlackoutBossAIController::CycleTarget()
+{
+	UBlackboardComponent* BlackBoard = GetBlackboardComponent();
+	if (!BlackBoard) return;
+
+	TArray<APawn*> PlayerPawns;
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		if (APlayerController* PC = It->Get())
+		{
+			if (APawn* P = PC->GetPawn())
+				PlayerPawns.Add(P);
+		}
+	}
+
+	if (PlayerPawns.IsEmpty()) return;
+
+	CurrentTargetIndex = CurrentTargetIndex % PlayerPawns.Num();
+	BlackBoard->SetValueAsObject(TEXT("Target"), PlayerPawns[CurrentTargetIndex]);
+	CurrentTargetIndex = (CurrentTargetIndex + 1) % PlayerPawns.Num();
 }
 
 // ── Perception ────────────────────────────────────────────────────────────────

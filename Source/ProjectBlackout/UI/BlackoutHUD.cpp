@@ -1,10 +1,12 @@
 #include "UI/BlackoutHUD.h"
 
+#include "UI/BlackoutEnemyHUDWidget.h"
 #include "Blueprint/UserWidget.h"
 #include "Core/BlackoutLog.h"
 #include "GameFramework/PlayerController.h"
 #include "UI/BlackoutHUDWidget.h"
 #include "UI/BlackoutHUDWidgetController.h"
+#include "UI/BlackoutEnemyHUDWidgetController.h"
 
 void ABlackoutHUD::BeginPlay()
 {
@@ -30,6 +32,19 @@ void ABlackoutHUD::InitHUD()
 	CreateWidgetController();
 }
 
+bool ABlackoutHUD::ShowDamageNumberAtWorldLocation(
+	float DamageAmount,
+	const FVector& WorldLocation,
+	bool bIsCritical)
+{
+	if (!HUDWidget)
+	{
+		return false;
+	}
+
+	return HUDWidget->ShowDamageNumberAtWorldLocation(DamageAmount, WorldLocation, bIsCritical);
+}
+
 void ABlackoutHUD::CreateHUDWidget()
 {
 	if (HUDWidget)
@@ -51,6 +66,15 @@ void ABlackoutHUD::CreateHUDWidget()
 	}
 
 	HUDWidget->AddToViewport();
+	
+	if (EnemyHUDWidgetClass)
+	{
+		EnemyHUDWidget = CreateWidget<UBlackoutEnemyHUDWidget>(PlayerOwner, EnemyHUDWidgetClass);
+		if (EnemyHUDWidget)
+		{
+			EnemyHUDWidget->AddToViewport();
+		}
+	}
 }
 
 void ABlackoutHUD::CreateWidgetController()
@@ -59,6 +83,15 @@ void ABlackoutHUD::CreateWidgetController()
 	{
 		BO_LOG_CORE(Error, "WidgetController 생성 실패: HUDWidget이 유효하지 않습니다.");
 		return;
+	}
+	
+	if (!EnemyHUDWidgetController)
+	{
+		EnemyHUDWidgetController = NewObject<UBlackoutEnemyHUDWidgetController>(this);
+		if (EnemyHUDWidget)
+		{
+			EnemyHUDWidget->SetWidgetController(EnemyHUDWidgetController);
+		}
 	}
 
 	const bool bCreatedController = !HUDWidgetController;

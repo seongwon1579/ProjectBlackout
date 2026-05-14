@@ -113,6 +113,11 @@ float ABOProjectile::GetCollisionRadius() const
 	return Collision ? Collision->GetScaledSphereRadius() : 0.0f;
 }
 
+float ABOProjectile::GetImpactFuseArmDistance() const
+{
+	return 0.0f;
+}
+
 void ABOProjectile::OnRep_ProjectileNetState()
 {
 	ApplyProjectileNetState();

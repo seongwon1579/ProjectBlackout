@@ -49,6 +49,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void OnDeath() override;
 
 	virtual void OnDamageReceived(UAbilitySystemComponent* Source,
 	                              const FGameplayEffectSpec& Spec,
@@ -57,9 +58,11 @@ protected:
 	virtual void EvaluatePhaseTransition();
 	virtual void OnPhaseChanged(EBossPhase NewPhase);
 	void BroadcastOnPhaseChanged();
+	
+	void TryBindToHUD();
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Boss")
-	TObjectPtr<UBOBossData> BossData;
+	// UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Boss")
+	// TObjectPtr<UBOBossData> BossData;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Boss")
 	EBossPhase CurrentPhase;

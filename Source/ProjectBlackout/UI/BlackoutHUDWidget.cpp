@@ -1,12 +1,19 @@
 #include "UI/BlackoutHUDWidget.h"
 
+#include "Blueprint/WidgetLayoutLibrary.h"
+#include "Components/CanvasPanel.h"
+#include "Components/CanvasPanelSlot.h"
 #include "Core/BlackoutLog.h"
 #include "Components/Border.h"
-#include "Components/CanvasPanelSlot.h"
 #include "Components/Image.h"
 #include "Components/Widget.h"
+#include "GameFramework/PlayerController.h"
+#include "Rendering/DrawElements.h"
+#include "Styling/CoreStyle.h"
+#include "UI/BlackoutDamageNumberWidget.h"
 #include "UI/BlackoutConsumableSlotsWidget.h"
 #include "UI/BlackoutHUDWidgetController.h"
+#include "UI/BlackoutRelicWidget.h"
 #include "UI/BlackoutValueBarWidget.h"
 #include "UI/BlackoutWeaponAmmoWidget.h"
 
@@ -27,6 +34,27 @@ void UBlackoutHUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTi
 
 	UpdateImpactIndicator(ImpactIndicatorData);
 	ReceiveSpreadUpdated(ImpactIndicatorData.SpreadNormalized);
+}
+
+int32 UBlackoutHUDWidget::NativePaint(
+	const FPaintArgs& Args,
+	const FGeometry& AllottedGeometry,
+	const FSlateRect& MyCullingRect,
+	FSlateWindowElementList& OutDrawElements,
+	int32 LayerId,
+	const FWidgetStyle& InWidgetStyle,
+	bool bParentEnabled) const
+{
+	const int32 TrajectoryLayerId = PaintProjectileTrajectoryDots(AllottedGeometry, OutDrawElements, LayerId, InWidgetStyle);
+
+	return Super::NativePaint(
+		Args,
+		AllottedGeometry,
+		MyCullingRect,
+		OutDrawElements,
+		TrajectoryLayerId + 1,
+		InWidgetStyle,
+		bParentEnabled);
 }
 
 void UBlackoutHUDWidget::NativeDestruct()
@@ -53,10 +81,60 @@ void UBlackoutHUDWidget::SetWidgetController(UBlackoutHUDWidgetController* InWid
 	WidgetController->OnEquippedWeaponChanged.AddDynamic(this, &UBlackoutHUDWidget::HandleEquippedWeaponChanged);
 	WidgetController->OnAimingChanged.AddDynamic(this, &UBlackoutHUDWidget::HandleAimingChanged);
 	WidgetController->OnWeaponAmmoDisplayChanged.AddDynamic(this, &UBlackoutHUDWidget::HandleWeaponAmmoDisplayChanged);
+	WidgetController->OnRelicChargesChanged.AddDynamic(this, &UBlackoutHUDWidget::HandleRelicChargesChanged);
 	WidgetController->OnConsumablesChanged.AddDynamic(this, &UBlackoutHUDWidget::HandleConsumablesChanged);
 	WidgetController->OnConsumableSlotsChanged.AddDynamic(this, &UBlackoutHUDWidget::HandleConsumableSlotsChanged);
 
 	ReceiveWidgetControllerSet();
+}
+
+bool UBlackoutHUDWidget::ShowDamageNumberAtWorldLocation(
+	float DamageAmount,
+	const FVector& WorldLocation,
+	bool bIsCritical)
+{
+	APlayerController* OwningPlayerController = GetOwningPlayer();
+	if (!OwningPlayerController || !OwningPlayerController->IsLocalController())
+	{
+		return false;
+	}
+
+	if (CNV_DamageNumbers && DamageNumberWidgetClass)
+	{
+		UBlackoutDamageNumberWidget* DamageNumberWidget =
+			CreateWidget<UBlackoutDamageNumberWidget>(OwningPlayerController, DamageNumberWidgetClass);
+		if (DamageNumberWidget)
+		{
+			if (UCanvasPanelSlot* CanvasPanelSlot = CNV_DamageNumbers->AddChildToCanvas(DamageNumberWidget))
+			{
+				const FVector2D RandomOffset(
+					FMath::FRandRange(-DamageNumberRandomOffsetX, DamageNumberRandomOffsetX),
+					FMath::FRandRange(-DamageNumberRandomOffsetY, DamageNumberRandomOffsetY));
+
+				DamageNumberWidget->SetCanvasSlot(CanvasPanelSlot);
+				DamageNumberWidget->InitializeDamageNumber(
+					DamageAmount,
+					bIsCritical,
+					WorldLocation,
+					RandomOffset);
+				return true;
+			}
+		}
+	}
+
+	FVector2D ScreenPosition = FVector2D::ZeroVector;
+	if (!UWidgetLayoutLibrary::ProjectWorldLocationToWidgetPosition(
+		OwningPlayerController,
+		WorldLocation,
+		ScreenPosition,
+		true))
+	{
+		return false;
+	}
+
+	// 실제 숫자 WBP 생성은 블루프린트에서 처리하고, C++은 좌표 전달만 담당합니다.
+	ReceiveDamageNumberRequested(DamageAmount, ScreenPosition, bIsCritical);
+	return true;
 }
 
 void UBlackoutHUDWidget::UnbindWidgetControllerCallbacks()
@@ -72,12 +150,17 @@ void UBlackoutHUDWidget::UnbindWidgetControllerCallbacks()
 	WidgetController->OnEquippedWeaponChanged.RemoveAll(this);
 	WidgetController->OnAimingChanged.RemoveAll(this);
 	WidgetController->OnWeaponAmmoDisplayChanged.RemoveAll(this);
+	WidgetController->OnRelicChargesChanged.RemoveAll(this);
 	WidgetController->OnConsumablesChanged.RemoveAll(this);
 	WidgetController->OnConsumableSlotsChanged.RemoveAll(this);
 }
 
-void UBlackoutHUDWidget::UpdateImpactIndicator(const FBlackoutImpactIndicatorData& ImpactIndicatorData) const
+void UBlackoutHUDWidget::UpdateImpactIndicator(const FBlackoutImpactIndicatorData& ImpactIndicatorData)
 {
+	CachedTrajectoryPoints = ImpactIndicatorData.bIsVisible
+		? ImpactIndicatorData.TrajectoryPoints
+		: TArray<FBlackoutTrajectoryPointData>();
+
 	if (!ImpactIndicatorWidget)
 	{
 		return;
@@ -94,7 +177,11 @@ void UBlackoutHUDWidget::UpdateImpactIndicator(const FBlackoutImpactIndicatorDat
 	}
 
 	FLinearColor IndicatorColor = ImpactIndicatorDefaultColor;
-	if (ImpactIndicatorData.bIsOccludedFromCamera)
+	if (ImpactIndicatorData.bProjectileImpactFuseInactive)
+	{
+		IndicatorColor = ImpactIndicatorMismatchColor;
+	}
+	else if (ImpactIndicatorData.bIsOccludedFromCamera)
 	{
 		IndicatorColor = ImpactIndicatorOccludedColor;
 	}
@@ -118,6 +205,55 @@ void UBlackoutHUDWidget::UpdateImpactIndicator(const FBlackoutImpactIndicatorDat
 
 	ImpactIndicatorWidget->SetRenderTransformPivot(FVector2D(0.5f, 0.5f));
 	ImpactIndicatorWidget->SetRenderTranslation(ImpactIndicatorData.ScreenPosition);
+}
+
+int32 UBlackoutHUDWidget::PaintProjectileTrajectoryDots(
+	const FGeometry& AllottedGeometry,
+	FSlateWindowElementList& OutDrawElements,
+	int32 LayerId,
+	const FWidgetStyle& InWidgetStyle) const
+{
+	if (CachedTrajectoryPoints.Num() <= 2)
+	{
+		return LayerId;
+	}
+
+	// 기본 흰색 브러시에 포인트 상태별 색상을 곱해 유탄 궤적 점을 그립니다.
+	const FVector2D DotSize(TrajectoryDotSize, TrajectoryDotSize);
+	const FSlateBrush* DotBrush = FCoreStyle::Get().GetBrush("WhiteBrush");
+
+	// 총구와 True Hit 인디케이터를 가리지 않도록 앞쪽 첫 점과 끝쪽 일부 점은 렌더링하지 않습니다.
+	int32 CurrentLayerId = LayerId;
+	for (int32 PointIndex = 1; PointIndex < CachedTrajectoryPoints.Num() - 3; ++PointIndex)
+	{
+		const FBlackoutTrajectoryPointData& TrajectoryPoint = CachedTrajectoryPoints[PointIndex];
+		const FVector2D DotPosition = TrajectoryPoint.ScreenPosition - DotSize * 0.5f;
+
+		FSlateDrawElement::MakeBox(
+			OutDrawElements,
+			CurrentLayerId,
+			AllottedGeometry.ToPaintGeometry(DotSize, FSlateLayoutTransform(DotPosition)),
+			DotBrush,
+			ESlateDrawEffect::None,
+			InWidgetStyle.GetColorAndOpacityTint() * ResolveTrajectoryColor(TrajectoryPoint.VisualState));
+		++CurrentLayerId;
+	}
+
+	return CurrentLayerId;
+}
+
+FLinearColor UBlackoutHUDWidget::ResolveTrajectoryColor(EBlackoutTrajectoryVisualState VisualState) const
+{
+	switch (VisualState)
+	{
+	case EBlackoutTrajectoryVisualState::FuseInactive:
+		return TrajectoryFuseInactiveColor;
+	case EBlackoutTrajectoryVisualState::Occluded:
+		return TrajectoryOccludedColor;
+	case EBlackoutTrajectoryVisualState::Normal:
+	default:
+		return TrajectoryNormalColor;
+	}
 }
 
 void UBlackoutHUDWidget::ApplyImpactIndicatorColor(const FLinearColor& IndicatorColor) const
@@ -180,6 +316,16 @@ void UBlackoutHUDWidget::HandleWeaponAmmoDisplayChanged(
 	}
 
 	ReceiveWeaponAmmoDisplayChanged(PrimaryWeaponData, SecondaryWeaponData, bPlaySwapAnimation);
+}
+
+void UBlackoutHUDWidget::HandleRelicChargesChanged(int32 CurrentCharges, int32 MaxCharges)
+{
+	if (RelicWidget)
+	{
+		RelicWidget->SetRelicCharges(CurrentCharges, MaxCharges);
+	}
+
+	ReceiveRelicChargesChanged(CurrentCharges, MaxCharges);
 }
 
 void UBlackoutHUDWidget::HandleConsumablesChanged(int32 BloodRootCount, int32 GulSerumCount)

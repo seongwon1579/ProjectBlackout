@@ -9,10 +9,13 @@
 #include "BlackoutHUDWidget.generated.h"
 
 class ABOWeaponBase;
+class UBlackoutDamageNumberWidget;
 class UBlackoutConsumableSlotsWidget;
 class UBlackoutHUDWidgetController;
+class UBlackoutRelicWidget;
 class UBlackoutValueBarWidget;
 class UBlackoutWeaponAmmoWidget;
+class UCanvasPanel;
 class UWidget;
 
 UCLASS(BlueprintType, Blueprintable)
@@ -27,9 +30,19 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Blackout|HUD")
 	UBlackoutHUDWidgetController* GetWidgetController() const { return WidgetController; }
 
+	bool ShowDamageNumberAtWorldLocation(float DamageAmount, const FVector& WorldLocation, bool bIsCritical);
+
 protected:
 	virtual void NativeOnInitialized() override;
 	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
+	virtual int32 NativePaint(
+		const FPaintArgs& Args,
+		const FGeometry& AllottedGeometry,
+		const FSlateRect& MyCullingRect,
+		FSlateWindowElementList& OutDrawElements,
+		int32 LayerId,
+		const FWidgetStyle& InWidgetStyle,
+		bool bParentEnabled) const override;
 	virtual void NativeDestruct() override;
 
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|HUD")
@@ -48,7 +61,34 @@ protected:
 	TObjectPtr<UBlackoutConsumableSlotsWidget> ConsumableSlotsWidget;
 
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
+	TObjectPtr<UBlackoutRelicWidget> RelicWidget;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
 	TObjectPtr<UWidget> ImpactIndicatorWidget;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
+	TObjectPtr<UCanvasPanel> CNV_DamageNumbers;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD")
+	TSubclassOf<UBlackoutDamageNumberWidget> DamageNumberWidgetClass;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD", meta = (ClampMin = 0.0f))
+	float DamageNumberRandomOffsetX = 20.0f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD", meta = (ClampMin = 0.0f))
+	float DamageNumberRandomOffsetY = 12.0f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD")
+	FLinearColor TrajectoryNormalColor = FLinearColor(1.f, 1.f, 1.f, 0.75f);
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD")
+	FLinearColor TrajectoryFuseInactiveColor = FLinearColor(1.0f, 0.05f, 0.02f, 0.8f);
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD")
+	FLinearColor TrajectoryOccludedColor = FLinearColor(1.0f, 0.7f, 0.0f, 0.5f);
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD", meta = (ClampMin = 1.0f))
+	float TrajectoryDotSize = 5.0f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD")
 	FLinearColor ImpactIndicatorDefaultColor = FLinearColor::White;
@@ -97,6 +137,9 @@ protected:
 		const FBlackoutWeaponAmmoSlotData& SecondaryWeaponData,
 		bool bPlaySwapAnimation);
 
+	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Relic Charges Changed"), Category = "Blackout|HUD")
+	void ReceiveRelicChargesChanged(int32 CurrentCharges, int32 MaxCharges);
+
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Consumables Changed"), Category = "Blackout|HUD")
 	void ReceiveConsumablesChanged(int32 BloodRootCount, int32 GulSerumCount);
 
@@ -105,10 +148,18 @@ protected:
 		const FBlackoutConsumableSlotData& BloodRootData,
 		const FBlackoutConsumableSlotData& GulSerumData);
 
+	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Damage Number Requested"), Category = "Blackout|HUD")
+	void ReceiveDamageNumberRequested(float DamageAmount, FVector2D ScreenPosition, bool bIsCritical);
+
 private:
 	void UnbindWidgetControllerCallbacks();
-	void UpdateImpactIndicator(const FBlackoutImpactIndicatorData& ImpactIndicatorData) const;
+	void UpdateImpactIndicator(const FBlackoutImpactIndicatorData& ImpactIndicatorData);
 	void ApplyImpactIndicatorColor(const FLinearColor& IndicatorColor) const;
+	int32 PaintProjectileTrajectoryDots(const FGeometry& AllottedGeometry, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle) const;
+	FLinearColor ResolveTrajectoryColor(EBlackoutTrajectoryVisualState VisualState) const;
+
+	UPROPERTY(Transient)
+	TArray<FBlackoutTrajectoryPointData> CachedTrajectoryPoints;
 
 	UFUNCTION()
 	void HandleHealthChanged(float CurrentHealth, float MaxHealth);
@@ -130,6 +181,9 @@ private:
 		const FBlackoutWeaponAmmoSlotData& PrimaryWeaponData,
 		const FBlackoutWeaponAmmoSlotData& SecondaryWeaponData,
 		bool bPlaySwapAnimation);
+
+	UFUNCTION()
+	void HandleRelicChargesChanged(int32 CurrentCharges, int32 MaxCharges);
 
 	UFUNCTION()
 	void HandleConsumablesChanged(int32 BloodRootCount, int32 GulSerumCount);

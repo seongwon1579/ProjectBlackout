@@ -14,12 +14,15 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Attacking);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Reloading);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_UseConsumable);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_UseRelic);
 	
 	// ─── Character Abilities ───────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Player_Dodge);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Player_Aim);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Player_Reload);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Player_SwapWeapon);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Player_Sprint);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Player_UseRelic);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Player_UseConsumable);
 
 	// ─── Character Class ───────────────────────────────────────────────────────
@@ -34,6 +37,7 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_MaxStamina);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Stamina);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_MovementSpeed);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_DamageNumber_PredictedOnly);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Consumable_HealAmount);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Consumable_Duration);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Consumable_StaminaCostMultiplier);
@@ -59,8 +63,13 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Weapon_Primary);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Weapon_Secondary);
 
-	// ─── Reload Animation ─────────────────────────────────────────────────────
+	// ─── Shoot Animation ─────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Animation_Fire_RustyLeverAction);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Animation_Fire_Sporebloom);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Animation_Fire_ChicagoTypewriter);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Animation_Fire_SecondaryCommon);
+	
+	// ─── Reload Animation ─────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Animation_Reload_ChicagoTypewriter);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Animation_Reload_RepeaterPistol);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Animation_Reload_Sporebloom);
@@ -79,10 +88,23 @@ namespace BlackoutGameplayTags
 	
 	// ─── Ravager Abilities ─────────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_Bite_Single);
-	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_Bite_DoubleFromSingle);
 	
-	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_Swipe_RFromSingle);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_FromSingle_SwipeL);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_FromSingle_SwipeR);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_FromSingle_Double);
 	
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_Swipe_L);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_Swipe_LFromR);
+	
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_Swipe_R);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_Swipe_RFromL);
+	
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_FlashKick);
+	
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_Turn);
+	
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_Evade_L);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_Evade_R);
 	
 	// ─── Wraith Abilities ─────────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Wraith_FireTwinArrows);
@@ -103,11 +125,12 @@ namespace BlackoutGameplayTags
 	
 
 	// ─── Attack Events ────────────────────────────────────────────────────
-	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Enemy_Attack_SweepStart);
-	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Enemy_Attack_SweepEnd);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Enemy_Attack_OnCollision);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Enemy_Attack_OffCollision);
 
 	// ─── Montage Events ───────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Montage_ConsumableApply);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Montage_RelicApply);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Montage_FireWeaponStart);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Montage_ReloadWeaponStart);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Montage_ReloadAmmoCommit);

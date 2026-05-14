@@ -236,6 +236,12 @@ float ABOFirearm::GetProjectileCollisionRadius() const
 	return ProjectileDefault ? ProjectileDefault->GetCollisionRadius() : 0.0f;
 }
 
+float ABOFirearm::GetProjectileImpactFuseArmDistance() const
+{
+	const ABOProjectile* ProjectileDefault = ProjectileClass ? ProjectileClass->GetDefaultObject<ABOProjectile>() : nullptr;
+	return ProjectileDefault ? ProjectileDefault->GetImpactFuseArmDistance() : 0.0f;
+}
+
 float ABOFirearm::GetBaseSpreadDegrees() const { return CachedFirearmStats.BaseSpreadDegrees; }
 float ABOFirearm::GetMaxSpreadDegrees() const { return CachedFirearmStats.MaxSpreadDegrees; }
 float ABOFirearm::GetSpreadPerShot() const { return CachedFirearmStats.SpreadPerShot; }

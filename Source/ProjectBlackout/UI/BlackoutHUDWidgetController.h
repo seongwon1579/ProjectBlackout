@@ -27,6 +27,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FBlackoutHUDAmmoChangedSignature,
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FBlackoutHUDWeaponChangedSignature, ABOWeaponBase*, EquippedWeapon, FGameplayTag, WeaponSlotTag);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FBlackoutHUDAimingChangedSignature, bool, bIsAiming, int32, CrosshairType);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FBlackoutHUDWeaponAmmoDisplayChangedSignature, const FBlackoutWeaponAmmoSlotData&, PrimaryWeaponData, const FBlackoutWeaponAmmoSlotData&, SecondaryWeaponData, bool, bPlaySwapAnimation);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FBlackoutHUDRelicChargesChangedSignature, int32, CurrentCharges, int32, MaxCharges);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FBlackoutHUDConsumablesChangedSignature, int32, BloodRootCount, int32, GulSerumCount);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FBlackoutHUDConsumableSlotsChangedSignature, const FBlackoutConsumableSlotData&, BloodRootData, const FBlackoutConsumableSlotData&, GulSerumData);
 
@@ -67,6 +68,9 @@ public:
 	FBlackoutHUDWeaponAmmoDisplayChangedSignature OnWeaponAmmoDisplayChanged;
 
 	UPROPERTY(BlueprintAssignable, Category = "Blackout|HUD")
+	FBlackoutHUDRelicChargesChangedSignature OnRelicChargesChanged;
+
+	UPROPERTY(BlueprintAssignable, Category = "Blackout|HUD")
 	FBlackoutHUDConsumablesChangedSignature OnConsumablesChanged;
 
 	UPROPERTY(BlueprintAssignable, Category = "Blackout|HUD")
@@ -87,6 +91,7 @@ private:
 	void BroadcastEquippedWeapon() const;
 	void BroadcastAiming() const;
 	void BroadcastWeaponAmmoDisplay(bool bPlaySwapAnimation) const;
+	void BroadcastRelicCharges() const;
 	void BroadcastConsumables() const;
 	void BroadcastConsumableSlots(int32 BloodRootCount, int32 GulSerumCount) const;
 	FBlackoutWeaponAmmoSlotData MakeWeaponAmmoSlotData(ABOWeaponBase* Weapon, FGameplayTag WeaponSlotTag, bool bIsEquipped) const;
@@ -94,11 +99,14 @@ private:
 	float GetAttributeValue(const FGameplayAttribute& Attribute) const;
 	FGameplayTag GetEquippedWeaponSlotTag() const;
 	int32 GetEquippedCrosshairType() const;
+	void ProjectTrajectoryPoints(TArray<FBlackoutTrajectoryPointData>& TrajectoryPoints) const;
 
 	void HandleHealthChanged(const FOnAttributeChangeData& ChangeData);
 	void HandleMaxHealthChanged(const FOnAttributeChangeData& ChangeData);
 	void HandleStaminaChanged(const FOnAttributeChangeData& ChangeData);
 	void HandleMaxStaminaChanged(const FOnAttributeChangeData& ChangeData);
+	void HandleRelicChargesChanged(const FOnAttributeChangeData& ChangeData);
+	void HandleMaxRelicChargesChanged(const FOnAttributeChangeData& ChangeData);
 	void HandleAmmoChanged(const FOnAttributeChangeData& ChangeData);
 
 	UFUNCTION()

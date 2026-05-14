@@ -11,12 +11,15 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(State_Attacking,     "State.Attacking");
 	UE_DEFINE_GAMEPLAY_TAG(State_Reloading,     "State.Reloading");
 	UE_DEFINE_GAMEPLAY_TAG(State_UseConsumable, "State.UseConsumable");
+	UE_DEFINE_GAMEPLAY_TAG(State_UseRelic,      "State.UseRelic");
 	
 	// ─── Character Abilities ───────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Player_Dodge,			"Ability.Player.Dodge");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Player_Aim,				"Ability.Player.Aim");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Player_Reload,			"Ability.Player.Reload");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Player_SwapWeapon,		"Ability.Player.SwapWeapon");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Player_Sprint,			"Ability.Player.Sprint");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Player_UseRelic,			"Ability.Player.UseRelic");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Player_UseConsumable,	"Ability.Player.UseConsumable");
 
 	// ─── Character Class ───────────────────────────────────────────────────────
@@ -31,6 +34,7 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(Data_MaxStamina,    "Data.Stat.MaxStamina");
 	UE_DEFINE_GAMEPLAY_TAG(Data_Stamina,       "Data.Stat.Stamina");
 	UE_DEFINE_GAMEPLAY_TAG(Data_MovementSpeed, "Data.Stat.MovementSpeed");
+	UE_DEFINE_GAMEPLAY_TAG(Data_DamageNumber_PredictedOnly, "Data.UI.DamageNumberPredictedOnly");
 	UE_DEFINE_GAMEPLAY_TAG(Data_Consumable_HealAmount, "Data.Consumable.HealAmount");
 	UE_DEFINE_GAMEPLAY_TAG(Data_Consumable_Duration,   "Data.Consumable.Duration");
 	UE_DEFINE_GAMEPLAY_TAG(Data_Consumable_StaminaCostMultiplier, "Data.Consumable.StaminaCostMultiplier");
@@ -56,8 +60,14 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(Weapon_Primary,   "Weapon.Primary");
 	UE_DEFINE_GAMEPLAY_TAG(Weapon_Secondary, "Weapon.Secondary");
 
+	// ─── Shoot Animation ─────────────────────────────────────────────────────
+	UE_DEFINE_GAMEPLAY_TAG(Animation_Fire_RustyLeverAction,		"Animation.Fire.RustyLeverAction");
+	UE_DEFINE_GAMEPLAY_TAG(Animation_Fire_Sporebloom,			"Animation.Fire.Sporebloom");
+	UE_DEFINE_GAMEPLAY_TAG(Animation_Fire_ChicagoTypewriter,	"Animation.Fire.ChicagoTypewriter");
+	UE_DEFINE_GAMEPLAY_TAG(Animation_Fire_SecondaryCommon,		"Animation.Fire.SecondaryCommon");
+	
 	// ─── Reload Animation ─────────────────────────────────────────────────────
-	UE_DEFINE_GAMEPLAY_TAG(Animation_Fire_RustyLeverAction,      "Animation.Fire.RustyLeverAction");
+	
 	UE_DEFINE_GAMEPLAY_TAG(Animation_Reload_ChicagoTypewriter, "Animation.Reload.ChicagoTypewriter");
 	UE_DEFINE_GAMEPLAY_TAG(Animation_Reload_RepeaterPistol,    "Animation.Reload.RepeaterPistol");
 	UE_DEFINE_GAMEPLAY_TAG(Animation_Reload_Sporebloom,        "Animation.Reload.Sporebloom");
@@ -76,9 +86,23 @@ namespace BlackoutGameplayTags
 	
 	// ─── Ravager Abilities ──────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Bite_Single, "Ability.Ravager.Bite.Single");
-	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Bite_DoubleFromSingle, "Ability.Ravager.Bite.DoubleFromSingle");
 	
-	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Swipe_RFromSingle, "Ability.Ravager.Swipe.RFromSingle");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_FromSingle_SwipeL, "Ability.Ravager.FromSingle.SwipeL");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_FromSingle_SwipeR, "Ability.Ravager.FromSingle.SwipeR");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_FromSingle_Double, "Ability.Ravager.FromSingle.Double");
+	
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Swipe_L, "Ability.Ravager.Swipe.L");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Swipe_LFromR, "Ability.Ravager.Swipe.LFromR");
+	
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Swipe_R, "Ability.Ravager.Swipe.R");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Swipe_RFromL, "Ability.Ravager.Swipe.RFromL");
+	
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_FlashKick, "Ability.Ravager.FlashKick");
+	
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Turn, "Ability.Ravager.Turn");
+	
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Evade_L, "Ability.Ravager.Evade.L");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Evade_R, "Ability.Ravager.Evade.R");
 	
 	// ─── Wraith Abilities ──────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Wraith_FireTwinArrows, "Ability.Wraith.FireTwinArrows");
@@ -98,11 +122,12 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Wraith_BowShove, "GameplayCue.Wraith.BowShove");
 	
 	
-	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_SweepStart, "Event.Enemy.Attack.SweepStart");
-	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_SweepEnd, "Event.Enemy.Attack.SweepEnd");
+	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_OnCollision, "Event.Enemy.Attack.OnCollision");
+	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_OffCollision, "Event.Enemy.Attack.OffCollision");
 
 	// ─── Montage Events ───────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Event_Montage_ConsumableApply, "Event.Montage.ConsumableApply");
+	UE_DEFINE_GAMEPLAY_TAG(Event_Montage_RelicApply, "Event.Montage.RelicApply");
 	UE_DEFINE_GAMEPLAY_TAG(Event_Montage_FireWeaponStart, "Event.Montage.Fire.WeaponStart");
 	UE_DEFINE_GAMEPLAY_TAG(Event_Montage_ReloadWeaponStart, "Event.Montage.Reload.WeaponStart");
 	UE_DEFINE_GAMEPLAY_TAG(Event_Montage_ReloadAmmoCommit, "Event.Montage.Reload.AmmoCommit");

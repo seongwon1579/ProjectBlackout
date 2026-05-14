@@ -4,6 +4,7 @@
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemInterface.h"
 #include "Combat/Components/BlackoutHitboxComponent.h"
+#include "GameFramework/Pawn.h"
 #include "GAS/Attributes/BlackoutBaseAttributeSet.h"
 
 namespace BlackoutWeaponDebug
@@ -41,6 +42,11 @@ namespace BlackoutWeaponDebug
 		if (!bHit)
 		{
 			return FColor::Green;
+		}
+
+		if (Cast<APawn>(DamageTargetActor))
+		{
+			return FColor::Red;
 		}
 
 		return GetAbilitySystemComponent(DamageTargetActor) ? FColor::Red : FColor::Yellow;

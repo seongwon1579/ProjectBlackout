@@ -40,6 +40,7 @@ void UBlackoutCombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProper
 	DOREPLIFETIME(UBlackoutCombatComponent, bIsAiming);
 	DOREPLIFETIME(UBlackoutCombatComponent, bMeleeWeaponAttachmentOverride);
 	DOREPLIFETIME(UBlackoutCombatComponent, bEquippedWeaponHolsterOverride);
+	DOREPLIFETIME(UBlackoutCombatComponent, bEquippedWeaponHiddenOverride);
 }
 
 void UBlackoutCombatComponent::InitializeLoadoutFromCharacterData(const UBOCharacterData* CharacterData)
@@ -224,6 +225,11 @@ void UBlackoutCombatComponent::StopAim()
 	}
 }
 
+bool UBlackoutCombatComponent::CanAim() const
+{
+	return CanStartAim();
+}
+
 void UBlackoutCombatComponent::TryReload()
 {
 	if (bIsWeaponSwapInProgress)
@@ -373,6 +379,38 @@ void UBlackoutCombatComponent::EndEquippedWeaponHolsterOverride()
 	}
 }
 
+void UBlackoutCombatComponent::BeginEquippedWeaponHiddenOverride()
+{
+	if (!EquippedWeapon)
+	{
+		return;
+	}
+
+	bEquippedWeaponHiddenOverride = true;
+	RefreshWeaponAttachments();
+
+	if (GetOwner() && GetOwner()->HasAuthority())
+	{
+		Multicast_ApplyEquippedWeaponHiddenOverride(true);
+	}
+}
+
+void UBlackoutCombatComponent::EndEquippedWeaponHiddenOverride()
+{
+	if (!bEquippedWeaponHiddenOverride)
+	{
+		return;
+	}
+
+	bEquippedWeaponHiddenOverride = false;
+	RefreshWeaponAttachments();
+
+	if (GetOwner() && GetOwner()->HasAuthority())
+	{
+		Multicast_ApplyEquippedWeaponHiddenOverride(false);
+	}
+}
+
 ABOFirearm* UBlackoutCombatComponent::GetEquippedFirearm() const
 {
 	return Cast<ABOFirearm>(EquippedWeapon);
@@ -484,9 +522,20 @@ void UBlackoutCombatComponent::OnRep_EquippedWeaponHolsterOverride()
 	RefreshWeaponAttachments();
 }
 
+void UBlackoutCombatComponent::OnRep_EquippedWeaponHiddenOverride()
+{
+	RefreshWeaponAttachments();
+}
+
 void UBlackoutCombatComponent::Multicast_ApplyEquippedWeaponHolsterOverride_Implementation(bool bNewHolsterOverride)
 {
 	bEquippedWeaponHolsterOverride = bNewHolsterOverride;
+	RefreshWeaponAttachments();
+}
+
+void UBlackoutCombatComponent::Multicast_ApplyEquippedWeaponHiddenOverride_Implementation(bool bNewHiddenOverride)
+{
+	bEquippedWeaponHiddenOverride = bNewHiddenOverride;
 	RefreshWeaponAttachments();
 }
 
@@ -648,6 +697,12 @@ void UBlackoutCombatComponent::RefreshWeaponAttachments() const
 	{
 		if (!Weapon)
 		{
+			return;
+		}
+
+		if (bEquippedWeaponHiddenOverride && Weapon == EquippedWeapon)
+		{
+			Weapon->SetActorHiddenInGame(true);
 			return;
 		}
 
