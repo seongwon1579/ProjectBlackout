@@ -1,25 +1,47 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Characters/BlackoutEnemyCharacter.h"
+#include "Data/BORavagerData.h"
 #include "GAS/Abilities/BlackoutEnemyGameplayAbility.h"
 #include "GAS/Abilities/BlackoutGameplayAbility.h"
 #include "BlackoutBossGameplayAbility.generated.h"
 
-/**
- * 보스 패턴 GA 전용 베이스 클래스.
- * 모든 보스 GA(Shrewd / Ravager)는 이 클래스를 상속한다.
- *
- * - NetExecutionPolicy = ServerOnly : 보스 AI는 서버 단독 구동이므로
- *   클라이언트 예측이 불필요하다. 연출(애니메이션, GCN, GE)만 리플리케이션.
- * - InstancingPolicy = InstancedPerActor : 페이즈별로 여러 패턴이 순차 발동되므로
- *   GA 인스턴스별 상태 관리가 필요하다.
- * - 향후 공통 정책(패턴 중첩 방지 ActivationBlockedTags, 쿨다운 태그 등)은
- *   이 클래스 한 곳에서 추가한다.
- */
+class ABlackoutBossCharacter;
+class UAnimMontage;
+
 UCLASS(Abstract)
 class PROJECTBLACKOUT_API UBlackoutBossGameplayAbility : public UBlackoutEnemyGameplayAbility
 {
 	GENERATED_BODY()
-
+	
+protected:
+	virtual void OnAvatarSet(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec) override;
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
+	
+	virtual void PreActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) {}
+	virtual void SetupEventListeners() {}
+	virtual FGameplayTag SelectMontageTag(const FGameplayEventData* TriggerEventData) const;
+	
+	bool TryResolveMontage(const FGameplayEventData* TriggerEventData);
+	void TrySetupMotionWarp(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData);
+	void PlayMontage();
+	UAnimMontage* GetMontage(const FGameplayTag& Tag);
+	
+	UFUNCTION()
+	virtual void OnMontageEnded();
+	
+	UPROPERTY(EditDefaultsOnly, Category = "Blackout|Data", meta = (Categories = "Ability"))
+	FGameplayTag PatternDataTag;
+	
+	UPROPERTY(Transient)
+	TObjectPtr<UBORavagerData> CachedPatternData;
+	
+	UPROPERTY(Transient)
+	TObjectPtr<ABlackoutBossCharacter> CachedOwner;
+	
+	UPROPERTY(Transient)
+	TObjectPtr<UAnimMontage> SelectedMontage;
+	
+	static const FName WarpTargetName;
 };
