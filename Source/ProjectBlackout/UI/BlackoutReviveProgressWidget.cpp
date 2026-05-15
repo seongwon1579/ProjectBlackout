@@ -7,11 +7,6 @@
 #include "Components/VerticalBox.h"
 #include "Components/VerticalBoxSlot.h"
 
-namespace
-{
-	const FText DesignTimeStatusText = FText::FromString(TEXT("소생 중..."));
-}
-
 void UBlackoutReviveProgressWidget::NativePreConstruct()
 {
 	Super::NativePreConstruct();
@@ -21,18 +16,13 @@ void UBlackoutReviveProgressWidget::NativePreConstruct()
 	ResolveOptionalWidgetsFromTree();
 
 	FBlackoutInteractionPromptData PreviewPromptData = InteractionPromptData;
+	
 	if (IsDesignTime())
 	{
-		// 디자이너에서는 실제 진행 상태가 없어도 레이아웃을 바로 확인할 수 있게 미리보기 값을 채웁니다.
 		PreviewPromptData.bIsVisible = true;
 		PreviewPromptData.bShowProgress = true;
 		PreviewPromptData.ProgressNormalized = 0.66f;
 		PreviewPromptData.State = EBlackoutInteractionPromptState::InProgress;
-
-		if (PreviewPromptData.StatusText.IsEmpty())
-		{
-			PreviewPromptData.StatusText = DesignTimeStatusText;
-		}
 	}
 
 	SetInteractionProgressData(PreviewPromptData);

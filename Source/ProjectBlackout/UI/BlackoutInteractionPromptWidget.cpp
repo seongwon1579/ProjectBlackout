@@ -7,12 +7,6 @@
 #include "Components/VerticalBox.h"
 #include "Components/VerticalBoxSlot.h"
 
-namespace
-{
-	const FText DesignTimePromptText = FText::FromString(TEXT("부활"));
-	const FText DesignTimeStatusText = FText::FromString(TEXT("부활 진행 중"));
-}
-
 void UBlackoutInteractionPromptWidget::NativePreConstruct()
 {
 	Super::NativePreConstruct();
@@ -22,22 +16,12 @@ void UBlackoutInteractionPromptWidget::NativePreConstruct()
 	ResolveOptionalWidgetsFromTree();
 
 	FBlackoutInteractionPromptData PreviewPromptData = InteractionPromptData;
+	
 	if (IsDesignTime())
 	{
-		// 디자이너에서는 기본 데이터가 비어 있으면 전부 Hidden 처리되므로 미리보기 값을 채웁니다.
 		PreviewPromptData.bIsVisible = true;
 		PreviewPromptData.bShowProgress = true;
 		PreviewPromptData.ProgressNormalized = 0.66f;
-
-		if (PreviewPromptData.PromptText.IsEmpty())
-		{
-			PreviewPromptData.PromptText = DesignTimePromptText;
-		}
-
-		if (PreviewPromptData.StatusText.IsEmpty())
-		{
-			PreviewPromptData.StatusText = DesignTimeStatusText;
-		}
 	}
 
 	SetInteractionPromptData(PreviewPromptData);
