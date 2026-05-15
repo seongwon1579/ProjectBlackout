@@ -44,7 +44,7 @@ void UBlackoutGA_SwapWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 		return;
 	}
 
-	CachedTargetWeaponSlotTag = CombatComponent->GetEquippedWeapon() == CombatComponent->GetPrimaryWeapon()
+	CachedTargetWeaponSlotTag = CombatComponent->GetEquippedWeaponSlotTag() == BlackoutGameplayTags::Weapon_Primary
 		? BlackoutGameplayTags::Weapon_Secondary
 		: BlackoutGameplayTags::Weapon_Primary;
 	CachedWeaponSwapMontage = PlayerCharacter->GetWeaponSwapMontageForSlot(CachedTargetWeaponSlotTag);
