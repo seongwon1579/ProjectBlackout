@@ -141,7 +141,10 @@ ABlackoutCharacterBase::ABlackoutCharacterBase(const FObjectInitializer& ObjectI
 	PrimaryActorTick.bCanEverTick = false;
 	bReplicates = true;
 
-	GetCapsuleComponent()->SetCollisionResponseToChannel(BlackoutCollisionChannels::WeaponTrace, ECR_Block);
+	// 캡슐 콜리전은 무기 판정용으로 쓰지 않는다.
+	GetCapsuleComponent()->SetCollisionResponseToChannel(BlackoutCollisionChannels::WeaponTrace, ECR_Ignore);
+	
+	// 메시 내의 Physics Asset을 무기 판정용으로 사용한다.
 	GetMesh()->SetCollisionResponseToChannel(BlackoutCollisionChannels::WeaponTrace, ECR_Block);
 }
 
@@ -149,7 +152,8 @@ void ABlackoutCharacterBase::BeginPlay()
 {
 	Super::BeginPlay();
 
-	GetCapsuleComponent()->SetCollisionResponseToChannel(BlackoutCollisionChannels::WeaponTrace, ECR_Block);
+	// 혹시 모르니 BeginPlay에서 한번 더 덮어씌운다.
+	GetCapsuleComponent()->SetCollisionResponseToChannel(BlackoutCollisionChannels::WeaponTrace, ECR_Ignore);
 	GetMesh()->SetCollisionResponseToChannel(BlackoutCollisionChannels::WeaponTrace, ECR_Block);
 }
 
