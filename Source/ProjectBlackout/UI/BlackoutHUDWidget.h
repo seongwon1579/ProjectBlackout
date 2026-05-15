@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "Components/CanvasPanelSlot.h"
 #include "GameplayTagContainer.h"
 #include "UI/BlackoutConsumableTypes.h"
 #include "UI/BlackoutHUDTypes.h"
@@ -12,8 +13,9 @@ class ABOWeaponBase;
 class UBlackoutDamageNumberWidget;
 class UBlackoutConsumableSlotsWidget;
 class UBlackoutHUDWidgetController;
+class UBlackoutInteractionPromptWidget;
 class UBlackoutRelicWidget;
-class UBlackoutRevivePromptWidget;
+class UBlackoutReviveProgressWidget;
 class UBlackoutValueBarWidget;
 class UBlackoutWeaponAmmoWidget;
 class UCanvasPanel;
@@ -71,7 +73,10 @@ protected:
 	TObjectPtr<UWidget> ImpactIndicatorWidget;
 
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
-	TObjectPtr<UBlackoutRevivePromptWidget> RevivePromptWidget;
+	TObjectPtr<UBlackoutInteractionPromptWidget> RevivePromptWidget;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
+	TObjectPtr<UBlackoutReviveProgressWidget> ReviveProgressWidget;
 
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
 	TObjectPtr<UWidget> RevivePromptContainer;
@@ -124,6 +129,18 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD")
 	FLinearColor RevivePromptErrorColor = FLinearColor(1.0f, 0.2f, 0.2f, 1.0f);
 
+	/** 부활 프롬프트를 대상 월드 좌표보다 화면에서 얼마나 더 아래로 내릴지 조정합니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD")
+	FVector2D RevivePromptScreenOffset = FVector2D(0.0f, 24.0f);
+
+	/** 실제 부활 진행 UI를 화면 하단 중앙 근처에 고정할 때 사용하는 앵커입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD")
+	FAnchors ReviveProgressScreenAnchors = FAnchors(0.5f, 0.78f, 0.5f, 0.78f);
+
+	/** 실제 부활 진행 UI를 화면 기준으로 얼마나 더 이동할지 조정합니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD")
+	FVector2D ReviveProgressScreenOffset = FVector2D::ZeroVector;
+
 	/**
 	 * 탄퍼짐이 최대일 때 인디케이터 위젯에 적용되는 RenderScale 배율.
 	 * 1.0 = 원본 크기, 값이 클수록 최대 탄퍼짐 시 인디케이터가 더 커집니다.
@@ -173,8 +190,11 @@ protected:
 		const FBlackoutConsumableSlotData& BloodRootData,
 		const FBlackoutConsumableSlotData& GulSerumData);
 
-	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Revive Prompt Updated"), Category = "Blackout|HUD")
-	void ReceiveRevivePromptUpdated(const FBlackoutRevivePromptData& RevivePromptData);
+	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Interaction Prompt Updated"), Category = "Blackout|HUD|Interaction")
+	void ReceiveInteractionPromptUpdated(const FBlackoutInteractionPromptData& InteractionPromptData);
+
+	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Revive Prompt Updated", DeprecatedFunction, DeprecationMessage = "On Interaction Prompt Updated를 사용하세요."), Category = "Blackout|HUD|Revive")
+	void ReceiveRevivePromptUpdated(const FBlackoutInteractionPromptData& RevivePromptData);
 
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Damage Number Requested"), Category = "Blackout|HUD")
 	void ReceiveDamageNumberRequested(float DamageAmount, FVector2D ScreenPosition, bool bIsCritical);
@@ -182,9 +202,11 @@ protected:
 private:
 	void UnbindWidgetControllerCallbacks();
 	void EnsureRevivePromptWidget();
+	void EnsureReviveProgressWidget();
 	void ResolveRevivePromptBindingsFromTree();
+	void ResolveReviveProgressBindingsFromTree();
 	void UpdateImpactIndicator(const FBlackoutImpactIndicatorData& ImpactIndicatorData);
-	void UpdateRevivePrompt(const FBlackoutRevivePromptData& RevivePromptData);
+	void UpdateInteractionPrompt(const FBlackoutInteractionPromptData& InteractionPromptData);
 	void ApplyImpactIndicatorColor(const FLinearColor& IndicatorColor) const;
 	int32 PaintProjectileTrajectoryDots(const FGeometry& AllottedGeometry, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle) const;
 	FLinearColor ResolveTrajectoryColor(EBlackoutTrajectoryVisualState VisualState) const;

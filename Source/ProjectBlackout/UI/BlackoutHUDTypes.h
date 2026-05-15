@@ -17,14 +17,16 @@ enum class EBlackoutTrajectoryVisualState : uint8
 };
 
 UENUM(BlueprintType)
-enum class EBlackoutRevivePromptState : uint8
+enum class EBlackoutInteractionPromptState : uint8
 {
 	Hidden,
 	Available,
-	MissingRelic,
+	MissingRequirement,
 	Busy,
 	InProgress
 };
+
+using EBlackoutRevivePromptState = EBlackoutInteractionPromptState;
 
 USTRUCT(BlueprintType)
 struct FBlackoutTrajectoryPointData
@@ -90,7 +92,7 @@ struct FBlackoutImpactIndicatorData
 };
 
 USTRUCT(BlueprintType)
-struct FBlackoutRevivePromptData
+struct FBlackoutInteractionPromptData
 {
 	GENERATED_BODY()
 
@@ -107,7 +109,13 @@ struct FBlackoutRevivePromptData
 	float ProgressNormalized = 0.0f;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Blackout|HUD")
-	EBlackoutRevivePromptState State = EBlackoutRevivePromptState::Hidden;
+	FVector WorldLocation = FVector::ZeroVector;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|HUD")
+	FVector2D ScreenPosition = FVector2D::ZeroVector;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|HUD")
+	EBlackoutInteractionPromptState State = EBlackoutInteractionPromptState::Hidden;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Blackout|HUD")
 	FText PromptText;
@@ -115,3 +123,5 @@ struct FBlackoutRevivePromptData
 	UPROPERTY(BlueprintReadOnly, Category = "Blackout|HUD")
 	FText StatusText;
 };
+
+using FBlackoutRevivePromptData = FBlackoutInteractionPromptData;

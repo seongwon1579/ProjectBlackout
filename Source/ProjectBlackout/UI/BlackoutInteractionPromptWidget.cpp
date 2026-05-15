@@ -1,4 +1,4 @@
-#include "UI/BlackoutRevivePromptWidget.h"
+#include "UI/BlackoutInteractionPromptWidget.h"
 
 #include "Blueprint/WidgetTree.h"
 #include "Components/ProgressBar.h"
@@ -7,17 +7,43 @@
 #include "Components/VerticalBox.h"
 #include "Components/VerticalBoxSlot.h"
 
-void UBlackoutRevivePromptWidget::NativePreConstruct()
+namespace
+{
+	const FText DesignTimePromptText = FText::FromString(TEXT("부활"));
+	const FText DesignTimeStatusText = FText::FromString(TEXT("부활 진행 중"));
+}
+
+void UBlackoutInteractionPromptWidget::NativePreConstruct()
 {
 	Super::NativePreConstruct();
 
 	ResolveOptionalWidgetsFromTree();
 	EnsureDefaultLayout();
 	ResolveOptionalWidgetsFromTree();
-	SetRevivePromptData(RevivePromptData);
+
+	FBlackoutInteractionPromptData PreviewPromptData = InteractionPromptData;
+	if (IsDesignTime())
+	{
+		// 디자이너에서는 기본 데이터가 비어 있으면 전부 Hidden 처리되므로 미리보기 값을 채웁니다.
+		PreviewPromptData.bIsVisible = true;
+		PreviewPromptData.bShowProgress = true;
+		PreviewPromptData.ProgressNormalized = 0.66f;
+
+		if (PreviewPromptData.PromptText.IsEmpty())
+		{
+			PreviewPromptData.PromptText = DesignTimePromptText;
+		}
+
+		if (PreviewPromptData.StatusText.IsEmpty())
+		{
+			PreviewPromptData.StatusText = DesignTimeStatusText;
+		}
+	}
+
+	SetInteractionPromptData(PreviewPromptData);
 }
 
-void UBlackoutRevivePromptWidget::EnsureDefaultLayout()
+void UBlackoutInteractionPromptWidget::EnsureDefaultLayout()
 {
 	if (!WidgetTree || WidgetTree->RootWidget)
 	{
@@ -86,7 +112,7 @@ void UBlackoutRevivePromptWidget::EnsureDefaultLayout()
 	}
 }
 
-void UBlackoutRevivePromptWidget::ResolveOptionalWidgetsFromTree()
+void UBlackoutInteractionPromptWidget::ResolveOptionalWidgetsFromTree()
 {
 	if (!WidgetTree)
 	{
@@ -109,39 +135,40 @@ void UBlackoutRevivePromptWidget::ResolveOptionalWidgetsFromTree()
 	}
 }
 
-void UBlackoutRevivePromptWidget::SetRevivePromptData(const FBlackoutRevivePromptData& InRevivePromptData)
+void UBlackoutInteractionPromptWidget::SetInteractionPromptData(const FBlackoutInteractionPromptData& InInteractionPromptData)
 {
-	RevivePromptData = InRevivePromptData;
+	InteractionPromptData = InInteractionPromptData;
 	ResolveOptionalWidgetsFromTree();
 
 	const ESlateVisibility VisibleState = ESlateVisibility::HitTestInvisible;
 	const ESlateVisibility HiddenState = ESlateVisibility::Hidden;
-	const bool bShowPrompt = RevivePromptData.bIsVisible;
-	const bool bShowStatus = bShowPrompt && !RevivePromptData.StatusText.IsEmpty();
-	const bool bShowProgress = bShowPrompt && RevivePromptData.bShowProgress;
+	const bool bShowPrompt = InteractionPromptData.bIsVisible;
+	const bool bShowStatus = bShowPrompt && !InteractionPromptData.StatusText.IsEmpty();
+	const bool bShowProgress = bShowPrompt && InteractionPromptData.bShowProgress;
 
 	SetVisibility(bShowPrompt ? VisibleState : HiddenState);
 
 	if (PromptText)
 	{
-		PromptText->SetText(RevivePromptData.PromptText);
+		PromptText->SetText(InteractionPromptData.PromptText);
 		PromptText->SetColorAndOpacity(FSlateColor(DefaultTextColor));
 		PromptText->SetVisibility(bShowPrompt ? VisibleState : HiddenState);
 	}
 
 	if (StatusText)
 	{
-		StatusText->SetText(RevivePromptData.StatusText);
+		StatusText->SetText(InteractionPromptData.StatusText);
 		StatusText->SetColorAndOpacity(FSlateColor(
-			RevivePromptData.bIsStatusError ? ErrorTextColor : DefaultTextColor));
+			InteractionPromptData.bIsStatusError ? ErrorTextColor : DefaultTextColor));
 		StatusText->SetVisibility(bShowStatus ? VisibleState : HiddenState);
 	}
 
 	if (ProgressBar)
 	{
-		ProgressBar->SetPercent(RevivePromptData.ProgressNormalized);
+		ProgressBar->SetPercent(InteractionPromptData.ProgressNormalized);
 		ProgressBar->SetVisibility(bShowProgress ? VisibleState : HiddenState);
 	}
 
-	ReceiveRevivePromptChanged(RevivePromptData);
+	ReceiveInteractionPromptChanged(InteractionPromptData);
+	ReceiveRevivePromptChanged(InteractionPromptData);
 }
