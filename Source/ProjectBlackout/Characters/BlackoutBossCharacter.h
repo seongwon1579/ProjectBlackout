@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "BORavagerData.h"
 #include "Characters/BlackoutEnemyCharacter.h"
 #include "GameplayEffectTypes.h"
 #include "MotionWarpingComponent.h"
@@ -37,6 +38,9 @@ public:
 	ABlackoutBossCharacter();
 
 	virtual void OnReturnToPool_Implementation() override;
+	
+	UFUNCTION()
+	UBORavagerData* GetPatternData(FGameplayTag AbilityTag) const;
 
 	UPROPERTY(BlueprintAssignable, Category = "Blackout|Boss")
 	FOnBossPhaseChangedSignature OnPhaseChangedDelegate;
@@ -61,8 +65,8 @@ protected:
 	
 	void TryBindToHUD();
 
-	// UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Boss")
-	// TObjectPtr<UBOBossData> BossData;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Data", meta = (Categories = "Ability"))
+	TMap<FGameplayTag, TObjectPtr<UBORavagerData>> BossAbilityData;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Boss")
 	EBossPhase CurrentPhase;

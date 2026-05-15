@@ -154,6 +154,14 @@ namespace BlackoutGameplayTags
 	
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Turn, "Ability.Ravager.Turn");
 	
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Turn_L_90, "Ability.Ravager.Turn.L.90");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Turn_L_135, "Ability.Ravager.Turn.L.135");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Turn_L_180, "Ability.Ravager.Turn.L.180");
+	
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Turn_R_90, "Ability.Ravager.Turn.R.90");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Turn_R_135, "Ability.Ravager.Turn.R.135");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Turn_R_180, "Ability.Ravager.Turn.R.180");
+	
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Evade_L, "Ability.Ravager.Evade.L");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Evade_R, "Ability.Ravager.Evade.R");
 	

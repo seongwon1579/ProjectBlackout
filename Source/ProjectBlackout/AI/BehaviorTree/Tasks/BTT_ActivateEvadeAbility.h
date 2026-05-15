@@ -21,10 +21,10 @@ protected:
 	virtual FGameplayTag ResolveAbilityTag(UBehaviorTreeComponent& OwnerComp) const override;
 
 private:
-	UPROPERTY(EditAnywhere, Category = "Blackout|Ability")
+	UPROPERTY(EditAnywhere, Category = "Blackout|Ability", meta = (Categories = "Ability"))
 	FGameplayTag LeftAbilityTag;
 
-	UPROPERTY(EditAnywhere, Category = "Blackout|Ability")
+	UPROPERTY(EditAnywhere, Category = "Blackout|Ability", meta = (Categories = "Ability"))
 	FGameplayTag RightAbilityTag;
 
 	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard|Input")

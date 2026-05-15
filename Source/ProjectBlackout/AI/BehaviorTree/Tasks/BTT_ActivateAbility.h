@@ -38,7 +38,7 @@ private:
 	void HandleAbilityEnded(UGameplayAbility* Ability);
 	void UnbindDelegate();
 
-	UPROPERTY(EditAnywhere, Category = "Blackout|Ability")
+	UPROPERTY(EditAnywhere, Category = "Blackout|Ability", meta = (Categories = "Ability"))
 	FGameplayTag AbilityTag;
 
 	UBehaviorTreeComponent* CachedOwnerComp = nullptr;

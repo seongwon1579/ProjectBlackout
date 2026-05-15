@@ -35,6 +35,16 @@ void ABlackoutBossCharacter::OnDeath()
 void ABlackoutBossCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+	
+	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
+	if (!ASC) return;
+
+	for (const auto& [_, Data] : BossAbilityData)
+	{
+		if (!Data || !Data->GrantedAbility) continue;
+    
+		ASC->GiveAbility(FGameplayAbilitySpec(Data->GrantedAbility, 1));
+	}
 
 	if (HasAuthority() && GetAbilitySystemComponent())
 	{
@@ -44,11 +54,18 @@ void ABlackoutBossCharacter::BeginPlay()
 	
 	GetWorld()->GetTimerManager().SetTimerForNextTick(
 	this, &ABlackoutBossCharacter::TryBindToHUD);
+	
 }
 
 void ABlackoutBossCharacter::OnReturnToPool_Implementation()
 {
 	Destroy();
+}
+
+UBORavagerData* ABlackoutBossCharacter::GetPatternData(FGameplayTag AbilityTag) const
+{
+	const TObjectPtr<UBORavagerData>* Found = BossAbilityData.Find(AbilityTag);
+	return Found ? Found->Get() : nullptr;
 }
 
 void ABlackoutBossCharacter::OnDamageReceived(UAbilitySystemComponent* Source,

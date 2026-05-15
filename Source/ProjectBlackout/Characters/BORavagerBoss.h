@@ -38,9 +38,7 @@ public:
 	// ── IBossAggroProvider ────────────────────────────────────────────────────
 	virtual APawn* GetHighestAggroTarget() const override;
 	virtual void   AddThreat(APawn* Source, float Amount) override;
-
-	UPROPERTY(EditDefaultsOnly, Category = "Blackout|Abilities")
-	TArray<TSubclassOf<UGameplayAbility>> GrantedAbilities;
+	
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Aggro")
 	TObjectPtr<UBOAggroComponent> AggroComp;

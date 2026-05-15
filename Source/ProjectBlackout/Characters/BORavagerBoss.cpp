@@ -83,15 +83,5 @@ void ABORavagerBoss::BeginPlay()
 	Super::BeginPlay();
 	
 	if (!HasAuthority()) return;
-
-	UAbilitySystemComponent* ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(this);
-	if (!ASC) return;
-
-	for (const TSubclassOf<UGameplayAbility>& AbilityClass : GrantedAbilities)
-	{
-		if (AbilityClass)
-		{
-			ASC->GiveAbility(FGameplayAbilitySpec(AbilityClass, 1));
-		}
-	}
+	
 }
