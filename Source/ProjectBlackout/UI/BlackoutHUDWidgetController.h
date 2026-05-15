@@ -50,8 +50,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|HUD")
 	bool GetImpactIndicatorData(FBlackoutImpactIndicatorData& OutIndicatorData) const;
 
-	UFUNCTION(BlueprintCallable, Category = "Blackout|HUD")
-	bool GetRevivePromptData(FBlackoutRevivePromptData& OutPromptData) const;
+	UFUNCTION(BlueprintCallable, Category = "Blackout|HUD|Interaction")
+	bool GetInteractionPromptData(FBlackoutInteractionPromptData& OutPromptData) const;
+
+	bool GetRevivePromptData(FBlackoutInteractionPromptData& OutPromptData) const
+	{
+		return GetInteractionPromptData(OutPromptData);
+	}
 
 	UPROPERTY(BlueprintAssignable, Category = "Blackout|HUD")
 	FBlackoutHUDValueChangedSignature OnHealthChanged;

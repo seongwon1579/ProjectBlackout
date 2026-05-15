@@ -21,9 +21,22 @@
 
 namespace
 {
-	const FText RevivePromptText = FText::FromString(TEXT("E : 부활"));
+	const FText RevivePromptText = FText::FromString(TEXT("부활"));
 	const FText MissingRelicText = FText::FromString(TEXT("유물이 없습니다"));
 	const FText ReviveBusyText = FText::FromString(TEXT("부활중입니다"));
+	const FText ReviveInProgressText = FText::FromString(TEXT("소생 중..."));
+
+	FVector GetRevivePromptWorldLocation(const ABlackoutPlayerCharacter* TargetCharacter)
+	{
+		if (!TargetCharacter)
+		{
+			return FVector::ZeroVector;
+		}
+
+		// 머리 위보다 약간 높은 지점에 프롬프트를 고정해 다운된 아군 위치를 쉽게 읽도록 합니다.
+		return TargetCharacter->GetActorLocation() +
+			FVector(0.0f, 0.0f, TargetCharacter->GetSimpleCollisionHalfHeight());
+	}
 }
 
 bool UBlackoutHUDWidgetController::Initialize(APlayerController* InPlayerController)
@@ -163,9 +176,9 @@ bool UBlackoutHUDWidgetController::GetImpactIndicatorData(FBlackoutImpactIndicat
 	return true;
 }
 
-bool UBlackoutHUDWidgetController::GetRevivePromptData(FBlackoutRevivePromptData& OutPromptData) const
+bool UBlackoutHUDWidgetController::GetInteractionPromptData(FBlackoutInteractionPromptData& OutPromptData) const
 {
-	OutPromptData = FBlackoutRevivePromptData();
+	OutPromptData = FBlackoutInteractionPromptData();
 
 	const ABlackoutPlayerController* BlackoutPlayerController = PlayerController.Get();
 	const ABlackoutPlayerCharacter* LocalPlayerCharacter =
@@ -182,13 +195,27 @@ bool UBlackoutHUDWidgetController::GetRevivePromptData(FBlackoutRevivePromptData
 
 	if (const UBlackoutGA_Revive* ActiveReviveAbility = UBlackoutGA_Revive::GetActiveReviveAbilityFromActor(LocalPlayerCharacter))
 	{
-		if (ActiveReviveAbility->GetReviveTarget())
+		if (ABlackoutPlayerCharacter* ActiveReviveTarget = ActiveReviveAbility->GetReviveTarget())
 		{
+			const FVector PromptWorldLocation = GetRevivePromptWorldLocation(ActiveReviveTarget);
+			FVector2D PromptScreenPosition = FVector2D::ZeroVector;
+			if (!UWidgetLayoutLibrary::ProjectWorldLocationToWidgetPosition(
+				BlackoutPlayerController,
+				PromptWorldLocation,
+				PromptScreenPosition,
+				true))
+			{
+				return false;
+			}
+
 			OutPromptData.bIsVisible = true;
 			OutPromptData.bShowProgress = true;
 			OutPromptData.ProgressNormalized = ActiveReviveAbility->GetReviveProgressNormalized();
-			OutPromptData.State = EBlackoutRevivePromptState::InProgress;
-			OutPromptData.PromptText = RevivePromptText;
+			OutPromptData.WorldLocation = PromptWorldLocation;
+			OutPromptData.ScreenPosition = PromptScreenPosition;
+			OutPromptData.State = EBlackoutInteractionPromptState::InProgress;
+			OutPromptData.PromptText = FText::GetEmpty();
+			OutPromptData.StatusText = ReviveInProgressText;
 			return true;
 		}
 	}
@@ -200,12 +227,25 @@ bool UBlackoutHUDWidgetController::GetRevivePromptData(FBlackoutRevivePromptData
 		return false;
 	}
 
+	const FVector PromptWorldLocation = GetRevivePromptWorldLocation(NearbyDownedPlayer);
+	FVector2D PromptScreenPosition = FVector2D::ZeroVector;
+	if (!UWidgetLayoutLibrary::ProjectWorldLocationToWidgetPosition(
+		BlackoutPlayerController,
+		PromptWorldLocation,
+		PromptScreenPosition,
+		true))
+	{
+		return false;
+	}
+
 	OutPromptData.bIsVisible = true;
+	OutPromptData.WorldLocation = PromptWorldLocation;
+	OutPromptData.ScreenPosition = PromptScreenPosition;
 	OutPromptData.PromptText = RevivePromptText;
 
 	if (NearbyDownedPlayer->IsReviveInteractionActive())
 	{
-		OutPromptData.State = EBlackoutRevivePromptState::Busy;
+		OutPromptData.State = EBlackoutInteractionPromptState::Busy;
 		OutPromptData.bIsStatusError = true;
 		OutPromptData.StatusText = ReviveBusyText;
 		return true;
@@ -216,13 +256,13 @@ bool UBlackoutHUDWidgetController::GetRevivePromptData(FBlackoutRevivePromptData
 		FMath::RoundToInt(GetAttributeValue(UBlackoutPlayerAttributeSet::GetRelicChargesAttribute())));
 	if (CurrentRelicCharges <= 0)
 	{
-		OutPromptData.State = EBlackoutRevivePromptState::MissingRelic;
+		OutPromptData.State = EBlackoutInteractionPromptState::MissingRequirement;
 		OutPromptData.bIsStatusError = true;
 		OutPromptData.StatusText = MissingRelicText;
 		return true;
 	}
 
-	OutPromptData.State = EBlackoutRevivePromptState::Available;
+	OutPromptData.State = EBlackoutInteractionPromptState::Available;
 	return true;
 }
 
