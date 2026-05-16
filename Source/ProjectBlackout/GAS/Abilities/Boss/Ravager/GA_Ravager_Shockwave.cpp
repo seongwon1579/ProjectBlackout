@@ -2,7 +2,7 @@
 
 #include "BlackoutBossCharacter.h"
 #include "BlackoutGameplayTags.h"
-#include "BOShockwaveProjectile.h"
+#include "BOEnemyProjectile.h"
 #include "Abilities/Tasks/AbilityTask.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 
@@ -38,7 +38,7 @@ void UGA_Ravager_Shockwave::OnSpawnProjectileNotify(FGameplayEventData Payload)
 {
 	if (!CachedOwner || !CachedPatternData || !CachedPatternData->ProjectileSettings.IsValid()) return;
 
-	const TSubclassOf<ABOShockwaveProjectile> ProjectileClass = CachedPatternData->ProjectileSettings.ProjectileClass;
+	const TSubclassOf<ABOEnemyProjectile> ProjectileClass = CachedPatternData->ProjectileSettings.ProjectileClass;
 
 	FVector SpawnLocation;
 	FRotator SpawnRotation;
@@ -53,12 +53,12 @@ void UGA_Ravager_Shockwave::OnSpawnProjectileNotify(FGameplayEventData Payload)
 	UWorld* World = GetWorld();
 	if (!World) return;
 
-	ABOShockwaveProjectile* Projectile = World->SpawnActor<ABOShockwaveProjectile>(
+	ABOEnemyProjectile* Projectile = World->SpawnActor<ABOEnemyProjectile>(
 		ProjectileClass,
 		SpawnLocation,
 		SpawnRotation,
 		SpawnParams);
-
+	
 	if (Projectile)
 	{
 		Projectile->InitializeProjectile(CachedPatternData->ProjectileSettings.ProjectileSpawnParams);

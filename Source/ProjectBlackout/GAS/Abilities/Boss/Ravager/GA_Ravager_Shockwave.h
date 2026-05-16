@@ -7,6 +7,8 @@
 /**
  * Phase A — 앞발 충전 후 지면 장풍
  */
+class UAbilityTask_WaitGameplayEvent;
+
 UCLASS()
 class PROJECTBLACKOUT_API UGA_Ravager_Shockwave : public UBlackoutBossGameplayAbility
 {
