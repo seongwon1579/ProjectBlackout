@@ -182,9 +182,10 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(Event_Wraith_Teleport_Appear , "Event.Wraith.Teleport.Appear");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Wraith_BowShove, "GameplayCue.Wraith.BowShove");
 	
-	
+	// ─── Attack Events ────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_OnCollision, "Event.Enemy.Attack.OnCollision");
 	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_OffCollision, "Event.Enemy.Attack.OffCollision");
+	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_Spawn_Projectile, "Event.Enemy.Attack.Spawn.Projectile");
 
 	// ─── Montage Events ───────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Event_Montage_ConsumableApply, "Event.Montage.ConsumableApply");
