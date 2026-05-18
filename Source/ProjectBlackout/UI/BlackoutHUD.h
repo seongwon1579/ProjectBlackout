@@ -8,6 +8,7 @@ class UBlackoutHUDWidget;
 class UBlackoutEnemyHUDWidget;
 class UBlackoutHUDWidgetController;
 class UBlackoutEnemyHUDWidgetController;
+class UBlackoutPartyRosterWidgetController;
 
 UCLASS(Blueprintable)
 class PROJECTBLACKOUT_API ABlackoutHUD : public AHUD
@@ -31,6 +32,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Blackout|HUD")
 	UBlackoutEnemyHUDWidgetController* GetEnemyHUDWidgetController() const { return EnemyHUDWidgetController; }
 
+	UFUNCTION(BlueprintPure, Category = "Blackout|HUD")
+	UBlackoutPartyRosterWidgetController* GetPartyRosterWidgetController() const { return PartyRosterWidgetController; }
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD")
 	TSubclassOf<UBlackoutEnemyHUDWidget> EnemyHUDWidgetClass;
 
@@ -49,6 +53,9 @@ protected:
 	
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|HUD")
 	TObjectPtr<UBlackoutEnemyHUDWidgetController> EnemyHUDWidgetController;
+
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|HUD")
+	TObjectPtr<UBlackoutPartyRosterWidgetController> PartyRosterWidgetController;
 
 private:
 	void CreateHUDWidget();

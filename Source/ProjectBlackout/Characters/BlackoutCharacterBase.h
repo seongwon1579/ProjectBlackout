@@ -8,6 +8,10 @@
 #include "BlackoutCharacterBase.generated.h"
 
 class UBlackoutAbilitySystemComponent;
+class ABlackoutCharacterBase;
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FBlackoutDownedStateChangedSignature, bool, bIsDowned);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FBlackoutDownedStateChangedNativeSignature, ABlackoutCharacterBase*, bool);
 
 /**
  * 모든 캐릭터(플레이어/적/보스)의 최상위 베이스 클래스.
@@ -31,6 +35,11 @@ public:
 	
 	bool IsDead() const { return bIsDead; }
 	bool IsDowned() const { return bIsDowned; }
+
+	UPROPERTY(BlueprintAssignable, Category = "Blackout|State")
+	FBlackoutDownedStateChangedSignature OnDownedStateChanged;
+
+	FBlackoutDownedStateChangedNativeSignature OnDownedStateChangedNative;
 
 protected:
 	virtual void BeginPlay() override;
@@ -71,4 +80,6 @@ protected:
 
 	/** 다운 상태 변경 시 서브클래스가 로컬 전용 후처리를 구현할 수 있는 훅입니다. */
 	virtual void HandleDownedStateChanged();
+
+	void BroadcastDownedStateChanged();
 };
