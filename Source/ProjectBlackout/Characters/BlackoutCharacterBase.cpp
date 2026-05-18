@@ -296,6 +296,12 @@ bool ABlackoutCharacterBase::CanEnterDownedState() const
 	return false;
 }
 
+void ABlackoutCharacterBase::ResetVitalState()
+{
+	bIsDead = false;
+	bIsDowned = false;
+}
+
 void ABlackoutCharacterBase::OnHitReact()
 {
 }

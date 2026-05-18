@@ -68,6 +68,9 @@ protected:
 	/** HP 0 도달 시 즉시 사망 대신 다운 상태로 전환할 수 있는지 여부입니다. */
 	virtual bool CanEnterDownedState() const;
 
+	/** 풀 재사용 등으로 캐릭터를 되살릴 때 사망/다운 상태 플래그를 초기화합니다. */
+	void ResetVitalState();
+
 	/** 피격 시 히트 리액션 몽타주 재생 등 공통 처리. */
 	virtual void OnHitReact();
 

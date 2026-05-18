@@ -1,7 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Characters/BlackoutEnemyCharacter.h"
+#include "Characters/BlackoutMinionCharacter.h"
 #include "Templates/SubclassOf.h"
 #include "BORootWraith.generated.h"
 
@@ -13,7 +13,7 @@ class ABOProjectile;
  * 순수 StateTree를 이용해 원거리 2연사 및 시야 밖 점멸을 수행.
  */
 UCLASS()
-class PROJECTBLACKOUT_API ABORootWraith : public ABlackoutEnemyCharacter
+class PROJECTBLACKOUT_API ABORootWraith : public ABlackoutMinionCharacter
 {
 	GENERATED_BODY()
 
