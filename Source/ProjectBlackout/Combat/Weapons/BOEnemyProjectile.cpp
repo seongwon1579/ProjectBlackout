@@ -33,7 +33,7 @@ ABOEnemyProjectile::ABOEnemyProjectile()
 	InitialLifeSpan = 5.f;  
 }
 
-void ABOEnemyProjectile::InitializeProjectile(const FProjectileSpawnParams& InSpawnParams)
+void ABOEnemyProjectile::InitializeProjectile(const FProjectileSpawnData& InSpawnParams)
 {
 	SpawnParams = InSpawnParams;
 	
@@ -58,6 +58,11 @@ void ABOEnemyProjectile::BeginPlay()
 	if (CollisionComp)
 	{
 		CollisionComp->OnComponentHit.AddDynamic(this, &ABOEnemyProjectile::OnHit);
+	}
+	
+	if (!HasAuthority() && ProjectileMovement)
+	{
+		ProjectileMovement->SetActive(false);
 	}
 }
 

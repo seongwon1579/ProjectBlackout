@@ -61,7 +61,7 @@ void UGA_Ravager_Shockwave::OnSpawnProjectileNotify(FGameplayEventData Payload)
 	
 	if (Projectile)
 	{
-		Projectile->InitializeProjectile(CachedPatternData->ProjectileSettings.ProjectileSpawnParams);
+		Projectile->InitializeProjectile(CachedPatternData->ProjectileSettings.ProjectileSpawnData);
 	}
 }
 

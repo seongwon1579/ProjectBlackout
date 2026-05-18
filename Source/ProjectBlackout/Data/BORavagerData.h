@@ -11,6 +11,7 @@
 /**
  * 
  */
+class ABOEnemySpawnerProjectile;
 class ABOEnemyProjectile; 
 
 USTRUCT()
@@ -30,8 +31,25 @@ struct FBossMeleeSettings
 	bool IsValid() const { return Effect && DamageMagnitude > 0.f && HitboxComponentNames.Num() > 0; }
 };
 
+
 USTRUCT()
-struct FProjectileSpawnParams
+struct FMinionSpawnData
+{
+	GENERATED_BODY()
+	
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<ACharacter> MinionClass;
+	
+	UPROPERTY(EditAnywhere, meta = (ClampMin = "0.1"))
+	float HatchDelay = 1.5f;
+    
+	UPROPERTY(EditAnywhere)
+	int32 MinionLevel = 1;
+	
+};
+
+USTRUCT()
+struct FProjectileSpawnData
 {
 	GENERATED_BODY()
 	 
@@ -57,15 +75,45 @@ struct FBossProjectileSettings
 	GENERATED_BODY()
 	
 	UPROPERTY(EditAnywhere)
+	FName SocketName = NAME_None;
+	
+	UPROPERTY(EditAnywhere)
 	TSubclassOf<ABOEnemyProjectile> ProjectileClass;
+	
+	UPROPERTY(EditAnywhere)
+	FProjectileSpawnData ProjectileSpawnData;
+	
+	bool IsValid() const;
+};
+
+USTRUCT()
+struct FBossMinionSpawnSettings
+{
+	GENERATED_BODY()
+	
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<ABOEnemySpawnerProjectile> SpawnerClass;
 	
 	UPROPERTY(EditAnywhere)
 	FName SocketName = NAME_None;
 	
 	UPROPERTY(EditAnywhere)
-	FProjectileSpawnParams ProjectileSpawnParams;
+	FProjectileSpawnData ProjectileSpawnData;
 	
+	UPROPERTY(EditAnywhere)
+	FMinionSpawnData MinionSpawnData;
+	
+	UPROPERTY(EditAnywhere)
+	int32 SpawnCount = 3;
+	
+	UPROPERTY(EditAnywhere)
+	float SpreadAngle = 30.f;
+    
+	UPROPERTY(EditAnywhere)
+	float ThrowPitch = 45.f;
+    
 	bool IsValid() const;
+	
 };
 
 UCLASS()
@@ -85,5 +133,8 @@ public:
 	
 	UPROPERTY(EditAnywhere, Category = "Blackout|Projectile")
 	FBossProjectileSettings ProjectileSettings;
+	
+	UPROPERTY(EditAnywhere, Category = "Blackout|Minion")
+	FBossMinionSpawnSettings MinionSettings;
 	
 };

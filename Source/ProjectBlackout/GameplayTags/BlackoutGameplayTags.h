@@ -172,6 +172,8 @@ namespace BlackoutGameplayTags
 	
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_Shockwave);
 	
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_SpawnMinion);
+	
 	// ─── Wraith Abilities ─────────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Wraith_FireTwinArrows);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Cooldown_Wraith_FireTwinArrows);

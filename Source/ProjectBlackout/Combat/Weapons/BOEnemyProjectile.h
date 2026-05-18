@@ -20,12 +20,12 @@ class PROJECTBLACKOUT_API ABOEnemyProjectile : public AActor
 public:	
 	ABOEnemyProjectile();
 	
-	virtual void InitializeProjectile(const FProjectileSpawnParams& InSpawnParams);
+	virtual void InitializeProjectile(const FProjectileSpawnData& InSpawnParams);
 	
 protected:
 	virtual void BeginPlay() override;
 	UFUNCTION()
-	void OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
+	virtual void OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
 			   UPrimitiveComponent* OtherComp, FVector NormalImpulse,
 			   const FHitResult& Hit);
 	
@@ -42,5 +42,5 @@ protected:
 	TObjectPtr<UNiagaraComponent> Effect;
 	
 	UPROPERTY(Transient)
-	FProjectileSpawnParams SpawnParams;
+	FProjectileSpawnData SpawnParams;
 };

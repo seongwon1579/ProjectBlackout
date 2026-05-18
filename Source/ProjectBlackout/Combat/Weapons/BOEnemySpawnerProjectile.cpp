@@ -1,0 +1,88 @@
+// Fill out your copyright notice in the Description page of Project Settings.
+
+
+#include "Combat/Weapons/BOEnemySpawnerProjectile.h"
+
+#include "Components/CapsuleComponent.h"
+#include "GameFramework/Character.h"
+#include "GameFramework/ProjectileMovementComponent.h"
+
+
+void ABOEnemySpawnerProjectile::SetSpawnerData(const FMinionSpawnData& InData)
+{
+	MinionData = InData;
+}
+
+void ABOEnemySpawnerProjectile::BeginPlay()
+{
+	Super::BeginPlay();
+}
+
+void ABOEnemySpawnerProjectile::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+}
+
+void ABOEnemySpawnerProjectile::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp,
+                                      FVector NormalImpulse, const FHitResult& Hit)
+{
+	if (ShouldIgnoreHit(OtherActor)) return;
+	if (!HasAuthority()) return;
+	if (bHasLanded) return;
+
+	bHasLanded = true;
+
+	if (ProjectileMovement)
+	{
+		ProjectileMovement->StopMovementImmediately();
+		ProjectileMovement->Deactivate();
+	}
+	if (CollisionComp)
+	{
+		CollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
+	
+	// TODO: 추후에 스폰 로직 특정 시점에 스폰되도록 변경
+
+	UWorld* World = GetWorld();
+	if (!World) return;
+
+	World->GetTimerManager().SetTimer(
+		HatchTimer,
+		this,
+		&ABOEnemySpawnerProjectile::Hatch,
+		MinionData.HatchDelay,
+		false);
+}
+
+void ABOEnemySpawnerProjectile::Hatch()
+{
+	UWorld* World = GetWorld();
+	if (!World || !MinionData.MinionClass)
+	{
+		Destroy();
+		return;
+	}
+
+	FActorSpawnParameters Params;
+	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+	Params.Owner = GetOwner();
+	Params.Instigator = GetInstigator();
+
+	FVector SpawnLocation = GetActorLocation() + FVector(0, 0, 50);
+	FRotator SpawnRotation(0.f, GetActorRotation().Yaw, 0.f);
+
+	ACharacter* Minion = World->SpawnActor<ACharacter>
+	(
+		MinionData.MinionClass,
+			SpawnLocation,
+			SpawnRotation,
+			Params);
+	
+	if (Minion)
+	{
+		Minion->SpawnDefaultController();
+	}
+	
+	Destroy();
+}

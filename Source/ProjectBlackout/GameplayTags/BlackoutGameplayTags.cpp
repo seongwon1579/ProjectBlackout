@@ -170,6 +170,8 @@ namespace BlackoutGameplayTags
 	
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Shockwave, "Ability.Ravager.Shockwave");
 	
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_SpawnMinion, "Ability.Ravager.SpawnMinion");
+	
 	// ─── Wraith Abilities ──────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Wraith_FireTwinArrows, "Ability.Wraith.FireTwinArrows");
 	UE_DEFINE_GAMEPLAY_TAG(Cooldown_Wraith_FireTwinArrows, "Cooldown.Wraith.FireTwinArrows");
