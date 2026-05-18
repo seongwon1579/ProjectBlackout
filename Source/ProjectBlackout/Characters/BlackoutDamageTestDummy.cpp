@@ -64,6 +64,11 @@ float ABlackoutDamageTestDummy::GetCurrentHealth() const
 	return ASC ? ASC->GetNumericAttribute(UBlackoutBaseAttributeSet::GetHealthAttribute()) : 0.0f;
 }
 
+bool ABlackoutDamageTestDummy::ShouldUseMinionHealthBar() const
+{
+	return true;
+}
+
 void ABlackoutDamageTestDummy::OnDeath()
 {
 	Super::OnDeath();
