@@ -268,11 +268,13 @@ void UBlackoutGA_UseRelic::ExecuteRelicUseCue()
 		return;
 	}
 
+	UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo();
 	ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(CurrentActorInfo->AvatarActor.Get());
 	USkeletalMeshComponent* CharacterMesh = PlayerCharacter ? PlayerCharacter->GetMesh() : nullptr;
-	if (!PlayerCharacter || !CharacterMesh)
+	if (!AbilitySystemComponent || !PlayerCharacter || !CharacterMesh)
 	{
-		BO_LOG_GAS(Warning, "유물 GCN 실행 실패: PlayerCharacter 또는 Mesh가 유효하지 않습니다. Player=%s Mesh=%s",
+		BO_LOG_GAS(Warning, "유물 GCN 실행 실패: ASC, PlayerCharacter 또는 Mesh가 유효하지 않습니다. ASC=%s Player=%s Mesh=%s",
+			*GetNameSafe(AbilitySystemComponent),
 			*GetNameSafe(PlayerCharacter),
 			*GetNameSafe(CharacterMesh));
 		return;
@@ -294,7 +296,7 @@ void UBlackoutGA_UseRelic::ExecuteRelicUseCue()
 	CueParameters.SourceObject = PlayerCharacter;
 	CueParameters.TargetAttachComponent = CharacterMesh;
 
-	PlayerCharacter->Multicast_ExecuteWeaponGameplayCue(RelicUseCueTag, CueParameters, false);
+	AbilitySystemComponent->ExecuteGameplayCue(RelicUseCueTag, CueParameters);
 }
 
 void UBlackoutGA_UseRelic::OnRelicApplyEventReceived(FGameplayEventData Payload)

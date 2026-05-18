@@ -237,11 +237,13 @@ void UBlackoutGA_UseConsumable::ExecuteConsumableUseCue(const UBOConsumableData*
 		return;
 	}
 
+	UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo();
 	ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(CurrentActorInfo->AvatarActor.Get());
 	USkeletalMeshComponent* CharacterMesh = PlayerCharacter ? PlayerCharacter->GetMesh() : nullptr;
-	if (!PlayerCharacter || !CharacterMesh)
+	if (!AbilitySystemComponent || !PlayerCharacter || !CharacterMesh)
 	{
-		BO_LOG_GAS(Warning, "소모 GCN 실행 실패: PlayerCharacter 또는 Mesh가 유효하지 않습니다. Player=%s Mesh=%s",
+		BO_LOG_GAS(Warning, "소모 GCN 실행 실패: ASC, PlayerCharacter 또는 Mesh가 유효하지 않습니다. ASC=%s Player=%s Mesh=%s",
+			*GetNameSafe(AbilitySystemComponent),
 			*GetNameSafe(PlayerCharacter),
 			*GetNameSafe(CharacterMesh));
 		return;
@@ -267,7 +269,7 @@ void UBlackoutGA_UseConsumable::ExecuteConsumableUseCue(const UBOConsumableData*
 		CueParameters.AggregatedSourceTags.AddTag(UsedConsumableData->ConsumableTag);
 	}
 
-	PlayerCharacter->Multicast_ExecuteWeaponGameplayCue(ConsumableUseCueTag, CueParameters, false);
+	AbilitySystemComponent->ExecuteGameplayCue(ConsumableUseCueTag, CueParameters);
 }
 
 void UBlackoutGA_UseConsumable::OnConsumableApplyEventReceived(FGameplayEventData Payload)
