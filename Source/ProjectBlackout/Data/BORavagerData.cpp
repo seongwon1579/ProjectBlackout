@@ -2,12 +2,17 @@
 
 
 #include "Data/BORavagerData.h"
-#include "Combat/Weapons/BOEnemyProjectile.h"
 
+#include "Combat/Weapons/BOEnemyProjectile.h"
 
 bool FBossProjectileSettings::IsValid() const
 {
 	return ProjectileClass 
-	  && ProjectileSpawnParams.Effect 
-	  && ProjectileSpawnParams.DamageMagnitude > 0.f;
+	  && ProjectileSpawnData.Effect 
+	  && ProjectileSpawnData.DamageMagnitude > 0.f;
+}
+
+bool FBossMinionSpawnSettings::IsValid() const
+{
+	return true;
 }
