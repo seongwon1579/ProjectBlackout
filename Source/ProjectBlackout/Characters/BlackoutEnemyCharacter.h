@@ -11,7 +11,7 @@ class UBlackoutBaseAttributeSet;
 /**
  * AI 제어 적 캐릭터 베이스. ASC를 자기 자신이 소유.
  * 오브젝트 풀링 대상: IBlackoutPoolableInterface 구현.
- * ABlackoutBossCharacter는 AI/Boss 에픽에서 이 클래스를 상속해 확장.
+ * 미니언(dissolve)은 ABlackoutMinionCharacter, 보스는 ABlackoutBossCharacter 가 이 클래스를 상속.
  */
 UCLASS()
 class PROJECTBLACKOUT_API ABlackoutEnemyCharacter : public ABlackoutCharacterBase, public IBlackoutPoolableInterface
