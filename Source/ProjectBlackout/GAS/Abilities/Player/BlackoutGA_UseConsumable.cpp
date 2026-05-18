@@ -4,6 +4,7 @@
 #include "AbilitySystemComponent.h"
 #include "Animation/AnimMontage.h"
 #include "Characters/BlackoutPlayerCharacter.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
 #include "Core/BlackoutLog.h"
 #include "Data/BOConsumableData.h"
@@ -22,6 +23,8 @@ UBlackoutGA_UseConsumable::UBlackoutGA_UseConsumable()
 	ActivationOwnedTags.AddTag(BlackoutGameplayTags::State_UseConsumable);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Downed);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Locked);
+
+	ConsumableUseCueTag = BlackoutGameplayTags::GameplayCue_Consumable_Use;
 }
 
 bool UBlackoutGA_UseConsumable::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
@@ -213,12 +216,58 @@ void UBlackoutGA_UseConsumable::ConsumeAndApplyEffect()
 	bKeepActiveAfterMontage = ApplyConsumableEffect(PendingConsumableData);
 	ApplyConfiguredGameplayEffect(PendingConsumableData);
 	StartConsumableCooldown(PendingConsumableData);
+	ExecuteConsumableUseCue(PendingConsumableData);
 
 	ReceiveConsumableUsed(PendingConsumableData);
 	BO_LOG_GAS(Log, "소모품 사용 완료: Player=%s Data=%s Tag=%s",
 		*BlackoutPlayerState->GetPlayerName(),
 		*GetNameSafe(PendingConsumableData.Get()),
 		*PendingConsumableData->ConsumableTag.ToString());
+}
+
+void UBlackoutGA_UseConsumable::ExecuteConsumableUseCue(const UBOConsumableData* UsedConsumableData)
+{
+	if (!ConsumableUseCueTag.IsValid())
+	{
+		return;
+	}
+
+	if (!CurrentActorInfo || !CurrentActorInfo->AvatarActor.IsValid() || !CurrentActorInfo->AvatarActor->HasAuthority())
+	{
+		return;
+	}
+
+	ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(CurrentActorInfo->AvatarActor.Get());
+	USkeletalMeshComponent* CharacterMesh = PlayerCharacter ? PlayerCharacter->GetMesh() : nullptr;
+	if (!PlayerCharacter || !CharacterMesh)
+	{
+		BO_LOG_GAS(Warning, "소모 GCN 실행 실패: PlayerCharacter 또는 Mesh가 유효하지 않습니다. Player=%s Mesh=%s",
+			*GetNameSafe(PlayerCharacter),
+			*GetNameSafe(CharacterMesh));
+		return;
+	}
+
+	if (ConsumableUseCueSocketName.IsNone() || !CharacterMesh->DoesSocketExist(ConsumableUseCueSocketName))
+	{
+		BO_LOG_GAS(Warning, "소모 GCN 실행 실패: 오른손 소켓이 유효하지 않습니다. Player=%s Socket=%s",
+			*GetNameSafe(PlayerCharacter),
+			*ConsumableUseCueSocketName.ToString());
+		return;
+	}
+
+	FGameplayCueParameters CueParameters;
+	CueParameters.Location = CharacterMesh->GetSocketLocation(ConsumableUseCueSocketName);
+	CueParameters.Normal = CharacterMesh->GetSocketRotation(ConsumableUseCueSocketName).Vector();
+	CueParameters.Instigator = PlayerCharacter->GetInstigator();
+	CueParameters.EffectCauser = PlayerCharacter;
+	CueParameters.SourceObject = UsedConsumableData;
+	CueParameters.TargetAttachComponent = CharacterMesh;
+	if (UsedConsumableData && UsedConsumableData->ConsumableTag.IsValid())
+	{
+		CueParameters.AggregatedSourceTags.AddTag(UsedConsumableData->ConsumableTag);
+	}
+
+	PlayerCharacter->Multicast_ExecuteWeaponGameplayCue(ConsumableUseCueTag, CueParameters, false);
 }
 
 void UBlackoutGA_UseConsumable::OnConsumableApplyEventReceived(FGameplayEventData Payload)

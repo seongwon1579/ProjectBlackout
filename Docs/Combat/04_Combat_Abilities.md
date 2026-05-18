@@ -126,6 +126,10 @@ classDiagram
   - 완료 시 `ExecCalc_Reload`(`UGameplayEffectExecutionCalculation`)가 `ReserveAmmo -= Missing`, `ClipAmmo += Missing` 을 단일 트랜잭션으로 처리.
   - Cue: `GCN_Weapon_Reload [Static]`.
   - 시전 중 사격 입력은 `ActiveTag: State.Reloading` 으로 차단.
+- **`UBlackoutGA_UseConsumable`**:
+  - `ConsumeAndApplyEffect()`에서 PlayerState 수량 차감과 효과 적용이 성공한 순간 `GameplayCue.Consumable.Use`를 1회 실행합니다.
+  - 플레이어 ASC는 PlayerState 소유이므로 Cue 복제는 ASC `ExecuteGameplayCue`가 아니라 캐릭터 NetMulticast → `GameplayCueManager` 경로로 실행합니다.
+  - Cue 파라미터의 `TargetAttachComponent`는 캐릭터 Mesh이며, BP `GameplayCueNotify_Burst` 에셋의 Placement를 오른손 `WeaponSocket`에 Snap/Attach 되도록 설정합니다.
 - **`UGA_Melee_Player`** (TDD v5 §4.1 v2):
   - 몽타주 재생은 `UAbilityTask_PlayMontageAndWait` 로 처리합니다. **`Multicast_PlayMeleeMontage` / `Multicast_JumpMeleeMontageSection` / `Multicast_StopMeleeMontage` 는 폐기**합니다. 시뮬레이트 프록시는 `FRepAnimMontageInfo` OnRep으로 자연 따라잡습니다.
   - 콤보 섹션은 `ComboSections : TArray<FBlackoutComboSectionDef>` 로 정의하며, 각 항목이 섹션 이름과 `WindowOpenAtSeconds` / `WindowCloseAtSeconds` / `RecoveryEndAtSeconds` 를 담습니다.
