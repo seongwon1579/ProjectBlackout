@@ -4,6 +4,7 @@
 #include "AbilitySystemComponent.h"
 #include "Animation/AnimMontage.h"
 #include "Characters/BlackoutPlayerCharacter.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
 #include "Core/BlackoutLog.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -27,6 +28,8 @@ UBlackoutGA_UseRelic::UBlackoutGA_UseRelic()
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Downed);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Locked);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Attacking);
+
+	RelicUseCueTag = BlackoutGameplayTags::GameplayCue_Relic_Use;
 }
 
 bool UBlackoutGA_UseRelic::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
@@ -242,6 +245,7 @@ void UBlackoutGA_UseRelic::ApplyRelicEffect()
 	}
 
 	ApplyRelicHealEffect();
+	ExecuteRelicUseCue();
 
 	const int32 RemainingRelicCharges = FMath::RoundToInt(AbilitySystemComponent->GetNumericAttribute(UBlackoutPlayerAttributeSet::GetRelicChargesAttribute()));
 	ReceiveRelicUsed(EffectiveHealAmount, RemainingRelicCharges);
@@ -250,6 +254,47 @@ void UBlackoutGA_UseRelic::ApplyRelicEffect()
 		*GetNameSafe(PlayerCharacter),
 		EffectiveHealAmount,
 		RemainingRelicCharges);
+}
+
+void UBlackoutGA_UseRelic::ExecuteRelicUseCue()
+{
+	if (!RelicUseCueTag.IsValid())
+	{
+		return;
+	}
+
+	if (!CurrentActorInfo || !CurrentActorInfo->AvatarActor.IsValid() || !CurrentActorInfo->AvatarActor->HasAuthority())
+	{
+		return;
+	}
+
+	ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(CurrentActorInfo->AvatarActor.Get());
+	USkeletalMeshComponent* CharacterMesh = PlayerCharacter ? PlayerCharacter->GetMesh() : nullptr;
+	if (!PlayerCharacter || !CharacterMesh)
+	{
+		BO_LOG_GAS(Warning, "유물 GCN 실행 실패: PlayerCharacter 또는 Mesh가 유효하지 않습니다. Player=%s Mesh=%s",
+			*GetNameSafe(PlayerCharacter),
+			*GetNameSafe(CharacterMesh));
+		return;
+	}
+
+	if (RelicUseCueSocketName.IsNone() || !CharacterMesh->DoesSocketExist(RelicUseCueSocketName))
+	{
+		BO_LOG_GAS(Warning, "유물 GCN 실행 실패: 오른손 소켓이 유효하지 않습니다. Player=%s Socket=%s",
+			*GetNameSafe(PlayerCharacter),
+			*RelicUseCueSocketName.ToString());
+		return;
+	}
+
+	FGameplayCueParameters CueParameters;
+	CueParameters.Location = CharacterMesh->GetSocketLocation(RelicUseCueSocketName);
+	CueParameters.Normal = CharacterMesh->GetSocketRotation(RelicUseCueSocketName).Vector();
+	CueParameters.Instigator = PlayerCharacter->GetInstigator();
+	CueParameters.EffectCauser = PlayerCharacter;
+	CueParameters.SourceObject = PlayerCharacter;
+	CueParameters.TargetAttachComponent = CharacterMesh;
+
+	PlayerCharacter->Multicast_ExecuteWeaponGameplayCue(RelicUseCueTag, CueParameters, false);
 }
 
 void UBlackoutGA_UseRelic::OnRelicApplyEventReceived(FGameplayEventData Payload)

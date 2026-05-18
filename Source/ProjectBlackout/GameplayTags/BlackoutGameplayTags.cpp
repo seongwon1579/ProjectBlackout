@@ -88,6 +88,7 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Consumable_Use, "GameplayCue.Consumable.Use");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Consumable_BloodRoot_Use, "GameplayCue.Consumable.BloodRoot.Use");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Consumable_GulSerum_Use, "GameplayCue.Consumable.GulSerum.Use");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Relic_Use, "GameplayCue.Relic.Use");
 
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_Default_Fire, "GameplayCue.Weapon.Default.Fire");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_Default_Trail, "GameplayCue.Weapon.Default.Trail");

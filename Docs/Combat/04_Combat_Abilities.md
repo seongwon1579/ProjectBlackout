@@ -130,6 +130,9 @@ classDiagram
   - `ConsumeAndApplyEffect()`에서 PlayerState 수량 차감과 효과 적용이 성공한 순간 `GameplayCue.Consumable.Use`를 1회 실행합니다.
   - 플레이어 ASC는 PlayerState 소유이므로 Cue 복제는 ASC `ExecuteGameplayCue`가 아니라 캐릭터 NetMulticast → `GameplayCueManager` 경로로 실행합니다.
   - Cue 파라미터의 `TargetAttachComponent`는 캐릭터 Mesh이며, BP `GameplayCueNotify_Burst` 에셋의 Placement를 오른손 `WeaponSocket`에 Snap/Attach 되도록 설정합니다.
+- **`UGA_UseRelic`**:
+  - `ApplyRelicEffect()`에서 유물 충전 차감과 회복 적용이 성공한 순간 `GameplayCue.Relic.Use`를 1회 실행합니다.
+  - Cue 복제와 부착 규칙은 소모품과 동일하게 캐릭터 NetMulticast와 오른손 `WeaponSocket` 기준으로 처리합니다.
 - **`UGA_Melee_Player`** (TDD v5 §4.1 v2):
   - 몽타주 재생은 `UAbilityTask_PlayMontageAndWait` 로 처리합니다. **`Multicast_PlayMeleeMontage` / `Multicast_JumpMeleeMontageSection` / `Multicast_StopMeleeMontage` 는 폐기**합니다. 시뮬레이트 프록시는 `FRepAnimMontageInfo` OnRep으로 자연 따라잡습니다.
   - 콤보 섹션은 `ComboSections : TArray<FBlackoutComboSectionDef>` 로 정의하며, 각 항목이 섹션 이름과 `WindowOpenAtSeconds` / `WindowCloseAtSeconds` / `RecoveryEndAtSeconds` 를 담습니다.

@@ -383,6 +383,7 @@ GDD §8.3의 미니멀리즘 HUD 전체 구성 요소를 UI 위젯 레이어로 
 | `GCN_HitImpact` | **Static** | 일회성 피격 파편 |
 | `GCN_Weapon_Reload` | **Static** | 일회성 탄창 탈착음 |
 | `BP_GCN_ConsumableUse` | **Static/Burst** | `GameplayCue.Consumable.Use` 태그를 받아 오른손 소켓에 부착되는 일회성 소모품 사용 연출 |
+| `BP_GCN_RelicUse` | **Static/Burst** | `GameplayCue.Relic.Use` 태그를 받아 오른손 소켓에 부착되는 일회성 유물 사용 연출 |
 | `GCN_Wraith_Teleport` | **Static** | 순간이동 일회성 연기 |
 | `GCN_Shrewd_SeedDrop` | **Static** | 씨앗 투하 일회성 충격 파편/사운드 |
 | `GCN_Shrewd_LoSTeleport` | **Static** | LoS 텔레포트 일회성 연기/사운드 |

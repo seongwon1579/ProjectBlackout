@@ -91,6 +91,7 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Consumable_Use);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Consumable_BloodRoot_Use);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Consumable_GulSerum_Use);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Relic_Use);
 
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Weapon_Default_Fire);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Weapon_Default_Trail);
