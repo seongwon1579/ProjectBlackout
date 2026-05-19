@@ -297,6 +297,7 @@ GDD §6 메인 보스 핵심 기믹인 "돌진 공격에 의한 엄폐물 영구
   4. 잔해는 `ChaosSolver` 물리 시뮬레이션 후 5초 뒤 `SetSimulatePhysics(false)` + LOD 스와프로 정적화
 - **네트워크 최적화**: Chaos 파괴는 결정적이지 않으므로 **시뮬레이션 자체는 각 클라이언트에서 독립 실행**하고, 서버는 "파괴됨/파괴안됨" 플래그만 리플리케이트합니다. 신규 접속자 또는 관전자의 카메라 블렌드 시, 이미 파괴된 기둥은 `bIsShattered=true`를 보고 `Instant_Shatter()`로 즉시 잔해 상태로 스폰하여 재현.
 - **`ABlackoutGameState::DestroyedPillarIds`** TArray<int32>로 파괴된 기둥 ID 목록을 동기화. Phase C 진입 시 이 배열을 참조하여 회피 난이도 로직(예: 카메라 세이프티 영역 축소)에 반영.
+- **Fast-Retry 리셋 수용기준 (§7.4 `IArenaResettable` 계약)**: 파티 전멸/체크포인트 복귀 시 아레나가 결정적 초기 상태로 돌아가야 하므로, `ABlackoutDestructiblePillar`는 `Instant_Shatter()`의 역인 **결정적 복원** `ResetPillar()`(intact 메시/파괴 전 콜리전/`BOPillarHealth` 복구 + `bIsShattered=false`)를 제공하고, 소유 아레나의 `IBOArenaResettable::ResetArena()`가 이를 호출하며 `DestroyedPillarIds`를 비웁니다. **결정적 *시뮬레이션 재현*이 아니라 결정적 *상태 복원*만 요구** — 본 문서의 플래그 기반 모델이 이를 가능케 함. (구현은 §8/레벨 담당자 트랙, Fast-Retry 사용 시점 전 충족 필요.)
 - **성능 가드**: 동시 활성 잔해 클러스터 수가 프로젝트 가이드(50개)를 넘지 않도록, 기둥 파괴 후 8초 경과한 잔해는 서버 Tick에서 강제 숨김 처리(`SetActorHiddenInGame(true)`).
 
 ## 9. UI 반응형 바인딩 (HUD) ⭐ (보강)
