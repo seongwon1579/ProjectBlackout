@@ -4,6 +4,7 @@
 #include "AbilitySystemComponent.h"
 #include "Animation/AnimMontage.h"
 #include "Characters/BlackoutPlayerCharacter.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
 #include "Core/BlackoutLog.h"
 #include "EngineUtils.h"
@@ -42,6 +43,8 @@ UBlackoutGA_Revive::UBlackoutGA_Revive()
 	ActivationOwnedTags.AddTag(BlackoutGameplayTags::State_Reviving);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Downed);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Locked);
+
+	ReviveCueTag = BlackoutGameplayTags::GameplayCue_Character_Revive;
 }
 
 const UBlackoutGA_Revive* UBlackoutGA_Revive::GetActiveReviveAbilityFromActor(const AActor* AvatarActor)
@@ -396,6 +399,7 @@ void UBlackoutGA_Revive::FinishRevive()
 			EGameplayModOp::Additive,
 			-ReviveRelicChargeCost);
 		CachedTarget->Server_ReviveFromDowned(RevivedHealth);
+		ExecuteReviveCue(TargetAbilitySystemComponent, RevivedHealth);
 
 		BO_LOG_GAS(Log,
 			"GA_Revive succeeded: Reviver=%s Target=%s RevivedHealth=%.1f RemainingRelics=%.0f",
@@ -406,6 +410,40 @@ void UBlackoutGA_Revive::FinishRevive()
 	}
 
 	K2_EndAbility();
+}
+
+void UBlackoutGA_Revive::ExecuteReviveCue(UAbilitySystemComponent* TargetAbilitySystemComponent, float RevivedHealth) const
+{
+	if (!ReviveCueTag.IsValid())
+	{
+		return;
+	}
+
+	if (!CachedReviver || !CachedTarget || !CachedReviver->HasAuthority())
+	{
+		return;
+	}
+
+	USkeletalMeshComponent* TargetMesh = CachedTarget->GetMesh();
+	if (!TargetAbilitySystemComponent || !TargetMesh)
+	{
+		BO_LOG_GAS(Warning, "부활 GCN 실행 실패: Target ASC 또는 Mesh가 유효하지 않습니다. ASC=%s Target=%s Mesh=%s",
+			*GetNameSafe(TargetAbilitySystemComponent),
+			*GetNameSafe(CachedTarget.Get()),
+			*GetNameSafe(TargetMesh));
+		return;
+	}
+
+	FGameplayCueParameters CueParameters;
+	CueParameters.Location = CachedTarget->GetActorLocation();
+	CueParameters.Normal = CachedTarget->GetActorForwardVector();
+	CueParameters.RawMagnitude = RevivedHealth;
+	CueParameters.Instigator = CachedReviver->GetInstigator();
+	CueParameters.EffectCauser = CachedReviver.Get();
+	CueParameters.SourceObject = CachedTarget.Get();
+	CueParameters.TargetAttachComponent = TargetMesh;
+
+	TargetAbilitySystemComponent->ExecuteGameplayCue(ReviveCueTag, CueParameters);
 }
 
 void UBlackoutGA_Revive::CancelRevive()
