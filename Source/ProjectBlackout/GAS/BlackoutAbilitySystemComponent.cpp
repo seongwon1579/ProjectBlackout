@@ -15,6 +15,24 @@
 #include "GAS/Attributes/BlackoutPlayerAttributeSet.h"
 #include "Net/UnrealNetwork.h"
 
+namespace
+{
+	FPredictionKey GetActiveAbilityActivationPredictionKey(const FGameplayAbilitySpec& AbilitySpec)
+	{
+		// UE 5.5 이후 Spec의 ActivationInfo는 NonInstanced GA 전용 deprecated 경로입니다.
+		const TArray<UGameplayAbility*> AbilityInstances = AbilitySpec.GetAbilityInstances();
+		for (int32 InstanceIndex = AbilityInstances.Num() - 1; InstanceIndex >= 0; --InstanceIndex)
+		{
+			if (const UGameplayAbility* AbilityInstance = AbilityInstances[InstanceIndex])
+			{
+				return AbilityInstance->GetCurrentActivationInfo().GetActivationPredictionKey();
+			}
+		}
+
+		return FPredictionKey();
+	}
+}
+
 void UBlackoutAbilitySystemComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
@@ -139,13 +157,7 @@ void UBlackoutAbilitySystemComponent::HandleAbilityInputPressed(EBlackoutAbility
 		{
 			// 활성 GA의 prediction key 추출.
 			// 콤보/체인 재입력은 새 ScopedPredictionWindow 를 만들지 않고 기존 activation key 를 재사용합니다.
-			const FGameplayAbilityActivationInfo* ActivationInfo = &AbilitySpec.ActivationInfo;
-			const TArray<UGameplayAbility*> AbilityInstances = AbilitySpec.GetAbilityInstances();
-			if (AbilityInstances.Num() > 0 && AbilityInstances.Last())
-			{
-				ActivationInfo = &AbilityInstances.Last()->GetCurrentActivationInfoRef();
-			}
-			const FPredictionKey ActivationKey = ActivationInfo->GetActivationPredictionKey();
+			const FPredictionKey ActivationKey = GetActiveAbilityActivationPredictionKey(AbilitySpec);
 
 			// 로컬: 자신의 GA 인스턴스에 InputPressed 를 전달하고 로컬 WaitInputPress 를 발화.
 			AbilitySpecInputPressed(AbilitySpec);
@@ -208,17 +220,12 @@ void UBlackoutAbilitySystemComponent::HandleAbilityInputReleased(EBlackoutAbilit
 
 			AbilitySpecInputReleased(AbilitySpec);
 
-			const FGameplayAbilityActivationInfo* ActivationInfo = &AbilitySpec.ActivationInfo;
-			const TArray<UGameplayAbility*> AbilityInstances = AbilitySpec.GetAbilityInstances();
-			if (AbilityInstances.Num() > 0 && AbilityInstances.Last())
-			{
-				ActivationInfo = &AbilityInstances.Last()->GetCurrentActivationInfoRef();
-			}
+			const FPredictionKey ActivationKey = GetActiveAbilityActivationPredictionKey(AbilitySpec);
 
 			InvokeReplicatedEvent(
 				EAbilityGenericReplicatedEvent::InputReleased,
 				AbilitySpec.Handle,
-				ActivationInfo->GetActivationPredictionKey());
+				ActivationKey);
 		}
 	}
 }
@@ -356,13 +363,7 @@ void UBlackoutAbilitySystemComponent::NotifyActiveAbilityInputPressedFromPayload
 			continue;
 		}
 
-		const FGameplayAbilityActivationInfo* ActivationInfo = &AbilitySpec.ActivationInfo;
-		const TArray<UGameplayAbility*> AbilityInstances = AbilitySpec.GetAbilityInstances();
-		if (AbilityInstances.Num() > 0 && AbilityInstances.Last())
-		{
-			ActivationInfo = &AbilityInstances.Last()->GetCurrentActivationInfoRef();
-		}
-		const FPredictionKey ActivationKey = ActivationInfo->GetActivationPredictionKey();
+		const FPredictionKey ActivationKey = GetActiveAbilityActivationPredictionKey(AbilitySpec);
 
 		// ServerSetReplicatedEvent 가 타이밍 문제로 WaitInputPress 를 깨우지 못하는 경우를 위한 안전망입니다.
 		AbilitySpec.InputPressed = true;
