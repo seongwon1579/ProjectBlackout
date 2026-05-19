@@ -19,7 +19,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Battle")
 	virtual void EndMatch(EBlackoutMatchEndReason Reason);
 
-	// 중간 보스 처치 시 외부(보스 사망 로직)에서 호출. 현재 무호출 — 보스 구현 트랙에서 연결.
+	// 중간 보스 처치 시 보스 사망 로직에서 호출. 보스 구현 후 연결된다.
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Battle")
 	void OnMidBossDefeated();
 
@@ -60,7 +60,7 @@ protected:
 	// GameState 생성 직후 초기 상태를 WaitingForPlayers 로 세팅.
 	virtual void InitGameState() override;
 
-	// c1 파티락: WaitingForPlayers 가 아니면 접속 거부 (시작 후 난입 차단. 재접속은 c2 별도 트랙).
+	// 매치 시작 후 신규 접속 거부 (WaitingForPlayers 가 아니면 난입 차단).
 	virtual void PreLogin(const FString& Options, const FString& Address,
 		const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage) override;
 

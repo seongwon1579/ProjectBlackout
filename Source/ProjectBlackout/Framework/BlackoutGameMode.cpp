@@ -99,7 +99,7 @@ void ABlackoutGameMode::NotifyReadyChanged()
 	}
 }
 
-// 매치 상태 전이 단일 권위. 흩어진 SetMatchState 직접호출을 Step3 에서 이리로 수렴.
+// 매치 상태 전이 단일 권위. SetMatchState 직접 호출을 이 진입점으로 일원화한다.
 void ABlackoutGameMode::TransitionTo(EBlackoutMatchState NewState)
 {
 	ABlackoutGameState* GS = GetGameState<ABlackoutGameState>();

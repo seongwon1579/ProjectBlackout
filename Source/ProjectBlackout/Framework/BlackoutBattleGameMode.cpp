@@ -116,7 +116,7 @@ void ABlackoutBattleGameMode::OnAllPlayersReady()
 		return;  // 쉘터 페이즈가 아니면 무시
 	}
 
-	// TODO(Step4): 해당 보스 게이트 Open(). TODO(Shrewd 트랙): 보스 활성은 phase 전이 수신측에서.
+	// 게이트 개폐와 보스 활성은 매치 상태 전이를 구독하는 측(게이트/보스)에서 처리한다.
 	BO_LOG_NET(Log, "전원 Ready — 보스 전투 전이 + 게이트 Open 대상");
 }
 
@@ -148,7 +148,7 @@ void ABlackoutBattleGameMode::OnMidBossDefeated()
 	}
 
 	TransitionTo(EBlackoutMatchState::ShelterMid);
-	// TODO(Step4): 중간 거점 쉘터 활성 + 메인 보스 게이트 잠금 유지.
+	// 중간 거점 쉘터 활성/게이트 잠금은 매치 상태 구독 측에서 처리된다.
 	BO_LOG_NET(Log, "중간 보스 처치 — 중간 거점 쉘터로 전이");
 }
 
@@ -214,7 +214,7 @@ void ABlackoutBattleGameMode::PreLogin(const FString& Options, const FString& Ad
 	{
 		if (GS->CurrentMatchState != EBlackoutMatchState::WaitingForPlayers)
 		{
-			// ErrorMessage 비어있지 않으면 엔진이 접속 거부 (c1 파티락).
+			// ErrorMessage 가 비어있지 않으면 엔진이 접속을 거부한다.
 			ErrorMessage = TEXT("Match already in progress");
 			BO_LOG_NET(Warning, "PreLogin 거부 — 매치 진행 중 (state=%s)",
 				*UEnum::GetValueAsString(GS->CurrentMatchState));
