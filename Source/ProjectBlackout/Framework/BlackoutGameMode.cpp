@@ -121,4 +121,16 @@ void ABlackoutGameMode::TransitionTo(EBlackoutMatchState NewState)
 	}
 
 	GS->SetMatchState(NewState);  // 복제 + 전이 로그는 SetMatchState 가 처리
+
+	// 쉘터 진입 시 Ready 를 새로 시작한다 (게이트 상호작용으로 다시 커밋).
+	if (NewState == EBlackoutMatchState::ShelterPrep || NewState == EBlackoutMatchState::ShelterMid)
+	{
+		for (APlayerState* PS : GS->PlayerArray)
+		{
+			if (ABlackoutPlayerState* BPS = Cast<ABlackoutPlayerState>(PS))
+			{
+				BPS->bIsReady = false;
+			}
+		}
+	}
 }
