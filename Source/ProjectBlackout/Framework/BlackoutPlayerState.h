@@ -46,6 +46,15 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|PlayerState|Consumables")
 	bool ConsumeConsumable(FGameplayTag ConsumableTag, int32 Amount = 1);
 
+	UFUNCTION(BlueprintPure, Category = "Blackout|PlayerState|State")
+	bool IsDowned() const;
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|PlayerState|State")
+	bool IsReviving() const;
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|PlayerState|State")
+	bool IsBeingRevived() const;
+
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Blackout|PlayerState")
 	FGameplayTag SelectedClassTag;
 
@@ -69,6 +78,8 @@ protected:
 	void OnRep_GulSerumCount();
 
 	void BroadcastConsumableCounts();
+
+	bool HasStateTag(FGameplayTag StateTag) const;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|GAS")
 	TObjectPtr<UBlackoutAbilitySystemComponent> AbilitySystemComponent;

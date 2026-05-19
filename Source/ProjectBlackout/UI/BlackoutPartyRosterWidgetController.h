@@ -5,7 +5,6 @@
 #include "UI/BlackoutPartyTypes.h"
 #include "BlackoutPartyRosterWidgetController.generated.h"
 
-class ABlackoutCharacterBase;
 class ABlackoutGameState;
 class ABlackoutPlayerCharacter;
 class ABlackoutPlayerState;
@@ -26,8 +25,8 @@ struct FBlackoutPartyMemberBinding
 	TWeakObjectPtr<ABlackoutPlayerCharacter> PlayerCharacter;
 	FDelegateHandle HealthChangedHandle;
 	FDelegateHandle MaxHealthChangedHandle;
-	FDelegateHandle DownedStateChangedHandle;
-	FDelegateHandle ReviveInteractionStateChangedHandle;
+	FDelegateHandle DownedStateTagChangedHandle;
+	FDelegateHandle BeingRevivedStateTagChangedHandle;
 };
 
 UCLASS(BlueprintType)
@@ -69,9 +68,6 @@ private:
 
 	UFUNCTION()
 	void HandlePlayerArrayChanged();
-
-	void HandleMemberDownedStateChanged(ABlackoutCharacterBase* ChangedCharacter, bool bIsDowned);
-	void HandleMemberReviveInteractionStateChanged(ABlackoutPlayerCharacter* ChangedCharacter, bool bIsReviveInteractionActive);
 
 	TWeakObjectPtr<APlayerController> PlayerController;
 	TWeakObjectPtr<ABlackoutGameState> GameState;

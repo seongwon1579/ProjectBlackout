@@ -1,7 +1,6 @@
 #include "UI/BlackoutPartyRosterWidgetController.h"
 
 #include "AbilitySystemComponent.h"
-#include "Characters/BlackoutCharacterBase.h"
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "Core/BlackoutLog.h"
 #include "EngineUtils.h"
@@ -9,6 +8,7 @@
 #include "Framework/BlackoutPlayerState.h"
 #include "GAS/Attributes/BlackoutBaseAttributeSet.h"
 #include "GameFramework/PlayerController.h"
+#include "GameplayTags/BlackoutGameplayTags.h"
 
 void UBlackoutPartyRosterWidgetController::BeginDestroy()
 {
@@ -182,6 +182,26 @@ void UBlackoutPartyRosterWidgetController::BindMember(ABlackoutPlayerState* Memb
 					BroadcastMemberStatus(BoundPlayerState);
 				}
 			});
+
+		Binding.DownedStateTagChangedHandle =
+			ASC->RegisterGameplayTagEvent(BlackoutGameplayTags::State_Downed, EGameplayTagEventType::NewOrRemoved)
+			.AddLambda([this, WeakMemberPlayerState](const FGameplayTag, int32)
+			{
+				if (ABlackoutPlayerState* BoundPlayerState = WeakMemberPlayerState.Get())
+				{
+					BroadcastMemberStatus(BoundPlayerState);
+				}
+			});
+
+		Binding.BeingRevivedStateTagChangedHandle =
+			ASC->RegisterGameplayTagEvent(BlackoutGameplayTags::State_BeingRevived, EGameplayTagEventType::NewOrRemoved)
+			.AddLambda([this, WeakMemberPlayerState](const FGameplayTag, int32)
+			{
+				if (ABlackoutPlayerState* BoundPlayerState = WeakMemberPlayerState.Get())
+				{
+					BroadcastMemberStatus(BoundPlayerState);
+				}
+			});
 	}
 	else
 	{
@@ -217,18 +237,17 @@ void UBlackoutPartyRosterWidgetController::UnbindMember(ABlackoutPlayerState* Me
 			ASC->GetGameplayAttributeValueChangeDelegate(UBlackoutBaseAttributeSet::GetMaxHealthAttribute())
 				.Remove(Binding.MaxHealthChangedHandle);
 		}
-	}
 
-	if (ABlackoutPlayerCharacter* PlayerCharacter = Binding.PlayerCharacter.Get())
-	{
-		if (Binding.DownedStateChangedHandle.IsValid())
+		if (Binding.DownedStateTagChangedHandle.IsValid())
 		{
-			PlayerCharacter->OnDownedStateChangedNative.Remove(Binding.DownedStateChangedHandle);
+			ASC->RegisterGameplayTagEvent(BlackoutGameplayTags::State_Downed, EGameplayTagEventType::NewOrRemoved)
+				.Remove(Binding.DownedStateTagChangedHandle);
 		}
 
-		if (Binding.ReviveInteractionStateChangedHandle.IsValid())
+		if (Binding.BeingRevivedStateTagChangedHandle.IsValid())
 		{
-			PlayerCharacter->OnReviveInteractionStateChangedNative.Remove(Binding.ReviveInteractionStateChangedHandle);
+			ASC->RegisterGameplayTagEvent(BlackoutGameplayTags::State_BeingRevived, EGameplayTagEventType::NewOrRemoved)
+				.Remove(Binding.BeingRevivedStateTagChangedHandle);
 		}
 	}
 }
@@ -258,34 +277,7 @@ void UBlackoutPartyRosterWidgetController::RefreshMemberCharacterBinding(FBlacko
 		return;
 	}
 
-	if (ABlackoutPlayerCharacter* PreviousPlayerCharacter = Binding.PlayerCharacter.Get())
-	{
-		if (Binding.DownedStateChangedHandle.IsValid())
-		{
-			PreviousPlayerCharacter->OnDownedStateChangedNative.Remove(Binding.DownedStateChangedHandle);
-			Binding.DownedStateChangedHandle.Reset();
-		}
-
-		if (Binding.ReviveInteractionStateChangedHandle.IsValid())
-		{
-			PreviousPlayerCharacter->OnReviveInteractionStateChangedNative.Remove(
-				Binding.ReviveInteractionStateChangedHandle);
-			Binding.ReviveInteractionStateChangedHandle.Reset();
-		}
-	}
-
 	Binding.PlayerCharacter = NewPlayerCharacter;
-
-	if (NewPlayerCharacter)
-	{
-		Binding.DownedStateChangedHandle = NewPlayerCharacter->OnDownedStateChangedNative.AddUObject(
-			this,
-			&UBlackoutPartyRosterWidgetController::HandleMemberDownedStateChanged);
-		Binding.ReviveInteractionStateChangedHandle =
-			NewPlayerCharacter->OnReviveInteractionStateChangedNative.AddUObject(
-				this,
-				&UBlackoutPartyRosterWidgetController::HandleMemberReviveInteractionStateChanged);
-	}
 }
 
 void UBlackoutPartyRosterWidgetController::BroadcastMemberStatus(ABlackoutPlayerState* MemberPlayerState)
@@ -325,11 +317,12 @@ FBlackoutPartyMemberStatusData UBlackoutPartyRosterWidgetController::BuildStatus
 		StatusData.MaxHealth = ASC->GetNumericAttribute(UBlackoutBaseAttributeSet::GetMaxHealthAttribute());
 	}
 
+	StatusData.bIsDowned = MemberPlayerState->IsDowned();
+	StatusData.bIsReviveInteractionActive = MemberPlayerState->IsBeingRevived();
+
 	const ABlackoutPlayerCharacter* PlayerCharacter = ResolvePlayerCharacter(MemberPlayerState);
 	if (PlayerCharacter)
 	{
-		StatusData.bIsDowned = PlayerCharacter->IsDowned();
-		StatusData.bIsReviveInteractionActive = PlayerCharacter->IsReviveInteractionActive();
 		StatusData.bIsDead = PlayerCharacter->IsDead();
 	}
 
@@ -379,33 +372,4 @@ UAbilitySystemComponent* UBlackoutPartyRosterWidgetController::ResolveAbilitySys
 void UBlackoutPartyRosterWidgetController::HandlePlayerArrayChanged()
 {
 	RefreshRoster();
-}
-
-void UBlackoutPartyRosterWidgetController::HandleMemberDownedStateChanged(
-	ABlackoutCharacterBase* ChangedCharacter,
-	bool bIsDowned)
-{
-	ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(ChangedCharacter);
-	ABlackoutPlayerState* MemberPlayerState =
-		PlayerCharacter ? PlayerCharacter->GetPlayerState<ABlackoutPlayerState>() : nullptr;
-	if (!MemberPlayerState)
-	{
-		return;
-	}
-
-	BroadcastMemberStatus(MemberPlayerState);
-}
-
-void UBlackoutPartyRosterWidgetController::HandleMemberReviveInteractionStateChanged(
-	ABlackoutPlayerCharacter* ChangedCharacter,
-	bool bIsReviveInteractionActive)
-{
-	ABlackoutPlayerState* MemberPlayerState =
-		ChangedCharacter ? ChangedCharacter->GetPlayerState<ABlackoutPlayerState>() : nullptr;
-	if (!MemberPlayerState)
-	{
-		return;
-	}
-
-	BroadcastMemberStatus(MemberPlayerState);
 }

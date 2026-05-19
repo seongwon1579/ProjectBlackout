@@ -124,6 +124,8 @@ void ABlackoutPlayerCharacter::PossessedBy(AController* NewController)
 		if (AbilitySystemComponent)
 		{
 			AbilitySystemComponent->InitAbilityActorInfo(GetPlayerState(), this);
+			BindDownedStateTagEvent();
+			ApplyReplicatedReviveInteractionStateTag();
 
 			// 초기 스탯 및 어빌리티 부여
 			InitializeAttributes();
@@ -162,6 +164,8 @@ void ABlackoutPlayerCharacter::OnRep_PlayerState()
 		if (AbilitySystemComponent)
 		{
 			AbilitySystemComponent->InitAbilityActorInfo(GetPlayerState(), this);
+			BindDownedStateTagEvent();
+			ApplyReplicatedReviveInteractionStateTag();
 
 			// 클라이언트에서도 어트리뷰트 초기화
 			InitializeAttributes();
@@ -781,6 +785,19 @@ void ABlackoutPlayerCharacter::HandleAimStateChanged(bool bNewAiming)
 	ApplyAimMovementMode(bNewAiming);
 }
 
+bool ABlackoutPlayerCharacter::IsReviving() const
+{
+	return AbilitySystemComponent
+		&& AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Reviving);
+}
+
+bool ABlackoutPlayerCharacter::IsBeingRevived() const
+{
+	return AbilitySystemComponent
+		? AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_BeingRevived)
+		: bIsReviveInteractionActive;
+}
+
 bool ABlackoutPlayerCharacter::TryBeginReviveInteraction(ABlackoutPlayerCharacter* Reviver)
 {
 	if (!HasAuthority() || !Reviver || IsDead() || !IsDowned())
@@ -788,11 +805,11 @@ bool ABlackoutPlayerCharacter::TryBeginReviveInteraction(ABlackoutPlayerCharacte
 		return false;
 	}
 
-	if (bIsReviveInteractionActive)
+	if (IsBeingRevived())
 	{
 		if (!ActiveReviver.IsValid())
 		{
-			bIsReviveInteractionActive = false;
+			SetBeingRevivedStateActive(false);
 			BroadcastReviveInteractionStateChanged();
 		}
 		else
@@ -801,7 +818,8 @@ bool ABlackoutPlayerCharacter::TryBeginReviveInteraction(ABlackoutPlayerCharacte
 		}
 	}
 
-	bIsReviveInteractionActive = true;
+	SetBeingRevivedStateActive(true);
+	Reviver->SetRevivingStateActive(true);
 	ActiveReviver = Reviver;
 	BroadcastReviveInteractionStateChanged();
 	return true;
@@ -809,7 +827,7 @@ bool ABlackoutPlayerCharacter::TryBeginReviveInteraction(ABlackoutPlayerCharacte
 
 void ABlackoutPlayerCharacter::EndReviveInteraction(ABlackoutPlayerCharacter* Reviver)
 {
-	if (!HasAuthority() || !bIsReviveInteractionActive)
+	if (!HasAuthority() || !IsBeingRevived())
 	{
 		return;
 	}
@@ -819,19 +837,25 @@ void ABlackoutPlayerCharacter::EndReviveInteraction(ABlackoutPlayerCharacter* Re
 		return;
 	}
 
-	bIsReviveInteractionActive = false;
+	if (ABlackoutPlayerCharacter* CurrentReviver = ActiveReviver.Get())
+	{
+		CurrentReviver->SetRevivingStateActive(false);
+	}
+
+	SetBeingRevivedStateActive(false);
 	ActiveReviver = nullptr;
 	BroadcastReviveInteractionStateChanged();
 }
 
 void ABlackoutPlayerCharacter::OnRep_ReviveInteractionActive()
 {
+	ApplyReplicatedReviveInteractionStateTag();
 	BroadcastReviveInteractionStateChanged();
 }
 
 void ABlackoutPlayerCharacter::BroadcastReviveInteractionStateChanged()
 {
-	OnReviveInteractionStateChangedNative.Broadcast(this, bIsReviveInteractionActive);
+	OnReviveInteractionStateChangedNative.Broadcast(this, IsBeingRevived());
 }
 
 void ABlackoutPlayerCharacter::OnHitReact()
@@ -852,13 +876,8 @@ void ABlackoutPlayerCharacter::OnHitReact()
 	Multicast_PlayHitReactMontage(HitReactMontage, 1.f);
 }
 
-void ABlackoutPlayerCharacter::HandleDownedStateChanged()
+void ABlackoutPlayerCharacter::HandleDownedStateChanged(bool bWasDowned, bool bIsCurrentlyDowned)
 {
-	const bool bWasDowned = bWasDownedLocally;
-	const bool bIsCurrentlyDowned = IsDowned();
-
-	bWasDownedLocally = bIsCurrentlyDowned;
-
 	if (bIsCurrentlyDowned)
 	{
 		ApplyDownedStateLocally();
@@ -936,8 +955,6 @@ void ABlackoutPlayerCharacter::OnDowned()
 
 	EndReviveInteraction(nullptr);
 
-	ApplyDownedStateLocally();
-
 	if (DownedEnterMontage)
 	{
 		Multicast_PlayDownedEnterMontage(DownedEnterMontage, 1.f);
@@ -998,12 +1015,9 @@ void ABlackoutPlayerCharacter::Server_ReviveFromDowned_Implementation(float Revi
 	const float MaxHealth = AbilitySystemComponent->GetNumericAttribute(UBlackoutBaseAttributeSet::GetMaxHealthAttribute());
 	const float ClampedHealth = FMath::Clamp(RevivedHealth, 1.f, MaxHealth);
 
-	AbilitySystemComponent->RemoveLooseGameplayTag(BlackoutGameplayTags::State_Downed);
-	bIsDowned = false;
+	SetDownedStateActive(false);
 	EndReviveInteraction(nullptr);
 	AbilitySystemComponent->SetNumericAttributeBase(UBlackoutBaseAttributeSet::GetHealthAttribute(), ClampedHealth);
-	BroadcastDownedStateChanged();
-	ClearDownedStateLocally();
 	ScheduleWeaponVisibilityRestoreAfterRevive();
 	BO_LOG_GAS(Log, "ReviveFromDowned: Target=%s Health=%.1f", *GetName(), ClampedHealth);
 }
@@ -1257,6 +1271,71 @@ void ABlackoutPlayerCharacter::HandleReviveMontageEnded(UAnimMontage* Montage, b
 	if (!IsDowned() && !IsDead())
 	{
 		RestoreWeaponVisibilityAfterRevive();
+	}
+}
+
+void ABlackoutPlayerCharacter::SetRevivingStateActive(bool bNewReviving)
+{
+	if (!AbilitySystemComponent)
+	{
+		return;
+	}
+
+	if (bNewReviving)
+	{
+		if (!AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Reviving))
+		{
+			AbilitySystemComponent->AddLooseGameplayTag(BlackoutGameplayTags::State_Reviving);
+		}
+	}
+	else
+	{
+		AbilitySystemComponent->RemoveLooseGameplayTag(BlackoutGameplayTags::State_Reviving);
+	}
+}
+
+void ABlackoutPlayerCharacter::SetBeingRevivedStateActive(bool bNewBeingRevived)
+{
+	if (HasAuthority())
+	{
+		bIsReviveInteractionActive = bNewBeingRevived;
+	}
+
+	if (!AbilitySystemComponent)
+	{
+		return;
+	}
+
+	if (bNewBeingRevived)
+	{
+		if (!AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_BeingRevived))
+		{
+			AbilitySystemComponent->AddLooseGameplayTag(BlackoutGameplayTags::State_BeingRevived);
+		}
+	}
+	else
+	{
+		AbilitySystemComponent->RemoveLooseGameplayTag(BlackoutGameplayTags::State_BeingRevived);
+	}
+}
+
+void ABlackoutPlayerCharacter::ApplyReplicatedReviveInteractionStateTag()
+{
+	if (HasAuthority() || !AbilitySystemComponent)
+	{
+		return;
+	}
+
+	if (bIsReviveInteractionActive)
+	{
+		if (!AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_BeingRevived))
+		{
+			AbilitySystemComponent->AddLooseGameplayTag(BlackoutGameplayTags::State_BeingRevived);
+		}
+	}
+	else
+	{
+		AbilitySystemComponent->RemoveLooseGameplayTag(BlackoutGameplayTags::State_BeingRevived);
 	}
 }
 

@@ -7,6 +7,8 @@ namespace BlackoutGameplayTags
 {
 	// ─── Character State ───────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Downed);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Reviving);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_BeingRevived);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Invulnerable);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Locked);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Aiming);

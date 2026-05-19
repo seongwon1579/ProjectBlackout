@@ -166,6 +166,21 @@ bool ABlackoutPlayerState::ConsumeConsumable(FGameplayTag ConsumableTag, int32 A
 	return SetConsumableCount(ConsumableTag, CurrentCount - Amount);
 }
 
+bool ABlackoutPlayerState::IsDowned() const
+{
+	return HasStateTag(BlackoutGameplayTags::State_Downed);
+}
+
+bool ABlackoutPlayerState::IsReviving() const
+{
+	return HasStateTag(BlackoutGameplayTags::State_Reviving);
+}
+
+bool ABlackoutPlayerState::IsBeingRevived() const
+{
+	return HasStateTag(BlackoutGameplayTags::State_BeingRevived);
+}
+
 void ABlackoutPlayerState::OnRep_BloodRootCount()
 {
 	BroadcastConsumableCounts();
@@ -179,4 +194,11 @@ void ABlackoutPlayerState::OnRep_GulSerumCount()
 void ABlackoutPlayerState::BroadcastConsumableCounts()
 {
 	OnConsumableCountsChanged.Broadcast(BloodRootCount, GulSerumCount);
+}
+
+bool ABlackoutPlayerState::HasStateTag(FGameplayTag StateTag) const
+{
+	return AbilitySystemComponent
+		&& StateTag.IsValid()
+		&& AbilitySystemComponent->HasMatchingGameplayTag(StateTag);
 }

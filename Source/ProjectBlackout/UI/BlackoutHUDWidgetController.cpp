@@ -243,7 +243,7 @@ bool UBlackoutHUDWidgetController::GetInteractionPromptData(FBlackoutInteraction
 	OutPromptData.ScreenPosition = PromptScreenPosition;
 	OutPromptData.PromptText = RevivePromptText;
 
-	if (NearbyDownedPlayer->IsReviveInteractionActive())
+	if (NearbyDownedPlayer->IsBeingRevived())
 	{
 		OutPromptData.State = EBlackoutInteractionPromptState::Busy;
 		OutPromptData.bIsStatusError = true;
