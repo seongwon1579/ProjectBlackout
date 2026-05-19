@@ -139,6 +139,25 @@ void ABlackoutBattleGameMode::RegisterArena(
 	BO_LOG_NET(Log, "아레나 등록: %s", *GetNameSafe(Arena.GetObject()));
 }
 
+void ABlackoutBattleGameMode::OnMidBossDefeated()
+{
+	ABlackoutGameState* GS = GetGameState<ABlackoutGameState>();
+	if (!GS || GS->CurrentMatchState != EBlackoutMatchState::MidBossCombat)
+	{
+		return;
+	}
+
+	TransitionTo(EBlackoutMatchState::ShelterMid);
+	// TODO(Step4): 중간 거점 쉘터 활성 + 메인 보스 게이트 잠금 유지.
+	BO_LOG_NET(Log, "중간 보스 처치 — 중간 거점 쉘터로 전이");
+}
+
+void ABlackoutBattleGameMode::BO_SimMidBossDefeated()
+{
+	BO_LOG_NET(Warning, "[테스트] BO_SimMidBossDefeated — 중간 보스 처치 시뮬레이션");
+	OnMidBossDefeated();
+}
+
 void ABlackoutBattleGameMode::InitGame(const FString& MapName,
                                        const FString& Options,
                                        FString& ErrorMessage)

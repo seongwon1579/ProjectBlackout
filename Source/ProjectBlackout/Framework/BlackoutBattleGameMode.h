@@ -18,6 +18,14 @@ public:
 	// 매치 종료 트리거, 보스 사망 / 전원 이탈/ 타임아웃 등 외부 이벤트에서 호출
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Battle")
 	virtual void EndMatch(EBlackoutMatchEndReason Reason);
+
+	// 중간 보스 처치 시 외부(보스 사망 로직)에서 호출. 현재 무호출 — 보스 구현 트랙에서 연결.
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Battle")
+	void OnMidBossDefeated();
+
+	// [테스트 전용] 콘솔에서 중간 보스 처치 시뮬레이션. 보스/4인 없이 루프 검증용.
+	UFUNCTION(Exec)
+	void BO_SimMidBossDefeated();
 	
 	// 생존자 0명 감지 시 외부에서 호출. 현재 체크포인트로 전원 복귀 트리거.
 	virtual void HandlePartyWipe() override;
