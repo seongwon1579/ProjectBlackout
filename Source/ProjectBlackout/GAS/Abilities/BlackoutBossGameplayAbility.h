@@ -23,6 +23,7 @@ protected:
 	virtual void PostActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) {}
 	virtual void SetupEventListeners() {}
 	virtual FGameplayTag SelectMontageTag(const FGameplayEventData* TriggerEventData) const;
+	virtual bool IsValid() const;
 	
 	bool TryResolveMontage(const FGameplayEventData* TriggerEventData);
 	void TrySetupMotionWarp(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData);
