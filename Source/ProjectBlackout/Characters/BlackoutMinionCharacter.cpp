@@ -66,11 +66,10 @@ void ABlackoutMinionCharacter::OnSpawnFromPool_Implementation()
 {
 	Super::OnSpawnFromPool_Implementation();
 
-	// 사망 시 정지했던 상태 복구.
-	ResetVitalState();
+	// 사망 시 정지했던 상태 복구. (사망/다운 플래그는 Super 가 이미 리셋)
 	if (UCharacterMovementComponent* Move = GetCharacterMovement())
 	{
-		Move->SetMovementMode(MOVE_Walking);
+		Move->SetDefaultMovementMode();
 	}
 	if (AAIController* AICon = Cast<AAIController>(GetController()))
 	{

@@ -2,6 +2,7 @@
 
 #include "Components/MeshComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/WidgetComponent.h"
 #include "Curves/CurveFloat.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "NiagaraComponent.h"
@@ -51,6 +52,12 @@ void UBODissolveComponent::InitializeDissolve()
 	for (UMeshComponent* MeshComp : MeshComps)
 	{
 		if (!MeshComp)
+		{
+			continue;
+		}
+
+		// 체력바 등 UI 위젯은 UMeshComponent 파생이지만 dissolve 대상 아님.
+		if (MeshComp->IsA<UWidgetComponent>())
 		{
 			continue;
 		}
