@@ -85,8 +85,11 @@ namespace BlackoutGameplayTags
 
 	// ─── Gameplay Cues ─────────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Character_Hit, "GameplayCue.Character.Hit");
-	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_Fire,   "GameplayCue.Weapon.Fire");
-	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_Reload, "GameplayCue.Weapon.Reload");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Consumable_Use, "GameplayCue.Consumable.Use");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Consumable_BloodRoot_Use, "GameplayCue.Consumable.BloodRoot.Use");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Consumable_GulSerum_Use, "GameplayCue.Consumable.GulSerum.Use");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Relic_Use, "GameplayCue.Relic.Use");
+
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_Default_Fire, "GameplayCue.Weapon.Default.Fire");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_Default_Trail, "GameplayCue.Weapon.Default.Trail");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_Default_Impact_Default, "GameplayCue.Weapon.Default.Impact.Default");
@@ -165,6 +168,10 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Evade_L, "Ability.Ravager.Evade.L");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Evade_R, "Ability.Ravager.Evade.R");
 	
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Shockwave, "Ability.Ravager.Shockwave");
+	
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_SpawnMinion, "Ability.Ravager.SpawnMinion");
+	
 	// ─── Wraith Abilities ──────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Wraith_FireTwinArrows, "Ability.Wraith.FireTwinArrows");
 	UE_DEFINE_GAMEPLAY_TAG(Cooldown_Wraith_FireTwinArrows, "Cooldown.Wraith.FireTwinArrows");
@@ -182,9 +189,10 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(Event_Wraith_Teleport_Appear , "Event.Wraith.Teleport.Appear");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Wraith_BowShove, "GameplayCue.Wraith.BowShove");
 	
-	
+	// ─── Attack Events ────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_OnCollision, "Event.Enemy.Attack.OnCollision");
 	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_OffCollision, "Event.Enemy.Attack.OffCollision");
+	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_Spawn_Projectile, "Event.Enemy.Attack.Spawn.Projectile");
 
 	// ─── Montage Events ───────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Event_Montage_ConsumableApply, "Event.Montage.ConsumableApply");

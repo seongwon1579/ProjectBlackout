@@ -7,6 +7,7 @@
 #include "GameplayEffect.h"
 #include "GA_Ravager_MeleeAttack.generated.h"
 
+class UAbilityTask_WaitGameplayEvent;
 struct FHitResult;
 struct FGameplayEventData;
 class UAbilityTask_BossMeleeHitbox;
@@ -33,5 +34,8 @@ private:
 
 	UFUNCTION()
 	void EndHitBox(FGameplayEventData Payload);
+	
+	UPROPERTY(Transient)
+	TObjectPtr<UAbilityTask_WaitGameplayEvent> WaitCollisionEvent;
 	
 };

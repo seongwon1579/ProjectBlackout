@@ -293,9 +293,10 @@ void UBlackoutGA_Reload::ApplyReloadEffect()
 		}
 
 		AbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
-		AbilitySystemComponent->ExecuteGameplayCue(BlackoutGameplayTags::GameplayCue_Weapon_Reload);
 		bReloadEffectApplied = true;
+		
 		BO_LOG_GAS(Log, "GA_Reload applied reload effect");
+		
 		return;
 	}
 

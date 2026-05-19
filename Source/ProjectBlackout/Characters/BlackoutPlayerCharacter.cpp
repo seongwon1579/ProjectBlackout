@@ -793,6 +793,7 @@ bool ABlackoutPlayerCharacter::TryBeginReviveInteraction(ABlackoutPlayerCharacte
 		if (!ActiveReviver.IsValid())
 		{
 			bIsReviveInteractionActive = false;
+			BroadcastReviveInteractionStateChanged();
 		}
 		else
 		{
@@ -802,6 +803,7 @@ bool ABlackoutPlayerCharacter::TryBeginReviveInteraction(ABlackoutPlayerCharacte
 
 	bIsReviveInteractionActive = true;
 	ActiveReviver = Reviver;
+	BroadcastReviveInteractionStateChanged();
 	return true;
 }
 
@@ -819,6 +821,17 @@ void ABlackoutPlayerCharacter::EndReviveInteraction(ABlackoutPlayerCharacter* Re
 
 	bIsReviveInteractionActive = false;
 	ActiveReviver = nullptr;
+	BroadcastReviveInteractionStateChanged();
+}
+
+void ABlackoutPlayerCharacter::OnRep_ReviveInteractionActive()
+{
+	BroadcastReviveInteractionStateChanged();
+}
+
+void ABlackoutPlayerCharacter::BroadcastReviveInteractionStateChanged()
+{
+	OnReviveInteractionStateChangedNative.Broadcast(this, bIsReviveInteractionActive);
 }
 
 void ABlackoutPlayerCharacter::OnHitReact()
@@ -989,6 +1002,7 @@ void ABlackoutPlayerCharacter::Server_ReviveFromDowned_Implementation(float Revi
 	bIsDowned = false;
 	EndReviveInteraction(nullptr);
 	AbilitySystemComponent->SetNumericAttributeBase(UBlackoutBaseAttributeSet::GetHealthAttribute(), ClampedHealth);
+	BroadcastDownedStateChanged();
 	ClearDownedStateLocally();
 	ScheduleWeaponVisibilityRestoreAfterRevive();
 	BO_LOG_GAS(Log, "ReviveFromDowned: Target=%s Health=%.1f", *GetName(), ClampedHealth);

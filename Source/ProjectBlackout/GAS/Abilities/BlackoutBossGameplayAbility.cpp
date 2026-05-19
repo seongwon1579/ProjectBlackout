@@ -33,14 +33,15 @@ void UBlackoutBossGameplayAbility::ActivateAbility(const FGameplayAbilitySpecHan
 	}
 
 	PreActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
-	
 	if (!TryResolveMontage(TriggerEventData))
 	{
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
-	PlayMontage();
+	
 	SetupEventListeners();
+	PlayMontage();
+	PostActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 }
 
 void UBlackoutBossGameplayAbility::EndAbility(const FGameplayAbilitySpecHandle Handle,

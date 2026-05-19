@@ -5,6 +5,8 @@
 #include "Core/BlackoutTypes.h"
 #include "BlackoutGameState.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FBlackoutPlayerArrayChangedSignature);
+
 UCLASS()
 class PROJECTBLACKOUT_API ABlackoutGameState : public AGameStateBase
 {
@@ -14,6 +16,11 @@ public:
 	ABlackoutGameState();
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void AddPlayerState(APlayerState* PlayerState) override;
+	virtual void RemovePlayerState(APlayerState* PlayerState) override;
+
+	UPROPERTY(BlueprintAssignable, Category = "Blackout|GameState")
+	FBlackoutPlayerArrayChangedSignature OnPlayerArrayChanged;
 
 	// 현재 매치 생애주기 상태. 서버에서 SetMatchState 로만 전환하고 클라에 리플리케이트.
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_CurrentMatchState, Category = "Blackout|GameState")

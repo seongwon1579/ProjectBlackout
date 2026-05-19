@@ -5,6 +5,7 @@
 #include "BehaviorTree/Tasks/BTTask_SpawnMinionWave.h"
 #include "GA_Ravager_SummonMinion.generated.h"
 
+class UAbilityTask_WaitGameplayEvent;
 /**
  * 미니언 소환 GA.
  * WaveType 으로 Phase A(Root Hollow 단독) / Phase B 이상(혼합) 를 분기한다.
@@ -17,17 +18,19 @@ class PROJECTBLACKOUT_API UGA_Ravager_SummonMinion : public UBlackoutBossGamepla
 {
 	GENERATED_BODY()
 
-public:
-	UGA_Ravager_SummonMinion();
-
 protected:
-	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+	virtual void SetupEventListeners() override;
 
-	/** 소환할 웨이브 종류. BT 에디터에서 페이즈별 노드마다 다르게 설정한다. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Ability")
-	EBOMinionWaveType WaveType = EBOMinionWaveType::RootHollowOnly;
+	UFUNCTION()
+	void OnSpawnMinionNotify(FGameplayEventData Payload);
 
-	/** 한 번에 소환할 미니언 수. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Ability", meta = (ClampMin = 1))
-	int32 SpawnCount = 3;
+	void SetSpawnerProjectiles();
+
+	void ThrowSingleSpawnerProjectile(const FVector& SpawnLocation, const FRotator& BaseRotation, int32 Index, int32 Total);
+
+	void ResolveSpawnLocation(FVector& OutLocation) const;
+
+private:
+	UPROPERTY(Transient)
+	TObjectPtr<UAbilityTask_WaitGameplayEvent> WaitSpawnEvent;
 };

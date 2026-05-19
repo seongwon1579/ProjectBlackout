@@ -47,6 +47,14 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Consumable", meta = (ClampMin = 0.0, ClampMax = 1.0))
 	float ConsumableSpeedMultiplier = 0.5f;
 
+	/** 소모품 효과가 실제 적용되는 순간 실행할 일회성 GCN 태그입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Consumable|Cue")
+	FGameplayTag ConsumableUseCueTag;
+
+	/** 소모 GCN을 부착할 오른손 소켓 이름입니다. 기본값은 현재 무기 장착 소켓과 동일합니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Consumable|Cue")
+	FName ConsumableUseCueSocketName = TEXT("WeaponSocket");
+
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Consumable")
 	const UBOConsumableData* ResolveConsumableData();
 
@@ -65,6 +73,7 @@ protected:
 private:
 	const UBOConsumableData* ResolveConsumableDataFromSpec(FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo) const;
 	void ConsumeAndApplyEffect();
+	void ExecuteConsumableUseCue(const UBOConsumableData* UsedConsumableData);
 
 	UFUNCTION()
 	void OnConsumableApplyEventReceived(FGameplayEventData Payload);

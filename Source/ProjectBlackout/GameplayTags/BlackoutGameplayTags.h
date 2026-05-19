@@ -88,8 +88,11 @@ namespace BlackoutGameplayTags
 
 	// ─── Gameplay Cues ─────────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Character_Hit);
-	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Weapon_Fire);
-	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Weapon_Reload);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Consumable_Use);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Consumable_BloodRoot_Use);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Consumable_GulSerum_Use);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Relic_Use);
+
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Weapon_Default_Fire);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Weapon_Default_Trail);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Weapon_Default_Impact_Default);
@@ -167,6 +170,10 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_Evade_L);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_Evade_R);
 	
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_Shockwave);
+	
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_SpawnMinion);
+	
 	// ─── Wraith Abilities ─────────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Wraith_FireTwinArrows);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Cooldown_Wraith_FireTwinArrows);
@@ -184,11 +191,12 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Wraith_Teleport_Appear);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Wraith_BowShove);
 	
-
 	// ─── Attack Events ────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Enemy_Attack_OnCollision);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Enemy_Attack_OffCollision);
-
+	
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Enemy_Attack_Spawn_Projectile);
+	
 	// ─── Montage Events ───────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Montage_ConsumableApply);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Montage_RelicApply);

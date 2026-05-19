@@ -8,6 +8,10 @@
 #include "BlackoutCharacterBase.generated.h"
 
 class UBlackoutAbilitySystemComponent;
+class ABlackoutCharacterBase;
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FBlackoutDownedStateChangedSignature, bool, bIsDowned);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FBlackoutDownedStateChangedNativeSignature, ABlackoutCharacterBase*, bool);
 
 /**
  * 모든 캐릭터(플레이어/적/보스)의 최상위 베이스 클래스.
@@ -31,6 +35,11 @@ public:
 	
 	bool IsDead() const { return bIsDead; }
 	bool IsDowned() const { return bIsDowned; }
+
+	UPROPERTY(BlueprintAssignable, Category = "Blackout|State")
+	FBlackoutDownedStateChangedSignature OnDownedStateChanged;
+
+	FBlackoutDownedStateChangedNativeSignature OnDownedStateChangedNative;
 
 protected:
 	virtual void BeginPlay() override;
@@ -59,6 +68,9 @@ protected:
 	/** HP 0 도달 시 즉시 사망 대신 다운 상태로 전환할 수 있는지 여부입니다. */
 	virtual bool CanEnterDownedState() const;
 
+	/** 풀 재사용 등으로 캐릭터를 되살릴 때 사망/다운 상태 플래그를 초기화합니다. */
+	void ResetVitalState();
+
 	/** 피격 시 히트 리액션 몽타주 재생 등 공통 처리. */
 	virtual void OnHitReact();
 
@@ -71,4 +83,6 @@ protected:
 
 	/** 다운 상태 변경 시 서브클래스가 로컬 전용 후처리를 구현할 수 있는 훅입니다. */
 	virtual void HandleDownedStateChanged();
+
+	void BroadcastDownedStateChanged();
 };

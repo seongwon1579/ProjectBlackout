@@ -18,15 +18,14 @@ void UGA_Ravager_MeleeAttack::PreActivateAbility(const FGameplayAbilitySpecHandl
 
 void UGA_Ravager_MeleeAttack::SetupEventListeners()
 {
-	UAbilityTask_WaitGameplayEvent* WaitStartTask =
-	UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(
+	WaitCollisionEvent = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(
 		this,
 		BlackoutGameplayTags::Event_Enemy_Attack_OnCollision,
 		nullptr,
 		true
 	);
-	WaitStartTask->EventReceived.AddDynamic(this, &UGA_Ravager_MeleeAttack::OnCollision);
-	WaitStartTask->ReadyForActivation();
+	WaitCollisionEvent->EventReceived.AddDynamic(this, &UGA_Ravager_MeleeAttack::OnCollision);
+	WaitCollisionEvent->ReadyForActivation();
 }
 
 void UGA_Ravager_MeleeAttack::EndAbility(const FGameplayAbilitySpecHandle Handle,

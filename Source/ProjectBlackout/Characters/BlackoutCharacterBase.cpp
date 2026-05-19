@@ -253,6 +253,7 @@ void ABlackoutCharacterBase::OnDeath()
 		return;
 	}
 
+	const bool bWasDowned = bIsDowned;
 	bIsDead = true;
 	bIsDowned = false;
 
@@ -260,6 +261,11 @@ void ABlackoutCharacterBase::OnDeath()
 	{
 		AbilitySystemComponent->CancelHealthRegenOverTime();
 		AbilitySystemComponent->RemoveLooseGameplayTag(BlackoutGameplayTags::State_Downed);
+	}
+
+	if (bWasDowned)
+	{
+		BroadcastDownedStateChanged();
 	}
 
 	BO_LOG_CORE(Log, "OnDeath: %s", *GetName());
@@ -280,12 +286,20 @@ void ABlackoutCharacterBase::OnDowned()
 		AbilitySystemComponent->AddLooseGameplayTag(BlackoutGameplayTags::State_Downed);
 	}
 
+	BroadcastDownedStateChanged();
+
 	BO_LOG_CORE(Log, "OnDowned: %s", *GetName());
 }
 
 bool ABlackoutCharacterBase::CanEnterDownedState() const
 {
 	return false;
+}
+
+void ABlackoutCharacterBase::ResetVitalState()
+{
+	bIsDead = false;
+	bIsDowned = false;
 }
 
 void ABlackoutCharacterBase::OnHitReact()
@@ -303,9 +317,16 @@ void ABlackoutCharacterBase::OnRep_DownedState()
 		*GetNameSafe(this),
 		bIsDowned ? TEXT("true") : TEXT("false"));
 
+	BroadcastDownedStateChanged();
 	HandleDownedStateChanged();
 }
 
 void ABlackoutCharacterBase::HandleDownedStateChanged()
 {
+}
+
+void ABlackoutCharacterBase::BroadcastDownedStateChanged()
+{
+	OnDownedStateChanged.Broadcast(bIsDowned);
+	OnDownedStateChangedNative.Broadcast(this, bIsDowned);
 }

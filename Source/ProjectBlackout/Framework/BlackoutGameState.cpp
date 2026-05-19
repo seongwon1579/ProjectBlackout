@@ -16,6 +16,20 @@ void ABlackoutGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 	DOREPLIFETIME(ABlackoutGameState, bRedMistPhaseActive);
 }
 
+void ABlackoutGameState::AddPlayerState(APlayerState* PlayerState)
+{
+	Super::AddPlayerState(PlayerState);
+
+	OnPlayerArrayChanged.Broadcast();
+}
+
+void ABlackoutGameState::RemovePlayerState(APlayerState* PlayerState)
+{
+	Super::RemovePlayerState(PlayerState);
+
+	OnPlayerArrayChanged.Broadcast();
+}
+
 // 서버 Authority 전용. 클라 호출 차단 + 동일 상태 중복 전환 무시.
 void ABlackoutGameState::SetMatchState(EBlackoutMatchState NewState)
 {

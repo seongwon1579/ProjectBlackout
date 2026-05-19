@@ -18,6 +18,8 @@
 #include "UI/BlackoutConsumableSlotsWidget.h"
 #include "UI/BlackoutHUDWidgetController.h"
 #include "UI/BlackoutInteractionPromptWidget.h"
+#include "UI/BlackoutPartyRosterWidget.h"
+#include "UI/BlackoutPartyRosterWidgetController.h"
 #include "UI/BlackoutRelicWidget.h"
 #include "UI/BlackoutReviveProgressWidget.h"
 #include "UI/BlackoutValueBarWidget.h"
@@ -131,6 +133,29 @@ void UBlackoutHUDWidget::SetWidgetController(UBlackoutHUDWidgetController* InWid
 	WidgetController->OnConsumableSlotsChanged.AddDynamic(this, &UBlackoutHUDWidget::HandleConsumableSlotsChanged);
 
 	ReceiveWidgetControllerSet();
+}
+
+void UBlackoutHUDWidget::SetPartyRosterWidgetController(
+	UBlackoutPartyRosterWidgetController* InPartyRosterWidgetController)
+{
+	if (!InPartyRosterWidgetController)
+	{
+		BO_LOG_CORE(Warning, "파티 로스터 컨트롤러가 유효하지 않아 HUD 위젯에 연결하지 않았습니다.");
+		return;
+	}
+
+	PartyRosterWidgetController = InPartyRosterWidgetController;
+
+	if (PartyRosterWidget)
+	{
+		PartyRosterWidget->SetWidgetController(PartyRosterWidgetController);
+	}
+	else
+	{
+		BO_LOG_CORE(Verbose, "PartyRosterWidget이 바인딩되지 않아 파티 상태 패널 위젯 연결을 건너뜁니다.");
+	}
+
+	ReceivePartyRosterControllerSet(PartyRosterWidgetController);
 }
 
 bool UBlackoutHUDWidget::ShowDamageNumberAtWorldLocation(

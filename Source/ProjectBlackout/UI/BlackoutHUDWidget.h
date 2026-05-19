@@ -14,6 +14,8 @@ class UBlackoutDamageNumberWidget;
 class UBlackoutConsumableSlotsWidget;
 class UBlackoutHUDWidgetController;
 class UBlackoutInteractionPromptWidget;
+class UBlackoutPartyRosterWidget;
+class UBlackoutPartyRosterWidgetController;
 class UBlackoutRelicWidget;
 class UBlackoutReviveProgressWidget;
 class UBlackoutValueBarWidget;
@@ -35,6 +37,12 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Blackout|HUD")
 	UBlackoutHUDWidgetController* GetWidgetController() const { return WidgetController; }
 
+	UFUNCTION(BlueprintCallable, Category = "Blackout|HUD")
+	void SetPartyRosterWidgetController(UBlackoutPartyRosterWidgetController* InPartyRosterWidgetController);
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|HUD")
+	UBlackoutPartyRosterWidgetController* GetPartyRosterWidgetController() const { return PartyRosterWidgetController; }
+
 	bool ShowDamageNumberAtWorldLocation(float DamageAmount, const FVector& WorldLocation, bool bIsCritical);
 
 protected:
@@ -54,6 +62,9 @@ protected:
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|HUD")
 	TObjectPtr<UBlackoutHUDWidgetController> WidgetController;
 
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|HUD")
+	TObjectPtr<UBlackoutPartyRosterWidgetController> PartyRosterWidgetController;
+
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
 	TObjectPtr<UBlackoutValueBarWidget> HealthBarWidget;
 
@@ -68,6 +79,9 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
 	TObjectPtr<UBlackoutRelicWidget> RelicWidget;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
+	TObjectPtr<UBlackoutPartyRosterWidget> PartyRosterWidget;
 
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
 	TObjectPtr<UWidget> ImpactIndicatorWidget;
@@ -150,6 +164,9 @@ protected:
 
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Widget Controller Set"), Category = "Blackout|HUD")
 	void ReceiveWidgetControllerSet();
+
+	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Party Roster Controller Set"), Category = "Blackout|HUD")
+	void ReceivePartyRosterControllerSet(UBlackoutPartyRosterWidgetController* InPartyRosterWidgetController);
 
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Health Changed"), Category = "Blackout|HUD")
 	void ReceiveHealthChanged(float CurrentHealth, float MaxHealth);
