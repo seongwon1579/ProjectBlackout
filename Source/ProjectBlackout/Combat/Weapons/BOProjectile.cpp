@@ -96,6 +96,21 @@ void ABOProjectile::Launch(const FVector& Direction)
 		return;
 	}
 
+	// firer(발사자) 자기충돌 무시. 풀 재사용 대비 이전 ignore 목록 클리어 후 현재 firer 등록.
+	if (Collision)
+	{
+		Collision->ClearMoveIgnoreActors();
+		AActor* Firer = GetInstigator();
+		if (!Firer)
+		{
+			Firer = GetOwner();
+		}
+		if (Firer)
+		{
+			Collision->IgnoreActorWhenMoving(Firer, true);
+		}
+	}
+
 	Movement->Velocity = Direction.GetSafeNormal() * Movement->InitialSpeed;
 	Movement->SetActive(true, true);
 
@@ -181,6 +196,13 @@ void ABOProjectile::ApplyActiveState(bool bIsActive)
 
 void ABOProjectile::OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
+	// 발사자/소유자/자기 자신 충돌 무시 (firer PhysicsAsset 자기충돌로 스폰 즉시 소멸 방지)
+	if (OtherActor == nullptr || OtherActor == this
+		|| OtherActor == GetInstigator() || OtherActor == GetOwner())
+	{
+		return;
+	}
+
 	if (HasAuthority() && DamageSpec.IsValid())
 	{
 		if (UBlackoutHitboxComponent* HitboxComponent = Cast<UBlackoutHitboxComponent>(OtherComp))
