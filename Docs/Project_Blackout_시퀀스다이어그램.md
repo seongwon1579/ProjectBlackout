@@ -235,14 +235,16 @@ sequenceDiagram
 
 ## 🗺️ 게임 플로우
 
-### 8. 로비 → 캐릭터 선택 → 전투 맵 진입
+### 8. 매치메이킹 → 단일 배틀맵 직행 → 시작 쉘터 (집결·선택·Ready)
 
 ```mermaid
 sequenceDiagram
     actor P1 as Player1
     actor Others as Player2-4
-    participant Server as LobbyGameMode (서버)
+    participant Server as BattleGameMode (서버)
     participant PS as PlayerState
+
+    Note over P1,Others: 매칭 완료 → 데디(단일 배틀맵) 직접 접속, 시작 쉘터 스폰
 
     Server->>P1: Client_OpenClassSelectUI (RPC)
     Server->>Others: Client_OpenClassSelectUI (RPC)
@@ -251,33 +253,32 @@ sequenceDiagram
     Server->>PS: SelectedClassTag = Assault
     PS-->>Others: OnRep_SelectedClassTag (UI 갱신)
 
-    Note over P1: 화톳불 상호작용으로 재선택 가능
+    Note over P1: 시작 쉘터 화톳불 상호작용으로 재선택 가능
     P1->>Server: Server_RequestReopenClassSelect
     Server->>P1: Client_OpenClassSelectUI
 
-    Note over P1,Others: 전원 포털 상호작용
+    Note over P1,Others: 시작 쉘터에서 전원 Ready
 
-    P1->>Server: Interact(Portal)
-    Others->>Server: Interact(Portal)
+    P1->>Server: Server_SetReady
+    Others->>Server: Server_SetReady
     Server->>Server: AllPlayersReady() == true
 
     Server->>PS: ApplyBattleTransitionPolicy()
     Note over PS: 탄약/유물 완전 초기화, 소모품 최소 1 보정
 
-    Server->>Server: ServerTravel("/Maps/Battle_MidBoss")
-    Server-->>P1: 맵 전환
-    Server-->>Others: 맵 전환
+    Server->>Server: OnAllPlayersReady() → 중간 보스 구역 게이트 언락
+    Note over Server: 맵 전환 없음 (단일 맵 내 구역 개방)
 ```
 
 ---
 
-### 9. 슈루드 → 메인 보스 전환 (StreamLevel)
+### 9. 중간 보스 → 메인 보스 전환 (단일 맵, 구역 게이트)
 
 ```mermaid
 sequenceDiagram
     actor Players as 플레이어 전원
     participant Server as BattleGameMode (서버)
-    participant PS as PlayerState
+    participant Arena as IArenaResettable
     participant GS as GameState
 
     Note over Server: 슈루드 HP == 0
@@ -285,19 +286,17 @@ sequenceDiagram
     Server->>Server: OnMidBossDefeated() 델리게이트
     Server->>GS: bMidBossDefeated = true (Replicated)
 
-    Server->>Server: LoadStreamLevel("Level_MainBoss")
-    Server->>Server: 메인 보스 구역 게이트 언락
-
+    Server->>Server: 메인 보스 구역 게이트 언락 (단일 맵, 스트리밍/트래블 없음)
     Server->>Server: CurrentCheckpointTag = Checkpoint.MainBoss
-    Note over Server: 장비/어트리뷰트 지속 (레벨 트래블 없음)
+    Note over Server: 같은 월드 → 장비/어트리뷰트 자연 지속
 
-    Players->>Players: 화톳불 #2로 이동
-    Players->>Server: 포털 상호작용
+    Players->>Players: 중간 거점 쉘터(화톳불 #2) 휴식·병과 재선택
+    Players->>Server: Ready (게이트 통과)
 
-    Server->>PS: ApplyBattleTransitionPolicy()
-    Note over PS: 탄약/유물 완전 초기화, 소모품 보정
+    Server->>Server: ApplyBattleTransitionPolicy()
+    Note over Server: 탄약/유물 초기화, 소모품 보정
 
-    Note over Players: 메인 보스전 시작
+    Note over Players,Arena: 메인 보스전 시작 — 전멸 시 CurrentArena->Reset()
 ```
 
 ---
