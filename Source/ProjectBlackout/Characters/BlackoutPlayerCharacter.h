@@ -198,7 +198,13 @@ public:
 	bool IsReviveMontagePlaying() const { return bIsReviveMontagePlaying; }
 
 	UFUNCTION(BlueprintPure, Category = "Blackout|Interaction")
-	bool IsReviveInteractionActive() const { return bIsReviveInteractionActive; }
+	bool IsReviveInteractionActive() const { return IsBeingRevived(); }
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|Interaction")
+	bool IsReviving() const;
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|Interaction")
+	bool IsBeingRevived() const;
 
 	FBlackoutReviveInteractionStateChangedNativeSignature OnReviveInteractionStateChangedNative;
 
@@ -307,6 +313,9 @@ protected:
 	void RestoreWeaponVisibilityAfterRevive();
 	void ScheduleWeaponVisibilityRestoreAfterRevive();
 	void HandleReviveMontageEnded(UAnimMontage* Montage, bool bInterrupted);
+	void SetRevivingStateActive(bool bNewReviving);
+	void SetBeingRevivedStateActive(bool bNewBeingRevived);
+	void ApplyReplicatedReviveInteractionStateTag();
 	
 	
 	
@@ -363,6 +372,7 @@ protected:
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Animation")
 	bool bIsReviveMontagePlaying = false;
 
+	/** 서버의 State.BeingRevived 태그를 클라이언트 로컬 ASC 태그로 옮기기 위한 복제 브리지입니다. */
 	UPROPERTY(Transient, ReplicatedUsing = OnRep_ReviveInteractionActive, BlueprintReadOnly, Category = "Blackout|Interaction")
 	bool bIsReviveInteractionActive = false;
 

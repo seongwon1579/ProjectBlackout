@@ -329,7 +329,7 @@ FBlackoutPartyMemberStatusData UBlackoutPartyRosterWidgetController::BuildStatus
 	if (PlayerCharacter)
 	{
 		StatusData.bIsDowned = PlayerCharacter->IsDowned();
-		StatusData.bIsReviveInteractionActive = PlayerCharacter->IsReviveInteractionActive();
+		StatusData.bIsReviveInteractionActive = PlayerCharacter->IsBeingRevived();
 		StatusData.bIsDead = PlayerCharacter->IsDead();
 	}
 

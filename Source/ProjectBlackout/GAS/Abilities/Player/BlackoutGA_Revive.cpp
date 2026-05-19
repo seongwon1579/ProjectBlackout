@@ -39,6 +39,7 @@ UBlackoutGA_Revive::UBlackoutGA_Revive()
 	bReplicateInputDirectly = true;
 
 	ActivationOwnedTags.AddTag(BlackoutGameplayTags::State_Locked);
+	ActivationOwnedTags.AddTag(BlackoutGameplayTags::State_Reviving);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Downed);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Locked);
 }
@@ -472,7 +473,7 @@ bool UBlackoutGA_Revive::CanReviveTarget(const ABlackoutPlayerCharacter* Reviver
 		return false;
 	}
 
-	if (Target->IsReviveInteractionActive() && Target != CachedTarget.Get())
+	if (Target->IsBeingRevived() && Target != CachedTarget.Get())
 	{
 		return false;
 	}
