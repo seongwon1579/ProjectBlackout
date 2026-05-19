@@ -6,6 +6,8 @@
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "AbilitySystemComponent.h"
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
+#include "Components/PrimitiveComponent.h"
+#include "Components/WidgetComponent.h"
 #include "EnvironmentQuery/EnvQueryManager.h"
 
 
@@ -115,7 +117,7 @@ void UGA_Wraith_Teleport::OnVanishEvent(FGameplayEventData Payload)
 		return;
 	}
 	
-	Avatar->SetActorHiddenInGame(true);
+	SetTeleportVisualsHidden(true);
 	Avatar->SetActorLocation(CachedDestination , false , nullptr , ETeleportType::TeleportPhysics);
 	
 	if (UAbilitySystemComponent* SourceASC = GetAbilitySystemComponentFromActorInfo())
@@ -128,20 +130,13 @@ void UGA_Wraith_Teleport::OnVanishEvent(FGameplayEventData Payload)
 
 void UGA_Wraith_Teleport::OnAppearEvent(FGameplayEventData Payload)
 {
-	if (AActor* Avatar = GetAvatarActorFromActorInfo())
-	{
-		Avatar->SetActorHiddenInGame(false);
-	}
+	SetTeleportVisualsHidden(false);
 }
 
 
 void UGA_Wraith_Teleport::OnMontageEnded()
 {
-	
-	if (AActor* Avatar = GetAvatarActorFromActorInfo())
-	{
-		Avatar->SetActorHiddenInGame(false);
-	}
+	SetTeleportVisualsHidden(false);
 	RemoveInvulnerableTag();
 	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo,true,false);
 }
@@ -152,5 +147,48 @@ void UGA_Wraith_Teleport::RemoveInvulnerableTag()
 	if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
 	{
 		ASC->RemoveLooseGameplayTag(BlackoutGameplayTags::State_Invulnerable);
+	}
+}
+
+void UGA_Wraith_Teleport::SetTeleportVisualsHidden(bool bHidden)
+{
+	AActor* Avatar = GetAvatarActorFromActorInfo();
+	if (!Avatar)
+	{
+		return;
+	}
+
+	if (bHidden)
+	{
+		PreviousTeleportHiddenStates.Reset();
+	}
+
+	TArray<UPrimitiveComponent*> PrimitiveComponents;
+	Avatar->GetComponents<UPrimitiveComponent>(PrimitiveComponents);
+	for (UPrimitiveComponent* PrimitiveComponent : PrimitiveComponents)
+	{
+		if (!PrimitiveComponent || PrimitiveComponent->IsA<UWidgetComponent>())
+		{
+			continue;
+		}
+
+		if (bHidden)
+		{
+			const TWeakObjectPtr<UPrimitiveComponent> ComponentKey(PrimitiveComponent);
+			PreviousTeleportHiddenStates.Add(ComponentKey, PrimitiveComponent->bHiddenInGame);
+			PrimitiveComponent->SetHiddenInGame(true, false);
+			continue;
+		}
+
+		const TWeakObjectPtr<UPrimitiveComponent> ComponentKey(PrimitiveComponent);
+		if (const bool* PreviousHiddenState = PreviousTeleportHiddenStates.Find(ComponentKey))
+		{
+			PrimitiveComponent->SetHiddenInGame(*PreviousHiddenState, false);
+		}
+	}
+
+	if (!bHidden)
+	{
+		PreviousTeleportHiddenStates.Reset();
 	}
 }

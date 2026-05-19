@@ -10,6 +10,7 @@
 
 class UAnimMontage;
 class UEnvQuery;
+class UPrimitiveComponent;
 
 
 /**
@@ -46,6 +47,9 @@ protected:
 	void OnMontageEnded();
 	
 	void RemoveInvulnerableTag();
+
+	/** 점멸 연출 중 체력바 위젯을 제외한 렌더 컴포넌트만 숨김 처리합니다. */
+	void SetTeleportVisualsHidden(bool bHidden);
 	
 	UPROPERTY(EditDefaultsOnly,Category="Wraith")
 	TObjectPtr<UEnvQuery> TeleportQuery;
@@ -54,4 +58,7 @@ protected:
 	TObjectPtr<UAnimMontage> TeleportAnimMontage;
 	
 	FVector CachedDestination = FVector::ZeroVector;
+
+	/** 점멸 전 컴포넌트 숨김 상태를 저장해, 원래 숨겨져 있던 컴포넌트를 임의로 켜지 않도록 합니다. */
+	TMap<TWeakObjectPtr<UPrimitiveComponent>, bool> PreviousTeleportHiddenStates;
 };
