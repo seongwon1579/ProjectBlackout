@@ -16,8 +16,11 @@ class UBlackoutImpactIndicatorComponent;
 class UGameplayEffect;
 class UInputAction;
 class UAnimMontage;
+class ABlackoutPlayerCharacter;
 
 struct FInputActionValue;
+
+DECLARE_MULTICAST_DELEGATE_TwoParams(FBlackoutReviveInteractionStateChangedNativeSignature, ABlackoutPlayerCharacter*, bool);
 
 USTRUCT(BlueprintType)
 struct FBlackoutFireMontageEntry
@@ -202,6 +205,8 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Blackout|Interaction")
 	bool IsReviveInteractionActive() const { return bIsReviveInteractionActive; }
 
+	FBlackoutReviveInteractionStateChangedNativeSignature OnReviveInteractionStateChangedNative;
+
 	bool TryBeginReviveInteraction(ABlackoutPlayerCharacter* Reviver);
 	void EndReviveInteraction(ABlackoutPlayerCharacter* Reviver);
 
@@ -360,7 +365,7 @@ protected:
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Animation")
 	bool bIsReviveMontagePlaying = false;
 
-	UPROPERTY(Transient, Replicated, BlueprintReadOnly, Category = "Blackout|Interaction")
+	UPROPERTY(Transient, ReplicatedUsing = OnRep_ReviveInteractionActive, BlueprintReadOnly, Category = "Blackout|Interaction")
 	bool bIsReviveInteractionActive = false;
 
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Camera")
@@ -377,6 +382,11 @@ protected:
 
 	UFUNCTION()
 	void HandleHitReactMontageEnded(UAnimMontage* Montage, bool bInterrupted);
+
+	UFUNCTION()
+	void OnRep_ReviveInteractionActive();
+
+	void BroadcastReviveInteractionStateChanged();
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
 	TObjectPtr<UAnimMontage> HitReactMontage;
