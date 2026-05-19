@@ -4,6 +4,8 @@
 #include "GameFramework/GameModeBase.h"
 #include "BlackoutGameMode.generated.h"
 
+enum class EBlackoutMatchState : uint8;
+
 UCLASS(Abstract)
 class PROJECTBLACKOUT_API ABlackoutGameMode : public AGameModeBase
 {
@@ -37,6 +39,9 @@ protected:
 
 	// 전원 Ready 성립 시 자식 GameMode 가 override 하여 액션을 정의하는 훅 (Lobby: StartBattle / Battle: 보스 활성).
 	virtual void OnAllPlayersReady() {}
+
+	// 매치 상태 전이 단일 권위. 허용 전이만 GameState 에 반영(거부 시 경고 로그). Step3 에서 호출 연결.
+	virtual void TransitionTo(EBlackoutMatchState NewState);
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|GameMode")
 	int32 MaxPlayers = 4;
