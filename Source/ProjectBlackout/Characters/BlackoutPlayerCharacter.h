@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "BlackoutCharacterBase.h"
+#include "BlackoutPullable.h"
 #include "GameplayEffectTypes.h"
 #include "GameplayTagContainer.h"
 #include "TimerManager.h"
@@ -67,18 +68,19 @@ struct FBlackoutWeaponGameplayCueEntry
  * 무기/전투 로직(CombatComponent)은 Combat 에픽에서 확장.
  */
 UCLASS()
-class PROJECTBLACKOUT_API ABlackoutPlayerCharacter : public ABlackoutCharacterBase
+class PROJECTBLACKOUT_API ABlackoutPlayerCharacter : public ABlackoutCharacterBase, public IBlackoutPullable
 {
 	GENERATED_BODY()
 
 public:
 	ABlackoutPlayerCharacter(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
-	
+
 	virtual void BeginPlay() override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	virtual void PossessedBy(AController* NewController) override;
 	virtual void OnRep_PlayerState() override;
+	virtual void ApplyPull(const FPullData& PullData) override;
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat|Accessors")
 	UBlackoutCombatComponent* GetCombatComponent() const { return CombatComponent; }
@@ -88,10 +90,10 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Blackout|Data")
 	const UBOCharacterData* GetCharacterData() const { return CharacterData; }
-	
+
 	UFUNCTION(BlueprintPure, Category = "Blackout|Input")
 	FVector2D GetCachedMoveInput() const { return CachedMoveInput; }
-	
+
 	UFUNCTION(BlueprintPure, Category = "Blackout|Input")
 	FVector2D GetPendingDodgeInput() const { return PendingDodgeInput; }
 
@@ -143,10 +145,12 @@ public:
 	void Multicast_PlayWeaponSwapMontage(FGameplayTag TargetWeaponSlotTag, float PlayRate = 1.f);
 
 	UFUNCTION(NetMulticast, Unreliable, Category = "Blackout|Cue")
-	void Multicast_ExecuteWeaponGameplayCue(FGameplayTag CueTag, FGameplayCueParameters CueParameters, bool bSkipLocallyControlled);
+	void Multicast_ExecuteWeaponGameplayCue(FGameplayTag CueTag, FGameplayCueParameters CueParameters,
+	                                        bool bSkipLocallyControlled);
 
 	UFUNCTION(NetMulticast, Unreliable, Category = "Blackout|Cue")
-	void Multicast_ExecuteWeaponGameplayCueBatch(const TArray<FBlackoutWeaponGameplayCueEntry>& CueEntries, bool bSkipLocallyControlled);
+	void Multicast_ExecuteWeaponGameplayCueBatch(const TArray<FBlackoutWeaponGameplayCueEntry>& CueEntries,
+	                                             bool bSkipLocallyControlled);
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
 	bool PlayWeaponSwapMontage(FGameplayTag TargetWeaponSlotTag, float PlayRate = 1.f);
@@ -159,7 +163,8 @@ public:
 	// 시뮬레이트 프록시는 FRepAnimMontageInfo OnRep 으로 자연 따라잡습니다.
 	// 오너 클라이언트는 로컬 예측 몽타주 인스턴스가 있어 서버 승인 후 Client RPC 로 섹션/회전을 보정합니다.
 	UFUNCTION(Client, Reliable, Category = "Blackout|Animation")
-	void Client_JumpMontageToSection(UAnimMontage* Montage, FName SectionName, bool bApplyControlYaw = false, float ControlYawDegrees = 0.f);
+	void Client_JumpMontageToSection(UAnimMontage* Montage, FName SectionName, bool bApplyControlYaw = false,
+	                                 float ControlYawDegrees = 0.f);
 
 	// 루트 모션 회피 체인 재시작은 원격 프록시에서 회전/몽타주 리셋을 같은 틱에 맞춰 적용합니다.
 	UFUNCTION(NetMulticast, Unreliable, Category = "Blackout|Animation")
@@ -229,12 +234,11 @@ public:
 	UAnimMontage* GetReloadMontageForTag(FGameplayTag ReloadAnimTag, bool bIsTwoHanded) const;
 
 	void HandleAimStateChanged(bool bNewAiming);
-	
-	
-	
+
+
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Input")
 	FVector2D PendingDodgeInput = FVector2D::ZeroVector;
-	
+
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Camera")
 	TObjectPtr<USpringArmComponent> SpringArm;
@@ -255,7 +259,7 @@ protected:
 	/** 병과별 스탯·어빌리티 데이터. BP 서브클래스(BP_Assault 등)에서 지정. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Data")
 	TObjectPtr<UBOCharacterData> CharacterData;
-	
+
 	/** 초기 스탯 설정을 위한 Gameplay Effect (GE_Player_InitStats 등) */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|GAS")
 	TSubclassOf<UGameplayEffect> DefaultAttributeEffect;
@@ -332,7 +336,6 @@ protected:
 #pragma region InputSetup
 
 protected:
-
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input")
 	TObjectPtr<UInputAction> MoveAction;
 
@@ -350,15 +353,15 @@ protected:
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Input")
 	void DoLook(float Yaw, float Pitch);
-	
-	
-#pragma endregion 
-	
+
+
+#pragma endregion
+
 #pragma region Movement
-	
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Movement")
 	float ForwardTurnInterpSpeed = 10.f;
-	
+
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Input")
 	FVector2D CachedMoveInput = FVector2D::ZeroVector;
 
@@ -448,11 +451,11 @@ protected:
 
 	UFUNCTION()
 	void HandleWeaponSwapMontageEnded(UAnimMontage* Montage, bool bInterrupted);
-	
+
 #pragma endregion
-	
+
 #pragma region Aim
-	
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Camera")
 	float DefaultArmLength = 350.f;
 
@@ -489,9 +492,8 @@ protected:
 	/** 다운 상태에서 기어다닐 때 사용할 이동 속도입니다. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Movement")
 	float DownedMaxWalkSpeed = 150.f;
-	
-	
-	
+
+
 	virtual void Tick(float DeltaSeconds) override;
 	void UpdateAimCamera(float DeltaSeconds);
 	float ResolveTargetCameraFOV(bool bIsAiming) const;
@@ -499,6 +501,4 @@ protected:
 	void CacheAimDefaults();
 	void ApplyAimMovementMode(bool bIsAiming);
 #pragma endregion
-	
-	
 };

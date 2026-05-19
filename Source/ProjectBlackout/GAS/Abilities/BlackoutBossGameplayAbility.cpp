@@ -70,6 +70,11 @@ FGameplayTag UBlackoutBossGameplayAbility::SelectMontageTag(const FGameplayEvent
 	return FGameplayTag::EmptyTag;
 }
 
+bool UBlackoutBossGameplayAbility::IsValid() const
+{
+	return CachedOwner && CachedPatternData;
+}
+
 bool UBlackoutBossGameplayAbility::TryResolveMontage(const FGameplayEventData* TriggerEventData)
 {
 	const FGameplayTag MontageTag = SelectMontageTag(TriggerEventData);

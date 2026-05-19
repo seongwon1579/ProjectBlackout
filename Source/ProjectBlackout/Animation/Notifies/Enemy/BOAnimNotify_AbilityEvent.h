@@ -5,13 +5,13 @@
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
 #include "Animation/AnimNotifies/AnimNotify.h"
-#include "BOAnimNotify_SpawnProjectile.generated.h"
+#include "BOAnimNotify_AbilityEvent.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class PROJECTBLACKOUT_API UBOAnimNotify_SpawnProjectile : public UAnimNotify
+class PROJECTBLACKOUT_API UBOAnimNotify_AbilityEvent : public UAnimNotify
 {
 	GENERATED_BODY()
 	

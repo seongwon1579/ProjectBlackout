@@ -16,3 +16,8 @@ bool FBossMinionSpawnSettings::IsValid() const
 {
 	return true;
 }
+
+bool FBossGorenadoSettings::IsValid() const
+{
+	return true;
+}

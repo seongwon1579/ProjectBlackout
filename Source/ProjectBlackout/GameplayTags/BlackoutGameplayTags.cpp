@@ -175,6 +175,8 @@ namespace BlackoutGameplayTags
 	
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_SpawnMinion, "Ability.Ravager.SpawnMinion");
 	
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Gorenado, "Ability.Ravager.Gorenado");
+	
 	// ─── Wraith Abilities ──────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Wraith_FireTwinArrows, "Ability.Wraith.FireTwinArrows");
 	UE_DEFINE_GAMEPLAY_TAG(Cooldown_Wraith_FireTwinArrows, "Cooldown.Wraith.FireTwinArrows");
@@ -195,6 +197,10 @@ namespace BlackoutGameplayTags
 	// ─── Attack Events ────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_OnCollision, "Event.Enemy.Attack.OnCollision");
 	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_OffCollision, "Event.Enemy.Attack.OffCollision");
+	
+	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_OnGorenado, "Event.Enemy.Attack.OnGorenado");
+	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_OffGorenado, "Event.Enemy.Attack.OffGorenado");
+	
 	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_Spawn_Projectile, "Event.Enemy.Attack.Spawn.Projectile");
 
 	// ─── Montage Events ───────────────────────────────────────────────────

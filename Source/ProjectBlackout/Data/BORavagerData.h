@@ -116,6 +116,60 @@ struct FBossMinionSpawnSettings
 	
 };
 
+USTRUCT(BlueprintType)
+struct FPullData
+{
+	GENERATED_BODY()
+	
+	UPROPERTY(BlueprintReadWrite)
+	FVector PullDirection = FVector::ZeroVector;
+	
+	UPROPERTY(BlueprintReadWrite)
+	float PullStrength = 0.f;
+	
+	UPROPERTY(BlueprintReadWrite)
+	float DeltaTime = 0.f;
+	
+	UPROPERTY(BlueprintReadWrite)
+	TObjectPtr<AActor> Instigator = nullptr;
+	
+};
+
+USTRUCT()
+struct FBossGorenadoSettings
+{
+	GENERATED_BODY()
+	
+	UPROPERTY(EditAnywhere, meta = (ClampMin = "0"))
+	float PullRadius = 3000.f;
+	
+	UPROPERTY(EditAnywhere, meta = (ClampMin = "0"))
+	float DamageRadius = 500.f;
+	
+	UPROPERTY(EditAnywhere, meta = (ClampMin = "0"))
+	float PullStrength = 800.f;
+	
+	UPROPERTY(EditAnywhere, meta = (ClampMin = "0"))
+	float MinDistance = 300.f;
+	
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<UGameplayEffect> DamageEffect;
+	
+	UPROPERTY(EditAnywhere)
+	FVector PullDirection = FVector::ZeroVector;
+	
+	UPROPERTY(EditAnywhere)
+	float Damage = 15.f;
+	
+	UPROPERTY(EditAnywhere, meta = (ClampMin = "0"))
+	float DamageTickInterval = 0.5f;
+	
+	UPROPERTY(EditAnywhere)
+	float AbilityLevel = 1.f;
+	
+	bool IsValid() const;
+};
+
 UCLASS()
 class PROJECTBLACKOUT_API UBORavagerData : public UDataAsset
 {
@@ -136,5 +190,8 @@ public:
 	
 	UPROPERTY(EditAnywhere, Category = "Blackout|Minion")
 	FBossMinionSpawnSettings MinionSettings;
+	
+	UPROPERTY(EditAnywhere, Category = "Blackout|Gorenado")
+	FBossGorenadoSettings GorenadoSettings;
 	
 };

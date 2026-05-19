@@ -1,14 +1,14 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "Animation/Notifies/Enemy/BOAnimNotify_SpawnProjectile.h"
+#include "Animation/Notifies/Enemy/BOAnimNotify_AbilityEvent.h"
 
 #include "AbilitySystemBlueprintLibrary.h"
 #include "BlackoutGameplayTags.h"
 #include "Abilities/GameplayAbilityTypes.h"
 
 
-void UBOAnimNotify_SpawnProjectile::Notify(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation,
+void UBOAnimNotify_AbilityEvent::Notify(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation,
                                            const FAnimNotifyEventReference& EventReference)
 {
 	Super::Notify(MeshComp, Animation, EventReference);
@@ -26,7 +26,7 @@ void UBOAnimNotify_SpawnProjectile::Notify(USkeletalMeshComponent* MeshComp, UAn
 	}
 }
 
-FString UBOAnimNotify_SpawnProjectile::GetNotifyName_Implementation() const
+FString UBOAnimNotify_AbilityEvent::GetNotifyName_Implementation() const
 {
 	return EventTag.IsValid() 
 	? FString::Printf(TEXT("SpawnProjectile [%s]"), *EventTag.ToString())

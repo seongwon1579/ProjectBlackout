@@ -179,6 +179,14 @@ void ABlackoutPlayerCharacter::OnRep_PlayerState()
 	}
 }
 
+void ABlackoutPlayerCharacter::ApplyPull(const FPullData& PullData)
+{
+	UCharacterMovementComponent* MoveComp = GetCharacterMovement();
+	if (!MoveComp) return;
+   
+	MoveComp->Velocity += PullData.PullDirection * PullData.PullStrength * PullData.DeltaTime;
+}
+
 void ABlackoutPlayerCharacter::Server_RequestDebugSelfDamage_Implementation(float DamageAmount)
 {
 	if (!HasAuthority())
