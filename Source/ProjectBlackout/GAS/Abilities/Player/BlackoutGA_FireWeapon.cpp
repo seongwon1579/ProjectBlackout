@@ -75,11 +75,13 @@ namespace
 
 		bool bCanShowDamageNumber = false;
 		bool bIsCritical = false;
+		float PredictedDisplayDamageAmount = PredictedDamageAmount;
 
 		if (UBlackoutHitboxComponent* HitboxComponent = Cast<UBlackoutHitboxComponent>(PredictedHitResult.GetComponent()))
 		{
 			bCanShowDamageNumber = HitboxComponent->GetOwner() && Cast<IBlackoutDamageable>(HitboxComponent->GetOwner());
 			bIsCritical = HitboxComponent->GetPartTag().MatchesTagExact(BlackoutGameplayTags::Body_WeakSpot);
+			PredictedDisplayDamageAmount *= HitboxComponent->GetDamageMultiplier();
 		}
 		else if (AActor* HitActor = PredictedHitResult.GetActor())
 		{
@@ -103,7 +105,7 @@ namespace
 		}
 
 		return BlackoutHUD->ShowDamageNumberAtWorldLocation(
-			PredictedDamageAmount,
+			PredictedDisplayDamageAmount,
 			PredictedHitResult.ImpactPoint,
 			bIsCritical);
 	}

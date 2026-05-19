@@ -1,13 +1,13 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Components/BoxComponent.h"
+#include "Components/CapsuleComponent.h"
 #include "GameplayTagContainer.h"
 #include "GameplayEffectTypes.h"
 #include "BlackoutHitboxComponent.generated.h"
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
-class PROJECTBLACKOUT_API UBlackoutHitboxComponent : public UBoxComponent
+class PROJECTBLACKOUT_API UBlackoutHitboxComponent : public UCapsuleComponent
 {
 	GENERATED_BODY()
 

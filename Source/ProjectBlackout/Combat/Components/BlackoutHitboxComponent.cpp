@@ -7,20 +7,20 @@
 UBlackoutHitboxComponent::UBlackoutHitboxComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
-	UBoxComponent::SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	UBoxComponent::SetCollisionResponseToAllChannels(ECR_Ignore);
-	UBoxComponent::SetCollisionResponseToChannel(BlackoutCollisionChannels::WeaponTrace, ECR_Block);
-	UBoxComponent::SetGenerateOverlapEvents(false);
+	UCapsuleComponent::SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	UCapsuleComponent::SetCollisionResponseToAllChannels(ECR_Ignore);
+	UCapsuleComponent::SetCollisionResponseToChannel(BlackoutCollisionChannels::WeaponTrace, ECR_Block);
+	UCapsuleComponent::SetGenerateOverlapEvents(false);
 }
 
 void UBlackoutHitboxComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
-	UBoxComponent::SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	UBoxComponent::SetCollisionResponseToAllChannels(ECR_Ignore);
-	UBoxComponent::SetCollisionResponseToChannel(BlackoutCollisionChannels::WeaponTrace, ECR_Block);
-	UBoxComponent::SetGenerateOverlapEvents(false);
+	UCapsuleComponent::SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	UCapsuleComponent::SetCollisionResponseToAllChannels(ECR_Ignore);
+	UCapsuleComponent::SetCollisionResponseToChannel(BlackoutCollisionChannels::WeaponTrace, ECR_Block);
+	UCapsuleComponent::SetGenerateOverlapEvents(false);
 }
 
 void UBlackoutHitboxComponent::ReceiveDamageSpec(const FGameplayEffectSpecHandle& SpecHandle)

@@ -6,7 +6,7 @@
 classDiagram
     direction TB
 
-    UBoxComponent <|-- UBlackoutHitboxComponent
+    UCapsuleComponent <|-- UBlackoutHitboxComponent
 
     class UBlackoutHitboxComponent {
         <<ActorComponent>>
