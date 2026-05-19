@@ -34,7 +34,7 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	
 	bool IsDead() const { return bIsDead; }
-	bool IsDowned() const { return bIsDowned; }
+	bool IsDowned() const;
 
 	UPROPERTY(BlueprintAssignable, Category = "Blackout|State")
 	FBlackoutDownedStateChangedSignature OnDownedStateChanged;
@@ -48,9 +48,13 @@ protected:
 	UPROPERTY()
 	bool bIsDead = false;
 
-	/** 플레이어 전용 다운 상태 여부. 향후 부활 상호작용의 기준으로 사용합니다. */
-	UPROPERTY(ReplicatedUsing = OnRep_DownedState)
-	bool bIsDowned = false;
+	/** State.Downed 태그가 로컬 연출에 반영된 마지막 상태입니다. 게임플레이 판정의 원천으로 사용하지 않습니다. */
+	UPROPERTY(Transient)
+	bool bCachedIsDowned = false;
+
+	/** 서버의 State.Downed 태그를 클라이언트 로컬 ASC 태그로 옮기기 위한 복제 브리지입니다. */
+	UPROPERTY(ReplicatedUsing = OnRep_DownedStateTagBridge)
+	bool bReplicatedDownedStateTag = false;
 	
 	/** 공통 데미지 GE Spec 적용 경로. 무적 태그와 피격 반응도 여기서 함께 처리합니다. */
 	bool ApplyIncomingDamageSpec(const FGameplayEffectSpecHandle& SpecHandle, FName BoneName);
@@ -77,12 +81,32 @@ protected:
 	/** 기절(State.Stun) 태그 부여 시 이동/액션 봉쇄 처리. */
 	virtual void OnStun();
 
-	/** 다운 상태 복제 시 클라이언트에서 로컬 반응을 맞추기 위한 진입점입니다. */
-	UFUNCTION()
-	void OnRep_DownedState();
-
 	/** 다운 상태 변경 시 서브클래스가 로컬 전용 후처리를 구현할 수 있는 훅입니다. */
-	virtual void HandleDownedStateChanged();
+	virtual void HandleDownedStateChanged(bool bWasDowned, bool bIsDowned);
+
+	/** AbilitySystemComponent가 준비된 뒤 State.Downed 태그 변경을 연출 캐시에 연결합니다. */
+	void BindDownedStateTagEvent();
+
+	/** 서버 권한 경로에서 State.Downed 태그를 변경합니다. */
+	void SetDownedStateActive(bool bNewDowned);
+
+	/** 복제 브리지 값을 현재 로컬 ASC 태그 컨테이너에 반영합니다. */
+	void ApplyReplicatedDownedStateTag();
+
+	/** 현재 State.Downed 태그 값을 연출 캐시에 반영합니다. */
+	void RefreshDownedPresentationCache();
+
+	/** State.Downed 태그 변경 이벤트 수신 지점입니다. */
+	void HandleDownedTagChanged(const FGameplayTag CallbackTag, int32 NewCount);
+
+	/** 연출 캐시를 갱신하고 상태 변경 delegate 및 후처리 훅을 호출합니다. */
+	void SetDownedPresentationCache(bool bNewDowned);
+
+	UFUNCTION()
+	void OnRep_DownedStateTagBridge();
 
 	void BroadcastDownedStateChanged();
+
+	FDelegateHandle DownedTagChangedHandle;
+	TWeakObjectPtr<UAbilitySystemComponent> BoundDownedTagAbilitySystemComponent;
 };

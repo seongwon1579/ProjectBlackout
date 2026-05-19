@@ -124,6 +124,7 @@ void ABlackoutPlayerCharacter::PossessedBy(AController* NewController)
 		if (AbilitySystemComponent)
 		{
 			AbilitySystemComponent->InitAbilityActorInfo(GetPlayerState(), this);
+			BindDownedStateTagEvent();
 
 			// 초기 스탯 및 어빌리티 부여
 			InitializeAttributes();
@@ -162,6 +163,7 @@ void ABlackoutPlayerCharacter::OnRep_PlayerState()
 		if (AbilitySystemComponent)
 		{
 			AbilitySystemComponent->InitAbilityActorInfo(GetPlayerState(), this);
+			BindDownedStateTagEvent();
 
 			// 클라이언트에서도 어트리뷰트 초기화
 			InitializeAttributes();
@@ -852,13 +854,8 @@ void ABlackoutPlayerCharacter::OnHitReact()
 	Multicast_PlayHitReactMontage(HitReactMontage, 1.f);
 }
 
-void ABlackoutPlayerCharacter::HandleDownedStateChanged()
+void ABlackoutPlayerCharacter::HandleDownedStateChanged(bool bWasDowned, bool bIsCurrentlyDowned)
 {
-	const bool bWasDowned = bWasDownedLocally;
-	const bool bIsCurrentlyDowned = IsDowned();
-
-	bWasDownedLocally = bIsCurrentlyDowned;
-
 	if (bIsCurrentlyDowned)
 	{
 		ApplyDownedStateLocally();
@@ -936,8 +933,6 @@ void ABlackoutPlayerCharacter::OnDowned()
 
 	EndReviveInteraction(nullptr);
 
-	ApplyDownedStateLocally();
-
 	if (DownedEnterMontage)
 	{
 		Multicast_PlayDownedEnterMontage(DownedEnterMontage, 1.f);
@@ -998,12 +993,9 @@ void ABlackoutPlayerCharacter::Server_ReviveFromDowned_Implementation(float Revi
 	const float MaxHealth = AbilitySystemComponent->GetNumericAttribute(UBlackoutBaseAttributeSet::GetMaxHealthAttribute());
 	const float ClampedHealth = FMath::Clamp(RevivedHealth, 1.f, MaxHealth);
 
-	AbilitySystemComponent->RemoveLooseGameplayTag(BlackoutGameplayTags::State_Downed);
-	bIsDowned = false;
+	SetDownedStateActive(false);
 	EndReviveInteraction(nullptr);
 	AbilitySystemComponent->SetNumericAttributeBase(UBlackoutBaseAttributeSet::GetHealthAttribute(), ClampedHealth);
-	BroadcastDownedStateChanged();
-	ClearDownedStateLocally();
 	ScheduleWeaponVisibilityRestoreAfterRevive();
 	BO_LOG_GAS(Log, "ReviveFromDowned: Target=%s Health=%.1f", *GetName(), ClampedHealth);
 }

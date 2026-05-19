@@ -257,7 +257,7 @@ protected:
 	virtual void OnDowned() override;
 	virtual bool CanEnterDownedState() const override;
 	virtual void OnDeath() override;
-	virtual void HandleDownedStateChanged() override;
+	virtual void HandleDownedStateChanged(bool bWasDowned, bool bIsDowned) override;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
 	TObjectPtr<UAnimMontage> DeathMontage;
@@ -368,10 +368,6 @@ protected:
 
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Camera")
 	bool bIsLocalSprintCameraActive = false;
-
-	/** 로컬 클라이언트에서 직전 downed 상태를 기억해 기상 몽타주 전환을 판별합니다. */
-	UPROPERTY(Transient)
-	bool bWasDownedLocally = false;
 
 	UPROPERTY(Transient)
 	TWeakObjectPtr<ABlackoutPlayerCharacter> ActiveReviver;

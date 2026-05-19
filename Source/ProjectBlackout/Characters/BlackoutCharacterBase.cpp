@@ -155,18 +155,27 @@ void ABlackoutCharacterBase::BeginPlay()
 	// 혹시 모르니 BeginPlay에서 한번 더 덮어씌운다.
 	GetCapsuleComponent()->SetCollisionResponseToChannel(BlackoutCollisionChannels::WeaponTrace, ECR_Ignore);
 	GetMesh()->SetCollisionResponseToChannel(BlackoutCollisionChannels::WeaponTrace, ECR_Block);
+
+	BindDownedStateTagEvent();
 }
 
 void ABlackoutCharacterBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(ABlackoutCharacterBase, bIsDowned);
+	DOREPLIFETIME(ABlackoutCharacterBase, bReplicatedDownedStateTag);
 }
 
 UAbilitySystemComponent* ABlackoutCharacterBase::GetAbilitySystemComponent() const
 {
 	return AbilitySystemComponent;
+}
+
+bool ABlackoutCharacterBase::IsDowned() const
+{
+	return AbilitySystemComponent
+		? AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Downed)
+		: bCachedIsDowned;
 }
 
 FGameplayTag ABlackoutCharacterBase::GetHitPartTag(FName BoneName) const
@@ -253,19 +262,18 @@ void ABlackoutCharacterBase::OnDeath()
 		return;
 	}
 
-	const bool bWasDowned = bIsDowned;
+	const bool bWasDowned = IsDowned();
 	bIsDead = true;
-	bIsDowned = false;
+	SetDownedStateActive(false);
 
 	if (AbilitySystemComponent)
 	{
 		AbilitySystemComponent->CancelHealthRegenOverTime();
-		AbilitySystemComponent->RemoveLooseGameplayTag(BlackoutGameplayTags::State_Downed);
 	}
 
 	if (bWasDowned)
 	{
-		BroadcastDownedStateChanged();
+		RefreshDownedPresentationCache();
 	}
 
 	BO_LOG_CORE(Log, "OnDeath: %s", *GetName());
@@ -273,20 +281,17 @@ void ABlackoutCharacterBase::OnDeath()
 
 void ABlackoutCharacterBase::OnDowned()
 {
-	if (bIsDead || bIsDowned)
+	if (bIsDead || IsDowned())
 	{
 		return;
 	}
 
-	bIsDowned = true;
+	SetDownedStateActive(true);
 
 	if (AbilitySystemComponent)
 	{
 		AbilitySystemComponent->CancelHealthRegenOverTime();
-		AbilitySystemComponent->AddLooseGameplayTag(BlackoutGameplayTags::State_Downed);
 	}
-
-	BroadcastDownedStateChanged();
 
 	BO_LOG_CORE(Log, "OnDowned: %s", *GetName());
 }
@@ -299,7 +304,7 @@ bool ABlackoutCharacterBase::CanEnterDownedState() const
 void ABlackoutCharacterBase::ResetVitalState()
 {
 	bIsDead = false;
-	bIsDowned = false;
+	SetDownedStateActive(false);
 }
 
 void ABlackoutCharacterBase::OnHitReact()
@@ -310,23 +315,134 @@ void ABlackoutCharacterBase::OnStun()
 {
 }
 
-void ABlackoutCharacterBase::OnRep_DownedState()
+void ABlackoutCharacterBase::HandleDownedStateChanged(bool bWasDowned, bool bIsDowned)
 {
-	BO_LOG_CORE(Log,
-		"OnRep_DownedState: %s Downed=%s",
-		*GetNameSafe(this),
-		bIsDowned ? TEXT("true") : TEXT("false"));
-
-	BroadcastDownedStateChanged();
-	HandleDownedStateChanged();
 }
 
-void ABlackoutCharacterBase::HandleDownedStateChanged()
+void ABlackoutCharacterBase::BindDownedStateTagEvent()
 {
+	if (!AbilitySystemComponent)
+	{
+		return;
+	}
+
+	if (BoundDownedTagAbilitySystemComponent.Get() == AbilitySystemComponent && DownedTagChangedHandle.IsValid())
+	{
+		ApplyReplicatedDownedStateTag();
+		RefreshDownedPresentationCache();
+		return;
+	}
+
+	if (UAbilitySystemComponent* PreviousAbilitySystemComponent = BoundDownedTagAbilitySystemComponent.Get())
+	{
+		if (DownedTagChangedHandle.IsValid())
+		{
+			PreviousAbilitySystemComponent
+				->RegisterGameplayTagEvent(BlackoutGameplayTags::State_Downed, EGameplayTagEventType::NewOrRemoved)
+				.Remove(DownedTagChangedHandle);
+		}
+	}
+
+	DownedTagChangedHandle = AbilitySystemComponent
+		->RegisterGameplayTagEvent(BlackoutGameplayTags::State_Downed, EGameplayTagEventType::NewOrRemoved)
+		.AddUObject(this, &ABlackoutCharacterBase::HandleDownedTagChanged);
+	BoundDownedTagAbilitySystemComponent = AbilitySystemComponent;
+
+	ApplyReplicatedDownedStateTag();
+	RefreshDownedPresentationCache();
+}
+
+void ABlackoutCharacterBase::SetDownedStateActive(bool bNewDowned)
+{
+	if (HasAuthority())
+	{
+		bReplicatedDownedStateTag = bNewDowned;
+	}
+
+	if (!AbilitySystemComponent)
+	{
+		SetDownedPresentationCache(bNewDowned);
+		return;
+	}
+
+	if (bNewDowned)
+	{
+		if (!AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Downed))
+		{
+			AbilitySystemComponent->AddLooseGameplayTag(BlackoutGameplayTags::State_Downed);
+		}
+	}
+	else
+	{
+		AbilitySystemComponent->RemoveLooseGameplayTag(BlackoutGameplayTags::State_Downed);
+	}
+
+	RefreshDownedPresentationCache();
+}
+
+void ABlackoutCharacterBase::ApplyReplicatedDownedStateTag()
+{
+	if (HasAuthority() || !AbilitySystemComponent)
+	{
+		return;
+	}
+
+	if (bReplicatedDownedStateTag)
+	{
+		if (!AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Downed))
+		{
+			AbilitySystemComponent->AddLooseGameplayTag(BlackoutGameplayTags::State_Downed);
+		}
+	}
+	else
+	{
+		AbilitySystemComponent->RemoveLooseGameplayTag(BlackoutGameplayTags::State_Downed);
+	}
+}
+
+void ABlackoutCharacterBase::RefreshDownedPresentationCache()
+{
+	SetDownedPresentationCache(IsDowned());
+}
+
+void ABlackoutCharacterBase::HandleDownedTagChanged(const FGameplayTag CallbackTag, int32 NewCount)
+{
+	SetDownedPresentationCache(NewCount > 0);
+}
+
+void ABlackoutCharacterBase::SetDownedPresentationCache(bool bNewDowned)
+{
+	if (bCachedIsDowned == bNewDowned)
+	{
+		return;
+	}
+
+	const bool bWasDowned = bCachedIsDowned;
+	bCachedIsDowned = bNewDowned;
+
+	BO_LOG_CORE(Log,
+		"Downed state changed: %s Downed=%s",
+		*GetNameSafe(this),
+		bCachedIsDowned ? TEXT("true") : TEXT("false"));
+
+	BroadcastDownedStateChanged();
+	HandleDownedStateChanged(bWasDowned, bCachedIsDowned);
+}
+
+void ABlackoutCharacterBase::OnRep_DownedStateTagBridge()
+{
+	if (!AbilitySystemComponent)
+	{
+		SetDownedPresentationCache(bReplicatedDownedStateTag);
+		return;
+	}
+
+	ApplyReplicatedDownedStateTag();
+	RefreshDownedPresentationCache();
 }
 
 void ABlackoutCharacterBase::BroadcastDownedStateChanged()
 {
-	OnDownedStateChanged.Broadcast(bIsDowned);
-	OnDownedStateChangedNative.Broadcast(this, bIsDowned);
+	OnDownedStateChanged.Broadcast(bCachedIsDowned);
+	OnDownedStateChangedNative.Broadcast(this, bCachedIsDowned);
 }
