@@ -5,8 +5,11 @@
 #include "Combat/Components/BlackoutCombatComponent.h"
 #include "Combat/Components/BlackoutImpactIndicatorComponent.h"
 #include "Data/BOCharacterData.h"
+#include "EngineUtils.h"
+#include "Engine/World.h"
 #include "Framework/BlackoutPlayerState.h"
 #include "AbilitySystemInterface.h"
+#include "GAS/Abilities/Player/BlackoutGA_Revive.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "GameFramework/PlayerState.h"
 #include "Camera/CameraComponent.h"
@@ -14,9 +17,11 @@
 #include "Animation/AnimMontage.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Interfaces/BlackoutInteractable.h"
 #include "GameplayCueManager.h"
 #include "BlackoutLog.h"
 #include "EnhancedInputComponent.h"
+#include "Engine/OverlapResult.h"
 #include "GAS/Attributes/BlackoutBaseAttributeSet.h"
 #include "Net/UnrealNetwork.h"
 
@@ -79,6 +84,7 @@ void ABlackoutPlayerCharacter::Tick(float DeltaSeconds)
 		return;
 	}
 
+	UpdateFocusedInteractable(DeltaSeconds);
 	UpdateAimCamera(DeltaSeconds);
 }
 
@@ -219,6 +225,171 @@ void ABlackoutPlayerCharacter::Server_SetAimOffset_Implementation(FVector2D NewA
 	ReplicatedAimOffset = FVector2D(
 		FMath::Clamp(NewAimOffset.X, -180.f, 180.f),
 		FMath::Clamp(NewAimOffset.Y, -90.f, 90.f));
+}
+
+FVector ABlackoutPlayerCharacter::GetFocusedInteractablePromptWorldLocation() const
+{
+	AActor* TargetActor = FocusedInteractableActor.Get();
+	if (!IsValid(TargetActor))
+	{
+		return FVector::ZeroVector;
+	}
+
+	FVector BoundsOrigin = FVector::ZeroVector;
+	FVector BoundsExtent = FVector::ZeroVector;
+	TargetActor->GetActorBounds(false, BoundsOrigin, BoundsExtent);
+	return BoundsOrigin + FVector(0.0f, 0.0f, BoundsExtent.Z + InteractionPromptHeightOffset);
+}
+
+bool ABlackoutPlayerCharacter::TryInteractWithFocusedActor()
+{
+	RefreshFocusedInteractableActor();
+
+	AActor* TargetActor = FocusedInteractableActor.Get();
+	if (!IsValidFocusedInteractable(TargetActor))
+	{
+		return false;
+	}
+
+	if (HasAuthority())
+	{
+		IBlackoutInteractable::Execute_OnInteract(TargetActor, this);
+	}
+	else
+	{
+		Server_InteractWithActor(TargetActor);
+	}
+
+	return true;
+}
+
+bool ABlackoutPlayerCharacter::HasNearbyReviveTarget() const
+{
+	if (IsDead() || IsDowned())
+	{
+		return false;
+	}
+
+	const UWorld* World = GetWorld();
+	if (!World)
+	{
+		return false;
+	}
+
+	const float ReviveRange = UBlackoutGA_Revive::GetReviveRangeForActor(this);
+	const float ReviveRangeSquared = FMath::Square(ReviveRange);
+
+	for (TActorIterator<ABlackoutPlayerCharacter> It(World); It; ++It)
+	{
+		ABlackoutPlayerCharacter* Candidate = *It;
+		if (!Candidate || Candidate == this || Candidate->IsDead() || !Candidate->IsDowned())
+		{
+			continue;
+		}
+
+		if (FVector::DistSquared(Candidate->GetActorLocation(), GetActorLocation()) <= ReviveRangeSquared)
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void ABlackoutPlayerCharacter::UpdateFocusedInteractable(float DeltaSeconds)
+{
+	if (IsDead() || IsDowned())
+	{
+		FocusedInteractableActor = nullptr;
+		InteractionScanElapsed = 0.0f;
+		return;
+	}
+
+	InteractionScanElapsed += DeltaSeconds;
+	if (InteractionScanInterval > 0.0f && InteractionScanElapsed < InteractionScanInterval)
+	{
+		return;
+	}
+
+	InteractionScanElapsed = 0.0f;
+	RefreshFocusedInteractableActor();
+}
+
+void ABlackoutPlayerCharacter::RefreshFocusedInteractableActor()
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		FocusedInteractableActor = nullptr;
+		return;
+	}
+
+	TArray<FOverlapResult> OverlapResults;
+	FCollisionObjectQueryParams ObjectQueryParams;
+	ObjectQueryParams.AddObjectTypesToQuery(ECC_WorldDynamic);
+	ObjectQueryParams.AddObjectTypesToQuery(ECC_WorldStatic);
+
+	FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(BlackoutFocusedInteractable), false, this);
+	const bool bHasOverlap = World->OverlapMultiByObjectType(
+		OverlapResults,
+		GetActorLocation(),
+		FQuat::Identity,
+		ObjectQueryParams,
+		FCollisionShape::MakeSphere(InteractionSearchRadius),
+		QueryParams);
+
+	if (!bHasOverlap)
+	{
+		FocusedInteractableActor = nullptr;
+		return;
+	}
+
+	AActor* BestCandidate = nullptr;
+	float BestDistanceSquared = TNumericLimits<float>::Max();
+
+	for (const FOverlapResult& OverlapResult : OverlapResults)
+	{
+		AActor* CandidateActor = OverlapResult.GetActor();
+		if (!IsValidFocusedInteractable(CandidateActor))
+		{
+			continue;
+		}
+
+		const float DistanceSquared = FVector::DistSquared(CandidateActor->GetActorLocation(), GetActorLocation());
+		if (DistanceSquared < BestDistanceSquared)
+		{
+			BestDistanceSquared = DistanceSquared;
+			BestCandidate = CandidateActor;
+		}
+	}
+
+	FocusedInteractableActor = BestCandidate;
+}
+
+bool ABlackoutPlayerCharacter::IsValidFocusedInteractable(AActor* CandidateActor) const
+{
+	if (!IsValid(CandidateActor) || CandidateActor == this)
+	{
+		return false;
+	}
+
+	if (!CandidateActor->GetClass()->ImplementsInterface(UBlackoutInteractable::StaticClass()))
+	{
+		return false;
+	}
+
+	return IBlackoutInteractable::Execute_CanInteract(CandidateActor, const_cast<ABlackoutPlayerCharacter*>(this));
+}
+
+void ABlackoutPlayerCharacter::Server_InteractWithActor_Implementation(AActor* TargetActor)
+{
+	if (!IsValidFocusedInteractable(TargetActor))
+	{
+		BO_LOG_CORE(Verbose, "상호작용 무시: 서버에서 유효한 대상이 아닙니다. Player=%s Target=%s", *GetName(), *GetNameSafe(TargetActor));
+		return;
+	}
+
+	IBlackoutInteractable::Execute_OnInteract(TargetActor, this);
 }
 
 

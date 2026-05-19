@@ -17,6 +17,7 @@
 #include "GAS/Attributes/BlackoutBaseAttributeSet.h"
 #include "GAS/Attributes/BlackoutPlayerAttributeSet.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
+#include "Interfaces/BlackoutInteractable.h"
 #include "Blueprint/WidgetLayoutLibrary.h"
 
 namespace
@@ -224,6 +225,29 @@ bool UBlackoutHUDWidgetController::GetInteractionPromptData(FBlackoutInteraction
 	ABlackoutPlayerCharacter* NearbyDownedPlayer = FindNearbyDownedPlayer(LocalPlayerCharacter, ReviveRange);
 	if (!NearbyDownedPlayer)
 	{
+		if (AActor* FocusedInteractableActor = LocalPlayerCharacter->GetFocusedInteractableActor())
+		{
+			const FVector PromptWorldLocation = LocalPlayerCharacter->GetFocusedInteractablePromptWorldLocation();
+			FVector2D PromptScreenPosition = FVector2D::ZeroVector;
+			if (!UWidgetLayoutLibrary::ProjectWorldLocationToWidgetPosition(
+				BlackoutPlayerController,
+				PromptWorldLocation,
+				PromptScreenPosition,
+				true))
+			{
+				return false;
+			}
+
+			OutPromptData.bIsVisible = true;
+			OutPromptData.WorldLocation = PromptWorldLocation;
+			OutPromptData.ScreenPosition = PromptScreenPosition;
+			OutPromptData.State = EBlackoutInteractionPromptState::Available;
+			OutPromptData.PromptText = FocusedInteractableActor->GetClass()->ImplementsInterface(UBlackoutInteractable::StaticClass())
+				? IBlackoutInteractable::Execute_GetInteractionPrompt(FocusedInteractableActor)
+				: FText::GetEmpty();
+			return true;
+		}
+
 		return false;
 	}
 

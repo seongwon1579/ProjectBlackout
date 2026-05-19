@@ -16,6 +16,7 @@ class UGameplayEffect;
 class UInputAction;
 class UAnimMontage;
 class ABlackoutPlayerCharacter;
+class AActor;
 
 struct FInputActionValue;
 
@@ -200,10 +201,18 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Blackout|Interaction")
 	bool IsReviveInteractionActive() const { return bIsReviveInteractionActive; }
 
+	UFUNCTION(BlueprintPure, Category = "Blackout|Interaction")
+	AActor* GetFocusedInteractableActor() const { return FocusedInteractableActor.Get(); }
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|Interaction")
+	FVector GetFocusedInteractablePromptWorldLocation() const;
+
 	FBlackoutReviveInteractionStateChangedNativeSignature OnReviveInteractionStateChangedNative;
 
 	bool TryBeginReviveInteraction(ABlackoutPlayerCharacter* Reviver);
 	void EndReviveInteraction(ABlackoutPlayerCharacter* Reviver);
+	bool TryInteractWithFocusedActor();
+	bool HasNearbyReviveTarget() const;
 
 	void SetLocalSprintCameraActive(bool bActive) { bIsLocalSprintCameraActive = bActive; }
 
@@ -366,6 +375,21 @@ protected:
 	UPROPERTY(Transient, ReplicatedUsing = OnRep_ReviveInteractionActive, BlueprintReadOnly, Category = "Blackout|Interaction")
 	bool bIsReviveInteractionActive = false;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Interaction")
+	float InteractionSearchRadius = 180.0f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Interaction", meta = (ClampMin = 0.0))
+	float InteractionScanInterval = 0.1f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Interaction")
+	float InteractionPromptHeightOffset = 24.0f;
+
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Interaction")
+	TWeakObjectPtr<AActor> FocusedInteractableActor;
+
+	UPROPERTY(Transient)
+	float InteractionScanElapsed = 0.0f;
+
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Camera")
 	bool bIsLocalSprintCameraActive = false;
 
@@ -385,6 +409,12 @@ protected:
 	void OnRep_ReviveInteractionActive();
 
 	void BroadcastReviveInteractionStateChanged();
+	void UpdateFocusedInteractable(float DeltaSeconds);
+	void RefreshFocusedInteractableActor();
+	bool IsValidFocusedInteractable(AActor* CandidateActor) const;
+
+	UFUNCTION(Server, Reliable, Category = "Blackout|Interaction")
+	void Server_InteractWithActor(AActor* TargetActor);
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
 	TObjectPtr<UAnimMontage> HitReactMontage;
