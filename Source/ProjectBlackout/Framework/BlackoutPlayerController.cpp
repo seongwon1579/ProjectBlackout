@@ -327,6 +327,15 @@ void ABlackoutPlayerController::OnInteractPressed()
 		return;
 	}
 
+	if (ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(GetPawn()))
+	{
+		// 부활 대상이 없는 경우에만 픽업/오브젝트 상호작용을 먼저 시도합니다.
+		if (!PlayerCharacter->HasNearbyReviveTarget() && PlayerCharacter->TryInteractWithFocusedActor())
+		{
+			return;
+		}
+	}
+
 	HandleAbilityInputPressed(EBlackoutAbilityInputID::Interact);
 
 }
