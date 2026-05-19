@@ -90,6 +90,7 @@ namespace BlackoutGameplayTags
 
 	// ─── Gameplay Cues ─────────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Character_Hit);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Character_Revive);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Consumable_Use);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Consumable_BloodRoot_Use);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Consumable_GulSerum_Use);

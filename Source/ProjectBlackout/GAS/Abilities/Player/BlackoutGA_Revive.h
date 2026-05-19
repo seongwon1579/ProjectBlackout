@@ -2,10 +2,12 @@
 
 #include "CoreMinimal.h"
 #include "GAS/Abilities/BlackoutGameplayAbility.h"
+#include "GameplayTagContainer.h"
 #include "BlackoutGA_Revive.generated.h"
 
 class ABlackoutPlayerCharacter;
 class UAnimMontage;
+class UAbilitySystemComponent;
 
 /**
  * 다운된 아군 근처에서 입력 유지 시 부활을 완료하는 플레이어 상호작용 GA.
@@ -51,6 +53,10 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Ability")
 	TObjectPtr<UAnimMontage> RevivePerformMontage;
+
+	/** 부활 완료 순간 대상 위치에서 실행할 일회성 GCN 태그입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Ability|Cue")
+	FGameplayTag ReviveCueTag;
 	
 private:
 	UFUNCTION()
@@ -58,6 +64,7 @@ private:
 
 	void FinishRevive();
 	void CancelRevive();
+	void ExecuteReviveCue(UAbilitySystemComponent* TargetAbilitySystemComponent, float RevivedHealth) const;
 	ABlackoutPlayerCharacter* FindReviveTarget() const;
 	bool CanReviveTarget(const ABlackoutPlayerCharacter* Reviver, const ABlackoutPlayerCharacter* Target) const;
 
