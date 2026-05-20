@@ -14,14 +14,11 @@ class PROJECTBLACKOUT_API ABlackoutMinionAIController : public ABlackoutAIContro
 	GENERATED_BODY()
 
 public:
-	ABlackoutMinionAIController(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+	ABlackoutMinionAIController();
 
 	UFUNCTION()
 	void OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus);
 
 	void SetCombatTarget(APawn* TargetPawn);
-
-protected:
-	virtual void InitStateTreeContext() override;
-	virtual void InitPerception() override;
+	
 };

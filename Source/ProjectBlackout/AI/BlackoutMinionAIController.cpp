@@ -1,22 +1,10 @@
 #include "BlackoutMinionAIController.h"
 #include "Perception/AIPerceptionComponent.h"
 
-ABlackoutMinionAIController::ABlackoutMinionAIController(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
+ABlackoutMinionAIController::ABlackoutMinionAIController()
 {
 }
 
-void ABlackoutMinionAIController::InitStateTreeContext()
-{
-	Super::InitStateTreeContext();
-	// Bind Minion-specific context, e.g., ASC, MinionData
-}
-
-void ABlackoutMinionAIController::InitPerception()
-{
-	Super::InitPerception();
-	// Setup Sight Perception and bind OnPerceptionUpdated
-}
 
 void ABlackoutMinionAIController::OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus)
 {
