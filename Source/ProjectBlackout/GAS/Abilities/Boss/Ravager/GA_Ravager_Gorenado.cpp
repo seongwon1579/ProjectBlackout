@@ -204,7 +204,7 @@ void UGA_Ravager_Gorenado::OnPullStartNotify(FGameplayEventData Payload)
 {
 	if (!IsValid())
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[%s] VortexSettings invalid"), *GetName());
+		UE_LOG(LogTemp, Warning, TEXT("[%s] Gorenado invalid"), *GetName());
 		return;
 	}
 

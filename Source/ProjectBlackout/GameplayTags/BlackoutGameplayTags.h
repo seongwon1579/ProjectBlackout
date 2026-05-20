@@ -179,6 +179,8 @@ namespace BlackoutGameplayTags
 	
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_Gorenado);
 	
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_EnergyBurst);
+	
 	// ─── Wraith Abilities ─────────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Wraith_FireTwinArrows);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Cooldown_Wraith_FireTwinArrows);
@@ -204,6 +206,9 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Enemy_Attack_OffGorenado);
 	
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Enemy_Attack_Spawn_Projectile);
+	
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Enemy_Attack_OnEnergyBurst);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Enemy_Attack_OffEnergyBurst);
 	
 	// ─── Montage Events ───────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Montage_ConsumableApply);

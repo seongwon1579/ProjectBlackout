@@ -170,6 +170,29 @@ struct FBossGorenadoSettings
 	bool IsValid() const;
 };
 
+USTRUCT()
+struct FBossEnergyBurstSettings
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, meta = (ClampMin = "100"))
+	float DamageRadius = 800.f;
+
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<UGameplayEffect> DamageEffect;
+	
+	UPROPERTY(EditAnywhere)
+	float Damage = 999999.f;
+	
+	UPROPERTY(EditAnywhere, meta = (ClampMin = "0"))
+	float DamageTickInterval = 0.5f;
+
+	UPROPERTY(EditAnywhere)
+	float AbilityLevel = 1.f;
+    
+	bool IsValid() const { return DamageEffect != nullptr; }
+};
+
 UCLASS()
 class PROJECTBLACKOUT_API UBORavagerData : public UDataAsset
 {
@@ -194,4 +217,6 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Blackout|Gorenado")
 	FBossGorenadoSettings GorenadoSettings;
 	
+	UPROPERTY(EditAnywhere, Category = "Blackout|EnergyBurst")
+	FBossEnergyBurstSettings EnergyBurstSettings;
 };
