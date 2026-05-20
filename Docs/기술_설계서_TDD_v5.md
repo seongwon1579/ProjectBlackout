@@ -173,7 +173,7 @@ GE와 ExecCalc(실행 계산기)를 사용해, 피격 처리와 기믹 보상을
 - **다운 상태 진입 (`GE_Downed`)**: 체력이 0 이하로 떨어지면 즉각 파괴(Destroy)하지 않고 캡슐 콜리전 프로필을 변경한 후 `GE_Downed` 이펙트를 부여합니다. 이 이펙트는 이동 및 액션 입력을 봉쇄하는 전역 태그(`State.Downed`)를 씌우며, 매 초 체력을 깎는 타이머 로직(`GE_BleedOut`)을 동반합니다.
 - 다운 상태 진입 시 블러드 루트 같은 지속 체력 회복 타이머는 즉시 취소합니다. 취소된 지속 회복이 소모품에서 시작된 경우 해당 소모품 쿨다운도 서버와 소유 클라이언트에서 초기화합니다. 다운 이후 남은 회복 틱이 플레이어를 자동으로 되살리는 흐름은 허용하지 않습니다.
 - **부활 (`GA_Revive`)**: 생존 동료의 상호작용 완료 시, 대상 폰의 `GE_Downed`와 `GE_BleedOut`을 `RemoveActiveGameplayEffect`로 강제 해제하고 기본 체력값으로 복구합니다. 구출자의 `RelicCharges`를 1 차감합니다.
-- **완전 사망 및 관전 전환**: 출혈 타이머 소진 시 서버는 해당 플레이어 폰을 `HiddenInGame = true` 및 물리 불가 상태로 만듭니다. 컨트롤러(`APlayerController`)에서는 `ChangeState(NAME_Spectating)` 함수를 호출하여 엔진 자체 관전 모드로 전환하고, `SetViewTargetWithBlend()`로 카메라를 다른 활성 아군 폰으로 강제 바인딩합니다. 관전 중 **[재시작 요청] UI**가 표시되며, 과반수 투표 시 `ABlackoutBattleGameMode`에서 파티 전원을 해당 구역 화톳불로 귀환 처리하는 **`Server_VoteRestart` RPC**를 호출합니다(§7 참조).
+- **완전 사망 및 관전 전환**: 출혈 타이머 소진 시 서버는 해당 플레이어 폰을 `HiddenInGame = true` 및 물리 불가 상태로 만듭니다. 컨트롤러(`APlayerController`)에서는 `ChangeState(NAME_Spectating)` 함수를 호출하여 엔진 자체 관전 모드로 전환하고, `SetViewTargetWithBlend()`로 카메라를 다른 아군 폰으로 강제 바인딩합니다. 관전 대상은 완전 사망하지 않은 파티원이며, 다운 상태 아군도 포함합니다. 관전자는 다음/이전 대상 변경 입력을 사용할 수 있습니다. 관전 중 **[항복 투표] UI**가 표시되며, 과반수 투표 시 `ABlackoutBattleGameMode`에서 파티 전원을 해당 구역 화톳불로 귀환 처리하는 **`Server_RequestSurrenderVote` RPC**를 호출합니다(§7 참조).
 
 ### 5.2 보스 약점 부위 피해 배율 처리 (Hitbox Damage Multiplier)
 보스의 특정 뼈대(Bone)에 부착된 히트박스 컴포넌트에서 피격 이벤트 발생 시, 피해 배율은 **`SetByCaller` + `ExecCalc_DamageCalc`** 방식으로 처리합니다.

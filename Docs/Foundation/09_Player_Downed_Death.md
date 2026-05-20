@@ -2,6 +2,7 @@
 
 > HP 0 도달 시 즉시 매치 실패로 처리하지 않고, `State.Downed` 상태에서 부활 가능 시간을 제공한 뒤 타이머가 만료되면 완전 사망으로 전환하는 책임 구조입니다.
 > 현재 코드에는 `State.Downed`, `State.Reviving`, `State.BeingRevived`와 `GA_Revive`가 존재하며, 본 문서는 후속 구현 대상인 완전 사망 타이머와 전멸 감지 훅을 함께 정의합니다.
+> 완전 사망 이후 관전, 관전 대상 변경 입력, 항복 투표는 [10_Player_Spectator_Surrender.md](10_Player_Spectator_Surrender.md)를 기준으로 합니다.
 
 ## 클래스 다이어그램
 
@@ -138,6 +139,7 @@ classDiagram
 - **부활과 타이머 우선순위**: 부활 진행 중이어도 다운 사망 타이머는 계속 흐릅니다. 타이머 만료가 먼저 도달하면 `GA_Revive`를 캔슬하고 대상은 완전 사망합니다.
 - **전멸 감지**: 완전 사망 전환이 발생한 서버 경로에서 `ABlackoutBattleGameMode::NotifyPlayerFullyDead`를 호출하고, `EvaluatePartyWipe()`가 `GameState->PlayerArray` 기준으로 생존자를 계산합니다.
 - **전멸 복귀**: 생존자가 0명이면 기존 `HandlePartyWipe()` 경로를 재사용합니다. 이 경로는 체크포인트 텔레포트, `ApplyBattleTransitionPolicy(PartyWipeRestart)`, Ready 리셋, `InCombatReady` 복귀를 담당합니다.
+- **관전 위임**: 완전 사망한 플레이어가 생존 또는 다운 상태 파티원을 관전하는 흐름은 `ABlackoutPlayerController`와 `ABlackoutBattleGameMode`가 담당하며, 상세 대상 선택 규칙은 §10 문서를 따릅니다.
 
 ## 구현 대상 파일
 

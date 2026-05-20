@@ -79,9 +79,10 @@ sequenceDiagram
     else GE_BleedOut 타이머 만료 (타이머 우선)
         Server->>Server: GA_Revive 강제 캔슬
         Server->>Downed: 완전 사망
+        Server->>Server: 관전 후보 탐색 (!IsDead, 다운 포함)
         Server->>Downed: NAME_Spectating 전환
-        Server->>Downed: SetViewTargetWithBlend(아군)
-        Note over Downed: 관전 모드 + 재시작 투표 UI
+        Server->>Downed: SetViewTargetWithBlend(아군 또는 다운 아군)
+        Note over Downed: 관전 모드 + 대상 변경 입력 + 항복 투표 UI
     end
 ```
 
@@ -115,34 +116,57 @@ sequenceDiagram
 
 ---
 
-### 4. 관전 중 과반수 재시작 투표
+### 4. 관전 대상 변경 입력
 
 ```mermaid
 sequenceDiagram
-    actor Spec1 as 관전자1
-    actor Spec2 as 관전자2
-    actor Alive as 생존자
+    actor Spec as 관전자
+    participant PC as PlayerController
     participant Server as BattleGameMode (서버)
+    participant GS as GameState
+    actor Target as 새 관전 대상
 
-    Spec1->>Server: Server_VoteRestart()
-    Server->>Server: VoteCount++ (현재 1/2 필요)
+    Spec->>PC: Next / Previous 입력
+    PC->>Server: Server_RequestSpectateNext/Previous()
+    Server->>GS: PlayerArray 기준 후보 재계산
 
-    Spec2->>Server: Server_VoteRestart()
-    Server->>Server: VoteCount++ (2/2 → 과반수 달성)
+    alt 후보 있음 (!IsDead, 다운 포함)
+        Server-->>PC: Client_SetSpectateTarget(Target)
+        PC->>Target: SetViewTargetWithBlend(Target)
+    else 후보 없음
+        Note over PC,Server: 현재 ViewTarget 유지
+    end
+```
 
-    Server->>Server: Server_RestartAtCheckpoint() 경로 재사용
-    Note over Server: 전멸 복귀와 동일 흐름
+---
 
-    Server-->>Spec1: 활성 폰으로 복구
-    Server-->>Spec2: 활성 폰으로 복구
-    Server-->>Alive: 화톳불로 텔레포트
+### 5. 항복 투표 → 체크포인트 복귀
+
+```mermaid
+sequenceDiagram
+    actor P1 as Player1
+    actor P2 as Player2
+    actor P3 as Player3
+    participant Server as BattleGameMode (서버)
+    participant GS as GameState
+
+    P1->>Server: Server_RequestSurrenderVote()
+    Server->>GS: VoteCount=1 / Required=3 복제
+
+    P2->>Server: Server_RequestSurrenderVote()
+    Server->>GS: VoteCount=2 / Required=3 복제
+
+    P3->>Server: Server_RequestSurrenderVote()
+    Server->>GS: VoteCount=3 / Required=3 복제
+    Server->>Server: HandlePartyWipe() 경로 재사용
+    Note over Server: 관전 상태 종료 + 각자 Pawn 시점 복구 + 화톳불 텔레포트
 ```
 
 ---
 
 ## 🧠 전투 서브시스템
 
-### 5. 보스 어그로 시스템 타겟 전환
+### 6. 보스 어그로 시스템 타겟 전환
 
 ```mermaid
 sequenceDiagram
@@ -170,7 +194,7 @@ sequenceDiagram
 
 ---
 
-### 6. 슈루드 씨앗 기믹 (SeedDrop + 무적)
+### 7. 슈루드 씨앗 기믹 (SeedDrop + 무적)
 
 ```mermaid
 sequenceDiagram
@@ -203,7 +227,7 @@ sequenceDiagram
 
 ---
 
-### 7. 기둥 파괴 동기화 (Chaos Destruction)
+### 8. 기둥 파괴 동기화 (Chaos Destruction)
 
 ```mermaid
 sequenceDiagram
@@ -235,7 +259,7 @@ sequenceDiagram
 
 ## 🗺️ 게임 플로우
 
-### 8. 매치메이킹 → 단일 배틀맵 직행 → 시작 쉘터 (집결·선택·Ready)
+### 9. 매치메이킹 → 단일 배틀맵 직행 → 시작 쉘터 (집결·선택·Ready)
 
 ```mermaid
 sequenceDiagram
@@ -272,7 +296,7 @@ sequenceDiagram
 
 ---
 
-### 9. 중간 보스 → 메인 보스 전환 (단일 맵, 구역 게이트)
+### 10. 중간 보스 → 메인 보스 전환 (단일 맵, 구역 게이트)
 
 ```mermaid
 sequenceDiagram
@@ -301,7 +325,7 @@ sequenceDiagram
 
 ---
 
-### 10. 메인 보스 클리어 → 승리 → 메인 메뉴
+### 11. 메인 보스 클리어 → 승리 → 메인 메뉴
 
 ```mermaid
 sequenceDiagram
@@ -328,7 +352,7 @@ sequenceDiagram
 
 ## 🌐 매칭/서버 인프라
 
-### 11. 매치메이킹 → 게임 시작 전체 흐름
+### 12. 매치메이킹 → 게임 시작 전체 흐름
 
 ```mermaid
 sequenceDiagram
@@ -380,7 +404,7 @@ sequenceDiagram
 
 ---
 
-### 12. 매치메이킹 타임아웃 + 좀비 키 정리
+### 13. 매치메이킹 타임아웃 + 좀비 키 정리
 
 ```mermaid
 sequenceDiagram
@@ -407,7 +431,7 @@ sequenceDiagram
 
 ---
 
-### 13. 데디케이트 서버 ↔ API 서버 통신
+### 14. 데디케이트 서버 ↔ API 서버 통신
 
 ```mermaid
 sequenceDiagram

@@ -81,13 +81,14 @@ classDiagram
     }
 
     class ABlackoutBattleGameMode {
-        -FGameplayTag CurrentCheckpointTag
+        -AActor* CurrentCheckpointActor
         +OnMidBossDefeated() void
-        +OnMainBossDefeated() void
-        +Server_RestartAtCheckpoint() void
-        +Server_VoteRestart() void
-        -RespawnFieldMinions(FGameplayTag) void
-        -LoadStreamLevel(FName) void
+        +NotifyPlayerFullyDead(ABlackoutPlayerCharacter*) void
+        +HandlePartyWipe() void
+        +RegisterSurrenderVote(ABlackoutPlayerController*) void
+        -EvaluatePartyWipe() void
+        -FindNextSpectateTarget(ABlackoutPlayerController*, int32) ABlackoutPlayerCharacter*
+        -EvaluateSurrenderVote() void
     }
 ```
 
@@ -394,6 +395,54 @@ classDiagram
     ABlackoutPlayerCharacter --> BlackoutGameplayTags : state tags
     ABlackoutPlayerCharacter --> ABlackoutBattleGameMode : full death notification
     ABlackoutBattleGameMode --> ABlackoutBattleGameMode : party wipe evaluation
+```
+
+---
+
+### 6.2 플레이어 관전 / 항복 투표
+
+> 상세 설계는 [Foundation/10_Player_Spectator_Surrender.md](Foundation/10_Player_Spectator_Surrender.md)를 기준으로 합니다. 관전 대상에는 완전 사망하지 않은 다운 상태 파티원도 포함합니다.
+
+```mermaid
+classDiagram
+    direction LR
+
+    class ABlackoutPlayerController {
+        +EnterSpectatorMode() void
+        +ExitSpectatorMode() void
+        +Server_RequestSpectateNext() void
+        +Server_RequestSpectatePrevious() void
+        +Server_RequestSurrenderVote() void
+        +Client_SetSpectateTarget(AActor*) void
+    }
+
+    class ABlackoutBattleGameMode {
+        +RegisterSurrenderVote(ABlackoutPlayerController*) void
+        +CancelSurrenderVote(ABlackoutPlayerController*) void
+        -FindInitialSpectateTarget(ABlackoutPlayerController*) ABlackoutPlayerCharacter*
+        -FindNextSpectateTarget(ABlackoutPlayerController*, int32) ABlackoutPlayerCharacter*
+        -EvaluateSurrenderVote() void
+        +HandlePartyWipe() void
+    }
+
+    class ABlackoutGameState {
+        +int32 SurrenderVoteCount
+        +int32 RequiredSurrenderVoteCount
+    }
+
+    class ABlackoutPlayerState {
+        +bool bRequestedSurrender
+    }
+
+    class ABlackoutPlayerCharacter {
+        +IsDead() bool
+        +IsDowned() bool
+    }
+
+    ABlackoutPlayerController --> ABlackoutBattleGameMode : spectate / vote RPC
+    ABlackoutBattleGameMode --> ABlackoutPlayerCharacter : spectatable if !IsDead
+    ABlackoutBattleGameMode --> ABlackoutGameState : vote count replication
+    ABlackoutBattleGameMode --> ABlackoutPlayerState : voter state
 ```
 
 ---
