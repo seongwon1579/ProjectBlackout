@@ -103,10 +103,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	ABOFirearm* GetSecondaryWeapon() const { return SecondaryWeapon; }
 
-	UPROPERTY(BlueprintAssignable, Category = "Blackout|Combat")
+	UPROPERTY(BlueprintAssignable, Category = "Blackout|Combat|Events")
 	FBlackoutEquippedWeaponChangedSignature OnEquippedWeaponChanged;
 
-	UPROPERTY(BlueprintAssignable, Category = "Blackout|Combat")
+	UPROPERTY(BlueprintAssignable, Category = "Blackout|Combat|Events")
 	FBlackoutAimingChangedSignature OnAimingChanged;
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
@@ -192,31 +192,31 @@ protected:
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_ApplyEquippedWeaponHiddenOverride(bool bNewHiddenOverride);
 
-	UPROPERTY(Transient, ReplicatedUsing = OnRep_EquippedWeapon, BlueprintReadOnly, Category = "Blackout|Combat")
+	UPROPERTY(Transient, ReplicatedUsing = OnRep_EquippedWeapon, BlueprintReadOnly, Category = "Blackout|Combat|Weapon")
 	TObjectPtr<ABOWeaponBase> EquippedWeapon;
 
-	UPROPERTY(Transient, ReplicatedUsing = OnRep_LoadoutWeapon, BlueprintReadOnly, Category = "Blackout|Combat")
+	UPROPERTY(Transient, ReplicatedUsing = OnRep_LoadoutWeapon, BlueprintReadOnly, Category = "Blackout|Combat|Weapon")
 	TObjectPtr<ABOFirearm> PrimaryWeapon;
 
-	UPROPERTY(Transient, ReplicatedUsing = OnRep_LoadoutWeapon, BlueprintReadOnly, Category = "Blackout|Combat")
+	UPROPERTY(Transient, ReplicatedUsing = OnRep_LoadoutWeapon, BlueprintReadOnly, Category = "Blackout|Combat|Weapon")
 	TObjectPtr<ABOFirearm> SecondaryWeapon;
 
-	UPROPERTY(Transient, ReplicatedUsing = OnRep_LoadoutWeapon, BlueprintReadOnly, Category = "Blackout|Combat")
+	UPROPERTY(Transient, ReplicatedUsing = OnRep_LoadoutWeapon, BlueprintReadOnly, Category = "Blackout|Combat|Weapon")
 	TObjectPtr<ABOMeleeWeapon> MeleeWeapon;
 
-	UPROPERTY(ReplicatedUsing = OnRep_IsAiming, BlueprintReadOnly, Category = "Blackout|Combat")
+	UPROPERTY(ReplicatedUsing = OnRep_IsAiming, BlueprintReadOnly, Category = "Blackout|Combat|State")
 	bool bIsAiming = false;
 
-	UPROPERTY(ReplicatedUsing = OnRep_MeleeWeaponAttachmentOverride, BlueprintReadOnly, Category = "Blackout|Combat")
+	UPROPERTY(ReplicatedUsing = OnRep_MeleeWeaponAttachmentOverride, BlueprintReadOnly, Category = "Blackout|Combat|State")
 	bool bMeleeWeaponAttachmentOverride = false;
 
-	UPROPERTY(ReplicatedUsing = OnRep_EquippedWeaponHolsterOverride, BlueprintReadOnly, Category = "Blackout|Combat")
+	UPROPERTY(ReplicatedUsing = OnRep_EquippedWeaponHolsterOverride, BlueprintReadOnly, Category = "Blackout|Combat|State")
 	bool bEquippedWeaponHolsterOverride = false;
 
-	UPROPERTY(ReplicatedUsing = OnRep_EquippedWeaponHiddenOverride, BlueprintReadOnly, Category = "Blackout|Combat")
+	UPROPERTY(ReplicatedUsing = OnRep_EquippedWeaponHiddenOverride, BlueprintReadOnly, Category = "Blackout|Combat|State")
 	bool bEquippedWeaponHiddenOverride = false;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat|Settings")
 	FName EquippedWeaponSocketName = TEXT("WeaponSocket");
 
 	/** 반동이 목표 값에 도달하는 보간 속도. 클수록 즉각적. */

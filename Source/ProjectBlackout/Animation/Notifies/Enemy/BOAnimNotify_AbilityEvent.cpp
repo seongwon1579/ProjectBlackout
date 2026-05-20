@@ -29,6 +29,6 @@ void UBOAnimNotify_AbilityEvent::Notify(USkeletalMeshComponent* MeshComp, UAnimS
 FString UBOAnimNotify_AbilityEvent::GetNotifyName_Implementation() const
 {
 	return EventTag.IsValid() 
-	? FString::Printf(TEXT("SpawnProjectile [%s]"), *EventTag.ToString())
-	: TEXT("SpawnProjectile");
+	? FString::Printf(TEXT("Event [%s]"), *EventTag.ToString())
+	: TEXT("Event");
 }

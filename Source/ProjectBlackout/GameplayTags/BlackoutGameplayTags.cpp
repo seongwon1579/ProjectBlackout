@@ -6,6 +6,7 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(State_Downed,        "State.Downed");
 	UE_DEFINE_GAMEPLAY_TAG(State_Reviving,      "State.Reviving");
 	UE_DEFINE_GAMEPLAY_TAG(State_BeingRevived,  "State.BeingRevived");
+	UE_DEFINE_GAMEPLAY_TAG(State_Dead,          "State.Dead");
 	UE_DEFINE_GAMEPLAY_TAG(State_Invulnerable,  "State.Invulnerable");
 	UE_DEFINE_GAMEPLAY_TAG(State_Locked,        "State.Locked");
 	UE_DEFINE_GAMEPLAY_TAG(State_Aiming,        "State.Aiming");
@@ -177,6 +178,8 @@ namespace BlackoutGameplayTags
 	
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Gorenado, "Ability.Ravager.Gorenado");
 	
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_EnergyBurst, "Ability.Ravager.EnergyBurst");
+	
 	// ─── Wraith Abilities ──────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Wraith_FireTwinArrows, "Ability.Wraith.FireTwinArrows");
 	UE_DEFINE_GAMEPLAY_TAG(Cooldown_Wraith_FireTwinArrows, "Cooldown.Wraith.FireTwinArrows");
@@ -202,7 +205,10 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_OffGorenado, "Event.Enemy.Attack.OffGorenado");
 	
 	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_Spawn_Projectile, "Event.Enemy.Attack.Spawn.Projectile");
-
+	
+	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_OnEnergyBurst, "Event.Enemy.Attack.OnEnergyBurst");
+	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_OffEnergyBurst, "Event.Enemy.Attack.OffEnergyBurst");
+	
 	// ─── Montage Events ───────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Event_Montage_ConsumableApply, "Event.Montage.ConsumableApply");
 	UE_DEFINE_GAMEPLAY_TAG(Event_Montage_RelicApply, "Event.Montage.RelicApply");

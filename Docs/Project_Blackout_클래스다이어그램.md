@@ -346,6 +346,58 @@ classDiagram
 
 ---
 
+### 6.1 플레이어 다운 / 완전 사망
+
+> 상세 설계는 [Foundation/09_Player_Downed_Death.md](Foundation/09_Player_Downed_Death.md)를 기준으로 합니다. 루트 문서는 전체 의존 개요만 유지합니다.
+
+```mermaid
+classDiagram
+    direction LR
+
+    class ABlackoutCharacterBase {
+        +IsDead() bool
+        +IsDowned() bool
+        #OnDowned() void
+        #OnDeath() void
+    }
+
+    class ABlackoutPlayerCharacter {
+        +TryBeginReviveInteraction(ABlackoutPlayerCharacter*) bool
+        +EndReviveInteraction(ABlackoutPlayerCharacter*) void
+        +Server_ReviveFromDowned(float) void
+        -StartDownedDeathTimer() void
+        -HandleDownedDeathTimerExpired() void
+    }
+
+    class UBlackoutGA_Revive {
+        +ActivateAbility(...) void
+        -HandleReviveTick() void
+        -FinishRevive() void
+        -CancelRevive() void
+    }
+
+    class ABlackoutBattleGameMode {
+        +NotifyPlayerFullyDead(ABlackoutPlayerCharacter*) void
+        -EvaluatePartyWipe() void
+        +HandlePartyWipe() void
+    }
+
+    class BlackoutGameplayTags {
+        +State_Downed
+        +State_Reviving
+        +State_BeingRevived
+        +State_Dead
+    }
+
+    ABlackoutCharacterBase <|-- ABlackoutPlayerCharacter
+    ABlackoutPlayerCharacter --> UBlackoutGA_Revive : revive target
+    ABlackoutPlayerCharacter --> BlackoutGameplayTags : state tags
+    ABlackoutPlayerCharacter --> ABlackoutBattleGameMode : full death notification
+    ABlackoutBattleGameMode --> ABlackoutBattleGameMode : party wipe evaluation
+```
+
+---
+
 ### 7. 오브젝트 풀링
 
 ```mermaid

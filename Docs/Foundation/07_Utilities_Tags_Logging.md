@@ -9,6 +9,9 @@ classDiagram
     class BlackoutGameplayTags {
         <<Native Tag Singleton>>
         +FGameplayTag State_Downed
+        +FGameplayTag State_Reviving
+        +FGameplayTag State_BeingRevived
+        +FGameplayTag State_Dead
         +FGameplayTag State_Invulnerable
         +FGameplayTag State_Locked
         +FGameplayTag Body_WeakSpot

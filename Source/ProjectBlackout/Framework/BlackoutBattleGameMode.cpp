@@ -3,6 +3,7 @@
 #include "BlackoutPlayerController.h"
 #include "BlackoutGameState.h"
 #include "BlackoutLog.h"
+#include "Characters/BlackoutPlayerCharacter.h"
 #include "Core/BlackoutTypes.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/GameStateBase.h"
@@ -268,7 +269,65 @@ void ABlackoutBattleGameMode::EndMatch(EBlackoutMatchEndReason Reason)
 	}
 }
 
-// 파티 전멸 시 체크포인트 복귀, 자원 정책 적용, Ready 리셋, 페이즈 회귀를 수행한다.
+void ABlackoutBattleGameMode::NotifyPlayerFullyDead(ABlackoutPlayerCharacter* DeadPlayer)
+{
+	if (!DeadPlayer)
+	{
+		BO_LOG_NET(Warning, "완전 사망 알림 무시: DeadPlayer가 비어 있음");
+		return;
+	}
+
+	BO_LOG_NET(Log, "플레이어 완전 사망 감지: %s", *GetNameSafe(DeadPlayer));
+	EvaluatePartyWipe();
+}
+
+void ABlackoutBattleGameMode::EvaluatePartyWipe()
+{
+	ABlackoutGameState* BlackoutGameState = GetGameState<ABlackoutGameState>();
+	if (!BlackoutGameState)
+	{
+		BO_LOG_NET(Error, "전멸 평가 실패: GameState가 비어 있음");
+		return;
+	}
+
+	if (BlackoutGameState->CurrentMatchState != EBlackoutMatchState::InCombat)
+	{
+		BO_LOG_NET(Verbose, "전멸 평가 스킵: 전투 진행 상태가 아님 State=%d",
+			static_cast<int32>(BlackoutGameState->CurrentMatchState));
+		return;
+	}
+
+	int32 AlivePlayers = 0;
+	for (APlayerState* PlayerStateBase : BlackoutGameState->PlayerArray)
+	{
+		ABlackoutPlayerState* BlackoutPlayerState = Cast<ABlackoutPlayerState>(PlayerStateBase);
+		if (!BlackoutPlayerState)
+		{
+			continue;
+		}
+
+		APlayerController* PlayerController = BlackoutPlayerState->GetPlayerController();
+		const ABlackoutPlayerCharacter* PlayerCharacter = PlayerController
+			? Cast<ABlackoutPlayerCharacter>(PlayerController->GetPawn())
+			: nullptr;
+
+		if (PlayerCharacter && !PlayerCharacter->IsDead())
+		{
+			++AlivePlayers;
+		}
+	}
+
+	BO_LOG_NET(Log, "전멸 평가: AlivePlayers=%d TotalPlayers=%d",
+		AlivePlayers,
+		BlackoutGameState->PlayerArray.Num());
+
+	if (AlivePlayers <= 0)
+	{
+		HandlePartyWipe();
+	}
+}
+
+// 파티 전멸 감지 시 호출. 체크포인트 텔레포트 + PartyWipeRestart 정책 + Ready 리셋 + InCombatReady 복귀.
 void ABlackoutBattleGameMode::HandlePartyWipe()
 {
 	Super::HandlePartyWipe();
@@ -298,6 +357,14 @@ void ABlackoutBattleGameMode::HandlePartyWipe()
 		BlackoutPS->bIsReady = false;
 		BlackoutPS->ApplyBattleTransitionPolicy(
 			EBattleTransitionType::PartyWipeRestart);
+
+		if (APlayerController* PC = BlackoutPS->GetPlayerController())
+		{
+			if (ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(PC->GetPawn()))
+			{
+				PlayerCharacter->RestoreFromPartyWipeRestart();
+			}
+		}
 
 		if (!bHasCheckpoint)
 		{

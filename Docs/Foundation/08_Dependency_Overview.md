@@ -38,6 +38,12 @@ flowchart TB
         ECh[ABlackoutEnemyCharacter]
     end
 
+    subgraph DownedDeath["09. Player Downed / Death"]
+        Downed[State.Downed\nState.BeingRevived]
+        Dead[State.Dead\nDownedDeathTimer]
+        Wipe[NotifyPlayerFullyDead\nEvaluatePartyWipe]
+    end
+
     subgraph Framework["01. Framework Core"]
         GM[ABlackoutGameMode]
         GS[ABlackoutGameState]
@@ -62,9 +68,15 @@ flowchart TB
     Calc --> Attr
     Calc --> Tags
     GA --> Enum
+    DownedDeath --> Character
+    DownedDeath --> Framework
+    DownedDeath --> GAS
+    Dead --> Tags
+    Wipe --> GS
+    Wipe --> PS
 
     classDef layer fill:#2d3748,stroke:#4299e1,color:#e2e8f0
-    class Tags,Logs,Enum,IPool,IInt,IDmg,CData,MData,BData,WStat,CnsData,ASC,Attr,GA,GEBase,Calc,CBase,PCh,ECh,GM,GS,PS,PC,PoolSys layer
+    class Tags,Logs,Enum,IPool,IInt,IDmg,CData,MData,BData,WStat,CnsData,ASC,Attr,GA,GEBase,Calc,CBase,PCh,ECh,Downed,Dead,Wipe,GM,GS,PS,PC,PoolSys layer
 ```
 
 ## 권장 구현 순서
@@ -78,5 +90,6 @@ flowchart TB
 | 5 | **§02 캐릭터 베이스** | GAS 인터페이스 확정 후 `InitAbilityActorInfo` 가능 |
 | 6 | **§01 프레임워크 코어** | PlayerState(ASC 소유) 포함, 상위 의존 마지막 |
 | 7 | **§05 풀링 서브시스템** | `IBlackoutPoolableInterface` 확정 후 착수 |
+| 8 | **§09 플레이어 다운/완전 사망** | Character/GAS/Framework 경계를 잇는 전멸 감지 흐름 |
 
 > 각 단계 완료 시 `feature/foundation-step<N>` 브랜치로 PR → `develop` 머지.

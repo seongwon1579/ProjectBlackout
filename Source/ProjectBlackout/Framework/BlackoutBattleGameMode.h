@@ -6,6 +6,8 @@
 #include "BlackoutBattleGameMode.generated.h"
 
 enum class EBlackoutMatchEndReason : uint8;
+class ABlackoutPlayerCharacter;
+
 /**
  * 전투 레벨 전용 GameMode. 전투 진입 자원 초기화 / 체크포인트 등록 / 파티 전멸 복귀 처리.
  */
@@ -33,6 +35,9 @@ public:
 	
 	// 생존자 0명 감지 시 외부에서 호출. 현재 체크포인트로 전원 복귀 트리거.
 	virtual void HandlePartyWipe() override;
+
+	// 플레이어가 다운 타이머 만료로 완전 사망했을 때 호출. 생존자 0명 여부를 평가한다.
+	void NotifyPlayerFullyDead(ABlackoutPlayerCharacter* DeadPlayer);
 
 	// 화톳불 상호작용 시 외부에서 호출. CurrentCheckpointActor 갱신.
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Battle")
@@ -82,6 +87,8 @@ protected:
 	bool bAutoStartOnFull = false;
 	
 private:
+	void EvaluatePartyWipe();
+
 	int32 NextPlayerClassIndex =0;
 
 	// 엔진이 ChoosePlayerStart / SpawnDefaultPawnFor / FindPlayerStart 경로에서

@@ -33,6 +33,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Stats")
 	float BaseMovementSpeed = 600.f;
 
+	/** 조준 시의 이동 속도 (기본값: 420.f) */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Stats")
+	float AimMovementSpeed = 420.f;
+
+	/** 다운 상태(기어다니기)에서의 이동 속도 (기본값: 150.f) */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Stats")
+	float DownedMovementSpeed = 150.f;
+
 	/** 전투 맵 진입 시 지급되는 블러드 루트 기본 소지량 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Consumables", meta = (ClampMin = 0))
 	int32 InitialBloodRoot = 1;

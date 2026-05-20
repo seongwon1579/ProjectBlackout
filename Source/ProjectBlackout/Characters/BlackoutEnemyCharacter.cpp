@@ -66,7 +66,7 @@ void ABlackoutEnemyCharacter::BeginPlay()
 
 void ABlackoutEnemyCharacter::OnSpawnFromPool_Implementation()
 {
-	bIsDead = false;
+	SetDeadStateActive(false);
 	SetDownedStateActive(false);
 
 	SetActorHiddenInGame(false);

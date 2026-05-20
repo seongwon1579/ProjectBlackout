@@ -152,6 +152,8 @@ void UBlackoutGA_Sprint::ApplySprintSpeed(const FGameplayAbilityActorInfo* Actor
 		return;
 	}
 
+	// 어빌리티(GA_Sprint)에 설정된 스프린트 배율 값을 무브먼트 컴포넌트에 주입합니다.
+	MovementComponent->SetSprintSpeedMultiplier(SprintSpeedMultiplier);
 	MovementComponent->SetSprintRequested(true);
 }
 

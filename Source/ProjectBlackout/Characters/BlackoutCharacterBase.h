@@ -44,8 +44,8 @@ public:
 protected:
 	virtual void BeginPlay() override;
 
-	/** 공용 죽음 상태 중복죽음 또는 죽음 후 추가 입력등을 막기용  */
-	UPROPERTY()
+	/** 공용 죽음 상태 중복죽음 또는 죽음 후 추가 입력등을 막기용 */
+	UPROPERTY(ReplicatedUsing = OnRep_DeadStateTagBridge)
 	bool bIsDead = false;
 
 	/** State.Downed 태그가 로컬 연출에 반영된 마지막 상태입니다. 게임플레이 판정의 원천으로 사용하지 않습니다. */
@@ -87,8 +87,14 @@ protected:
 	/** 서버 권한 경로에서 State.Downed 태그를 변경합니다. */
 	void SetDownedStateActive(bool bNewDowned);
 
+	/** 서버 권한 경로에서 State.Dead 태그를 변경합니다. */
+	void SetDeadStateActive(bool bNewDead);
+
 	/** 복제 브리지 값을 현재 로컬 ASC 태그 컨테이너에 반영합니다. */
 	void ApplyReplicatedDownedStateTag();
+
+	/** 복제된 완전 사망 상태를 현재 로컬 ASC 태그 컨테이너에 반영합니다. */
+	void ApplyReplicatedDeadStateTag();
 
 	/** 현재 State.Downed 태그 값을 연출 캐시에 반영합니다. */
 	void RefreshDownedPresentationCache();
@@ -101,6 +107,9 @@ protected:
 
 	UFUNCTION()
 	void OnRep_DownedStateTagBridge();
+
+	UFUNCTION()
+	void OnRep_DeadStateTagBridge();
 
 	void BroadcastDownedStateChanged();
 
