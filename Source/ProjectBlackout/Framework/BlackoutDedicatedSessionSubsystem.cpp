@@ -270,7 +270,11 @@ void UBlackoutDedicatedSessionSubsystem::SendHeartbeat()
 			const bool bPlaying =
 				MS == EBlackoutMatchState::Starting ||
 				MS == EBlackoutMatchState::InCombatReady ||
-				MS == EBlackoutMatchState::InCombat;
+				MS == EBlackoutMatchState::InCombat ||
+				MS == EBlackoutMatchState::ShelterPrep ||
+				MS == EBlackoutMatchState::MidBossCombat ||
+				MS == EBlackoutMatchState::ShelterMid ||
+				MS == EBlackoutMatchState::MainBossCombat;
 			StatusStr = bPlaying ? TEXT("playing") : TEXT("idle");
 		}
 		MapName = World->GetMapName();

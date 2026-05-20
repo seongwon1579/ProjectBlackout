@@ -6,6 +6,7 @@
 #include "BlackoutGameState.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FBlackoutPlayerArrayChangedSignature);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FBlackoutMatchStateChangedSignature, EBlackoutMatchState, NewState);
 
 UCLASS()
 class PROJECTBLACKOUT_API ABlackoutGameState : public AGameStateBase
@@ -22,9 +23,13 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Blackout|GameState")
 	FBlackoutPlayerArrayChangedSignature OnPlayerArrayChanged;
 
+	// 매치 상태 변경 통지 (서버 SetMatchState + 클라 OnRep 양쪽 broadcast). 게이트/HUD/보스 활성이 구독.
+	UPROPERTY(BlueprintAssignable, Category = "Blackout|GameState")
+	FBlackoutMatchStateChangedSignature OnMatchStateChanged;
+
 	// 현재 매치 생애주기 상태. 서버에서 SetMatchState 로만 전환하고 클라에 리플리케이트.
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_CurrentMatchState, Category = "Blackout|GameState")
-	EBlackoutMatchState CurrentMatchState = EBlackoutMatchState::InLobby;
+	EBlackoutMatchState CurrentMatchState = EBlackoutMatchState::WaitingForPlayers;
 
 	// 서버 Authority 전용 세터. 같은 상태 중복 전환은 무시.
 	UFUNCTION(BlueprintCallable, Category = "Blackout|GameState")

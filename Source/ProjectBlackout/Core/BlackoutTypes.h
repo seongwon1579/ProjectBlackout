@@ -34,11 +34,18 @@ enum class EBattleTransitionType : uint8
 UENUM(BlueprintType)
 enum class EBlackoutMatchState : uint8
 {
-	InLobby         UMETA(DisplayName = "In Lobby"),         // 로비 맵 · 캐릭터 선택 · Ready Check
-	Starting        UMETA(DisplayName = "Starting"),         // 전투 맵으로 ServerTravel 중
-	InCombatReady   UMETA(DisplayName = "Combat Ready"),     // 전투 맵 도착 or 전멸 후 · 체크포인트 방 Ready 대기
-	InCombat        UMETA(DisplayName = "In Combat"),        // 보스 활성 · 전투 진행
+	InLobby         UMETA(DisplayName = "In Lobby"),         // 레거시(로비 흐름) — 미사용, 로비 철거 시 제거
+	Starting        UMETA(DisplayName = "Starting"),         // 레거시(ServerTravel) — 미사용, 로비 철거 시 제거
+	InCombatReady   UMETA(DisplayName = "Combat Ready"),     // 레거시(체크포인트 Ready) — 미사용, 로비 철거 시 제거
+	InCombat        UMETA(DisplayName = "In Combat"),        // 레거시(단일 전투) — 미사용, 로비 철거 시 제거
 	Ended           UMETA(DisplayName = "Ended"),            // 승리/패배 후
+
+	// 단일 맵 런-페이즈
+	WaitingForPlayers UMETA(DisplayName = "Waiting For Players"), // 데디 접속 대기 (4인 미만)
+	ShelterPrep       UMETA(DisplayName = "Shelter Prep"),        // 시작 쉘터: 클래스선택·Ready 대기
+	MidBossCombat     UMETA(DisplayName = "Mid-Boss Combat"),     // Shrewd 활성
+	ShelterMid        UMETA(DisplayName = "Shelter Mid"),         // 중간 거점: 휴식·재선택·Ready
+	MainBossCombat    UMETA(DisplayName = "Main-Boss Combat"),    // Ravager 활성
 };
 
 UENUM(BlueprintType)

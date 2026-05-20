@@ -38,11 +38,13 @@ void ABlackoutGameState::SetMatchState(EBlackoutMatchState NewState)
 
 	CurrentMatchState = NewState;
 	BO_LOG_NET(Log, "MatchState 전환: %s", *UEnum::GetValueAsString(NewState));
+	OnMatchStateChanged.Broadcast(NewState);
 }
 
 void ABlackoutGameState::OnRep_CurrentMatchState()
 {
 	BO_LOG_NET(Log, "MatchState OnRep: %s", *UEnum::GetValueAsString(CurrentMatchState));
+	OnMatchStateChanged.Broadcast(CurrentMatchState);
 }
 
 void ABlackoutGameState::OnRep_DestroyedPillarIds()
