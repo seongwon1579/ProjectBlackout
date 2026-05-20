@@ -22,12 +22,6 @@ protected:
 	virtual void OnPossess(APawn* InPawn) override;
 	virtual void OnUnPossess() override;
 
-	/** StateTree가 참조하는 외부 데이터 핸들을 초기화 */
-	virtual void InitStateTreeContext();
-
-	/** AI Perception 초기화 (필요 시 서브클래스에서 오버라이드) */
-	virtual void InitPerception();
-
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|AI")
 	TObjectPtr<UStateTreeAIComponent> StateTreeComp;
 };
