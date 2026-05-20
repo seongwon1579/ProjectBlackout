@@ -1,9 +1,16 @@
 #include "GAS/Abilities/BlackoutBossGameplayAbility.h"
 
 #include "BlackoutBossCharacter.h"
+#include "BlackoutGameplayTags.h"
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 
 const FName UBlackoutBossGameplayAbility::WarpTargetName = FName("MW_Target");
+
+UBlackoutBossGameplayAbility::UBlackoutBossGameplayAbility()
+{
+	ActivationOwnedTags.AddTag(BlackoutGameplayTags::Ability_PhaseLock);
+	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
+}
 
 void UBlackoutBossGameplayAbility::OnAvatarSet(const FGameplayAbilityActorInfo* ActorInfo,
                                                const FGameplayAbilitySpec& Spec)
