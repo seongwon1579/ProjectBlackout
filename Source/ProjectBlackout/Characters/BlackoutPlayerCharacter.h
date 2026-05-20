@@ -105,6 +105,9 @@ public:
 	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "Blackout|State")
 	void Server_ReviveFromDowned(float RevivedHealth);
 
+	/** 전멸 후 체크포인트 복귀 시 서버가 사망/다운 상태와 전투 가능 상태를 복구합니다. */
+	void RestoreFromPartyWipeRestart();
+
 	// 회피 몽타주 RPC/헬퍼는 TDD §4.1 v2 에서 폐기되었습니다.
 	// 재생은 GAS 표준 PlayMontageAndWait + ASC::PlayMontage → FRepAnimMontageInfo 자동 복제.
 
@@ -289,6 +292,10 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
 	TObjectPtr<UAnimMontage> ReviveMontage;
 
+	/** 다운 상태에서 이 시간이 지나면 완전 사망으로 전환됩니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|State", meta = (ClampMin = "1.0"))
+	float DownedDeathDuration = 30.0f;
+
 	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
 	void Multicast_PlayDeathMontage(UAnimMontage* Montage, float PlayRate = 1.f);
 
@@ -329,6 +336,10 @@ protected:
 	void SetRevivingStateActive(bool bNewReviving);
 	void SetBeingRevivedStateActive(bool bNewBeingRevived);
 	void ApplyReplicatedReviveInteractionStateTag();
+	void StartDownedDeathTimer();
+	void ClearDownedDeathTimer();
+	void HandleDownedDeathTimerExpired();
+	void NotifyBattleGameModePlayerFullyDead();
 	
 	
 	
@@ -410,6 +421,7 @@ protected:
 	TWeakObjectPtr<ABlackoutPlayerCharacter> ActiveReviver;
 
 	FTimerHandle ReviveWeaponRestoreTimerHandle;
+	FTimerHandle DownedDeathTimerHandle;
 
 	UFUNCTION()
 	void HandleHitReactMontageEnded(UAnimMontage* Montage, bool bInterrupted);

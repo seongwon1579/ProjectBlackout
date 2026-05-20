@@ -202,6 +202,16 @@ void UBlackoutPartyRosterWidgetController::BindMember(ABlackoutPlayerState* Memb
 					BroadcastMemberStatus(BoundPlayerState);
 				}
 			});
+
+		Binding.DeadStateTagChangedHandle =
+			ASC->RegisterGameplayTagEvent(BlackoutGameplayTags::State_Dead, EGameplayTagEventType::NewOrRemoved)
+			.AddLambda([this, WeakMemberPlayerState](const FGameplayTag, int32)
+			{
+				if (ABlackoutPlayerState* BoundPlayerState = WeakMemberPlayerState.Get())
+				{
+					BroadcastMemberStatus(BoundPlayerState);
+				}
+			});
 	}
 	else
 	{
@@ -248,6 +258,12 @@ void UBlackoutPartyRosterWidgetController::UnbindMember(ABlackoutPlayerState* Me
 		{
 			ASC->RegisterGameplayTagEvent(BlackoutGameplayTags::State_BeingRevived, EGameplayTagEventType::NewOrRemoved)
 				.Remove(Binding.BeingRevivedStateTagChangedHandle);
+		}
+
+		if (Binding.DeadStateTagChangedHandle.IsValid())
+		{
+			ASC->RegisterGameplayTagEvent(BlackoutGameplayTags::State_Dead, EGameplayTagEventType::NewOrRemoved)
+				.Remove(Binding.DeadStateTagChangedHandle);
 		}
 	}
 }

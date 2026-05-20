@@ -27,6 +27,7 @@ struct FBlackoutPartyMemberBinding
 	FDelegateHandle MaxHealthChangedHandle;
 	FDelegateHandle DownedStateTagChangedHandle;
 	FDelegateHandle BeingRevivedStateTagChangedHandle;
+	FDelegateHandle DeadStateTagChangedHandle;
 };
 
 UCLASS(BlueprintType)

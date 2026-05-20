@@ -7,6 +7,7 @@
 #include "Data/BOCharacterData.h"
 #include "EngineUtils.h"
 #include "Engine/World.h"
+#include "Framework/BlackoutBattleGameMode.h"
 #include "Framework/BlackoutPlayerState.h"
 #include "AbilitySystemInterface.h"
 #include "GAS/Abilities/Player/BlackoutGA_Revive.h"
@@ -1133,6 +1134,7 @@ void ABlackoutPlayerCharacter::OnDowned()
 	Super::OnDowned();
 
 	EndReviveInteraction(nullptr);
+	StartDownedDeathTimer();
 
 	if (DownedEnterMontage)
 	{
@@ -1154,6 +1156,7 @@ void ABlackoutPlayerCharacter::OnDeath()
 
 	Super::OnDeath();
 
+	ClearDownedDeathTimer();
 	EndReviveInteraction(nullptr);
 
 	bIsHitReactMontagePlaying = false;
@@ -1182,6 +1185,8 @@ void ABlackoutPlayerCharacter::OnDeath()
 	{
 		Multicast_PlayDeathMontage(DeathMontage, 1.f);
 	}
+
+	NotifyBattleGameModePlayerFullyDead();
 }
 
 void ABlackoutPlayerCharacter::Server_ReviveFromDowned_Implementation(float RevivedHealth)
@@ -1194,11 +1199,81 @@ void ABlackoutPlayerCharacter::Server_ReviveFromDowned_Implementation(float Revi
 	const float MaxHealth = AbilitySystemComponent->GetNumericAttribute(UBlackoutBaseAttributeSet::GetMaxHealthAttribute());
 	const float ClampedHealth = FMath::Clamp(RevivedHealth, 1.f, MaxHealth);
 
+	ClearDownedDeathTimer();
 	SetDownedStateActive(false);
 	EndReviveInteraction(nullptr);
 	AbilitySystemComponent->SetNumericAttributeBase(UBlackoutBaseAttributeSet::GetHealthAttribute(), ClampedHealth);
 	ScheduleWeaponVisibilityRestoreAfterRevive();
 	BO_LOG_GAS(Log, "ReviveFromDowned: Target=%s Health=%.1f", *GetName(), ClampedHealth);
+}
+
+void ABlackoutPlayerCharacter::RestoreFromPartyWipeRestart()
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	ClearDownedDeathTimer();
+	SetDeadStateActive(false);
+	SetDownedStateActive(false);
+	SetBeingRevivedStateActive(false);
+	SetRevivingStateActive(false);
+	ActiveReviver = nullptr;
+
+	bIsHitReactMontagePlaying = false;
+	bIsDodgeMontagePlaying = false;
+	bIsWeaponSwapMontagePlaying = false;
+	bIsReviveMontagePlaying = false;
+
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(ReviveWeaponRestoreTimerHandle);
+	}
+
+	if (USkeletalMeshComponent* MeshComponent = GetMesh())
+	{
+		if (UAnimInstance* AnimInstance = MeshComponent->GetAnimInstance())
+		{
+			AnimInstance->StopAllMontages(0.1f);
+		}
+	}
+
+	if (CombatComponent)
+	{
+		CombatComponent->StopFire();
+		CombatComponent->HandlePrimaryActionReleased();
+		CombatComponent->StopAim();
+		CombatComponent->EndEquippedWeaponHiddenOverride();
+	}
+
+	if (AbilitySystemComponent)
+	{
+		const float MaxHealth = AbilitySystemComponent->GetNumericAttribute(UBlackoutBaseAttributeSet::GetMaxHealthAttribute());
+		if (MaxHealth <= 0.0f)
+		{
+			BO_LOG_GAS(Error, "PartyWipeRestart 복구 실패: MaxHealth가 0 이하입니다. Player=%s", *GetNameSafe(this));
+		}
+		else
+		{
+			AbilitySystemComponent->SetNumericAttributeBase(UBlackoutBaseAttributeSet::GetHealthAttribute(), MaxHealth);
+		}
+	}
+	else
+	{
+		BO_LOG_GAS(Error, "PartyWipeRestart 복구 실패: AbilitySystemComponent가 비어 있습니다. Player=%s", *GetNameSafe(this));
+	}
+
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		MoveComp->SetMovementMode(MOVE_Walking);
+		MoveComp->MaxWalkSpeed = DefaultMaxWalkSpeed;
+		MoveComp->bOrientRotationToMovement = true;
+		MoveComp->bUseControllerDesiredRotation = false;
+	}
+
+	UpdateAimMovementMode();
+	BO_LOG_GAS(Log, "PartyWipeRestart 복구 완료: Player=%s", *GetNameSafe(this));
 }
 
 bool ABlackoutPlayerCharacter::PlayDeathMontage(UAnimMontage* Montage, float PlayRate)
@@ -1451,6 +1526,81 @@ void ABlackoutPlayerCharacter::HandleReviveMontageEnded(UAnimMontage* Montage, b
 	{
 		RestoreWeaponVisibilityAfterRevive();
 	}
+}
+
+void ABlackoutPlayerCharacter::StartDownedDeathTimer()
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		BO_LOG_GAS(Error, "다운 사망 타이머 시작 실패: World가 비어 있습니다. Player=%s", *GetNameSafe(this));
+		return;
+	}
+
+	const float SafeDuration = FMath::Max(1.0f, DownedDeathDuration);
+	World->GetTimerManager().ClearTimer(DownedDeathTimerHandle);
+	World->GetTimerManager().SetTimer(
+		DownedDeathTimerHandle,
+		this,
+		&ABlackoutPlayerCharacter::HandleDownedDeathTimerExpired,
+		SafeDuration,
+		false);
+
+	BO_LOG_GAS(Log, "다운 사망 타이머 시작: Player=%s Duration=%.1f", *GetNameSafe(this), SafeDuration);
+}
+
+void ABlackoutPlayerCharacter::ClearDownedDeathTimer()
+{
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(DownedDeathTimerHandle);
+	}
+}
+
+void ABlackoutPlayerCharacter::HandleDownedDeathTimerExpired()
+{
+	if (!HasAuthority() || IsDead())
+	{
+		return;
+	}
+
+	if (!IsDowned())
+	{
+		BO_LOG_GAS(Warning, "다운 사망 타이머 만료 무시: 이미 다운 상태가 아닙니다. Player=%s", *GetNameSafe(this));
+		return;
+	}
+
+	BO_LOG_GAS(Log, "다운 사망 타이머 만료: Player=%s", *GetNameSafe(this));
+	OnDeath();
+}
+
+void ABlackoutPlayerCharacter::NotifyBattleGameModePlayerFullyDead()
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		BO_LOG_GAS(Error, "완전 사망 알림 실패: World가 비어 있습니다. Player=%s", *GetNameSafe(this));
+		return;
+	}
+
+	ABlackoutBattleGameMode* BattleGameMode = World->GetAuthGameMode<ABlackoutBattleGameMode>();
+	if (!BattleGameMode)
+	{
+		BO_LOG_GAS(Warning, "완전 사망 알림 실패: BattleGameMode가 아닙니다. Player=%s", *GetNameSafe(this));
+		return;
+	}
+
+	BattleGameMode->NotifyPlayerFullyDead(this);
 }
 
 void ABlackoutPlayerCharacter::SetRevivingStateActive(bool bNewReviving)

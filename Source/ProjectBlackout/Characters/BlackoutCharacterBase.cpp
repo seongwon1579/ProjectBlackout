@@ -163,6 +163,7 @@ void ABlackoutCharacterBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
+	DOREPLIFETIME(ABlackoutCharacterBase, bIsDead);
 	DOREPLIFETIME(ABlackoutCharacterBase, bReplicatedDownedStateTag);
 }
 
@@ -263,7 +264,7 @@ void ABlackoutCharacterBase::OnDeath()
 	}
 
 	const bool bWasDowned = IsDowned();
-	bIsDead = true;
+	SetDeadStateActive(true);
 	SetDownedStateActive(false);
 
 	if (AbilitySystemComponent)
@@ -323,6 +324,7 @@ void ABlackoutCharacterBase::BindDownedStateTagEvent()
 	if (BoundDownedTagAbilitySystemComponent.Get() == AbilitySystemComponent && DownedTagChangedHandle.IsValid())
 	{
 		ApplyReplicatedDownedStateTag();
+		ApplyReplicatedDeadStateTag();
 		RefreshDownedPresentationCache();
 		return;
 	}
@@ -343,6 +345,7 @@ void ABlackoutCharacterBase::BindDownedStateTagEvent()
 	BoundDownedTagAbilitySystemComponent = AbilitySystemComponent;
 
 	ApplyReplicatedDownedStateTag();
+	ApplyReplicatedDeadStateTag();
 	RefreshDownedPresentationCache();
 }
 
@@ -374,6 +377,31 @@ void ABlackoutCharacterBase::SetDownedStateActive(bool bNewDowned)
 	RefreshDownedPresentationCache();
 }
 
+void ABlackoutCharacterBase::SetDeadStateActive(bool bNewDead)
+{
+	if (HasAuthority())
+	{
+		bIsDead = bNewDead;
+	}
+
+	if (!AbilitySystemComponent)
+	{
+		return;
+	}
+
+	if (bNewDead)
+	{
+		if (!AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Dead))
+		{
+			AbilitySystemComponent->AddLooseGameplayTag(BlackoutGameplayTags::State_Dead);
+		}
+	}
+	else
+	{
+		AbilitySystemComponent->RemoveLooseGameplayTag(BlackoutGameplayTags::State_Dead);
+	}
+}
+
 void ABlackoutCharacterBase::ApplyReplicatedDownedStateTag()
 {
 	if (HasAuthority() || !AbilitySystemComponent)
@@ -391,6 +419,26 @@ void ABlackoutCharacterBase::ApplyReplicatedDownedStateTag()
 	else
 	{
 		AbilitySystemComponent->RemoveLooseGameplayTag(BlackoutGameplayTags::State_Downed);
+	}
+}
+
+void ABlackoutCharacterBase::ApplyReplicatedDeadStateTag()
+{
+	if (HasAuthority() || !AbilitySystemComponent)
+	{
+		return;
+	}
+
+	if (bIsDead)
+	{
+		if (!AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Dead))
+		{
+			AbilitySystemComponent->AddLooseGameplayTag(BlackoutGameplayTags::State_Dead);
+		}
+	}
+	else
+	{
+		AbilitySystemComponent->RemoveLooseGameplayTag(BlackoutGameplayTags::State_Dead);
 	}
 }
 
@@ -433,6 +481,11 @@ void ABlackoutCharacterBase::OnRep_DownedStateTagBridge()
 
 	ApplyReplicatedDownedStateTag();
 	RefreshDownedPresentationCache();
+}
+
+void ABlackoutCharacterBase::OnRep_DeadStateTagBridge()
+{
+	ApplyReplicatedDeadStateTag();
 }
 
 void ABlackoutCharacterBase::BroadcastDownedStateChanged()
