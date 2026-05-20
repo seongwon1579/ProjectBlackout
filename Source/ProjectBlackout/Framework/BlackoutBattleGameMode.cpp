@@ -159,6 +159,12 @@ void ABlackoutBattleGameMode::BO_SimMidBossDefeated()
 	OnMidBossDefeated();
 }
 
+void ABlackoutBattleGameMode::BO_SimPartyWipe()
+{
+	BO_LOG_NET(Warning, "[테스트] BO_SimPartyWipe — 파티 전멸 시뮬레이션");
+	HandlePartyWipe();
+}
+
 void ABlackoutBattleGameMode::InitGame(const FString& MapName,
                                        const FString& Options,
                                        FString& ErrorMessage)
@@ -333,13 +339,16 @@ void ABlackoutBattleGameMode::HandlePartyWipe()
 
 	const bool bHasCheckpoint = CurrentCheckpointActor != nullptr;
 	const FVector RespawnLocation = bHasCheckpoint
-		                                ? CurrentCheckpointActor->
-		                                GetActorLocation()
+		                                ? CurrentCheckpointActor->GetActorLocation()
 		                                : FVector::ZeroVector;
 
-	for (APlayerState* PS : GameState->PlayerArray)
+	// 체크포인트 주위 방사형 분산. 단일 좌표 텔레포트 시 캡슐 콜리전이 인터록되어 움직임이 막히는 문제 회피.
+	constexpr float RespawnRadius = 150.f;
+	const int32 NumPlayers = GameState->PlayerArray.Num();
+
+	for (int32 Index = 0; Index < NumPlayers; ++Index)
 	{
-		ABlackoutPlayerState* BlackoutPS = Cast<ABlackoutPlayerState>(PS);
+		ABlackoutPlayerState* BlackoutPS = Cast<ABlackoutPlayerState>(GameState->PlayerArray[Index]);
 		if (!BlackoutPS)
 		{
 			continue;
@@ -366,7 +375,10 @@ void ABlackoutBattleGameMode::HandlePartyWipe()
 		{
 			if (APawn* Pawn = PC->GetPawn())
 			{
-				Pawn->SetActorLocation(RespawnLocation, false, nullptr,
+				const float Angle = (2.f * PI) * static_cast<float>(Index) / FMath::Max(NumPlayers, 1);
+				const FVector Offset(FMath::Cos(Angle) * RespawnRadius,
+				                     FMath::Sin(Angle) * RespawnRadius, 0.f);
+				Pawn->SetActorLocation(RespawnLocation + Offset, false, nullptr,
 				                       ETeleportType::TeleportPhysics);
 			}
 		}

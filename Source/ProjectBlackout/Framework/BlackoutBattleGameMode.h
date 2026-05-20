@@ -28,6 +28,10 @@ public:
 	// [테스트 전용] 콘솔에서 중간 보스 처치 시뮬레이션. 보스/4인 없이 루프 검증용.
 	UFUNCTION(Exec)
 	void BO_SimMidBossDefeated();
+
+	// [테스트 전용] 콘솔에서 파티 전멸 시뮬레이션. 전투/사망 없이 Fast-Retry 회귀 검증용.
+	UFUNCTION(Exec)
+	void BO_SimPartyWipe();
 	
 	// 생존자 0명 감지 시 외부에서 호출. 현재 체크포인트로 전원 복귀 트리거.
 	virtual void HandlePartyWipe() override;
