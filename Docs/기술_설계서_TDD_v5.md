@@ -172,7 +172,9 @@ GE와 ExecCalc(실행 계산기)를 사용해, 피격 처리와 기믹 보상을
 멀티플레이 협동을 위한 다단계 데스 생명 주기를 ASC와 Controller 상태를 통해 구현합니다.
 - **다운 상태 진입 (`GE_Downed`)**: 체력이 0 이하로 떨어지면 즉각 파괴(Destroy)하지 않고 캡슐 콜리전 프로필을 변경한 후 `GE_Downed` 이펙트를 부여합니다. 이 이펙트는 이동 및 액션 입력을 봉쇄하는 전역 태그(`State.Downed`)를 씌우며, 매 초 체력을 깎는 타이머 로직(`GE_BleedOut`)을 동반합니다.
 - 다운 상태 진입 시 블러드 루트 같은 지속 체력 회복 타이머는 즉시 취소합니다. 취소된 지속 회복이 소모품에서 시작된 경우 해당 소모품 쿨다운도 서버와 소유 클라이언트에서 초기화합니다. 다운 이후 남은 회복 틱이 플레이어를 자동으로 되살리는 흐름은 허용하지 않습니다.
+- **다운 상태 HUD 전환**: 로컬 플레이어가 `State.Downed`에 진입하면 `UBlackoutHUDWidget`은 팀원 상태창(`UW_PartyRoster`)과 보스 체력바(`UW_BossHealthBar`)를 제외한 기본 전투 HUD 레이어를 숨깁니다. 동시에 다운 사망 타이머의 남은 시간을 프로그래스 바로 표시합니다. 타이머 UI는 서버 권위 값(`DownedDeathEndServerTime` 또는 이에 준하는 복제/클라이언트 RPC 값)을 기준으로 클라이언트에서 남은 시간을 계산합니다.
 - **부활 (`GA_Revive`)**: 생존 동료의 상호작용 완료 시, 대상 폰의 `GE_Downed`와 `GE_BleedOut`을 `RemoveActiveGameplayEffect`로 강제 해제하고 기본 체력값으로 복구합니다. 구출자의 `RelicCharges`를 1 차감합니다.
+- **부활 진행 HUD 전환**: 다운 대상에게 `State.BeingRevived`가 적용되면 서버는 다운 사망 타이머를 일시정지하고, HUD는 사망 타이머 프로그래스 바 대신 `GA_Revive` 진행률 또는 `ReviveEndServerTime`에 기반한 부활 완료까지 남은 시간을 프로그래스 바로 표시합니다. 부활이 취소되면 사망 타이머는 정지 당시 남은 시간부터 재개되고, 부활 성공으로 `State.Downed`와 `State.BeingRevived`가 모두 해제되면 기본 전투 HUD 레이어를 복구합니다.
 - **완전 사망 및 관전 전환**: 출혈 타이머 소진 시 서버는 해당 플레이어 폰을 `HiddenInGame = true` 및 물리 불가 상태로 만듭니다. 컨트롤러(`APlayerController`)에서는 `ChangeState(NAME_Spectating)` 함수를 호출하여 엔진 자체 관전 모드로 전환하고, `SetViewTargetWithBlend()`로 카메라를 다른 아군 폰으로 강제 바인딩합니다. 관전 대상은 완전 사망하지 않은 파티원이며, 다운 상태 아군도 포함합니다. 관전자는 다음/이전 대상 변경 입력을 사용할 수 있습니다. 관전 중 **[항복 투표] UI**가 표시되며, 과반수 투표 시 `ABlackoutBattleGameMode`에서 파티 전원을 해당 구역 화톳불로 귀환 처리하는 **`Server_RequestSurrenderVote` RPC**를 호출합니다(§7 참조).
 
 ### 5.2 보스 약점 부위 피해 배율 처리 (Hitbox Damage Multiplier)
@@ -312,6 +314,7 @@ GDD §8.3의 미니멀리즘 HUD 전체 구성 요소를 UI 위젯 레이어로 
   - `UW_AmmoDisplay` ← `OnPrimaryClipAmmoChanged` + `OnPrimaryReserveAmmoChanged` (주/보조 스왑 시 소스 어트리뷰트 전환)
 - **파티원 정보 패널 (`UW_PartyRoster`)**: `ABlackoutGameState::PlayerArray` 순회. 각 `ABlackoutPlayerState`의 HP/다운 상태를 `OnRep` 델리게이트로 수신. 다운 시 `REVIVE` 경고 애니메이션과 붉은 해골 아이콘 토글.
 - **보스 체력바 (`UW_BossHealthBar`)**: 보스 인카운터 시 `ABlackoutBattleGameMode::OnBossEncounterBegin` 델리게이트로 위젯 활성화. 보스 `ABlackoutBossCharacter`의 `Health`/`MaxHealth` 어트리뷰트에 바인딩. Phase 전환 시 `OnPhaseChanged` 델리게이트 수신하여 단계 표시(Phase A/B/C) 갱신.
+- **다운 상태 UI (`UW_DownedState`)**: 로컬 플레이어의 `State.Downed`, `State.BeingRevived`, `State.Dead`를 구독하여 HUD 모드를 전환합니다. 다운 중에는 기본 전투 HUD를 숨기고 사망 타이머 프로그래스 바를 표시합니다. 부활 진행 중에는 사망 타이머를 일시정지한 뒤 사망 타이머 대신 부활 프로그래스 바를 표시합니다. 부활 성공 시 기본 전투 HUD로 복귀하고, 부활 취소 시 남은 사망 타이머 표시로 돌아가며, 완전 사망 시 관전 HUD로 전환합니다.
 - **데미지 플로팅 텍스트**: 로컬 가해자 클라이언트에게만 `Client_ShowDamageNumber` RPC로 전송(§10.4 유지). 치명타 시 색상(노랑/빨강) 및 폰트 크기 트랜지션.
 - **크로스헤어 + True Impact Indicator**: `UW_Crosshair`가 Tick에서 카메라 전진 방향 라인트레이스와 무기 `MuzzleSocket` 라인트레이스 결과를 비교하여 실제 착탄 위치 인디케이터를 렌더.
 - **월드 플로팅 위젯**: 드랍 아이템/화톳불/포털에 `UWidgetComponent(SpaceType=World)` 부착. `[E] 상호작용` 아이콘을 아이템 바로 위에 표기.
