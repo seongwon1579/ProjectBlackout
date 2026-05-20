@@ -31,6 +31,8 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FBlackoutHUDWeaponAmmoDisplayChan
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FBlackoutHUDRelicChargesChangedSignature, int32, CurrentCharges, int32, MaxCharges);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FBlackoutHUDConsumablesChangedSignature, int32, BloodRootCount, int32, GulSerumCount);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FBlackoutHUDConsumableSlotsChangedSignature, const FBlackoutConsumableSlotData&, BloodRootData, const FBlackoutConsumableSlotData&, GulSerumData);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FBlackoutHUDModeChangedSignature, EBlackoutHUDMode, HUDMode);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FBlackoutHUDDownedStateDataChangedSignature, const FBlackoutDownedStateHUDData&, DownedStateHUDData);
 
 UCLASS(BlueprintType)
 class PROJECTBLACKOUT_API UBlackoutHUDWidgetController : public UObject
@@ -52,6 +54,17 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|HUD|Interaction")
 	bool GetInteractionPromptData(FBlackoutInteractionPromptData& OutPromptData) const;
+
+	/** 현재 HUD 모드를 반환합니다. 위젯이 초기 모드를 묻거나 누락된 동기화를 보정할 때 사용합니다. */
+	UFUNCTION(BlueprintPure, Category = "Blackout|HUD|Downed")
+	EBlackoutHUDMode GetCurrentHUDMode() const { return CurrentHUDMode; }
+
+	/**
+	 * 다운 상태 위젯이 매 틱 폴링할 표시 데이터입니다.
+	 * 사망 타이머와 부활 진행률은 시간 기반이므로 위젯이 폴링해 부드럽게 갱신합니다.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Blackout|HUD|Downed")
+	bool GetDownedStateHUDData(FBlackoutDownedStateHUDData& OutHUDData) const;
 
 	bool GetRevivePromptData(FBlackoutInteractionPromptData& OutPromptData) const
 	{
@@ -84,6 +97,12 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category = "Blackout|HUD")
 	FBlackoutHUDConsumableSlotsChangedSignature OnConsumableSlotsChanged;
+
+	UPROPERTY(BlueprintAssignable, Category = "Blackout|HUD|Downed")
+	FBlackoutHUDModeChangedSignature OnHUDModeChanged;
+
+	UPROPERTY(BlueprintAssignable, Category = "Blackout|HUD|Downed")
+	FBlackoutHUDDownedStateDataChangedSignature OnDownedStateHUDDataChanged;
 
 protected:
 	UFUNCTION()
@@ -122,6 +141,18 @@ private:
 	UFUNCTION()
 	void HandleConsumablesChanged(int32 BloodRootCount, int32 GulSerumCount);
 
+	/** State.Downed / State.BeingRevived / State.Dead 태그 변경 이벤트 진입점입니다. */
+	void HandleDownedRelatedTagChanged(const FGameplayTag CallbackTag, int32 NewCount);
+
+	/** 현재 태그 조합으로 HUD 모드를 평가하고, 변경되었을 때만 브로드캐스트합니다. */
+	void RefreshHUDMode();
+
+	/** 다이어그램에 명시된 데이터 빌더입니다. HUD 모드와 잔여 시간/진행률을 계산합니다. */
+	FBlackoutDownedStateHUDData BuildDownedStateHUDData(EBlackoutHUDMode InHUDMode) const;
+
+	/** 현재 로컬 플레이어가 가진 State 태그를 읽어 HUD 모드를 결정합니다. */
+	EBlackoutHUDMode EvaluateHUDMode() const;
+
 	TWeakObjectPtr<ABlackoutPlayerController> PlayerController;
 	TWeakObjectPtr<ABlackoutPlayerState> PlayerState;
 	TWeakObjectPtr<UAbilitySystemComponent> AbilitySystemComponent;
@@ -134,4 +165,12 @@ private:
 	TWeakObjectPtr<ABlackoutPlayerState> BoundPlayerState;
 
 	bool bAttributeCallbacksBound = false;
+
+	/** State 태그 이벤트 핸들. ASC 재바인딩 시 해제용으로 보관합니다. */
+	FDelegateHandle DownedTagChangedHandle;
+	FDelegateHandle BeingRevivedTagChangedHandle;
+	FDelegateHandle DeadTagChangedHandle;
+	TWeakObjectPtr<UAbilitySystemComponent> BoundStateTagAbilitySystemComponent;
+
+	EBlackoutHUDMode CurrentHUDMode = EBlackoutHUDMode::Combat;
 };

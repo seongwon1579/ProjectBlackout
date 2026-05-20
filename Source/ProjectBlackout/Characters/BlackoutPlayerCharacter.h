@@ -215,6 +215,17 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Blackout|Interaction")
 	bool IsBeingRevived() const;
 
+	/** 다운 상태 진입 시 설정된 완전 사망 카운트다운 총 지속 시간(초)입니다. */
+	UFUNCTION(BlueprintPure, Category = "Blackout|State")
+	float GetDownedDeathDuration() const { return DownedDeathDuration; }
+
+	/**
+	 * 완전 사망까지 남은 시간(초)을 반환합니다.
+	 * 다운 상태가 아니면 0, 부활 시도 중이면 일시정지된 시점의 남은 시간을 그대로 반환합니다.
+	 */
+	UFUNCTION(BlueprintPure, Category = "Blackout|State")
+	float GetDownedDeathRemainingTime() const;
+
 	UFUNCTION(BlueprintPure, Category = "Blackout|Interaction")
 	AActor* GetFocusedInteractableActor() const { return FocusedInteractableActor.Get(); }
 
@@ -339,6 +350,8 @@ protected:
 	void ApplyReplicatedReviveInteractionStateTag();
 	void StartDownedDeathTimer();
 	void ClearDownedDeathTimer();
+	void PauseDownedDeathTimer();
+	void ResumeDownedDeathTimer();
 	void HandleDownedDeathTimerExpired();
 	void NotifyBattleGameModePlayerFullyDead();
 	UAnimMontage* SelectDeathMontage() const;
@@ -427,6 +440,21 @@ protected:
 
 	FTimerHandle ReviveWeaponRestoreTimerHandle;
 	FTimerHandle DownedDeathTimerHandle;
+
+	/**
+	 * 다운 사망 타이머가 만료되는 서버 월드 시간(초)입니다.
+	 * 클라이언트는 GameStateBase::GetServerWorldTimeSeconds()와 비교해 남은 시간을 계산합니다.
+	 * 일시정지 중에는 0이며, 이때 남은 시간은 DownedDeathPausedRemainingTime에서 읽습니다.
+	 */
+	UPROPERTY(Transient, Replicated)
+	float DownedDeathServerEndTimeSeconds = 0.0f;
+
+	/** 부활 시도로 사망 타이머가 일시정지된 시점에 기록한 남은 시간(초)입니다. */
+	UPROPERTY(Transient, Replicated)
+	float DownedDeathPausedRemainingTime = 0.0f;
+
+	UPROPERTY(Transient, Replicated)
+	bool bDownedDeathTimerPaused = false;
 
 	UFUNCTION()
 	void HandleHitReactMontageEnded(UAnimMontage* Montage, bool bInterrupted);

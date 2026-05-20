@@ -12,6 +12,7 @@
 #include "AbilitySystemInterface.h"
 #include "GAS/Abilities/Player/BlackoutGA_Revive.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
+#include "GameFramework/GameStateBase.h"
 #include "GameFramework/PlayerState.h"
 #include "Camera/CameraComponent.h"
 #include "Animation/AnimInstance.h"
@@ -78,6 +79,9 @@ void ABlackoutPlayerCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProper
 
 	DOREPLIFETIME_CONDITION(ABlackoutPlayerCharacter, ReplicatedAimOffset, COND_SkipOwner);
 	DOREPLIFETIME(ABlackoutPlayerCharacter, bIsReviveInteractionActive);
+	DOREPLIFETIME(ABlackoutPlayerCharacter, DownedDeathServerEndTimeSeconds);
+	DOREPLIFETIME(ABlackoutPlayerCharacter, DownedDeathPausedRemainingTime);
+	DOREPLIFETIME(ABlackoutPlayerCharacter, bDownedDeathTimerPaused);
 }
 
 void ABlackoutPlayerCharacter::Tick(float DeltaSeconds)
@@ -1603,6 +1607,11 @@ void ABlackoutPlayerCharacter::StartDownedDeathTimer()
 		SafeDuration,
 		false);
 
+	// 클라이언트가 남은 시간을 계산할 수 있도록 서버 월드 시간 기준 만료 시각을 복제합니다.
+	DownedDeathServerEndTimeSeconds = World->GetTimeSeconds() + SafeDuration;
+	DownedDeathPausedRemainingTime = 0.0f;
+	bDownedDeathTimerPaused = false;
+
 	BO_LOG_GAS(Log, "다운 사망 타이머 시작: Player=%s Duration=%.1f", *GetNameSafe(this), SafeDuration);
 }
 
@@ -1612,6 +1621,93 @@ void ABlackoutPlayerCharacter::ClearDownedDeathTimer()
 	{
 		World->GetTimerManager().ClearTimer(DownedDeathTimerHandle);
 	}
+
+	// 복제 동기화 필드를 함께 초기화해 클라이언트 HUD가 잔여 시간을 0으로 인식하도록 합니다.
+	if (HasAuthority())
+	{
+		DownedDeathServerEndTimeSeconds = 0.0f;
+		DownedDeathPausedRemainingTime = 0.0f;
+		bDownedDeathTimerPaused = false;
+	}
+}
+
+void ABlackoutPlayerCharacter::PauseDownedDeathTimer()
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World || !DownedDeathTimerHandle.IsValid())
+	{
+		return;
+	}
+
+	// 부활 시도 중에는 완전 사망 카운트다운을 멈춰 남은 시간을 유지합니다.
+	const float RemainingAtPause = FMath::Max(0.0f, World->GetTimerManager().GetTimerRemaining(DownedDeathTimerHandle));
+	World->GetTimerManager().PauseTimer(DownedDeathTimerHandle);
+
+	DownedDeathPausedRemainingTime = RemainingAtPause;
+	DownedDeathServerEndTimeSeconds = 0.0f;
+	bDownedDeathTimerPaused = true;
+}
+
+void ABlackoutPlayerCharacter::ResumeDownedDeathTimer()
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World || !DownedDeathTimerHandle.IsValid() || !bDownedDeathTimerPaused)
+	{
+		return;
+	}
+
+	// 부활이 취소되면 정지 시점의 남은 시간으로 사망 타이머를 재개합니다.
+	World->GetTimerManager().UnPauseTimer(DownedDeathTimerHandle);
+
+	const float NewRemaining = FMath::Max(0.0f, World->GetTimerManager().GetTimerRemaining(DownedDeathTimerHandle));
+	DownedDeathServerEndTimeSeconds = World->GetTimeSeconds() + NewRemaining;
+	DownedDeathPausedRemainingTime = 0.0f;
+	bDownedDeathTimerPaused = false;
+}
+
+float ABlackoutPlayerCharacter::GetDownedDeathRemainingTime() const
+{
+	if (!IsDowned() || IsDead())
+	{
+		return 0.0f;
+	}
+
+	// 일시정지 중에는 복제된 정지 시점의 남은 시간을 그대로 사용합니다.
+	if (bDownedDeathTimerPaused)
+	{
+		return FMath::Max(0.0f, DownedDeathPausedRemainingTime);
+	}
+
+	if (DownedDeathServerEndTimeSeconds <= KINDA_SMALL_NUMBER)
+	{
+		return 0.0f;
+	}
+
+	const UWorld* World = GetWorld();
+	if (!World)
+	{
+		return 0.0f;
+	}
+
+	// 서버 월드 시간 기준으로 만료 시각과의 차이를 계산합니다.
+	// 클라이언트에서는 GameState의 서버 동기화 시간을 사용하고, 서버에서는 World->GetTimeSeconds()와 동일합니다.
+	float ServerNowSeconds = World->GetTimeSeconds();
+	if (const AGameStateBase* GameStateBase = World->GetGameState())
+	{
+		ServerNowSeconds = GameStateBase->GetServerWorldTimeSeconds();
+	}
+
+	return FMath::Max(0.0f, DownedDeathServerEndTimeSeconds - ServerNowSeconds);
 }
 
 void ABlackoutPlayerCharacter::HandleDownedDeathTimerExpired()
@@ -1680,6 +1776,16 @@ void ABlackoutPlayerCharacter::SetBeingRevivedStateActive(bool bNewBeingRevived)
 	if (HasAuthority())
 	{
 		bIsReviveInteractionActive = bNewBeingRevived;
+
+		// 서버 권위 사망 타이머를 부활 시도 시작 시 일시정지, 취소 시 재개합니다.
+		if (bNewBeingRevived)
+		{
+			PauseDownedDeathTimer();
+		}
+		else
+		{
+			ResumeDownedDeathTimer();
+		}
 	}
 
 	if (!AbilitySystemComponent)

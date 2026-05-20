@@ -90,6 +90,49 @@ void UBlackoutHUDWidgetController::BindCallbacksToDependencies()
 		bAttributeCallbacksBound = true;
 	}
 
+	if (ASC && BoundStateTagAbilitySystemComponent.Get() != ASC)
+	{
+		// 이전 ASC에 남아있던 State 태그 콜백을 정리합니다.
+		if (UAbilitySystemComponent* PreviousASC = BoundStateTagAbilitySystemComponent.Get())
+		{
+			if (DownedTagChangedHandle.IsValid())
+			{
+				PreviousASC->RegisterGameplayTagEvent(
+					BlackoutGameplayTags::State_Downed,
+					EGameplayTagEventType::NewOrRemoved).Remove(DownedTagChangedHandle);
+			}
+			if (BeingRevivedTagChangedHandle.IsValid())
+			{
+				PreviousASC->RegisterGameplayTagEvent(
+					BlackoutGameplayTags::State_BeingRevived,
+					EGameplayTagEventType::NewOrRemoved).Remove(BeingRevivedTagChangedHandle);
+			}
+			if (DeadTagChangedHandle.IsValid())
+			{
+				PreviousASC->RegisterGameplayTagEvent(
+					BlackoutGameplayTags::State_Dead,
+					EGameplayTagEventType::NewOrRemoved).Remove(DeadTagChangedHandle);
+			}
+		}
+
+		DownedTagChangedHandle = ASC->RegisterGameplayTagEvent(
+			BlackoutGameplayTags::State_Downed,
+			EGameplayTagEventType::NewOrRemoved)
+			.AddUObject(this, &UBlackoutHUDWidgetController::HandleDownedRelatedTagChanged);
+
+		BeingRevivedTagChangedHandle = ASC->RegisterGameplayTagEvent(
+			BlackoutGameplayTags::State_BeingRevived,
+			EGameplayTagEventType::NewOrRemoved)
+			.AddUObject(this, &UBlackoutHUDWidgetController::HandleDownedRelatedTagChanged);
+
+		DeadTagChangedHandle = ASC->RegisterGameplayTagEvent(
+			BlackoutGameplayTags::State_Dead,
+			EGameplayTagEventType::NewOrRemoved)
+			.AddUObject(this, &UBlackoutHUDWidgetController::HandleDownedRelatedTagChanged);
+
+		BoundStateTagAbilitySystemComponent = ASC;
+	}
+
 	if (ABlackoutPlayerState* BlackoutPlayerState = PlayerState.Get())
 	{
 		if (BoundPlayerState.Get() != BlackoutPlayerState)
@@ -139,6 +182,11 @@ void UBlackoutHUDWidgetController::BroadcastInitialValues()
 	BroadcastWeaponAmmoDisplay(false);
 	BroadcastRelicCharges();
 	BroadcastConsumables();
+
+	// HUD 모드와 다운 상태 데이터의 초기값을 브로드캐스트해 첫 프레임에 위젯 가시성이 결정되도록 합니다.
+	CurrentHUDMode = EvaluateHUDMode();
+	OnHUDModeChanged.Broadcast(CurrentHUDMode);
+	OnDownedStateHUDDataChanged.Broadcast(BuildDownedStateHUDData(CurrentHUDMode));
 }
 
 bool UBlackoutHUDWidgetController::GetImpactIndicatorData(FBlackoutImpactIndicatorData& OutIndicatorData) const
@@ -690,4 +738,113 @@ void UBlackoutHUDWidgetController::HandleConsumablesChanged(int32 BloodRootCount
 {
 	OnConsumablesChanged.Broadcast(BloodRootCount, GulSerumCount);
 	BroadcastConsumableSlots(BloodRootCount, GulSerumCount);
+}
+
+bool UBlackoutHUDWidgetController::GetDownedStateHUDData(FBlackoutDownedStateHUDData& OutHUDData) const
+{
+	OutHUDData = BuildDownedStateHUDData(CurrentHUDMode);
+	return OutHUDData.bIsVisible;
+}
+
+void UBlackoutHUDWidgetController::HandleDownedRelatedTagChanged(const FGameplayTag CallbackTag, int32 NewCount)
+{
+	// 태그 콜백은 NewCount만 알려주므로 현재 ASC 태그 컨테이너 전체를 다시 평가합니다.
+	RefreshHUDMode();
+}
+
+void UBlackoutHUDWidgetController::RefreshHUDMode()
+{
+	const EBlackoutHUDMode NewMode = EvaluateHUDMode();
+	const FBlackoutDownedStateHUDData NewData = BuildDownedStateHUDData(NewMode);
+
+	if (NewMode != CurrentHUDMode)
+	{
+		CurrentHUDMode = NewMode;
+		OnHUDModeChanged.Broadcast(CurrentHUDMode);
+	}
+
+	// 모드가 그대로여도 데이터는 변화할 수 있으므로 항상 브로드캐스트합니다(StatusText/시간 등).
+	OnDownedStateHUDDataChanged.Broadcast(NewData);
+}
+
+EBlackoutHUDMode UBlackoutHUDWidgetController::EvaluateHUDMode() const
+{
+	const UAbilitySystemComponent* ASC = AbilitySystemComponent.Get();
+	if (!ASC)
+	{
+		return EBlackoutHUDMode::Combat;
+	}
+
+	if (ASC->HasMatchingGameplayTag(BlackoutGameplayTags::State_Dead))
+	{
+		return EBlackoutHUDMode::Spectator;
+	}
+
+	if (ASC->HasMatchingGameplayTag(BlackoutGameplayTags::State_Downed))
+	{
+		return ASC->HasMatchingGameplayTag(BlackoutGameplayTags::State_BeingRevived)
+			? EBlackoutHUDMode::DownedReviveTimer
+			: EBlackoutHUDMode::DownedDeathTimer;
+	}
+
+	return EBlackoutHUDMode::Combat;
+}
+
+FBlackoutDownedStateHUDData UBlackoutHUDWidgetController::BuildDownedStateHUDData(EBlackoutHUDMode InHUDMode) const
+{
+	FBlackoutDownedStateHUDData HUDData;
+	HUDData.HUDMode = InHUDMode;
+
+	const ABlackoutPlayerController* BlackoutPlayerController = PlayerController.Get();
+	const ABlackoutPlayerCharacter* LocalPlayerCharacter =
+		BlackoutPlayerController ? Cast<ABlackoutPlayerCharacter>(BlackoutPlayerController->GetPawn()) : nullptr;
+
+	switch (InHUDMode)
+	{
+	case EBlackoutHUDMode::DownedDeathTimer:
+	{
+		if (!LocalPlayerCharacter)
+		{
+			break;
+		}
+
+		const float Total = FMath::Max(KINDA_SMALL_NUMBER, LocalPlayerCharacter->GetDownedDeathDuration());
+		const float Remaining = FMath::Clamp(LocalPlayerCharacter->GetDownedDeathRemainingTime(), 0.0f, Total);
+
+		HUDData.TotalDuration = Total;
+		HUDData.RemainingTime = Remaining;
+		// 사망 타이머는 남은 시간이 줄어들수록 게이지가 차오르는 카운트다운 형태로 표시합니다.
+		HUDData.ProgressNormalized = FMath::Clamp(1.0f - (Remaining / Total), 0.0f, 1.0f);
+		HUDData.bIsVisible = true;
+		break;
+	}
+	case EBlackoutHUDMode::DownedReviveTimer:
+	{
+		if (!LocalPlayerCharacter)
+		{
+			break;
+		}
+
+		// 다운된 본인 클라이언트에서는 부활 어빌리티 진행률을 직접 알 수 없으므로
+		// 부활 시도 중임을 알리는 시각적 단서만 표시하고 정확한 진행률 복제는 후속 작업으로 둡니다.
+		HUDData.TotalDuration = FMath::Max(KINDA_SMALL_NUMBER, LocalPlayerCharacter->GetDownedDeathDuration());
+		HUDData.RemainingTime = FMath::Clamp(
+			LocalPlayerCharacter->GetDownedDeathRemainingTime(),
+			0.0f,
+			HUDData.TotalDuration);
+		HUDData.ProgressNormalized = 0.0f;
+		HUDData.bIsVisible = true;
+		break;
+	}
+	case EBlackoutHUDMode::Spectator:
+		// 관전 HUD 상세는 후속 문서에서 정의되므로 여기서는 다운 위젯을 노출하지 않습니다.
+		HUDData.bIsVisible = false;
+		break;
+	case EBlackoutHUDMode::Combat:
+	default:
+		HUDData.bIsVisible = false;
+		break;
+	}
+
+	return HUDData;
 }

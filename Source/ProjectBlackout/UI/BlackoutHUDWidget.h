@@ -12,6 +12,7 @@
 class ABOWeaponBase;
 class UBlackoutDamageNumberWidget;
 class UBlackoutConsumableSlotsWidget;
+class UBlackoutDownedStateWidget;
 class UBlackoutHUDWidgetController;
 class UBlackoutInteractionPromptWidget;
 class UBlackoutPartyRosterWidget;
@@ -82,6 +83,16 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
 	TObjectPtr<UBlackoutPartyRosterWidget> PartyRosterWidget;
+
+	/**
+	 * 다운 상태에서 기본 전투 HUD(크로스헤어/탄약/체력 등)를 한 번에 숨기기 위한 컨테이너 레이어입니다.
+	 * 블루프린트에서 전투 HUD 위젯들을 이 레이어 아래로 묶어 두면 다운 시 한 번에 가시성이 토글됩니다.
+	 */
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
+	TObjectPtr<UWidget> BasicCombatHUDLayer;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD|Downed")
+	TObjectPtr<UBlackoutDownedStateWidget> DownedStateWidget;
 
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
 	TObjectPtr<UWidget> ImpactIndicatorWidget;
@@ -216,6 +227,15 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Damage Number Requested"), Category = "Blackout|HUD")
 	void ReceiveDamageNumberRequested(float DamageAmount, FVector2D ScreenPosition, bool bIsCritical);
 
+	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On HUD Mode Changed"), Category = "Blackout|HUD|Downed")
+	void ReceiveHUDModeChanged(EBlackoutHUDMode HUDMode);
+
+	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Downed State HUD Data Changed"), Category = "Blackout|HUD|Downed")
+	void ReceiveDownedStateHUDDataChanged(const FBlackoutDownedStateHUDData& DownedStateHUDData);
+
+	/** 현재 HUD 모드에 맞춰 기본 전투 HUD 레이어와 다운 상태 위젯의 가시성을 갱신합니다. */
+	void ApplyHUDMode(EBlackoutHUDMode InHUDMode);
+
 private:
 	void UnbindWidgetControllerCallbacks();
 	void EnsureRevivePromptWidget();
@@ -262,4 +282,10 @@ private:
 	void HandleConsumableSlotsChanged(
 		const FBlackoutConsumableSlotData& BloodRootData,
 		const FBlackoutConsumableSlotData& GulSerumData);
+
+	UFUNCTION()
+	void HandleHUDModeChanged(EBlackoutHUDMode HUDMode);
+
+	UFUNCTION()
+	void HandleDownedStateHUDDataChanged(const FBlackoutDownedStateHUDData& DownedStateHUDData);
 };

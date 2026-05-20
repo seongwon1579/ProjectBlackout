@@ -16,6 +16,7 @@
 #include "Styling/CoreStyle.h"
 #include "UI/BlackoutDamageNumberWidget.h"
 #include "UI/BlackoutConsumableSlotsWidget.h"
+#include "UI/BlackoutDownedStateWidget.h"
 #include "UI/BlackoutHUDWidgetController.h"
 #include "UI/BlackoutInteractionPromptWidget.h"
 #include "UI/BlackoutPartyRosterWidget.h"
@@ -72,15 +73,23 @@ void UBlackoutHUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTi
 
 	FBlackoutImpactIndicatorData ImpactIndicatorData;
 	FBlackoutInteractionPromptData InteractionPromptData;
+	FBlackoutDownedStateHUDData DownedStateHUDData;
 	if (WidgetController)
 	{
 		WidgetController->GetImpactIndicatorData(ImpactIndicatorData);
 		WidgetController->GetInteractionPromptData(InteractionPromptData);
+		WidgetController->GetDownedStateHUDData(DownedStateHUDData);
 	}
 
 	UpdateImpactIndicator(ImpactIndicatorData);
 	UpdateInteractionPrompt(InteractionPromptData);
 	ReceiveSpreadUpdated(ImpactIndicatorData.SpreadNormalized);
+
+	// 사망/부활 잔여 시간은 매 틱 부드럽게 갱신해야 하므로 폴링 결과를 그대로 다운 상태 위젯에 전달합니다.
+	if (DownedStateWidget && DownedStateHUDData.HUDMode != EBlackoutHUDMode::Combat)
+	{
+		DownedStateWidget->SetDownedStateHUDData(DownedStateHUDData);
+	}
 }
 
 int32 UBlackoutHUDWidget::NativePaint(
@@ -131,6 +140,11 @@ void UBlackoutHUDWidget::SetWidgetController(UBlackoutHUDWidgetController* InWid
 	WidgetController->OnRelicChargesChanged.AddDynamic(this, &UBlackoutHUDWidget::HandleRelicChargesChanged);
 	WidgetController->OnConsumablesChanged.AddDynamic(this, &UBlackoutHUDWidget::HandleConsumablesChanged);
 	WidgetController->OnConsumableSlotsChanged.AddDynamic(this, &UBlackoutHUDWidget::HandleConsumableSlotsChanged);
+	WidgetController->OnHUDModeChanged.AddDynamic(this, &UBlackoutHUDWidget::HandleHUDModeChanged);
+	WidgetController->OnDownedStateHUDDataChanged.AddDynamic(this, &UBlackoutHUDWidget::HandleDownedStateHUDDataChanged);
+
+	// 초기 모드로 가시성을 한 번 정렬해 첫 프레임에 부적절한 위젯이 노출되지 않도록 합니다.
+	ApplyHUDMode(WidgetController->GetCurrentHUDMode());
 
 	ReceiveWidgetControllerSet();
 }
@@ -223,6 +237,8 @@ void UBlackoutHUDWidget::UnbindWidgetControllerCallbacks()
 	WidgetController->OnRelicChargesChanged.RemoveAll(this);
 	WidgetController->OnConsumablesChanged.RemoveAll(this);
 	WidgetController->OnConsumableSlotsChanged.RemoveAll(this);
+	WidgetController->OnHUDModeChanged.RemoveAll(this);
+	WidgetController->OnDownedStateHUDDataChanged.RemoveAll(this);
 }
 
 void UBlackoutHUDWidget::EnsureRevivePromptWidget()
@@ -724,4 +740,44 @@ void UBlackoutHUDWidget::HandleConsumableSlotsChanged(
 	}
 
 	ReceiveConsumableSlotsChanged(BloodRootData, GulSerumData);
+}
+
+void UBlackoutHUDWidget::ApplyHUDMode(EBlackoutHUDMode InHUDMode)
+{
+	// 다운/관전 상태에서는 기본 전투 HUD 레이어를 한 번에 숨기고, 다운 모드일 때만 다운 위젯을 노출합니다.
+	const bool bShowBasicCombatHUD = InHUDMode == EBlackoutHUDMode::Combat;
+	const bool bShowDownedWidget =
+		InHUDMode == EBlackoutHUDMode::DownedDeathTimer ||
+		InHUDMode == EBlackoutHUDMode::DownedReviveTimer;
+
+	if (BasicCombatHUDLayer)
+	{
+		BasicCombatHUDLayer->SetVisibility(bShowBasicCombatHUD
+			? ESlateVisibility::SelfHitTestInvisible
+			: ESlateVisibility::Collapsed);
+	}
+
+	if (DownedStateWidget)
+	{
+		DownedStateWidget->SetVisibility(bShowDownedWidget
+			? ESlateVisibility::HitTestInvisible
+			: ESlateVisibility::Hidden);
+	}
+
+	ReceiveHUDModeChanged(InHUDMode);
+}
+
+void UBlackoutHUDWidget::HandleHUDModeChanged(EBlackoutHUDMode HUDMode)
+{
+	ApplyHUDMode(HUDMode);
+}
+
+void UBlackoutHUDWidget::HandleDownedStateHUDDataChanged(const FBlackoutDownedStateHUDData& DownedStateHUDData)
+{
+	if (DownedStateWidget)
+	{
+		DownedStateWidget->SetDownedStateHUDData(DownedStateHUDData);
+	}
+
+	ReceiveDownedStateHUDDataChanged(DownedStateHUDData);
 }
