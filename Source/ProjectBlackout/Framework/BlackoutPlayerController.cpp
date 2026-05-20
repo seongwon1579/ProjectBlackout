@@ -74,6 +74,50 @@ void ABlackoutPlayerController::EnterSpectatorMode()
 	BO_LOG_CORE(Log, "EnterSpectatorMode: %s", *GetName());
 }
 
+void ABlackoutPlayerController::ExitSpectatorMode()
+{
+	ChangeState(NAME_Playing);
+
+	if (APawn* ControlledPawn = GetPawn())
+	{
+		SetViewTargetWithBlend(ControlledPawn, 0.15f);
+	}
+
+	BO_LOG_CORE(Log, "ExitSpectatorMode: %s", *GetName());
+}
+
+void ABlackoutPlayerController::Client_SetSpectateTarget_Implementation(AActor* TargetActor, float BlendTime)
+{
+	if (!TargetActor)
+	{
+		BO_LOG_CORE(Warning, "Client_SetSpectateTarget 실패: TargetActor가 비어 있음 Controller=%s", *GetNameSafe(this));
+		return;
+	}
+
+	EnterSpectatorMode();
+	SetViewTargetWithBlend(TargetActor, FMath::Max(0.0f, BlendTime));
+	BO_LOG_CORE(Log,
+		"Client_SetSpectateTarget: Controller=%s Target=%s",
+		*GetNameSafe(this),
+		*GetNameSafe(TargetActor));
+}
+
+void ABlackoutPlayerController::Client_ReturnToOwnPawnView_Implementation(float BlendTime)
+{
+	ChangeState(NAME_Playing);
+
+	if (APawn* ControlledPawn = GetPawn())
+	{
+		SetViewTargetWithBlend(ControlledPawn, FMath::Max(0.0f, BlendTime));
+	}
+	else
+	{
+		BO_LOG_CORE(Warning, "Client_ReturnToOwnPawnView 실패: Pawn이 비어 있음 Controller=%s", *GetNameSafe(this));
+	}
+
+	BO_LOG_CORE(Log, "Client_ReturnToOwnPawnView: %s", *GetNameSafe(this));
+}
+
 void ABlackoutPlayerController::Client_OpenClassSelectUI_Implementation()
 {
 	ReceiveOpenClassSelectUI();

@@ -12,6 +12,16 @@
 #include "Kismet/GameplayStatics.h"
 #include  "Engine/GameInstance.h"
 
+namespace
+{
+	bool IsActiveCombatState(EBlackoutMatchState MatchState)
+	{
+		return MatchState == EBlackoutMatchState::InCombat
+			|| MatchState == EBlackoutMatchState::MidBossCombat
+			|| MatchState == EBlackoutMatchState::MainBossCombat;
+	}
+}
+
 UClass* ABlackoutBattleGameMode::
 GetDefaultPawnClassForController_Implementation(AController* InController)
 {
@@ -272,6 +282,17 @@ void ABlackoutBattleGameMode::NotifyPlayerFullyDead(ABlackoutPlayerCharacter* De
 	}
 
 	BO_LOG_NET(Log, "플레이어 완전 사망 감지: %s", *GetNameSafe(DeadPlayer));
+	RefreshSpectatorsForDeadTarget(DeadPlayer);
+
+	if (ABlackoutPlayerController* DeadPlayerController = Cast<ABlackoutPlayerController>(DeadPlayer->GetController()))
+	{
+		AssignSpectateTargetForDeadPlayer(DeadPlayerController);
+	}
+	else
+	{
+		BO_LOG_NET(Warning, "관전 전환 실패: 사망 플레이어 컨트롤러를 찾을 수 없음 Player=%s", *GetNameSafe(DeadPlayer));
+	}
+
 	EvaluatePartyWipe();
 }
 
@@ -284,7 +305,7 @@ void ABlackoutBattleGameMode::EvaluatePartyWipe()
 		return;
 	}
 
-	if (BlackoutGameState->CurrentMatchState != EBlackoutMatchState::InCombat)
+	if (!IsActiveCombatState(BlackoutGameState->CurrentMatchState))
 	{
 		BO_LOG_NET(Verbose, "전멸 평가 스킵: 전투 진행 상태가 아님 State=%d",
 			static_cast<int32>(BlackoutGameState->CurrentMatchState));
@@ -321,6 +342,103 @@ void ABlackoutBattleGameMode::EvaluatePartyWipe()
 	}
 }
 
+ABlackoutPlayerCharacter* ABlackoutBattleGameMode::FindInitialSpectateTarget(
+	ABlackoutPlayerController* SpectatorController)
+{
+	ABlackoutGameState* BlackoutGameState = GetGameState<ABlackoutGameState>();
+	if (!BlackoutGameState)
+	{
+		BO_LOG_NET(Error, "관전 대상 탐색 실패: GameState가 비어 있음");
+		return nullptr;
+	}
+
+	const ABlackoutPlayerCharacter* SpectatorPawn = SpectatorController
+		? Cast<ABlackoutPlayerCharacter>(SpectatorController->GetPawn())
+		: nullptr;
+
+	for (APlayerState* PlayerStateBase : BlackoutGameState->PlayerArray)
+	{
+		const ABlackoutPlayerState* BlackoutPlayerState = Cast<ABlackoutPlayerState>(PlayerStateBase);
+		if (!BlackoutPlayerState)
+		{
+			continue;
+		}
+
+		APlayerController* CandidateController = BlackoutPlayerState->GetPlayerController();
+		ABlackoutPlayerCharacter* Candidate = CandidateController
+			? Cast<ABlackoutPlayerCharacter>(CandidateController->GetPawn())
+			: nullptr;
+
+		if (!Candidate || Candidate == SpectatorPawn || Candidate->IsDead())
+		{
+			continue;
+		}
+
+		return Candidate;
+	}
+
+	return nullptr;
+}
+
+void ABlackoutBattleGameMode::AssignSpectateTargetForDeadPlayer(ABlackoutPlayerController* SpectatorController)
+{
+	if (!SpectatorController)
+	{
+		BO_LOG_NET(Warning, "관전 대상 지정 실패: SpectatorController가 비어 있음");
+		return;
+	}
+
+	ABlackoutPlayerCharacter* SpectateTarget = FindInitialSpectateTarget(SpectatorController);
+	if (!SpectateTarget)
+	{
+		BO_LOG_NET(Log, "관전 대상 없음: Controller=%s", *GetNameSafe(SpectatorController));
+		return;
+	}
+
+	SpectatorController->EnterSpectatorMode();
+	SpectatorController->SetViewTargetWithBlend(SpectateTarget, 0.35f);
+	SpectatorController->Client_SetSpectateTarget(SpectateTarget, 0.35f);
+
+	BO_LOG_NET(Log,
+		"관전 대상 지정: Spectator=%s Target=%s Downed=%s",
+		*GetNameSafe(SpectatorController),
+		*GetNameSafe(SpectateTarget),
+		SpectateTarget->IsDowned() ? TEXT("true") : TEXT("false"));
+}
+
+void ABlackoutBattleGameMode::RefreshSpectatorsForDeadTarget(ABlackoutPlayerCharacter* DeadTarget)
+{
+	if (!DeadTarget || !GameState)
+	{
+		return;
+	}
+
+	for (APlayerState* PlayerStateBase : GameState->PlayerArray)
+	{
+		const ABlackoutPlayerState* BlackoutPlayerState = Cast<ABlackoutPlayerState>(PlayerStateBase);
+		if (!BlackoutPlayerState)
+		{
+			continue;
+		}
+
+		ABlackoutPlayerController* SpectatorController = Cast<ABlackoutPlayerController>(
+			BlackoutPlayerState->GetPlayerController());
+		const ABlackoutPlayerCharacter* SpectatorPawn = SpectatorController
+			? Cast<ABlackoutPlayerCharacter>(SpectatorController->GetPawn())
+			: nullptr;
+
+		if (!SpectatorController || !SpectatorPawn || !SpectatorPawn->IsDead())
+		{
+			continue;
+		}
+
+		if (SpectatorController->GetViewTarget() == DeadTarget)
+		{
+			AssignSpectateTargetForDeadPlayer(SpectatorController);
+		}
+	}
+}
+
 // 파티 전멸 감지 시 호출. 체크포인트 텔레포트 + PartyWipeRestart 정책 + Ready 리셋 + InCombatReady 복귀.
 void ABlackoutBattleGameMode::HandlePartyWipe()
 {
@@ -354,6 +472,12 @@ void ABlackoutBattleGameMode::HandlePartyWipe()
 			if (ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(PC->GetPawn()))
 			{
 				PlayerCharacter->RestoreFromPartyWipeRestart();
+			}
+
+			if (ABlackoutPlayerController* BlackoutPC = Cast<ABlackoutPlayerController>(PC))
+			{
+				BlackoutPC->ExitSpectatorMode();
+				BlackoutPC->Client_ReturnToOwnPawnView(0.15f);
 			}
 		}
 

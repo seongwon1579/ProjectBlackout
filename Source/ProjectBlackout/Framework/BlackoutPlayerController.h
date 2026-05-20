@@ -10,6 +10,7 @@ class UInputMappingContext;
 class UInputAction;
 class UBlackoutAbilitySystemComponent;
 class UBlackoutCombatComponent;
+class AActor;
 
 UCLASS()
 class PROJECTBLACKOUT_API ABlackoutPlayerController : public APlayerController
@@ -42,6 +43,15 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Controller")
 	void EnterSpectatorMode();
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Controller")
+	void ExitSpectatorMode();
+
+	UFUNCTION(Client, Reliable, Category = "Blackout|Controller")
+	void Client_SetSpectateTarget(AActor* TargetActor, float BlendTime);
+
+	UFUNCTION(Client, Reliable, Category = "Blackout|Controller")
+	void Client_ReturnToOwnPawnView(float BlendTime);
 	
 #pragma region InputSetup
 protected:

@@ -7,6 +7,7 @@
 
 enum class EBlackoutMatchEndReason : uint8;
 class ABlackoutPlayerCharacter;
+class ABlackoutPlayerController;
 
 /**
  * 전투 레벨 전용 GameMode. 전투 진입 자원 초기화 / 체크포인트 등록 / 파티 전멸 복귀 처리.
@@ -84,6 +85,9 @@ protected:
 	
 private:
 	void EvaluatePartyWipe();
+	ABlackoutPlayerCharacter* FindInitialSpectateTarget(ABlackoutPlayerController* SpectatorController);
+	void AssignSpectateTargetForDeadPlayer(ABlackoutPlayerController* SpectatorController);
+	void RefreshSpectatorsForDeadTarget(ABlackoutPlayerCharacter* DeadTarget);
 
 	int32 NextPlayerClassIndex =0;
 
