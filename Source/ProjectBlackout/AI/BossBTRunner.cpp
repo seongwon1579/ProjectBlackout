@@ -1,78 +1,40 @@
 #include "AI/BossBTRunner.h"
 #include "AI/BlackoutBossAIController.h"
-#include "BehaviorTree/BehaviorTreeComponent.h"
-#include "BehaviorTree/BlackboardComponent.h"
 #include "BehaviorTree/BehaviorTree.h"
 #include "GameFramework/Pawn.h"
 
-const FName UBossBTRunner::TargetKeyName    = TEXT("BB_CurrentTarget");
-const FName UBossBTRunner::PhaseExitKeyName = TEXT("BB_RequestPhaseExit");
-
-void UBossBTRunner::Initialize(ABlackoutBossAIController* InOwner,
-                                UBehaviorTreeComponent*    InBTComp,
-                                UBlackboardComponent*      InBBComp)
+void UBossBTRunner::Initialize(ABlackoutBossAIController* InController,
+                               const TMap<EBossPhase, TObjectPtr<UBehaviorTree>>& InTrees)
 {
-	OwnerController = InOwner;
-	BTComp          = InBTComp;
-	BBComp          = InBBComp;
+	OwnerController = InController;
+	PhaseBehaviorTrees = InTrees;
 }
 
-void UBossBTRunner::RunBehaviorTree(UBehaviorTree* SubTree, APawn* InitialTarget)
+void UBossBTRunner::RunPhaseBT(EBossPhase NewPhase)
 {
-	//if (!HasAuthority() || !SubTree || !BTComp.IsValid() || !BBComp.IsValid()) return;
-	if (!SubTree || !BTComp.IsValid() || !BBComp.IsValid()) return;
+	if (!OwnerController || NewPhase == EBossPhase::None) return;
 
-	if (BTComp->IsRunning())
-	{
-		BTComp->StopTree(EBTStopMode::Safe);
-	}
+	TObjectPtr<UBehaviorTree>* Tree = PhaseBehaviorTrees.Find(NewPhase);
 
-	if (SubTree->BlackboardAsset)
-	{
-		BBComp->InitializeBlackboard(*SubTree->BlackboardAsset);
-	}
+	if (!Tree || !*Tree) return;
 
-	BTComp->StartTree(*SubTree);
+	UE_LOG(LogTemp, Log,
+	       TEXT("BTRunner: Running BT for phase %d → %d"),
+	       (int32)CurrentPhase, (int32)NewPhase);
 	
-	UE_LOG(LogTemp, Warning, TEXT("RunBehaviorTree"));
+	OwnerController->RunBehaviorTree(*Tree);
 	
-	// APawn* Target = InitialTarget ? InitialTarget : CachedTarget.Get();
-	// if (Target)
-	// {
-	// 	CachedTarget = Target;
-	// 	BBComp->SetValueAsObject(TargetKeyName, Target);
-	// }
+	CurrentPhase = NewPhase;
 }
 
-void UBossBTRunner::Stop()
+void UBossBTRunner::StopBT()
 {
-	if (BTComp.IsValid() && BTComp->IsRunning())
+	if (!OwnerController) return;
+	
+	if (UBrainComponent* Brain = OwnerController->GetBrainComponent())
 	{
-		BTComp->StopTree(EBTStopMode::Safe);
+		Brain->StopLogic(TEXT("BTRunner::StopBT"));
 	}
-}
-
-bool UBossBTRunner::IsRunning() const
-{
-	return BTComp.IsValid() && BTComp->IsRunning();
-}
-
-void UBossBTRunner::WriteTargetToBlackboard(APawn* TargetPawn)
-{
-	if (!HasAuthority() || !BBComp.IsValid()) return;
-
-	CheckingActor = TargetPawn;
-	CachedTarget = TargetPawn;
-	BBComp->SetValueAsObject(TargetKeyName, TargetPawn);
-}
-
-void UBossBTRunner::RequestPhaseExit()
-{
-	if (!HasAuthority() || !BBComp.IsValid()) return;
-	BBComp->SetValueAsBool(PhaseExitKeyName, true);
-}
-
-bool UBossBTRunner::HasAuthority() const
-{
-	return OwnerController.IsValid() && OwnerController->HasAuthority();
+	
+	CurrentPhase = EBossPhase::None;
 }

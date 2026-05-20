@@ -20,7 +20,7 @@ void ABOShrewdBoss::EnterPlatformPhase()
 	if (HasAuthority())
 	{
 		bIsOnPlatform = true;
-		OnPhaseChanged(EBossPhase::Platform);
+		//OnPhaseChanged(BossPhase::Platform);
 	}
 }
 
@@ -29,13 +29,13 @@ void ABOShrewdBoss::EnterGroundPhase()
 	if (HasAuthority())
 	{
 		bIsOnPlatform = false;
-		OnPhaseChanged(EBossPhase::Ground);
+		//OnPhaseChanged(BossPhase::Ground);
 	}
 }
 
-void ABOShrewdBoss::OnPhaseChanged(EBossPhase NewPhase)
-{
-	Super::OnPhaseChanged(NewPhase);
-
-	// TODO: 페이즈 변경 시 Shrewd 전용 이펙트, 애니메이션, 태그 부여 등 구현
-}
+// void ABOShrewdBoss::OnPhaseChanged(BossPhase NewPhase)
+// {
+// 	Super::OnPhaseChanged(NewPhase);
+//
+// 	// TODO: 페이즈 변경 시 Shrewd 전용 이펙트, 애니메이션, 태그 부여 등 구현
+// }

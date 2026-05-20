@@ -13,6 +13,8 @@ UCLASS(Abstract)
 class PROJECTBLACKOUT_API UBlackoutBossGameplayAbility : public UBlackoutEnemyGameplayAbility
 {
 	GENERATED_BODY()
+public:
+	UBlackoutBossGameplayAbility();
 	
 protected:
 	virtual void OnAvatarSet(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec) override;

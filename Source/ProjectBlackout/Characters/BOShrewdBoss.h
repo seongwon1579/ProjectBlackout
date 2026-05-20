@@ -28,7 +28,7 @@ public:
 	void EnterGroundPhase();
 
 protected:
-	virtual void OnPhaseChanged(EBossPhase NewPhase) override;
+	//virtual void OnPhaseChanged(BossPhase NewPhase) override;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|AI")
 	TObjectPtr<UStateTree> ST_Shrewd_Phases;

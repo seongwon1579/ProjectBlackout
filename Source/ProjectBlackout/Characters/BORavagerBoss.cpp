@@ -38,30 +38,6 @@ void ABORavagerBoss::AddThreat(APawn* Source, float Amount)
 	if (AggroComp) AggroComp->AddThreat(Source, Amount);
 }
 
-void ABORavagerBoss::EnterPhaseA()
-{
-	if (HasAuthority())
-	{
-		OnPhaseChanged(EBossPhase::PhaseA);
-	}
-}
-
-void ABORavagerBoss::EnterPhaseB()
-{
-	if (HasAuthority())
-	{
-		OnPhaseChanged(EBossPhase::PhaseB);
-	}
-}
-
-void ABORavagerBoss::EnterPhaseC()
-{
-	if (HasAuthority())
-	{
-		AnimPlayRateMultiplier = 1.3f; // TDD §6 참조, Phase C 배속 증가
-		OnPhaseChanged(EBossPhase::PhaseC);
-	}
-}
 
 void ABORavagerBoss::SpawnMinionWave(int32 InPhaseIdx)
 {
@@ -71,12 +47,6 @@ void ABORavagerBoss::SpawnMinionWave(int32 InPhaseIdx)
 	}
 }
 
-void ABORavagerBoss::OnPhaseChanged(EBossPhase NewPhase)
-{
-	Super::OnPhaseChanged(NewPhase);
-
-	// TODO: 페이즈별 초기화 (예: Phase B 진입 시 Enrage 이펙트 등)
-}
 
 void ABORavagerBoss::BeginPlay()
 {

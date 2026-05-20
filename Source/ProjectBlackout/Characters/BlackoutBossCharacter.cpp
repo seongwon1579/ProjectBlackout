@@ -1,5 +1,7 @@
 #include "BlackoutBossCharacter.h"
 #include "AIController.h"
+#include "BlackoutBaseAttributeSet.h"
+#include "BlackoutBossAIController.h"
 #include "BrainComponent.h"
 #include "AI/BOAggroComponent.h"
 #include "Data/BOBossData.h"
@@ -12,9 +14,6 @@
 ABlackoutBossCharacter::ABlackoutBossCharacter()
 {
 	PrimaryActorTick.bCanEverTick = true;
-	CurrentPhase = EBossPhase::None;
-	PhaseIndex = 0;
-
 	MotionWarpingComponent = CreateDefaultSubobject<UMotionWarpingComponent>(TEXT("MotionWarpingComponent"));
 	AggroComponent = CreateDefaultSubobject<UBOAggroComponent>(TEXT("AggroComponent"));
 }
@@ -35,26 +34,29 @@ void ABlackoutBossCharacter::OnDeath()
 void ABlackoutBossCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
 	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
 	if (!ASC) return;
 
 	for (const auto& [_, Data] : BossAbilityData)
 	{
 		if (!Data || !Data->GrantedAbility) continue;
-    
+
 		ASC->GiveAbility(FGameplayAbilitySpec(Data->GrantedAbility, 1));
 	}
 
-	if (HasAuthority() && GetAbilitySystemComponent())
+	if (HasAuthority())
 	{
-		GetAbilitySystemComponent()->OnGameplayEffectAppliedDelegateToSelf.AddUObject(
-			this, &ABlackoutBossCharacter::OnDamageReceived);
+		// ASC()->OnGameplayEffectAppliedDelegateToSelf.AddUObject(
+		// 	this, &ABlackoutBossCharacter::OnDamageReceived);
+
+		ASC->GetGameplayAttributeValueChangeDelegate(
+			   UBlackoutBaseAttributeSet::GetHealthAttribute())
+		   .AddUObject(this, &ABlackoutBossCharacter::OnDamageReceived);
 	}
-	
+
 	GetWorld()->GetTimerManager().SetTimerForNextTick(
-	this, &ABlackoutBossCharacter::TryBindToHUD);
-	
+		this, &ABlackoutBossCharacter::TryBindToHUD);
 }
 
 void ABlackoutBossCharacter::OnReturnToPool_Implementation()
@@ -68,60 +70,32 @@ UBORavagerData* ABlackoutBossCharacter::GetPatternData(FGameplayTag AbilityTag) 
 	return Found ? Found->Get() : nullptr;
 }
 
-void ABlackoutBossCharacter::OnDamageReceived(UAbilitySystemComponent* Source,
-                                              const FGameplayEffectSpec& Spec,
-                                              FActiveGameplayEffectHandle Handle)
+void ABlackoutBossCharacter::OnDamageReceived(const FOnAttributeChangeData& Data)
 {
 	EvaluatePhaseTransition();
-
-	if (AggroComponent)
-	{
-		AActor* SourceActor = Spec.GetContext().GetInstigator();
-		APawn* InstigatorPawn = Cast<APawn>(SourceActor);
-		if (!InstigatorPawn)
-		{
-			if (AController* SourceController = Cast<AController>(SourceActor))
-			{
-				InstigatorPawn = SourceController->GetPawn();
-			}
-		}
-
-		if (InstigatorPawn)
-		{
-			AggroComponent->AddThreat(InstigatorPawn, 1.f);
-		}
-	}
 }
 
 void ABlackoutBossCharacter::EvaluatePhaseTransition()
 {
-	// if (!BossData || !HasAuthority())
-	// {
-	// 	return;
-	// }
+	if (!HasAuthority()) return;
 
-	// TDD §6. 체력 기반 페이즈 전환 로직
-	// float HealthRatio = CurrentHealth / MaxHealth;
-	// if (BossData->PhaseHealthCutlines.IsValidIndex(PhaseIndex))
-	// {
-	//     if (HealthRatio <= BossData->PhaseHealthCutlines[PhaseIndex])
-	//     {
-	//         PhaseIndex++;
-	//         EBossPhase NextPhase = DetermineNextPhase(PhaseIndex);
-	//         OnPhaseChanged(NextPhase);
-	//     }
-	// }
-}
+	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
+	if (!ASC) return;
 
-void ABlackoutBossCharacter::OnPhaseChanged(EBossPhase NewPhase)
-{
-	CurrentPhase = NewPhase;
-	BroadcastOnPhaseChanged();
-}
+	const float HP = ASC->GetNumericAttribute(UBlackoutBaseAttributeSet::GetHealthAttribute());
+	const float MaxHP = ASC->GetNumericAttribute(UBlackoutBaseAttributeSet::GetMaxHealthAttribute());
 
-void ABlackoutBossCharacter::BroadcastOnPhaseChanged()
-{
-	OnPhaseChangedDelegate.Broadcast(CurrentPhase);
+	if (MaxHP <= 0.f) return;
+
+	const float Percent = HP / MaxHP;
+
+	ABlackoutBossAIController* AICon = Cast<ABlackoutBossAIController>(GetController());
+	if (!AICon) return;
+
+	if (Percent <= 0.5f)
+	{
+		AICon->RequestPhaseChange(EBossPhase::Phase2);
+	}
 }
 
 void ABlackoutBossCharacter::TryBindToHUD()

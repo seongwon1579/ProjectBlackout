@@ -21,15 +21,7 @@ class PROJECTBLACKOUT_API ABORavagerBoss : public ABlackoutBossCharacter, public
 
 public:
 	ABORavagerBoss();
-
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Boss|Ravager")
-	void EnterPhaseA();
-
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Boss|Ravager")
-	void EnterPhaseB();
-
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Boss|Ravager")
-	void EnterPhaseC();
+	
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Boss|Ravager")
 	void SpawnMinionWave(int32 InPhaseIdx);
@@ -47,7 +39,6 @@ public:
 	// TObjectPtr<USphereComponent> Hit_Target;
 
 protected:
-	virtual void OnPhaseChanged(EBossPhase NewPhase) override;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|AI")
 	TObjectPtr<UStateTree> ST_Ravager_Phases;

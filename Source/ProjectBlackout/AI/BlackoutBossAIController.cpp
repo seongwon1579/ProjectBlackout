@@ -1,68 +1,121 @@
 #include "AI/BlackoutBossAIController.h"
-#include "BehaviorTree/BehaviorTree.h"
+
+#include "AbilitySystemComponent.h"
+#include "AbilitySystemInterface.h"
+#include "BlackoutGameplayTags.h"
+#include "BossBTRunner.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "Perception/AIPerceptionComponent.h"
-#include "Perception/AISenseConfig_Sight.h"
 #include "GameFramework/PlayerController.h"
 
-// #include "AI/ActionPipeline.h"
-// #include "AI/BossPhaseManager.h"
-// #include "AI/BossBTRunner.h"
-// #include "BehaviorTree/BehaviorTreeComponent.h"
-// #include "BehaviorTree/BlackboardComponent.h"
-// #include "Components/StateTreeAIComponent.h"
 
-ABlackoutBossAIController::ABlackoutBossAIController(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
+ABlackoutBossAIController::ABlackoutBossAIController()
 {
-	PerceptionComp = CreateDefaultSubobject<UAIPerceptionComponent>(TEXT("PerceptionComp"));
-	SetPerceptionComponent(*PerceptionComp);
+}
 
-	// CurrentBTComp = CreateDefaultSubobject<UBehaviorTreeComponent>(TEXT("SubBehaviorTreeComp"));
-	// BBComp        = CreateDefaultSubobject<UBlackboardComponent>(TEXT("BlackboardComp"));
+void ABlackoutBossAIController::RequestPhaseChange(EBossPhase NewPhase)
+{
+	if (NewPhase == EBossPhase::None) return;
+	
+	if (NewPhase <= CurrentPhase) return;
+    
+	if (PendingPhase != EBossPhase::None && NewPhase <= PendingPhase) return;
+	
+	
+	PendingPhase = NewPhase;
+	
+	TryApplyPendingPhase();
 }
 
 void ABlackoutBossAIController::OnPossess(APawn* InPawn)
 {
-	// StateTree는 건너뜀 — Super 호출 생략
-	// Super::OnPossess(InPawn);
-
-	// AAIController::OnPossess 직접 호출 (StateTree 없이)
-	AAIController::OnPossess(InPawn);
-
-	InitPerception();
-
-	if (BehaviorTreeAsset)
+	Super::OnPossess(InPawn);
+	
+	CachedASC = nullptr;
+	if (IAbilitySystemInterface* ASI = Cast<IAbilitySystemInterface>(InPawn))
 	{
-		RunBehaviorTree(BehaviorTreeAsset);
-
-		CurrentTargetIndex = 0;
-		GetWorldTimerManager().SetTimerForNextTick(this, &ABlackoutBossAIController::CycleTarget);
-
-		GetWorldTimerManager().SetTimer(
-			TargetCycleTimerHandle,
-			this, &ABlackoutBossAIController::CycleTarget,
-			10.f, true
-		);
+		CachedASC = ASI->GetAbilitySystemComponent();
 	}
 
-	// PhaseManager = NewObject<UBossPhaseManager>(this);
-	// PhaseManager->Initialize(this, StateTreeComp);
-	// BTRunner = NewObject<UBossBTRunner>(this);
-	// BTRunner->Initialize(this, CurrentBTComp, BBComp);
-	// BrainComponent = CurrentBTComp;
+	PhaseLockTag = BlackoutGameplayTags::Ability_PhaseLock;
+
+	BTRunner = NewObject<UBossBTRunner>(this);
+	BTRunner->Initialize(this, PhaseBehaviorTrees);
+	
+	if (!CachedASC) return;
+
+	PhaseLockTagChangedHandle = CachedASC->RegisterGameplayTagEvent(
+		PhaseLockTag,
+		EGameplayTagEventType::NewOrRemoved).AddUObject(this, &ABlackoutBossAIController::OnPhaseLockTagChanged);
+
+	RequestPhaseChange(EBossPhase::Phase1);
+
+	CurrentTargetIndex = 0;
+	GetWorldTimerManager().SetTimerForNextTick(this, &ABlackoutBossAIController::CycleTarget);
+
+	GetWorldTimerManager().SetTimer(
+		TargetCycleTimerHandle,
+		this, &ABlackoutBossAIController::CycleTarget,
+		10.f, true
+	);
 }
 
 void ABlackoutBossAIController::OnUnPossess()
 {
-	// if (PhaseManager) PhaseManager->Stop(TEXT("UnPossessed"));
-	// if (BTRunner)     BTRunner->Stop();
-
 	GetWorldTimerManager().ClearTimer(TargetCycleTimerHandle);
-	AAIController::OnUnPossess();
+
+	if (CachedASC)
+	{
+		CachedASC->RegisterGameplayTagEvent(
+			PhaseLockTag,
+			EGameplayTagEventType::NewOrRemoved
+		).Remove(PhaseLockTagChangedHandle);
+	}
+
+	if (BTRunner)
+	{
+		BTRunner->StopBT();
+		BTRunner = nullptr;
+	}
+
+	Super::OnUnPossess();
 }
 
-// ── Target Cycling ────────────────────────────────────────────────────────────
+void ABlackoutBossAIController::OnPhaseLockTagChanged(const FGameplayTag Tag, int32 NewCount)
+{
+	if (NewCount == 0)
+	{
+		TryApplyPendingPhase();
+	}
+}
+
+void ABlackoutBossAIController::TryApplyPendingPhase()
+{
+	if (PendingPhase == EBossPhase::None) return;
+	
+	if (IsPhaseTransitionLocked()) return;
+	
+	const EBossPhase PhaseToApply = PendingPhase;
+	PendingPhase = EBossPhase::None;
+	
+	ApplyPhaseChange(PhaseToApply);
+}
+
+void ABlackoutBossAIController::ApplyPhaseChange(EBossPhase NewPhase)
+{
+	CurrentPhase = NewPhase;
+	
+	if (BTRunner)
+	{
+		BTRunner->RunPhaseBT(NewPhase);
+	}
+}
+
+bool ABlackoutBossAIController::IsPhaseTransitionLocked() const
+{
+	return CachedASC ? CachedASC->HasMatchingGameplayTag(PhaseLockTag) : false;
+}
+
 
 void ABlackoutBossAIController::CycleTarget()
 {
@@ -85,57 +138,3 @@ void ABlackoutBossAIController::CycleTarget()
 	BlackBoard->SetValueAsObject(TEXT("Target"), PlayerPawns[CurrentTargetIndex]);
 	CurrentTargetIndex = (CurrentTargetIndex + 1) % PlayerPawns.Num();
 }
-
-// ── Perception ────────────────────────────────────────────────────────────────
-
-void ABlackoutBossAIController::InitPerception()
-{
-	UAISenseConfig_Sight* SightConfig = NewObject<UAISenseConfig_Sight>(this);
-	SightConfig->SightRadius                          = 2000.f;
-	SightConfig->LoseSightRadius                      = 2500.f;
-	SightConfig->PeripheralVisionAngleDegrees         = 90.f;
-	SightConfig->SetMaxAge(5.f);
-	SightConfig->DetectionByAffiliation.bDetectEnemies    = true;
-	SightConfig->DetectionByAffiliation.bDetectNeutrals   = true;
-	SightConfig->DetectionByAffiliation.bDetectFriendlies = false;
-
-	PerceptionComp->ConfigureSense(*SightConfig);
-	PerceptionComp->SetDominantSense(SightConfig->GetSenseImplementation());
-	PerceptionComp->OnTargetPerceptionUpdated.AddDynamic(this, &ABlackoutBossAIController::OnTargetPerceived);
-}
-
-void ABlackoutBossAIController::OnTargetPerceived(AActor* Actor, FAIStimulus Stimulus)
-{
-	// if (!Stimulus.WasSuccessfullySensed()) return;
-	// if (APawn* TargetPawn = Cast<APawn>(Actor))
-	// {
-	// 	WriteTargetToBlackboard(TargetPawn);
-	// }
-}
-
-// ── 비활성화된 BT 퍼사드 ─────────────────────────────────────────────────────
-
-// void ABlackoutBossAIController::RunSubBehaviorTree(UBehaviorTree* SubTree, APawn* InitialTarget)
-// {
-// 	if (BTRunner) BTRunner->RunBehaviorTree(SubTree, InitialTarget);
-// }
-//
-// void ABlackoutBossAIController::StopSubBehaviorTree()
-// {
-// 	if (BTRunner) BTRunner->Stop();
-// }
-//
-// bool ABlackoutBossAIController::IsSubBehaviorTreeRunning() const
-// {
-// 	return BTRunner && BTRunner->IsRunning();
-// }
-//
-// void ABlackoutBossAIController::WriteTargetToBlackboard(APawn* TargetPawn)
-// {
-// 	if (BTRunner) BTRunner->WriteTargetToBlackboard(TargetPawn);
-// }
-//
-// void ABlackoutBossAIController::RequestPhaseExit()
-// {
-// 	if (BTRunner) BTRunner->RequestPhaseExit();
-// }
