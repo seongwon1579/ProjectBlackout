@@ -950,6 +950,15 @@ void ABlackoutPlayerCharacter::HandleHitReactMontageEnded(UAnimMontage* Montage,
 		*GetNameSafe(Montage));
 }
 
+void ABlackoutPlayerCharacter::HandleDeathMontageEnded(UAnimMontage* Montage, bool bInterrupted)
+{
+	bIsDeathMontagePlaying = false;
+	BO_LOG_GAS(Log,
+		"Death montage ended: Interrupted=%s Montage=%s",
+		bInterrupted ? TEXT("true") : TEXT("false"),
+		*GetNameSafe(Montage));
+}
+
 void ABlackoutPlayerCharacter::HandleWeaponSwapMontageEnded(UAnimMontage* Montage, bool bInterrupted)
 {
 	bIsWeaponSwapMontagePlaying = false;
@@ -1089,6 +1098,7 @@ void ABlackoutPlayerCharacter::ApplyDownedStateLocally()
 	bIsDodgeMontagePlaying = false;
 	bIsWeaponSwapMontagePlaying = false;
 	bIsReviveMontagePlaying = false;
+	bIsDeathMontagePlaying = false;
 
 	if (UWorld* World = GetWorld())
 	{
@@ -1168,6 +1178,7 @@ void ABlackoutPlayerCharacter::OnDeath()
 	bIsDodgeMontagePlaying = false;
 	bIsWeaponSwapMontagePlaying = false;
 	bIsReviveMontagePlaying = false;
+	bIsDeathMontagePlaying = false;
 
 	if (CombatComponent)
 	{
@@ -1186,9 +1197,13 @@ void ABlackoutPlayerCharacter::OnDeath()
 		MoveComp->DisableMovement();
 	}
 
-	if (DeathMontage)
+	if (UAnimMontage* SelectedDeathMontage = SelectDeathMontage())
 	{
-		Multicast_PlayDeathMontage(DeathMontage, 1.f);
+		Multicast_PlayDeathMontage(SelectedDeathMontage, 1.f);
+	}
+	else
+	{
+		BO_LOG_GAS(Warning, "OnDeath: 재생할 사망 몽타주가 설정되지 않았습니다. Player=%s", *GetNameSafe(this));
 	}
 
 	NotifyBattleGameModePlayerFullyDead();
@@ -1230,6 +1245,7 @@ void ABlackoutPlayerCharacter::RestoreFromPartyWipeRestart()
 	bIsDodgeMontagePlaying = false;
 	bIsWeaponSwapMontagePlaying = false;
 	bIsReviveMontagePlaying = false;
+	bIsDeathMontagePlaying = false;
 
 	if (UWorld* World = GetWorld())
 	{
@@ -1281,6 +1297,26 @@ void ABlackoutPlayerCharacter::RestoreFromPartyWipeRestart()
 	BO_LOG_GAS(Log, "PartyWipeRestart 복구 완료: Player=%s", *GetNameSafe(this));
 }
 
+UAnimMontage* ABlackoutPlayerCharacter::SelectDeathMontage() const
+{
+	TArray<UAnimMontage*> ValidMontages;
+	for (const TObjectPtr<UAnimMontage>& Montage : DeathMontageVariants)
+	{
+		if (Montage.Get())
+		{
+			ValidMontages.Add(Montage.Get());
+		}
+	}
+
+	if (ValidMontages.Num() > 0)
+	{
+		const int32 SelectedIndex = FMath::RandRange(0, ValidMontages.Num() - 1);
+		return ValidMontages[SelectedIndex];
+	}
+
+	return nullptr;
+}
+
 bool ABlackoutPlayerCharacter::PlayDeathMontage(UAnimMontage* Montage, float PlayRate)
 {
 	if (!Montage)
@@ -1303,7 +1339,18 @@ bool ABlackoutPlayerCharacter::PlayDeathMontage(UAnimMontage* Montage, float Pla
 		return false;
 	}
 
+	AnimInstance->StopAllMontages(0.05f);
+
 	const float PlayResult = PlayAnimMontage(Montage, PlayRate);
+	if (PlayResult > 0.f)
+	{
+		bIsDeathMontagePlaying = true;
+
+		FOnMontageEnded MontageEndedDelegate;
+		MontageEndedDelegate.BindUObject(this, &ABlackoutPlayerCharacter::HandleDeathMontageEnded);
+		AnimInstance->Montage_SetEndDelegate(MontageEndedDelegate, Montage);
+	}
+
 	BO_LOG_GAS(Log,
 		"PlayDeathMontage result=%.2f Local=%s Authority=%s Montage=%s",
 		PlayResult,

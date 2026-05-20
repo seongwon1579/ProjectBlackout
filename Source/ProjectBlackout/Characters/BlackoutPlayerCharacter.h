@@ -281,8 +281,9 @@ protected:
 	virtual void OnDeath() override;
 	virtual void HandleDownedStateChanged(bool bWasDowned, bool bIsDowned) override;
 	
+	/** 완전 사망 시 이 목록에서 유효한 몽타주 하나를 골라 재생합니다. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
-	TObjectPtr<UAnimMontage> DeathMontage;
+	TArray<TObjectPtr<UAnimMontage>> DeathMontageVariants;
 
 	/** 다운 상태 진입 직후 1회 재생할 몽타주입니다. 비어 있으면 태그만 적용합니다. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
@@ -340,6 +341,7 @@ protected:
 	void ClearDownedDeathTimer();
 	void HandleDownedDeathTimerExpired();
 	void NotifyBattleGameModePlayerFullyDead();
+	UAnimMontage* SelectDeathMontage() const;
 	
 	
 	
@@ -395,6 +397,9 @@ protected:
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Animation")
 	bool bIsReviveMontagePlaying = false;
 
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Animation")
+	bool bIsDeathMontagePlaying = false;
+
 	/** 서버의 State.BeingRevived 태그를 클라이언트 로컬 ASC 태그로 옮기기 위한 복제 브리지입니다. */
 	UPROPERTY(Transient, ReplicatedUsing = OnRep_ReviveInteractionActive, BlueprintReadOnly, Category = "Blackout|Interaction")
 	bool bIsReviveInteractionActive = false;
@@ -425,6 +430,9 @@ protected:
 
 	UFUNCTION()
 	void HandleHitReactMontageEnded(UAnimMontage* Montage, bool bInterrupted);
+
+	UFUNCTION()
+	void HandleDeathMontageEnded(UAnimMontage* Montage, bool bInterrupted);
 
 	UFUNCTION()
 	void OnRep_ReviveInteractionActive();
