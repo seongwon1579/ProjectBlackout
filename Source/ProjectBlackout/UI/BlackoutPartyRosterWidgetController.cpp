@@ -340,6 +340,32 @@ FBlackoutPartyMemberStatusData UBlackoutPartyRosterWidgetController::BuildStatus
 	if (PlayerCharacter)
 	{
 		StatusData.bIsDead = PlayerCharacter->IsDead();
+
+		if (StatusData.bIsDead)
+		{
+			StatusData.HUDMode = EBlackoutHUDMode::Spectator;
+		}
+		else if (StatusData.bIsDowned)
+		{
+			if (StatusData.bIsReviveInteractionActive)
+			{
+				StatusData.HUDMode = EBlackoutHUDMode::DownedReviveTimer;
+				const float ReviveTotal = FMath::Max(KINDA_SMALL_NUMBER, PlayerCharacter->GetReviveDuration());
+				const float ReviveRemaining = FMath::Clamp(PlayerCharacter->GetReviveRemainingTime(), 0.0f, ReviveTotal);
+				StatusData.TimerTotalDuration = ReviveTotal;
+				StatusData.TimerRemainingTime = ReviveRemaining;
+				StatusData.TimerProgressNormalized = FMath::Clamp(1.0f - (ReviveRemaining / ReviveTotal), 0.0f, 1.0f);
+			}
+			else
+			{
+				StatusData.HUDMode = EBlackoutHUDMode::DownedDeathTimer;
+				const float DeathTotal = FMath::Max(KINDA_SMALL_NUMBER, PlayerCharacter->GetDownedDeathDuration());
+				const float DeathRemaining = FMath::Clamp(PlayerCharacter->GetDownedDeathRemainingTime(), 0.0f, DeathTotal);
+				StatusData.TimerTotalDuration = DeathTotal;
+				StatusData.TimerRemainingTime = DeathRemaining;
+				StatusData.TimerProgressNormalized = FMath::Clamp(1.0f - (DeathRemaining / DeathTotal), 0.0f, 1.0f);
+			}
+		}
 	}
 
 	if (StatusData.bIsDowned)
