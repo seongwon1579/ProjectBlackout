@@ -290,10 +290,18 @@ void ABlackoutBattleGameMode::EvaluatePartyWipe()
 		return;
 	}
 
-	if (BlackoutGameState->CurrentMatchState != EBlackoutMatchState::InCombat)
+	// 비전투 페이즈(쉘터/대기/종료)에서는 평가하지 않음.
+	// 레거시 InCombat 값은 의도적으로 미포함 — 새 런-페이즈에서는 진입하지 않음.
+	const EBlackoutMatchState MS = BlackoutGameState->CurrentMatchState;
+	const bool bSkipEvaluation =
+		MS == EBlackoutMatchState::WaitingForPlayers ||
+		MS == EBlackoutMatchState::ShelterPrep ||
+		MS == EBlackoutMatchState::ShelterMid ||
+		MS == EBlackoutMatchState::Ended;
+
+	if (bSkipEvaluation)
 	{
-		BO_LOG_NET(Verbose, "전멸 평가 스킵: 전투 진행 상태가 아님 State=%d",
-			static_cast<int32>(BlackoutGameState->CurrentMatchState));
+		BO_LOG_NET(Verbose, "전멸 평가 스킵: 비전투 페이즈 State=%d", static_cast<int32>(MS));
 		return;
 	}
 
