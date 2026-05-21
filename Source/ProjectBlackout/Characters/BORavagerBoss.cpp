@@ -1,50 +1,11 @@
 #include "Characters/BORavagerBoss.h"
 
-#include "AbilitySystemComponent.h"
-#include "AbilitySystemGlobals.h"
-#include "GameplayAbilitySpec.h"
-#include "AI/BOAggroComponent.h"
-#include "Components/SphereComponent.h"
 
 ABORavagerBoss::ABORavagerBoss()
 {
 	PrimaryActorTick.bCanEverTick = true;
 	AnimPlayRateMultiplier = 1.0f;
 	SummonedMinionCount = 0;
-
-	AggroComp = CreateDefaultSubobject<UBOAggroComponent>(TEXT("AggroComp"));
-	
-	// Hit_Target = CreateDefaultSubobject<USphereComponent>("TargetTest");
-	// Hit_Target->SetupAttachment(GetMesh(), TEXT("소켓이름"));
-	// Hit_Target->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	// Hit_Target->SetGenerateOverlapEvents(false);
-}
-
-APawn* ABORavagerBoss::GetHighestAggroTarget() const
-{
-	//return AggroComp ? AggroComp->GetHighestAggroTarget() : nullptr;
-	if (UWorld* World = GetWorld())
-	{
-		if (APlayerController* PC = World->GetFirstPlayerController())
-		{
-			return PC->GetPawn();
-		}
-	}
-	return nullptr;
-}
-
-void ABORavagerBoss::AddThreat(APawn* Source, float Amount)
-{
-	if (AggroComp) AggroComp->AddThreat(Source, Amount);
-}
-
-
-void ABORavagerBoss::SpawnMinionWave(int32 InPhaseIdx)
-{
-	if (HasAuthority())
-	{
-		// TODO: UBlackoutPoolSubsystem을 통해 미니언 스폰 로직 구현
-	}
 }
 
 

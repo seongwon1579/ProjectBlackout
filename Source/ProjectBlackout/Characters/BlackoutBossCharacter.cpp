@@ -3,11 +3,9 @@
 #include "BlackoutBaseAttributeSet.h"
 #include "BlackoutBossAIController.h"
 #include "BrainComponent.h"
-#include "AI/BOAggroComponent.h"
-#include "Data/BOBossData.h"
+#include "GameplayEffectExtension.h"
+#include "GameFramework/PlayerState.h"
 #include "GAS/BlackoutAbilitySystemComponent.h"
-#include "GameplayEffect.h"
-#include "Kismet/GameplayStatics.h"
 #include "UI/BlackoutHUD.h"
 #include "UI/BlackoutEnemyHUDWidgetController.h"
 
@@ -15,7 +13,6 @@ ABlackoutBossCharacter::ABlackoutBossCharacter()
 {
 	PrimaryActorTick.bCanEverTick = true;
 	MotionWarpingComponent = CreateDefaultSubobject<UMotionWarpingComponent>(TEXT("MotionWarpingComponent"));
-	AggroComponent = CreateDefaultSubobject<UBOAggroComponent>(TEXT("AggroComponent"));
 }
 
 void ABlackoutBossCharacter::OnDeath()
@@ -47,9 +44,6 @@ void ABlackoutBossCharacter::BeginPlay()
 
 	if (HasAuthority())
 	{
-		// ASC()->OnGameplayEffectAppliedDelegateToSelf.AddUObject(
-		// 	this, &ABlackoutBossCharacter::OnDamageReceived);
-
 		ASC->GetGameplayAttributeValueChangeDelegate(
 			   UBlackoutBaseAttributeSet::GetHealthAttribute())
 		   .AddUObject(this, &ABlackoutBossCharacter::OnDamageReceived);
@@ -72,30 +66,54 @@ UBORavagerData* ABlackoutBossCharacter::GetPatternData(FGameplayTag AbilityTag) 
 
 void ABlackoutBossCharacter::OnDamageReceived(const FOnAttributeChangeData& Data)
 {
-	EvaluatePhaseTransition();
+	const float DamageDealt = Data.OldValue - Data.NewValue;
+	if (DamageDealt <= 0.f || !Data.GEModData) return;
+	
+	ABlackoutBossAIController* AIC = Cast<ABlackoutBossAIController>(GetController());
+	if (!AIC) return;
+	
+	AActor* SourceActor = Data.GEModData->EffectSpec.GetContext().GetInstigator();
+	if (APawn* InstigatorPawn = ResolveInstigatorPawn(SourceActor))
+	{
+		if (InstigatorPawn != this)
+		{
+			AIC->RecordDamage(InstigatorPawn, DamageDealt);
+		}
+	}
+	
+	if (UAbilitySystemComponent* ASC = GetAbilitySystemComponent())
+	{
+		const float MaxHP = ASC->GetNumericAttribute(UBlackoutBaseAttributeSet::GetMaxHealthAttribute());
+		if (MaxHP > 0.f)
+		{
+			const float CurrentHP = Data.NewValue;
+			const float HealthRatio = CurrentHP / MaxHP;
+	
+			const EBOBossPhase TargetPhase = DetermineTargetPhase(HealthRatio);
+			AIC->RequestPhaseChange(TargetPhase);
+		}
+	}
 }
 
-void ABlackoutBossCharacter::EvaluatePhaseTransition()
+APawn* ABlackoutBossCharacter::ResolveInstigatorPawn(AActor* SourceActor) const
 {
-	if (!HasAuthority()) return;
+	if (!SourceActor) return nullptr;
 
-	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
-	if (!ASC) return;
+	if (APawn* Pawn = Cast<APawn>(SourceActor)) return Pawn;
+	if (AController* C = Cast<AController>(SourceActor)) return C->GetPawn();
+	if (APlayerState* PS = Cast<APlayerState>(SourceActor)) return PS->GetPawn();
 
-	const float HP = ASC->GetNumericAttribute(UBlackoutBaseAttributeSet::GetHealthAttribute());
-	const float MaxHP = ASC->GetNumericAttribute(UBlackoutBaseAttributeSet::GetMaxHealthAttribute());
+	return nullptr;
+}
 
-	if (MaxHP <= 0.f) return;
-
-	const float Percent = HP / MaxHP;
-
-	ABlackoutBossAIController* AICon = Cast<ABlackoutBossAIController>(GetController());
-	if (!AICon) return;
-
-	if (Percent <= 0.5f)
+EBOBossPhase ABlackoutBossCharacter::DetermineTargetPhase(float HealthRatio) const
+{
+	if (HealthRatio <= 0.5f)
 	{
-		AICon->RequestPhaseChange(EBossPhase::Phase2);
+		return EBOBossPhase::Phase2;
 	}
+
+	return EBOBossPhase::Phase1;
 }
 
 void ABlackoutBossCharacter::TryBindToHUD()

@@ -1,35 +1,27 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "BossPhase.h"
-#include "GameplayTagContainer.h"
+#include "Enum/BOBossPhase.h"
 #include "AI/BlackoutAIController.h"
-#include "AI/ActionPipelineOwner.h"
-#include "Perception/AIPerceptionComponent.h"
-#include "Perception/AISenseConfig_Sight.h"
 #include "BlackoutBossAIController.generated.h"
 
-class UBossBTRunner;
+class UBlackoutAggroEvaluator;
+class UBlackoutPhaseEvaluator;
+class UBlackoutBossBTRunner;
 class UAbilitySystemComponent;
-struct FGameplayTag;
-class UBehaviorTree;
-class UActionPipeline;
 
-/**
- * 보스 전용 AI 컨트롤러.
- * 에디터에서 BehaviorTreeAsset을 지정하면 OnPossess 시 자동 실행된다.
- */
 UCLASS()
 class PROJECTBLACKOUT_API ABlackoutBossAIController : public ABlackoutAIController
 {
 	GENERATED_BODY()
 
 public:
-	ABlackoutBossAIController();
-	
 	// 외부(체력 이벤트 등)에서 페이즈 전환 요청
 	UFUNCTION()
-	void RequestPhaseChange(EBossPhase NewPhase);
+	void RequestPhaseChange(EBOBossPhase NewPhase);
+	
+	// 데미지를 받았을때 호출
+	void RecordDamage(APawn* Source, float Amount);
 	
 protected:
 
@@ -37,42 +29,23 @@ protected:
 	virtual void OnUnPossess()              override;
 	
 	UPROPERTY(EditDefaultsOnly, Category = "Blackout|BT")
-	TMap<EBossPhase, TObjectPtr<UBehaviorTree>> PhaseBehaviorTrees;
+	TMap<EBOBossPhase, TObjectPtr<UBehaviorTree>> PhaseBehaviorTrees;
 
 
 private:
-	
-	// 락 태그가 변할 때 호출되는 콜백
-	void OnPhaseLockTagChanged(const FGameplayTag Tag, int32 NewCount);
-	
-	void TryApplyPendingPhase();
-	
-	void ApplyPhaseChange(EBossPhase NewPhase);
-	
-	bool IsPhaseTransitionLocked() const;
+
+	void HandlePhaseChanged(EBOBossPhase NewPhase);
 	
 	UPROPERTY(Transient)
 	TObjectPtr<UAbilitySystemComponent> CachedASC;
 	
 	UPROPERTY(Transient)
-	TObjectPtr<UBossBTRunner> BTRunner;
+	TObjectPtr<UBlackoutBossBTRunner> BTRunner;
 	
 	UPROPERTY(Transient)
+	TObjectPtr<UBlackoutPhaseEvaluator> PhaseEvaluator;
 	
-	EBossPhase PendingPhase = EBossPhase::None;
+	UPROPERTY(Transient)
+	TObjectPtr<UBlackoutAggroEvaluator> AggroEvaluator;
 	
-	EBossPhase CurrentPhase = EBossPhase::None;
-	
-	FDelegateHandle PhaseLockTagChangedHandle;
-	
-	FGameplayTag PhaseLockTag;
-	
-	UFUNCTION()
-	void CycleTarget();
-
-	UPROPERTY()
-	TObjectPtr<UActionPipeline> ActionPipeline;
-
-	FTimerHandle TargetCycleTimerHandle;
-	int32        CurrentTargetIndex = 0;
 };

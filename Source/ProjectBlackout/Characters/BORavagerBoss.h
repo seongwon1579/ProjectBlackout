@@ -2,7 +2,6 @@
 
 #include "CoreMinimal.h"
 #include "Characters/BlackoutBossCharacter.h"
-#include "AI/IBossAggroProvider.h"
 #include "BORavagerBoss.generated.h"
 
 class UStateTree;
@@ -15,28 +14,13 @@ class USphereComponent;
  * 3-Phase 구조(Phase A/B/C)를 가지며, 체력 비율에 따라 전이.
  */
 UCLASS()
-class PROJECTBLACKOUT_API ABORavagerBoss : public ABlackoutBossCharacter, public IBossAggroProvider
+class PROJECTBLACKOUT_API ABORavagerBoss : public ABlackoutBossCharacter
 {
 	GENERATED_BODY()
 
 public:
 	ABORavagerBoss();
-	
 
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Boss|Ravager")
-	void SpawnMinionWave(int32 InPhaseIdx);
-	
-	
-	// ── IBossAggroProvider ────────────────────────────────────────────────────
-	virtual APawn* GetHighestAggroTarget() const override;
-	virtual void   AddThreat(APawn* Source, float Amount) override;
-	
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Aggro")
-	TObjectPtr<UBOAggroComponent> AggroComp;
-	
-	// UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	// TObjectPtr<USphereComponent> Hit_Target;
 
 protected:
 

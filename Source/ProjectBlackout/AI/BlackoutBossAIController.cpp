@@ -2,139 +2,69 @@
 
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemInterface.h"
-#include "BlackoutGameplayTags.h"
-#include "BossBTRunner.h"
-#include "BehaviorTree/BlackboardComponent.h"
-#include "Perception/AIPerceptionComponent.h"
+#include "BlackoutAggroEvaluator.h"
+#include "BlackoutPhaseEvaluator.h"
+#include "BlackoutBossBTRunner.h"
 #include "GameFramework/PlayerController.h"
 
-
-ABlackoutBossAIController::ABlackoutBossAIController()
+void ABlackoutBossAIController::RequestPhaseChange(EBOBossPhase NewPhase)
 {
+	if (PhaseEvaluator)
+	{
+		PhaseEvaluator->RequestPhaseChange(NewPhase);
+	}
 }
 
-void ABlackoutBossAIController::RequestPhaseChange(EBossPhase NewPhase)
+void ABlackoutBossAIController::RecordDamage(APawn* Source, float Amount)
 {
-	if (NewPhase == EBossPhase::None) return;
-	
-	if (NewPhase <= CurrentPhase) return;
-    
-	if (PendingPhase != EBossPhase::None && NewPhase <= PendingPhase) return;
-	
-	
-	PendingPhase = NewPhase;
-	
-	TryApplyPendingPhase();
+	if (AggroEvaluator)
+	{
+		AggroEvaluator->RecordDamage(Source, Amount);
+	}
 }
 
 void ABlackoutBossAIController::OnPossess(APawn* InPawn)
 {
 	Super::OnPossess(InPawn);
-	
+
 	CachedASC = nullptr;
 	if (IAbilitySystemInterface* ASI = Cast<IAbilitySystemInterface>(InPawn))
 	{
 		CachedASC = ASI->GetAbilitySystemComponent();
 	}
-
-	PhaseLockTag = BlackoutGameplayTags::Ability_PhaseLock;
-
-	BTRunner = NewObject<UBossBTRunner>(this);
+	if (!CachedASC) return;
+	// --------------------------------------------------------------------------
+	BTRunner = NewObject<UBlackoutBossBTRunner>(this);
 	BTRunner->Initialize(this, PhaseBehaviorTrees);
 	
-	if (!CachedASC) return;
-
-	PhaseLockTagChangedHandle = CachedASC->RegisterGameplayTagEvent(
-		PhaseLockTag,
-		EGameplayTagEventType::NewOrRemoved).AddUObject(this, &ABlackoutBossAIController::OnPhaseLockTagChanged);
-
-	RequestPhaseChange(EBossPhase::Phase1);
-
-	CurrentTargetIndex = 0;
-	GetWorldTimerManager().SetTimerForNextTick(this, &ABlackoutBossAIController::CycleTarget);
-
-	GetWorldTimerManager().SetTimer(
-		TargetCycleTimerHandle,
-		this, &ABlackoutBossAIController::CycleTarget,
-		10.f, true
-	);
+	// Aggro
+	AggroEvaluator = NewObject<UBlackoutAggroEvaluator>(this);
+	AggroEvaluator->Initialize(this, CachedASC);
+	
+	// Phase
+	PhaseEvaluator = NewObject<UBlackoutPhaseEvaluator>(this);
+	PhaseEvaluator->OnBossPhaseChanged.AddUObject(this, &ABlackoutBossAIController::HandlePhaseChanged);
+	PhaseEvaluator->Initialize(this, CachedASC);
 }
 
 void ABlackoutBossAIController::OnUnPossess()
 {
-	GetWorldTimerManager().ClearTimer(TargetCycleTimerHandle);
-
-	if (CachedASC)
-	{
-		CachedASC->RegisterGameplayTagEvent(
-			PhaseLockTag,
-			EGameplayTagEventType::NewOrRemoved
-		).Remove(PhaseLockTagChangedHandle);
-	}
-
-	if (BTRunner)
-	{
-		BTRunner->StopBT();
-		BTRunner = nullptr;
-	}
+	if (PhaseEvaluator)   PhaseEvaluator->Deinitialize();
+	if (AggroEvaluator)   AggroEvaluator->Deinitialize();
+	if (BTRunner)         BTRunner->StopBT();
+    
+	CachedASC = nullptr;
+	BTRunner = nullptr;
+	AggroEvaluator = nullptr;
+	PhaseEvaluator = nullptr;
 
 	Super::OnUnPossess();
 }
 
-void ABlackoutBossAIController::OnPhaseLockTagChanged(const FGameplayTag Tag, int32 NewCount)
+void ABlackoutBossAIController::HandlePhaseChanged(EBOBossPhase NewPhase)
 {
-	if (NewCount == 0)
-	{
-		TryApplyPendingPhase();
-	}
-}
-
-void ABlackoutBossAIController::TryApplyPendingPhase()
-{
-	if (PendingPhase == EBossPhase::None) return;
-	
-	if (IsPhaseTransitionLocked()) return;
-	
-	const EBossPhase PhaseToApply = PendingPhase;
-	PendingPhase = EBossPhase::None;
-	
-	ApplyPhaseChange(PhaseToApply);
-}
-
-void ABlackoutBossAIController::ApplyPhaseChange(EBossPhase NewPhase)
-{
-	CurrentPhase = NewPhase;
-	
 	if (BTRunner)
 	{
 		BTRunner->RunPhaseBT(NewPhase);
 	}
-}
-
-bool ABlackoutBossAIController::IsPhaseTransitionLocked() const
-{
-	return CachedASC ? CachedASC->HasMatchingGameplayTag(PhaseLockTag) : false;
-}
-
-
-void ABlackoutBossAIController::CycleTarget()
-{
-	UBlackboardComponent* BlackBoard = GetBlackboardComponent();
-	if (!BlackBoard) return;
-
-	TArray<APawn*> PlayerPawns;
-	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
-	{
-		if (APlayerController* PC = It->Get())
-		{
-			if (APawn* P = PC->GetPawn())
-				PlayerPawns.Add(P);
-		}
-	}
-
-	if (PlayerPawns.IsEmpty()) return;
-
-	CurrentTargetIndex = CurrentTargetIndex % PlayerPawns.Num();
-	BlackBoard->SetValueAsObject(TEXT("Target"), PlayerPawns[CurrentTargetIndex]);
-	CurrentTargetIndex = (CurrentTargetIndex + 1) % PlayerPawns.Num();
 }

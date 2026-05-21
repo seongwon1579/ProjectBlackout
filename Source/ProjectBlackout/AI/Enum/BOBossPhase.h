@@ -1,10 +1,10 @@
 ﻿#pragma once
 
 #include "CoreMinimal.h"
-#include "BossPhase.generated.h"
+#include "BOBossPhase.generated.h"
 
 UENUM(BlueprintType)
-enum class EBossPhase : uint8
+enum class EBOBossPhase : uint8
 {
 	None    UMETA(DisplayName = "None"),
 	Phase1  UMETA(DisplayName = "Phase 1"),
