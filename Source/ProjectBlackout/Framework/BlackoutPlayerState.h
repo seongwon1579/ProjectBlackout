@@ -92,5 +92,8 @@ protected:
 
 	UPROPERTY()
 	TObjectPtr<const UBlackoutAmmoAttributeSet> AmmoAttributeSet;
+	
+private:
+	void RestoreAtCheckpoint();
 
 };

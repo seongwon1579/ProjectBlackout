@@ -371,8 +371,6 @@ UBlackoutGA_FireWeapon::UBlackoutGA_FireWeapon()
 	ActivationRequiredTags.AddTag(BlackoutGameplayTags::State_Aiming);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Sprinting);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Reloading);
-	
-	// TODO: LobbyTag.InfiniteAmmo 분기로 탄약 소모 체크 생략 로직 추가 (TDD §7.1)
 }
 
 void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)

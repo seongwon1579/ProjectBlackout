@@ -718,3 +718,8 @@ bool UBlackoutAbilitySystemComponent::CanRecoverStamina() const
 	const float MaxStamina = GetNumericAttribute(UBlackoutPlayerAttributeSet::GetMaxStaminaAttribute());
 	return MaxStamina > 0.0f && CurrentStamina < MaxStamina;
 }
+
+bool UBlackoutAbilitySystemComponent::ShouldSkipCostInShelter() const
+{
+	return HasMatchingGameplayTag(BlackoutGameplayTags::State_InShelter);
+}

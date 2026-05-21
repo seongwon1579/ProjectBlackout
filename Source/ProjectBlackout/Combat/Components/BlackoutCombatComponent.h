@@ -112,6 +112,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	ABOFirearm* GetEquippedFirearm() const;
 
+	// 슬롯별 무기 접근 - 현재 장착 여부와 무관, 자원 회복
+	UFUNCTION(BlueprintCallable, Category="Blackout|Combat")
+	ABOFirearm* GetPrimaryFirearm() const { return PrimaryWeapon;}
+	
+	UFUNCTION(BlueprintCallable,Category="Blackout|Combat")
+	ABOFirearm* GetSecondaryFirearm() const {return SecondaryWeapon;}
+
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	ABOMeleeWeapon* GetMeleeWeapon() const { return MeleeWeapon; }
 

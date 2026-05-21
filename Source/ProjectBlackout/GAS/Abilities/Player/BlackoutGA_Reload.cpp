@@ -2,6 +2,7 @@
 
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "AbilitySystemComponent.h"
+#include "BlackoutAbilitySystemComponent.h"
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
 #include "Combat/Weapons/BOFirearm.h"
@@ -25,7 +26,9 @@ UBlackoutGA_Reload::UBlackoutGA_Reload()
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Attacking);
 }
 
-UAnimMontage* UBlackoutGA_Reload::ResolveReloadMontage(const ABlackoutPlayerCharacter* PlayerCharacter, const ABOFirearm* EquippedFirearm) const
+UAnimMontage* UBlackoutGA_Reload::ResolveReloadMontage(
+	const ABlackoutPlayerCharacter* PlayerCharacter,
+	const ABOFirearm* EquippedFirearm) const
 {
 	if (!PlayerCharacter || !EquippedFirearm)
 	{
@@ -37,37 +40,68 @@ UAnimMontage* UBlackoutGA_Reload::ResolveReloadMontage(const ABlackoutPlayerChar
 		EquippedFirearm->UsesTwoHandedAnimation());
 }
 
-void UBlackoutGA_Reload::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+void UBlackoutGA_Reload::ActivateAbility(
+	const FGameplayAbilitySpecHandle Handle,
+	const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayAbilityActivationInfo ActivationInfo,
+	const FGameplayEventData* TriggerEventData)
 {
 	BO_LOG_GAS(Log, "GA_Reload activate requested");
 
-	ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
-	const UBlackoutCombatComponent* CombatComponent = PlayerCharacter ? PlayerCharacter->GetCombatComponent() : nullptr;
-	const ABOFirearm* EquippedFirearm = CombatComponent ? CombatComponent->GetEquippedFirearm() : nullptr;
-	UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo();
-	if (!PlayerCharacter || !CombatComponent || !EquippedFirearm || !AbilitySystemComponent)
+	ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo
+		                                            ? Cast<
+			                                            ABlackoutPlayerCharacter>(
+			                                            ActorInfo->AvatarActor.
+			                                            Get())
+		                                            : nullptr;
+	const UBlackoutCombatComponent* CombatComponent = PlayerCharacter
+		? PlayerCharacter->GetCombatComponent()
+		: nullptr;
+	const ABOFirearm* EquippedFirearm = CombatComponent
+		                                    ? CombatComponent->
+		                                    GetEquippedFirearm()
+		                                    : nullptr;
+	UAbilitySystemComponent* AbilitySystemComponent =
+		GetAbilitySystemComponentFromActorInfo();
+	if (!PlayerCharacter || !CombatComponent || !EquippedFirearm || !
+		AbilitySystemComponent)
 	{
-		BO_LOG_GAS(Warning, "GA_Reload failed: PlayerCharacter, CombatComponent, 무기 또는 ASC가 유효하지 않음");
+		BO_LOG_GAS(Warning,
+		           "GA_Reload failed: PlayerCharacter, CombatComponent, 무기 또는 ASC가 유효하지 않음");
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
 
 	PendingWeaponSlotTag = CombatComponent->GetEquippedWeaponSlotTag();
 
-	float CurrentClipAmmo = AbilitySystemComponent->GetNumericAttribute(UBlackoutAmmoAttributeSet::GetPrimaryClipAmmoAttribute());
-	float CurrentMaxClip = AbilitySystemComponent->GetNumericAttribute(UBlackoutAmmoAttributeSet::GetPrimaryMaxClipAttribute());
-	float CurrentReserveAmmo = AbilitySystemComponent->GetNumericAttribute(UBlackoutAmmoAttributeSet::GetPrimaryReserveAmmoAttribute());
+	float CurrentClipAmmo = AbilitySystemComponent->GetNumericAttribute(
+		UBlackoutAmmoAttributeSet::GetPrimaryClipAmmoAttribute());
+	float CurrentMaxClip = AbilitySystemComponent->GetNumericAttribute(
+		UBlackoutAmmoAttributeSet::GetPrimaryMaxClipAttribute());
+	float CurrentReserveAmmo = AbilitySystemComponent->GetNumericAttribute(
+		UBlackoutAmmoAttributeSet::GetPrimaryReserveAmmoAttribute());
 
 	if (PendingWeaponSlotTag == BlackoutGameplayTags::Weapon_Secondary)
 	{
-		CurrentClipAmmo = AbilitySystemComponent->GetNumericAttribute(UBlackoutAmmoAttributeSet::GetSecondaryClipAmmoAttribute());
-		CurrentMaxClip = AbilitySystemComponent->GetNumericAttribute(UBlackoutAmmoAttributeSet::GetSecondaryMaxClipAttribute());
-		CurrentReserveAmmo = AbilitySystemComponent->GetNumericAttribute(UBlackoutAmmoAttributeSet::GetSecondaryReserveAmmoAttribute());
+		CurrentClipAmmo = AbilitySystemComponent->GetNumericAttribute(
+			UBlackoutAmmoAttributeSet::GetSecondaryClipAmmoAttribute());
+		CurrentMaxClip = AbilitySystemComponent->GetNumericAttribute(
+			UBlackoutAmmoAttributeSet::GetSecondaryMaxClipAttribute());
+		CurrentReserveAmmo = AbilitySystemComponent->GetNumericAttribute(
+			UBlackoutAmmoAttributeSet::GetSecondaryReserveAmmoAttribute());
 	}
 
-	if (CurrentClipAmmo >= CurrentMaxClip || CurrentReserveAmmo <= 0.0f)
+	const UBlackoutAbilitySystemComponent* BlackoutASC = Cast<
+		UBlackoutAbilitySystemComponent>(AbilitySystemComponent);
+	const bool bSkipReserveCheck = BlackoutASC && BlackoutASC->
+		ShouldSkipCostInShelter();
+
+	if (CurrentClipAmmo >= CurrentMaxClip || (!bSkipReserveCheck &&
+		CurrentReserveAmmo <= 0.0f))
 	{
-		BO_LOG_GAS(Warning, "GA_Reload failed: 장전 불필요 또는 예비 탄약 없음 (Clip=%.2f, MaxClip=%.2f, Reserve=%.2f)", CurrentClipAmmo, CurrentMaxClip, CurrentReserveAmmo);
+		BO_LOG_GAS(Warning,
+		           "GA_Reload failed: 장전 불필요 또는 예비 탄약 없음 (Clip=%.2f, MaxClip=%.2f, Reserve=%.2f)",
+		           CurrentClipAmmo, CurrentMaxClip, CurrentReserveAmmo);
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
@@ -79,32 +113,37 @@ void UBlackoutGA_Reload::ActivateAbility(const FGameplayAbilitySpecHandle Handle
 		return;
 	}
 
-	UAnimMontage* SelectedReloadMontage = ResolveReloadMontage(PlayerCharacter, EquippedFirearm);
+	UAnimMontage* SelectedReloadMontage = ResolveReloadMontage(
+		PlayerCharacter, EquippedFirearm);
 	CachedReloadMontage = SelectedReloadMontage;
 	bWeaponReloadAnimationTriggered = false;
 	bReloadEffectApplied = false;
 	const bool bIsTwoHanded = EquippedFirearm->UsesTwoHandedAnimation();
 
 	BO_LOG_GAS(Log,
-		"GA_Reload activated: Character=%s, Weapon=%s, TwoHanded=%s, Montage=%s",
-		*GetNameSafe(ActorInfo ? ActorInfo->AvatarActor.Get() : nullptr),
-		*GetNameSafe(EquippedFirearm),
-		bIsTwoHanded ? TEXT("true") : TEXT("false"),
-		*GetNameSafe(SelectedReloadMontage));
+	           "GA_Reload activated: Character=%s, Weapon=%s, TwoHanded=%s, Montage=%s",
+	           *GetNameSafe(ActorInfo ? ActorInfo->AvatarActor.Get() : nullptr),
+	           *GetNameSafe(EquippedFirearm),
+	           bIsTwoHanded ? TEXT("true") : TEXT("false"),
+	           *GetNameSafe(SelectedReloadMontage));
 
 	if (SelectedReloadMontage)
 	{
 		if (UAbilityTask_WaitGameplayEvent* WaitEventTask =
-			UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(this, BlackoutGameplayTags::Event_Montage_ReloadWeaponStart))
+			UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(
+				this, BlackoutGameplayTags::Event_Montage_ReloadWeaponStart))
 		{
-			WaitEventTask->EventReceived.AddDynamic(this, &UBlackoutGA_Reload::OnWeaponReloadStartEventReceived);
+			WaitEventTask->EventReceived.AddDynamic(
+				this, &UBlackoutGA_Reload::OnWeaponReloadStartEventReceived);
 			WaitEventTask->ReadyForActivation();
 		}
 
 		if (UAbilityTask_WaitGameplayEvent* WaitAmmoCommitTask =
-			UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(this, BlackoutGameplayTags::Event_Montage_ReloadAmmoCommit))
+			UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(
+				this, BlackoutGameplayTags::Event_Montage_ReloadAmmoCommit))
 		{
-			WaitAmmoCommitTask->EventReceived.AddDynamic(this, &UBlackoutGA_Reload::OnReloadAmmoCommitEventReceived);
+			WaitAmmoCommitTask->EventReceived.AddDynamic(
+				this, &UBlackoutGA_Reload::OnReloadAmmoCommitEventReceived);
 			WaitAmmoCommitTask->ReadyForActivation();
 		}
 
@@ -115,14 +154,21 @@ void UBlackoutGA_Reload::ActivateAbility(const FGameplayAbilitySpecHandle Handle
 
 		if (PlayerCharacter->HasAuthority())
 		{
-			PlayerCharacter->Multicast_PlayReloadMontage(SelectedReloadMontage, 1.f);
+			PlayerCharacter->Multicast_PlayReloadMontage(
+				SelectedReloadMontage, 1.f);
 
-			const float MontageDuration = SelectedReloadMontage->GetPlayLength();
+			const float MontageDuration = SelectedReloadMontage->
+				GetPlayLength();
 			if (MontageDuration > 0.0f)
 			{
-				if (UWorld* World = ActorInfo->AvatarActor.IsValid() ? ActorInfo->AvatarActor->GetWorld() : nullptr)
+				if (UWorld* World = ActorInfo->AvatarActor.IsValid()
+					                    ? ActorInfo->AvatarActor->GetWorld()
+					                    : nullptr)
 				{
-					World->GetTimerManager().SetTimer(ReloadCompletionTimerHandle, this, &UBlackoutGA_Reload::OnReloadMontageCompleted, MontageDuration, false);
+					World->GetTimerManager().SetTimer(
+						ReloadCompletionTimerHandle, this,
+						&UBlackoutGA_Reload::OnReloadMontageCompleted,
+						MontageDuration, false);
 				}
 				return;
 			}
@@ -136,7 +182,8 @@ void UBlackoutGA_Reload::ActivateAbility(const FGameplayAbilitySpecHandle Handle
 	}
 }
 
-void UBlackoutGA_Reload::OnWeaponReloadStartEventReceived(FGameplayEventData Payload)
+void UBlackoutGA_Reload::OnWeaponReloadStartEventReceived(
+	FGameplayEventData Payload)
 {
 	if (bWeaponReloadAnimationTriggered)
 	{
@@ -144,12 +191,21 @@ void UBlackoutGA_Reload::OnWeaponReloadStartEventReceived(FGameplayEventData Pay
 	}
 
 	ABlackoutPlayerCharacter* PlayerCharacter =
-		CurrentActorInfo ? Cast<ABlackoutPlayerCharacter>(CurrentActorInfo->AvatarActor.Get()) : nullptr;
-	UBlackoutCombatComponent* CombatComponent = PlayerCharacter ? PlayerCharacter->GetCombatComponent() : nullptr;
-	ABOFirearm* EquippedFirearm = CombatComponent ? CombatComponent->GetEquippedFirearm() : nullptr;
+		CurrentActorInfo
+			? Cast<ABlackoutPlayerCharacter>(
+				CurrentActorInfo->AvatarActor.Get())
+			: nullptr;
+	UBlackoutCombatComponent* CombatComponent = PlayerCharacter
+		                                            ? PlayerCharacter->
+		                                            GetCombatComponent()
+		                                            : nullptr;
+	ABOFirearm* EquippedFirearm = CombatComponent
+		                              ? CombatComponent->GetEquippedFirearm()
+		                              : nullptr;
 	if (!PlayerCharacter || !EquippedFirearm)
 	{
-		BO_LOG_GAS(Warning, "GA_Reload weapon reload event ignored: PlayerCharacter 또는 EquippedFirearm이 유효하지 않음");
+		BO_LOG_GAS(Warning,
+		           "GA_Reload weapon reload event ignored: PlayerCharacter 또는 EquippedFirearm이 유효하지 않음");
 		return;
 	}
 
@@ -166,17 +222,19 @@ void UBlackoutGA_Reload::OnWeaponReloadStartEventReceived(FGameplayEventData Pay
 	}
 
 	BO_LOG_GAS(Log,
-		"GA_Reload weapon reload event received: Character=%s Weapon=%s EventTag=%s",
-		*GetNameSafe(PlayerCharacter),
-		*GetNameSafe(EquippedFirearm),
-		*Payload.EventTag.ToString());
+	           "GA_Reload weapon reload event received: Character=%s Weapon=%s EventTag=%s",
+	           *GetNameSafe(PlayerCharacter),
+	           *GetNameSafe(EquippedFirearm),
+	           *Payload.EventTag.ToString());
 }
 
-void UBlackoutGA_Reload::OnReloadAmmoCommitEventReceived(FGameplayEventData Payload)
+void UBlackoutGA_Reload::OnReloadAmmoCommitEventReceived(
+	FGameplayEventData Payload)
 {
 	if (!CurrentActorInfo || !CurrentActorInfo->AvatarActor.IsValid())
 	{
-		BO_LOG_GAS(Warning, "GA_Reload ammo commit ignored: ActorInfo 또는 AvatarActor가 유효하지 않음");
+		BO_LOG_GAS(Warning,
+		           "GA_Reload ammo commit ignored: ActorInfo 또는 AvatarActor가 유효하지 않음");
 		return;
 	}
 
@@ -186,22 +244,34 @@ void UBlackoutGA_Reload::OnReloadAmmoCommitEventReceived(FGameplayEventData Payl
 	}
 
 	BO_LOG_GAS(Log,
-		"GA_Reload ammo commit event received: Character=%s EventTag=%s",
-		*GetNameSafe(CurrentActorInfo->AvatarActor.Get()),
-		*Payload.EventTag.ToString());
+	           "GA_Reload ammo commit event received: Character=%s EventTag=%s",
+	           *GetNameSafe(CurrentActorInfo->AvatarActor.Get()),
+	           *Payload.EventTag.ToString());
 
 	ApplyReloadEffect();
 }
 
-void UBlackoutGA_Reload::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
+void UBlackoutGA_Reload::EndAbility(const FGameplayAbilitySpecHandle Handle,
+                                    const FGameplayAbilityActorInfo* ActorInfo,
+                                    const FGameplayAbilityActivationInfo
+                                    ActivationInfo, bool bReplicateEndAbility,
+                                    bool bWasCancelled)
 {
-	BO_LOG_GAS(Log, "GA_Reload ended: Cancelled=%s", bWasCancelled ? TEXT("true") : TEXT("false"));
+	BO_LOG_GAS(Log, "GA_Reload ended: Cancelled=%s",
+	           bWasCancelled ? TEXT("true") : TEXT("false"));
 
 	if (ActorInfo && ActorInfo->AvatarActor.IsValid())
 	{
-		ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get());
-		UBlackoutCombatComponent* CombatComponent = PlayerCharacter ? PlayerCharacter->GetCombatComponent() : nullptr;
-		ABOFirearm* EquippedFirearm = CombatComponent ? CombatComponent->GetEquippedFirearm() : nullptr;
+		ABlackoutPlayerCharacter* PlayerCharacter = Cast<
+			ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get());
+		UBlackoutCombatComponent* CombatComponent = PlayerCharacter
+			                                            ? PlayerCharacter->
+			                                            GetCombatComponent()
+			                                            : nullptr;
+		ABOFirearm* EquippedFirearm = CombatComponent
+			                              ? CombatComponent->
+			                              GetEquippedFirearm()
+			                              : nullptr;
 
 		if (bWasCancelled && PlayerCharacter && CachedReloadMontage)
 		{
@@ -212,7 +282,8 @@ void UBlackoutGA_Reload::EndAbility(const FGameplayAbilitySpecHandle Handle, con
 
 			if (PlayerCharacter->HasAuthority())
 			{
-				PlayerCharacter->Multicast_StopReloadMontage(CachedReloadMontage, 0.1f);
+				PlayerCharacter->Multicast_StopReloadMontage(
+					CachedReloadMontage, 0.1f);
 			}
 		}
 
@@ -239,12 +310,14 @@ void UBlackoutGA_Reload::EndAbility(const FGameplayAbilitySpecHandle Handle, con
 	CachedReloadMontage = nullptr;
 	bWeaponReloadAnimationTriggered = false;
 	bReloadEffectApplied = false;
-	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility,
+	                  bWasCancelled);
 }
 
 void UBlackoutGA_Reload::OnReloadMontageCompleted()
 {
-	if (!CurrentActorInfo || !CurrentActorInfo->AvatarActor.IsValid() || !CurrentActorInfo->AvatarActor->HasAuthority())
+	if (!CurrentActorInfo || !CurrentActorInfo->AvatarActor.IsValid() || !
+		CurrentActorInfo->AvatarActor->HasAuthority())
 	{
 		return;
 	}
@@ -253,10 +326,13 @@ void UBlackoutGA_Reload::OnReloadMontageCompleted()
 
 	if (!bReloadEffectApplied)
 	{
-		BO_LOG_GAS(Warning, "GA_Reload completed without ammo commit notify: Montage=%s", *GetNameSafe(CachedReloadMontage));
+		BO_LOG_GAS(Warning,
+		           "GA_Reload completed without ammo commit notify: Montage=%s",
+		           *GetNameSafe(CachedReloadMontage));
 	}
 
-	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true,
+	           false);
 }
 
 void UBlackoutGA_Reload::ApplyReloadEffect()
@@ -266,24 +342,49 @@ void UBlackoutGA_Reload::ApplyReloadEffect()
 		return;
 	}
 
-	if (!CurrentActorInfo || !CurrentActorInfo->AvatarActor.IsValid() || !CurrentActorInfo->AvatarActor->HasAuthority())
+	if (!CurrentActorInfo || !CurrentActorInfo->AvatarActor.IsValid() || !
+		CurrentActorInfo->AvatarActor->HasAuthority())
 	{
 		return;
 	}
 
-	UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo();
+	UAbilitySystemComponent* AbilitySystemComponent =
+		GetAbilitySystemComponentFromActorInfo();
 	if (!AbilitySystemComponent)
 	{
 		BO_LOG_GAS(Warning, "GA_Reload apply effect failed: ASC가 유효하지 않음");
 		return;
 	}
 
+	const UBlackoutAbilitySystemComponent* BlackoutASC = Cast<
+		UBlackoutAbilitySystemComponent>(AbilitySystemComponent);
+	if (BlackoutASC && BlackoutASC->ShouldSkipCostInShelter())
+	{
+		const bool bSecondary = (PendingWeaponSlotTag ==
+			BlackoutGameplayTags::Weapon_Secondary);
+		const FGameplayAttribute ClipAttr = bSecondary
+			                                    ? UBlackoutAmmoAttributeSet::GetSecondaryClipAmmoAttribute()
+			                                    : UBlackoutAmmoAttributeSet::GetPrimaryClipAmmoAttribute();
+		const FGameplayAttribute MaxClipAttr = bSecondary
+			                                       ? UBlackoutAmmoAttributeSet::GetSecondaryMaxClipAttribute()
+			                                       : UBlackoutAmmoAttributeSet::GetPrimaryMaxClipAttribute();
+		
+		const float MaxClip = AbilitySystemComponent->GetNumericAttribute(MaxClipAttr);
+		AbilitySystemComponent->SetNumericAttributeBase(ClipAttr,MaxClip);
+		
+		bReloadEffectApplied = true;
+		BO_LOG_GAS(Log ,"GA_Reload (shelter): Clip set to MaxClip, Reserve preserved" );
+		return;
+	}
+
 	if (ReloadEffectClass)
 	{
-		FGameplayEffectSpecHandle SpecHandle = MakeOutgoingGameplayEffectSpec(ReloadEffectClass, GetAbilityLevel());
+		FGameplayEffectSpecHandle SpecHandle = MakeOutgoingGameplayEffectSpec(
+			ReloadEffectClass, GetAbilityLevel());
 		if (!SpecHandle.IsValid())
 		{
-			BO_LOG_GAS(Warning, "GA_Reload apply effect failed: GameplayEffectSpec 생성 실패");
+			BO_LOG_GAS(Warning,
+			           "GA_Reload apply effect failed: GameplayEffectSpec 생성 실패");
 			return;
 		}
 
@@ -292,13 +393,15 @@ void UBlackoutGA_Reload::ApplyReloadEffect()
 			SpecHandle.Data->AddDynamicAssetTag(PendingWeaponSlotTag);
 		}
 
-		AbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
+		AbilitySystemComponent->ApplyGameplayEffectSpecToSelf(
+			*SpecHandle.Data.Get());
 		bReloadEffectApplied = true;
-		
+
 		BO_LOG_GAS(Log, "GA_Reload applied reload effect");
-		
+
 		return;
 	}
 
-	BO_LOG_GAS(Warning, "GA_Reload apply effect failed: ReloadEffectClass가 설정되지 않음");
+	BO_LOG_GAS(Warning,
+	           "GA_Reload apply effect failed: ReloadEffectClass가 설정되지 않음");
 }

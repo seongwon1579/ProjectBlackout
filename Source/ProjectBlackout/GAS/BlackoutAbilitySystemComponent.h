@@ -124,6 +124,13 @@ public:
 
 	float GetStaminaCostMultiplier() const { return StaminaCostMultiplier; }
 
+	/**
+	 * 서버/클라 공통. 쉘터존 안에 있는 동안 true. cost 차감 가드용.
+	 * 현재는 비복제 Loose 태그(State.InShelter)에 의존 — 클라 mispredict 가능.
+	 * 추후 GE-with-granted-tag 전환 시 복제 정합 확보.
+	 */
+	bool ShouldSkipCostInShelter() const;
+
 protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Blackout|Stamina")
 	float StaminaRegenDelay = 1.2f;

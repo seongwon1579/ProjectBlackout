@@ -2,6 +2,7 @@
 
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "AbilitySystemComponent.h"
+#include "BlackoutAbilitySystemComponent.h"
 #include "Animation/AnimMontage.h"
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -207,7 +208,15 @@ void UBlackoutGA_UseConsumable::ConsumeAndApplyEffect()
 	bConsumableApplied = true;
 
 	ABlackoutPlayerState* BlackoutPlayerState = CurrentActorInfo ? Cast<ABlackoutPlayerState>(CurrentActorInfo->OwnerActor.Get()) : nullptr;
-	if (!BlackoutPlayerState || !BlackoutPlayerState->ConsumeConsumable(PendingConsumableData->ConsumableTag, ConsumeAmount))
+	if (!BlackoutPlayerState)
+	{
+		BO_LOG_GAS(Warning, "소모품 차감 실패: PlayerState 유효하지 않음");
+		return;
+	}
+	const UBlackoutAbilitySystemComponent* BlackoutASC = Cast<UBlackoutAbilitySystemComponent>(GetAbilitySystemComponentFromActorInfo());
+	const bool bSkipCost = BlackoutASC && BlackoutASC->ShouldSkipCostInShelter();
+	
+	if (!bSkipCost && !BlackoutPlayerState->ConsumeConsumable(PendingConsumableData->ConsumableTag , ConsumeAmount))
 	{
 		BO_LOG_GAS(Warning, "소모품 차감 실패: Data=%s", *GetNameSafe(PendingConsumableData.Get()));
 		return;

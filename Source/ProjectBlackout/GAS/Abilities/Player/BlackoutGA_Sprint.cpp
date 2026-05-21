@@ -41,9 +41,11 @@ void UBlackoutGA_Sprint::ActivateAbility(const FGameplayAbilitySpecHandle Handle
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
-
+	const UBlackoutAbilitySystemComponent* BlackoutASC = Cast<UBlackoutAbilitySystemComponent>(AbilitySystemComponent);
+	const bool bSkipStaminaCheck = BlackoutASC && BlackoutASC->ShouldSkipCostInShelter();
+	
 	const float CurrentStamina = AbilitySystemComponent->GetNumericAttribute(UBlackoutPlayerAttributeSet::GetStaminaAttribute());
-	if (CurrentStamina < MinActivationStamina || !CommitAbility(Handle, ActorInfo, ActivationInfo))
+	if ((!bSkipStaminaCheck && CurrentStamina < MinActivationStamina ) || !CommitAbility(Handle, ActorInfo, ActivationInfo))
 	{
 		BO_LOG_GAS(Warning, "GA_Sprint failed: 스태미나 부족 또는 CommitAbility 실패 (CurrentStamina=%.2f)", CurrentStamina);
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
@@ -176,6 +178,10 @@ bool UBlackoutGA_Sprint::ConsumeSprintStamina() const
 	}
 
 	const UBlackoutAbilitySystemComponent* BlackoutAbilitySystemComponent = Cast<UBlackoutAbilitySystemComponent>(AbilitySystemComponent);
+	if (BlackoutAbilitySystemComponent && BlackoutAbilitySystemComponent->ShouldSkipCostInShelter())
+	{
+		return true;
+	}
 	const float StaminaCostMultiplier = BlackoutAbilitySystemComponent ? BlackoutAbilitySystemComponent->GetStaminaCostMultiplier() : 1.0f;
 	const float ModifiedStaminaDrain = StaminaDrainPerTick * StaminaCostMultiplier;
 
