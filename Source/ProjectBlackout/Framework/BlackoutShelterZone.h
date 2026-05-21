@@ -7,6 +7,7 @@
 
 class UBoxComponent;
 class APawn;
+class UGameplayEffect;
 
 /**
  * 쉘터 안전구역. 폰이 overlap 시 State.InShelter 부여 + 자원 보정 + 체크포인트 등록.
@@ -27,6 +28,9 @@ protected:
 	// 이 쉘터가 활성화되는 매치 페이즈 (ShelterPrep / ShelterMid). 디자이너가 배치별 지정.
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Shelter")
 	EBlackoutMatchState TargetShelterPhase = EBlackoutMatchState::ShelterPrep;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly , Category="Blackout|Shelter")
+	TSubclassOf<UGameplayEffect> ShelterStateEffectClass;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Shelter")
 	TObjectPtr<UBoxComponent> Trigger;

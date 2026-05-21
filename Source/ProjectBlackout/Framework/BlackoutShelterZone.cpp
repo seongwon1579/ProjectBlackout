@@ -160,7 +160,15 @@ void ABlackoutShelterZone::ApplyShelterEffects(APawn* Pawn)
 	// PS ASC 사용 — PossessedBy 의존 제거, GA ActorInfo와 동일 ASC.
 	if (UAbilitySystemComponent* ASC = PS->GetAbilitySystemComponent())
 	{
-		ASC->AddLooseGameplayTag(BlackoutGameplayTags::State_InShelter);
+		if (ShelterStateEffectClass)
+		{
+			FGameplayEffectContextHandle Ctx = ASC->MakeEffectContext();
+			const FGameplayEffectSpecHandle SpecHandle = ASC->MakeOutgoingSpec(ShelterStateEffectClass , 1.0f, Ctx);
+			if (SpecHandle.IsValid())
+			{
+				ASC->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
+			}
+		}
 	}
 
 	PS->ApplyBattleTransitionPolicy(EBattleTransitionType::CheckpointRest);
@@ -195,12 +203,14 @@ void ABlackoutShelterZone::RemoveShelterEffects(APawn* Pawn)
 	{
 		return;
 	}
-
-	ASC->RemoveLooseGameplayTag(BlackoutGameplayTags::State_InShelter);
-
+	
+	FGameplayTagContainer InShelterTags;
+	InShelterTags.AddTag(BlackoutGameplayTags::State_InShelter);
+	ASC->RemoveActiveEffectsWithGrantedTags(InShelterTags);
+	
 	FGameplayTagContainer ScopedTags;
 	ScopedTags.AddTag(BlackoutGameplayTags::Effect_ShelterScoped);
 	ASC->RemoveActiveEffectsWithGrantedTags(ScopedTags);
-
+	
 	BO_LOG_NET(Log, "ShelterZone Exit: %s @ %s", *GetNameSafe(Pawn), *GetName());
 }
