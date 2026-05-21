@@ -28,6 +28,10 @@ public:
 		UAbilitySystemComponent* TargetASC);
 
 protected:
+	/** 보상 확률 및 보급량 설정을 정의한 데이터 에셋 테이블입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Reward")
+	TObjectPtr<class UBORewardTableData> RewardTable;
+
 	/** 스폰할 통합 드롭 아이템 블루프린트 클래스입니다. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Reward")
 	TSubclassOf<class ABlackoutDropItem> DropItemClass;
@@ -57,5 +61,6 @@ private:
 		float InDropScatterRadius,
 		float InDropGroundTraceUpDistance,
 		float InDropGroundTraceDownDistance,
-		float InDropGroundOffset);
+		float InDropGroundOffset,
+		class UBORewardTableData* InRewardTable);
 };

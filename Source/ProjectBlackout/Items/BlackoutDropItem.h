@@ -48,6 +48,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|DropItem")
 	void SetDropItemType(EBlackoutDropItemType NewType);
 
+	/** 처치 계산기(ExecCalc) 등에서 드롭 스폰 시점에 보상 유형 및 보급 비율을 주입하기 위한 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "Blackout|DropItem")
+	void InitializeDropReward(EBlackoutDropItemType NewType, float NewSupplyRatio);
+
 	UFUNCTION(BlueprintPure, Category = "Blackout|DropItem")
 	EBlackoutDropItemType GetDropItemType() const { return DropItemType; }
 

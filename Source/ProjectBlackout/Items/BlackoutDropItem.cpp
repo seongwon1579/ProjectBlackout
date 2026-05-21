@@ -270,6 +270,20 @@ void ABlackoutDropItem::SetDropItemType(EBlackoutDropItemType NewType)
 	DropItemType = NewType;
 }
 
+void ABlackoutDropItem::InitializeDropReward(EBlackoutDropItemType NewType, float NewSupplyRatio)
+{
+	DropItemType = NewType;
+	if (NewType == EBlackoutDropItemType::PrimaryAmmo)
+	{
+		PrimaryAmmoChargeRatio = NewSupplyRatio;
+	}
+	else if (NewType == EBlackoutDropItemType::SecondaryAmmo)
+	{
+		SecondaryAmmoChargeRatio = NewSupplyRatio;
+	}
+	// 소모품일 경우 SupplyRatio가 쓰이지 않으므로 무시합니다.
+}
+
 void ABlackoutDropItem::SnapToGround(AActor* IgnoreActor)
 {
 	UWorld* World = GetWorld();

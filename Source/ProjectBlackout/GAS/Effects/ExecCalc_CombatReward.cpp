@@ -12,6 +12,7 @@
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "Core/BlackoutLog.h"
 #include "Data/BOCharacterData.h"
+#include "Data/BORewardTableData.h"
 #include "GameFramework/Pawn.h"
 #include "GameplayEffect.h"
 #include "Engine/World.h"
@@ -73,7 +74,8 @@ void UExecCalc_CombatReward::Execute_Implementation(
 		DropScatterRadius,
 		DropGroundTraceUpDistance,
 		DropGroundTraceDownDistance,
-		DropGroundOffset);
+		DropGroundOffset,
+		RewardTable);
 }
 
 bool UExecCalc_CombatReward::ApplyConfiguredRewardEffect(
@@ -166,7 +168,8 @@ bool UExecCalc_CombatReward::TrySpawnRewardDropInternal(
 	float InDropScatterRadius,
 	float InDropGroundTraceUpDistance,
 	float InDropGroundTraceDownDistance,
-	float InDropGroundOffset)
+	float InDropGroundOffset,
+	UBORewardTableData* InRewardTable)
 {
 	if (!SourceASC || !TargetASC)
 	{
@@ -307,20 +310,75 @@ bool UExecCalc_CombatReward::TrySpawnRewardDropInternal(
 			? InDropItemClass
 			: TSubclassOf<ABlackoutDropItem>(ABlackoutDropItem::StaticClass());
 
-		// 6. 드롭할 아이템 종류를 무작위로 선택 (주무기 탄약 40% / 보조무기 탄약 40% / 소모성 회복약 20%)
-		const float RandVal = FMath::FRand();
-		EBlackoutDropItemType SelectedType;
-		if (RandVal < 0.4f)
+		// 6. 드롭할 아이템 종류 및 보상 수치 결정 (데이터 에셋 기반 가중치 연산)
+		EBlackoutDropItemType SelectedType = EBlackoutDropItemType::PrimaryAmmo;
+		float SelectedSupplyRatio = 0.2f;
+
+		if (InRewardTable && InRewardTable->RewardConfigs.Num() > 0)
 		{
-			SelectedType = EBlackoutDropItemType::PrimaryAmmo;
-		}
-		else if (RandVal < 0.8f)
-		{
-			SelectedType = EBlackoutDropItemType::SecondaryAmmo;
+			// 가중치 합 계산
+			float TotalWeight = 0.0f;
+			for (const FBlackoutRewardItemConfig& Config : InRewardTable->RewardConfigs)
+			{
+				TotalWeight += FMath::Max(Config.DropWeight, 0.0f);
+			}
+
+			if (TotalWeight > 0.0f)
+			{
+				const float RandVal = FMath::FRandRange(0.0f, TotalWeight);
+				float CurrentWeightSum = 0.0f;
+				bool bSelected = false;
+
+				for (const FBlackoutRewardItemConfig& Config : InRewardTable->RewardConfigs)
+				{
+					CurrentWeightSum += FMath::Max(Config.DropWeight, 0.0f);
+					if (RandVal <= CurrentWeightSum)
+					{
+						SelectedType = Config.ItemType;
+						SelectedSupplyRatio = Config.SupplyRatio;
+						bSelected = true;
+						break;
+					}
+				}
+
+				// 혹시 연산 오차 등으로 선택되지 않았을 경우 마지막 구성 요소로 폴백
+				if (!bSelected)
+				{
+					const FBlackoutRewardItemConfig& LastConfig = InRewardTable->RewardConfigs.Last();
+					SelectedType = LastConfig.ItemType;
+					SelectedSupplyRatio = LastConfig.SupplyRatio;
+				}
+			}
+			else
+			{
+				// 가중치 합이 0일 경우 무작위 선택
+				const int32 RandIndex = FMath::RandRange(0, InRewardTable->RewardConfigs.Num() - 1);
+				const FBlackoutRewardItemConfig& RandomConfig = InRewardTable->RewardConfigs[RandIndex];
+				SelectedType = RandomConfig.ItemType;
+				SelectedSupplyRatio = RandomConfig.SupplyRatio;
+			}
 		}
 		else
 		{
-			SelectedType = EBlackoutDropItemType::Consumable;
+			// 데이터 에셋이 없거나 비어 있을 경우 기존 하드코딩 확률(40% / 40% / 20%) 및 충전비율(0.2f)로 폴백
+			const float RandVal = FMath::FRand();
+			if (RandVal < 0.4f)
+			{
+				SelectedType = EBlackoutDropItemType::PrimaryAmmo;
+				SelectedSupplyRatio = 0.2f;
+			}
+			else if (RandVal < 0.8f)
+			{
+				SelectedType = EBlackoutDropItemType::SecondaryAmmo;
+				SelectedSupplyRatio = 0.2f;
+			}
+			else
+			{
+				SelectedType = EBlackoutDropItemType::Consumable;
+				SelectedSupplyRatio = 0.0f; // 소모품은 비율 미사용
+			}
+
+			BO_LOG_CORE(Warning, TEXT("UExecCalc_CombatReward: RewardTable이 비어있어 기본 하드코딩 드롭 테이블로 폴백합니다."));
 		}
 
 		// 사망한 몬스터 위치 주변에서 후보점을 정한 뒤, 아래 방향 트레이스로 실제 바닥 위치에 맞춰 생성합니다.
@@ -341,14 +399,15 @@ bool UExecCalc_CombatReward::TrySpawnRewardDropInternal(
 		ABlackoutDropItem* DropItem = Cast<ABlackoutDropItem>(SpawnedActor);
 		if (DropItem)
 		{
-			// 드롭 상태 타입 초기화
-			DropItem->SetDropItemType(SelectedType);
+			// 드롭 상태 타입 및 획득 보상 비율 동적 주입
+			DropItem->InitializeDropReward(SelectedType, SelectedSupplyRatio);
 			DropItem->SnapToGround(TargetAvatar);
 
-			BO_LOG_CORE(Log, TEXT("처치 보상 드롭 성공: Player=%s, Class=%s, DroppedType=%d, Location=%s"),
+			BO_LOG_CORE(Log, TEXT("처치 보상 드롭 성공: Player=%s, Class=%s, DroppedType=%d, SupplyRatio=%.2f, Location=%s"),
 				*SourcePS->GetPlayerName(),
 				*ClassTag.ToString(),
 				(int32)SelectedType,
+				SelectedSupplyRatio,
 				*DropItem->GetActorLocation().ToString());
 			return true;
 		}
