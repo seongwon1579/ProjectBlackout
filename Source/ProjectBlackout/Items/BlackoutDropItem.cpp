@@ -18,6 +18,7 @@
 #include "Combat/Weapons/BOFirearm.h"
 #include "NiagaraComponent.h"
 #include "NiagaraSystem.h"
+#include "EngineUtils.h"
 
 ABlackoutDropItem::ABlackoutDropItem()
 {
@@ -391,6 +392,15 @@ void ABlackoutDropItem::SnapToGround(AActor* IgnoreActor)
 	if (IgnoreActor)
 	{
 		QueryParams.AddIgnoredActor(IgnoreActor);
+	}
+
+	// 모든 Pawn 계열을 무시 대상으로 추가하여 폰 충돌체에 의해 아이템이 공중에 걸리는 것을 방지
+	for (APawn* Pawn : TActorRange<APawn>(World))
+	{
+		if (Pawn)
+		{
+			QueryParams.AddIgnoredActor(Pawn);
+		}
 	}
 
 	if (!World->LineTraceSingleByChannel(GroundHit, TraceStart, TraceEnd, ECC_WorldStatic, QueryParams)

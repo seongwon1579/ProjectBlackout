@@ -16,6 +16,7 @@
 #include "GameFramework/Pawn.h"
 #include "GameplayEffect.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
 
 namespace
 {
@@ -38,6 +39,15 @@ namespace
 		FHitResult GroundHit;
 		FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(CombatRewardDropGroundTrace), false, TargetAvatar);
 		QueryParams.AddIgnoredActor(TargetAvatar);
+
+		// 월드 내의 모든 Pawn 계열을 무시 대상에 등록하여 주변 폰 간섭으로 인한 공중 스폰을 완벽 차단
+		for (APawn* Pawn : TActorRange<APawn>(World))
+		{
+			if (Pawn)
+			{
+				QueryParams.AddIgnoredActor(Pawn);
+			}
+		}
 
 		if (World->LineTraceSingleByChannel(GroundHit, TraceStart, TraceEnd, ECC_WorldStatic, QueryParams)
 			&& GroundHit.bBlockingHit)
