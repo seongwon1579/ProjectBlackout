@@ -323,9 +323,16 @@ classDiagram
     }
 
     class ExecCalc_CombatReward {
-        +Kill.Melee → 탄약+소모품
-        +Kill.MultiTarget.Count >= 3 → 탄약+소모품
-        +Kill.WeakSpot → 탄약+소모품
+        +DropItemClass (BP 기본값)
+        +Kill.Melee → 드롭 후보 1개 랜덤
+        +Kill.MultiTarget.Count3 → 드롭 후보 1개 랜덤
+        +Kill.WeakSpot → 드롭 후보 1개 랜덤
+        +SpawnFromPool(ABlackoutDropItem)
+    }
+
+    class GE_CombatReward {
+        +Instant
+        +BP ExecCalc_CombatReward 실행
     }
 
     class ABOShotgunFirearm {
@@ -342,7 +349,8 @@ classDiagram
     UBlackoutAbilitySystemComponent ..> FBlackoutAbilityInputSyncPayload : 기록 / 검증
     UBlackoutGA_UseConsumable <|-- UBlackoutGA_UseBloodRoot
     UBlackoutGA_UseConsumable <|-- UBlackoutGA_UseGulSerum
-    ExecCalc_DamageCalc --> ExecCalc_CombatReward : 사망 시
+    ABlackoutCharacterBase --> GE_CombatReward : 서버 사망 확정 후
+    GE_CombatReward --> ExecCalc_CombatReward : Execution
 ```
 
 ---
@@ -457,9 +465,9 @@ classDiagram
 
     class UBlackoutPoolSubsystem {
         -TMap PoolMap
-        +GetFromPool(UClass*) AActor*
+        +SpawnFromPool(UClass*) AActor*
         +ReturnToPool(AActor*) void
-        +PreWarm(UClass*, int32 Count) void
+        +WarmUp(UClass*, int32 Count) void
     }
 
     class IBlackoutPoolableInterface {

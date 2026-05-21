@@ -1,10 +1,14 @@
 #include "Combat/Weapons/BOShotgunFirearm.h"
 
+#include "AbilitySystemComponent.h"
+#include "AbilitySystemInterface.h"
 #include "Combat/Components/BlackoutHitboxComponent.h"
 #include "Combat/Weapons/BOWeaponDebugUtils.h"
 #include "Core/BlackoutCollisionChannels.h"
 #include "DrawDebugHelpers.h"
 #include "Engine/World.h"
+#include "GAS/Effects/ExecCalc_CombatReward.h"
+#include "GameplayTags/BlackoutGameplayTags.h"
 #include "Interfaces/BlackoutDamageable.h"
 
 ABOShotgunFirearm::ABOShotgunFirearm()
@@ -47,6 +51,8 @@ TArray<FBlackoutShotgunPelletHit> ABOShotgunFirearm::FireShotgun(const FVector& 
 	QueryParams.bReturnPhysicalMaterial = true;
 
 	TMap<AActor*, int32> AppliedPelletCounts;
+	TArray<TPair<TWeakObjectPtr<AActor>, FGameplayEffectSpecHandle>> KilledTargets;
+	TSet<AActor*> KilledTargetSet;
 
 	for (int32 PelletIndex = 0; PelletIndex < PelletDirections.Num(); ++PelletIndex)
 	{
@@ -92,6 +98,9 @@ TArray<FBlackoutShotgunPelletHit> ABOShotgunFirearm::FireShotgun(const FVector& 
 			++AppliedCount;
 		}
 
+		float HealthBeforeDamage = 0.0f;
+		const bool bHadHealthBefore = BlackoutWeaponDebug::TryGetHealth(DamageTargetActor, HealthBeforeDamage);
+
 		FGameplayEffectSpecHandle PelletSpecHandle = BlackoutWeaponDebug::DuplicateGameplayEffectSpec(DamageSpecHandle);
 		if (!PelletSpecHandle.IsValid())
 		{
@@ -114,7 +123,36 @@ TArray<FBlackoutShotgunPelletHit> ABOShotgunFirearm::FireShotgun(const FVector& 
 			PelletHit.bAppliedDamage = true;
 		}
 
+		if (PelletHit.bAppliedDamage && bHadHealthBefore && HealthBeforeDamage > 0.0f)
+		{
+			float HealthAfterDamage = 0.0f;
+			if (BlackoutWeaponDebug::TryGetHealth(DamageTargetActor, HealthAfterDamage)
+				&& HealthAfterDamage <= 0.0f
+				&& !KilledTargetSet.Contains(DamageTargetActor))
+			{
+				KilledTargetSet.Add(DamageTargetActor);
+				KilledTargets.Add(TPair<TWeakObjectPtr<AActor>, FGameplayEffectSpecHandle>(DamageTargetActor, PelletSpecHandle));
+			}
+		}
+
 		PelletHits.Add(PelletHit);
+	}
+
+	if (KilledTargets.Num() >= 3)
+	{
+		for (const TPair<TWeakObjectPtr<AActor>, FGameplayEffectSpecHandle>& KilledTarget : KilledTargets)
+		{
+			AActor* TargetActor = KilledTarget.Key.Get();
+			IAbilitySystemInterface* TargetAbilityInterface = Cast<IAbilitySystemInterface>(TargetActor);
+			UAbilitySystemComponent* TargetASC = TargetAbilityInterface ? TargetAbilityInterface->GetAbilitySystemComponent() : nullptr;
+			FGameplayEffectSpecHandle RewardSpecHandle = BlackoutWeaponDebug::DuplicateGameplayEffectSpec(KilledTarget.Value);
+			if (TargetASC && RewardSpecHandle.IsValid())
+			{
+				// 산탄 한 번으로 3마리 이상 처치가 확정된 뒤 데몰리션 보상 조건 태그를 후처리합니다.
+				RewardSpecHandle.Data->AddDynamicAssetTag(BlackoutGameplayTags::Kill_MultiTarget_Count3);
+				UExecCalc_CombatReward::ApplyConfiguredRewardEffect(RewardSpecHandle, TargetASC);
+			}
+		}
 	}
 
 	return PelletHits;

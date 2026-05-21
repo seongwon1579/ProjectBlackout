@@ -31,8 +31,10 @@ flowchart TB
     GE -->|ExecCalc_DamageCalc| Health[Health Attribute]
     GE -->|Cue Tag| Cue1[GCN_HitImpact Static]
 
-    Health -->|OnKilled| Reward[ExecCalc_CombatReward]
-    Reward -->|BloodRoot/Ammo +| PlayerState[ABlackoutPlayerState]
+    Health -->|OnKilled| RewardGE[GE_CombatReward]
+    RewardGE -->|Execution| Reward[BP ExecCalc_CombatReward]
+    Reward -->|SpawnFromPool| Drop[ABlackoutDropItem]
+    Drop -->|[E] 상호작용| PlayerState[ABlackoutPlayerState]
 
     Fire -->|Client RPC| PC[ABlackoutPlayerController]
     PC -->|Client_ShowDamageNumber| UI[UW_DamageNumber]
@@ -49,7 +51,7 @@ flowchart TB
 | 3 | `ABOProjectile` | `IBlackoutPoolableInterface`(완료) |
 | 4 | `UBlackoutCombatComponent` | 2, 3 |
 | 5 | `UBlackoutHitboxComponent` | `IBlackoutDamageableInterface`(완료) |
-| 6 | `GE_Damage` + `GE_Reload` + `ExecCalc_Reload` + `ExecCalc_CombatReward` | 1, 5 |
+| 6 | `GE_Damage` + `GE_Reload` + `GE_CombatReward` + `ExecCalc_Reload` + `ExecCalc_CombatReward` | 1, 5 |
 | 7 | `UGA_FireWeapon` / `UGA_Reload` / `UGA_Melee_Player` | 4, 6 |
 | 8 | GameplayCue: `GCN_Weapon_Fire` / `GCN_Weapon_Reload` / `GCN_HitImpact` | 7 |
 | 9 | `ABlackoutPlayerCharacter` 통합 (CombatComponent 부착, 입력 바인딩) | 전체 |

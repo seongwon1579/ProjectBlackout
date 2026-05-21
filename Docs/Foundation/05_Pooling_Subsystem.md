@@ -13,8 +13,8 @@ classDiagram
         -TMap~TSubclassOf~AActor~, FPoolConfig~ PoolConfigs
         +Initialize(FSubsystemCollectionBase) void
         +Deinitialize() void
-        +PrewarmPool(TSubclassOf~AActor~, int32 Count) void
-        +GetFromPool(TSubclassOf~AActor~, FTransform) AActor*
+        +WarmUp(TSubclassOf~AActor~, int32 Count) void
+        +SpawnFromPool(TSubclassOf~AActor~, FTransform) AActor*
         +ReturnToPool(AActor*) void
         -SpawnNewActor(TSubclassOf~AActor~, FTransform) AActor*
     }
@@ -44,13 +44,13 @@ classDiagram
 ## 액터 생명 주기
 
 ```
-발사체:   GetFromPool → 충돌 판정 → GCN 재생 → ReturnToPool
-드랍:     GetFromPool → 바닥 드랍 → 오버랩 획득 or 수명 만료 → ReturnToPool
-미니언:   GetFromPool (위치/HP/BT 초기화) → HP=0 → 래그돌 N초 → ReturnToPool
+발사체:   SpawnFromPool → 충돌 판정 → GCN 재생 → ReturnToPool
+드랍:     SpawnFromPool → 미니언 사망 위치에 바닥 드랍 → [E] 상호작용 획득 or 수명 만료 → ReturnToPool
+미니언:   SpawnFromPool (위치/HP/BT 초기화) → HP=0 → 래그돌 N초 → ReturnToPool
 ```
 
 ## 구현 노트
 
-- `GetFromPool`: 큐에 유휴 액터가 없고 `bAllowGrowth=true`이면 `SpawnNewActor`로 동적 추가.
+- `SpawnFromPool`: 큐에 유휴 액터가 없으면 `SpawnNewActor`로 동적 추가.
 - `ReturnToPool`: `Destroy()` 호출 금지. `IBlackoutPoolableInterface::OnReturnToPool` → Hidden/Collision Off/Tick Off.
-- `PrewarmPool`은 `ABlackoutBattleGameMode::BeginPlay`에서 호출.
+- `WarmUp`은 `ABlackoutBattleGameMode::BeginPlay`에서 호출.

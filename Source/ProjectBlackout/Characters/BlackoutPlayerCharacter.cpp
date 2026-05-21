@@ -27,6 +27,9 @@
 #include "Engine/OverlapResult.h"
 #include "GAS/Attributes/BlackoutBaseAttributeSet.h"
 #include "Net/UnrealNetwork.h"
+#include "Items/BlackoutDropItem.h"
+#include "Components/SphereComponent.h"
+#include "Components/WidgetComponent.h"
 
 ABlackoutPlayerCharacter::ABlackoutPlayerCharacter(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer.SetDefaultSubobjectClass<UBlackoutPlayerMovementComponent>(ACharacter::CharacterMovementComponentName))
@@ -262,7 +265,10 @@ FVector ABlackoutPlayerCharacter::GetFocusedInteractablePromptWorldLocation() co
 
 	FVector BoundsOrigin = FVector::ZeroVector;
 	FVector BoundsExtent = FVector::ZeroVector;
-	TargetActor->GetActorBounds(false, BoundsOrigin, BoundsExtent);
+	// 콜리전이 있는 컴포넌트만 bounds 계산에 포함합니다.
+	// false로 넘기면 Niagara emit particle 등 비콜리전 컴포넌트의 가변 bounds가 함께 잡혀
+	// 프롬프트 위치가 시뮬레이션 진행에 따라 화면 위쪽으로 끌려가는 버그가 발생합니다.
+	TargetActor->GetActorBounds(true, BoundsOrigin, BoundsExtent);
 	return BoundsOrigin + FVector(0.0f, 0.0f, BoundsExtent.Z + InteractionPromptHeightOffset);
 }
 
@@ -276,6 +282,21 @@ bool ABlackoutPlayerCharacter::TryInteractWithFocusedActor()
 		return false;
 	}
 
+	// 로컬 체감 레이턴시 0ms 극대화를 위한 선제 숨김/비활성화 처리 (클라이언트 및 서버 로컬 공통)
+	if (ABlackoutDropItem* DropItem = Cast<ABlackoutDropItem>(TargetActor))
+	{
+		DropItem->SetActorHiddenInGame(true);
+		if (UWidgetComponent* Widget = DropItem->FindComponentByClass<UWidgetComponent>())
+		{
+			Widget->SetHiddenInGame(true);
+			Widget->SetVisibility(false, true);
+		}
+		if (USphereComponent* Sphere = DropItem->FindComponentByClass<USphereComponent>())
+		{
+			Sphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		}
+	}
+
 	if (HasAuthority())
 	{
 		IBlackoutInteractable::Execute_OnInteract(TargetActor, this);
@@ -284,6 +305,9 @@ bool ABlackoutPlayerCharacter::TryInteractWithFocusedActor()
 	{
 		Server_InteractWithActor(TargetActor);
 	}
+
+	// 상호작용 실행 즉시 포커스를 해제하여 중복 요청 및 위젯 잔상 갱신 대기를 미연에 방지
+	FocusedInteractableActor = nullptr;
 
 	return true;
 }
@@ -336,6 +360,13 @@ void ABlackoutPlayerCharacter::UpdateFocusedInteractable(float DeltaSeconds)
 		return;
 	}
 
+	InteractionScanElapsed = 0.0f;
+	RefreshFocusedInteractableActor();
+}
+
+void ABlackoutPlayerCharacter::ForceRefreshFocusedInteractable()
+{
+	// 스캔 누적 시간을 초기화하여, 다음 틱이 아닌 즉시 시점에 새 상호작용 대상이 잡히도록 합니다.
 	InteractionScanElapsed = 0.0f;
 	RefreshFocusedInteractableActor();
 }

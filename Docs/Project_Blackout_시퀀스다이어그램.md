@@ -32,12 +32,16 @@ sequenceDiagram
     Server-->>Attacker: Client_ShowDamageNumber (데미지 텍스트)
 
     alt Target HP <= 0
-        Server->>Server: ExecCalc_CombatReward 판정
-        Note over Server: Kill.Melee / Kill.MultiTarget.Count>=3 / Kill.WeakSpot
+        Server->>TargetASC: 치명 피해 확정 후 OnDeath 전 GE_CombatReward 적용
+        TargetASC->>Server: BP ExecCalc_CombatReward 판정
+        Note over Server: Kill.Melee / Kill.MultiTarget.Count3 / Kill.WeakSpot
 
-        Server->>Pool: GetFromPool(탄약 박스)
-        Server->>Pool: GetFromPool(소모품)
-        Pool-->>Server: 드롭 아이템 스폰
+        Server->>Server: 주무기 탄약 / 보조무기 탄약 / 소모품 중 1개 랜덤 선택
+        Server->>Server: 일반 적 사망 위치 주변 후보점 → 바닥 트레이스 보정
+        Server->>Pool: SpawnFromPool(ABlackoutDropItem, 바닥 보정 위치)
+        Server->>Server: PickupMesh bounds 기준 최종 바닥 스냅
+        Pool-->>Server: 드롭 아이템 월드 스폰
+        Note over Attacker,Pool: 플레이어가 [E] 상호작용 시 실제 탄약/소모품 지급
 
         Server->>Target: OnReturnToPool() (래그돌 N초 후)
     end
@@ -206,7 +210,7 @@ sequenceDiagram
     Shrewd->>Shrewd: State.Invulnerable 태그 부여
 
     loop 10-12개 씨앗
-        Shrewd->>Pool: GetFromPool(ASeedPod)
+        Shrewd->>Pool: SpawnFromPool(ASeedPod)
         Pool-->>Shrewd: 씨앗 포드 액터
         Shrewd->>Shrewd: 방사형 위치 계산 후 스폰
     end

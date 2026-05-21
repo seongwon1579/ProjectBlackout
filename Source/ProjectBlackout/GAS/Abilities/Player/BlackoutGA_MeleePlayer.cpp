@@ -865,5 +865,6 @@ FGameplayEffectSpecHandle UBlackoutGA_MeleePlayer::BuildDamageSpec() const
 	}
 
 	SpecHandle.Data->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Damage, MeleeWeapon->GetBaseDamage());
+	SpecHandle.Data->AddDynamicAssetTag(BlackoutGameplayTags::Kill_Melee);
 	return SpecHandle;
 }

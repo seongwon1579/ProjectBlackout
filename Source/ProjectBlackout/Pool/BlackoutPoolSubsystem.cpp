@@ -17,8 +17,10 @@ AActor* UBlackoutPoolSubsystem::SpawnFromPool(TSubclassOf<AActor> ActorClass, co
 		TObjectPtr<AActor> Candidate = Pool.Pop(EAllowShrinking::No);
 		if (IsValid(Candidate))
 		{
-			Candidate->SetActorTransform(SpawnTransform);
+			// 가시성 복원을 먼저 수행한 뒤 위치를 이동시켜야, 클라이언트가 "숨겨진 상태의 위치 이동" 패킷을
+			// 먼저 받아 위젯/이펙트가 한 프레임 꺼지는 레이스를 피할 수 있습니다.
 			IBlackoutPoolableInterface::Execute_OnSpawnFromPool(Candidate);
+			Candidate->SetActorTransform(SpawnTransform);
 			BO_LOG_POOL(Verbose, "SpawnFromPool(reuse): %s", *Candidate->GetName());
 			return Candidate;
 		}

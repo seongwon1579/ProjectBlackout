@@ -2,6 +2,7 @@
 
 #include "AbilitySystemGlobals.h"
 #include "Combat/Components/BlackoutHitboxComponent.h"
+#include "Combat/Weapons/BOWeaponDebugUtils.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Core/BlackoutCollisionChannels.h"
@@ -14,6 +15,7 @@
 #include "DrawDebugHelpers.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/ProjectileMovementComponent.h"
+#include "GAS/Effects/ExecCalc_CombatReward.h"
 #include "GameplayCueManager.h"
 #include "GameplayEffect.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
@@ -315,6 +317,7 @@ void ABOMeridianGrenadeProjectile::ApplyExplosionDamage(const FVector& Origin)
 	}
 
 	TSet<AActor*> DamagedActors;
+	TArray<TWeakObjectPtr<AActor>> KilledTargets;
 	for (const FOverlapResult& OverlapResult : OverlapResults)
 	{
 		AActor* HitActor = OverlapResult.GetActor();
@@ -331,8 +334,37 @@ void ABOMeridianGrenadeProjectile::ApplyExplosionDamage(const FVector& Origin)
 
 		if (IBlackoutDamageable* Damageable = Cast<IBlackoutDamageable>(HitActor))
 		{
+			float HealthBeforeDamage = 0.0f;
+			const bool bHadHealthBefore = BlackoutWeaponDebug::TryGetHealth(HitActor, HealthBeforeDamage);
+
 			Damageable->ReceiveDamageFromHitbox(ExplosionDamageSpec, NAME_None);
 			DamagedActors.Add(HitActor);
+
+			float HealthAfterDamage = 0.0f;
+			if (bHadHealthBefore
+				&& HealthBeforeDamage > 0.0f
+				&& BlackoutWeaponDebug::TryGetHealth(HitActor, HealthAfterDamage)
+				&& HealthAfterDamage <= 0.0f)
+			{
+				KilledTargets.Add(HitActor);
+			}
+		}
+	}
+
+	if (KilledTargets.Num() >= 3)
+	{
+		for (const TWeakObjectPtr<AActor>& KilledTarget : KilledTargets)
+		{
+			AActor* TargetActor = KilledTarget.Get();
+			IAbilitySystemInterface* TargetAbilityInterface = Cast<IAbilitySystemInterface>(TargetActor);
+			UAbilitySystemComponent* TargetASC = TargetAbilityInterface ? TargetAbilityInterface->GetAbilitySystemComponent() : nullptr;
+			FGameplayEffectSpecHandle RewardSpecHandle = BlackoutWeaponDebug::DuplicateGameplayEffectSpec(ExplosionDamageSpec);
+			if (TargetASC && RewardSpecHandle.IsValid())
+			{
+				// 폭발 한 번으로 3마리 이상 처치가 확정된 뒤 데몰리션 보상 조건 태그를 후처리합니다.
+				RewardSpecHandle.Data->AddDynamicAssetTag(BlackoutGameplayTags::Kill_MultiTarget_Count3);
+				UExecCalc_CombatReward::ApplyConfiguredRewardEffect(RewardSpecHandle, TargetASC);
+			}
 		}
 	}
 }
