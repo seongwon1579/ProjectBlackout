@@ -375,7 +375,7 @@ UBlackoutGA_FireWeapon::UBlackoutGA_FireWeapon()
 
 void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
-	BO_LOG_GAS(Log, "GA_FireWeapon activate requested");
+	BO_LOG_GAS(Verbose, "GA_FireWeapon activate requested");
 
 	ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
 	UBlackoutCombatComponent* CombatComponent = PlayerCharacter ? PlayerCharacter->GetCombatComponent() : nullptr;
@@ -401,7 +401,7 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 		const float CurrentTimeSeconds = ActorInfo && ActorInfo->AvatarActor.IsValid() && ActorInfo->AvatarActor->GetWorld()
 			? ActorInfo->AvatarActor->GetWorld()->GetTimeSeconds()
 			: -1.0f;
-		BO_LOG_GAS(Log,
+		BO_LOG_GAS(Verbose,
 			"GA_FireWeapon skipped by fire-rate gate: Character=%s Weapon=%s Current=%.3f Next=%.3f",
 			*GetNameSafe(PlayerCharacter),
 			*GetNameSafe(EquippedFirearm),
@@ -421,7 +421,6 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 	// 1. 탄약 소모 확인 및 적용
 	if (!ApplyAmmoCost())
 	{
-		BO_LOG_GAS(Warning, "GA_FireWeapon failed: 탄약 부족");
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
@@ -431,7 +430,7 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 		ReserveNextFireTime(EquippedFirearm, ActorInfo);
 	}
 
-	BO_LOG_GAS(Log, "GA_FireWeapon activated: Character=%s, Weapon=%s", *GetNameSafe(ActorInfo ? ActorInfo->AvatarActor.Get() : nullptr), *GetNameSafe(EquippedFirearm));
+	BO_LOG_GAS(Verbose, "GA_FireWeapon activated: Character=%s, Weapon=%s", *GetNameSafe(ActorInfo ? ActorInfo->AvatarActor.Get() : nullptr), *GetNameSafe(EquippedFirearm));
 
 	CachedFireMontage = PlayerCharacter ? PlayerCharacter->GetFireMontageForTag(FireAnimTag) : nullptr;
 	const bool bShouldWaitForFireMontageCompletion =
@@ -567,7 +566,7 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 				: AbilitySystemComponent->GetNumericAttribute(UBlackoutAmmoAttributeSet::GetPrimaryClipAmmoAttribute());
 		}
 
-		BO_LOG_GAS(Log,
+		BO_LOG_GAS(Verbose,
 			"GA_FireWeapon authoritative shot: Character=%s Weapon=%s ClipAmmo=%.0f Time=%.3f Automatic=%s Shotgun=%s",
 			*GetNameSafe(PlayerCharacter),
 			*GetNameSafe(EquippedFirearm),
@@ -713,7 +712,7 @@ void UBlackoutGA_FireWeapon::EndAbility(const FGameplayAbilitySpecHandle Handle,
 
 	CachedFireMontage = nullptr;
 	bWeaponFireAnimationTriggered = false;
-	BO_LOG_GAS(Log, "GA_FireWeapon ended: Cancelled=%s", bWasCancelled ? TEXT("true") : TEXT("false"));
+	BO_LOG_GAS(Verbose, "GA_FireWeapon ended: Cancelled=%s", bWasCancelled ? TEXT("true") : TEXT("false"));
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
 
@@ -793,7 +792,8 @@ bool UBlackoutGA_FireWeapon::ApplyAmmoCost()
 	const FGameplayTag WeaponSlotTag = CombatComponent->GetEquippedWeaponSlotTag();
 	const float PrimaryClipAmmoBefore = AbilitySystemComponent->GetNumericAttribute(UBlackoutAmmoAttributeSet::GetPrimaryClipAmmoAttribute());
 	const float SecondaryClipAmmoBefore = AbilitySystemComponent->GetNumericAttribute(UBlackoutAmmoAttributeSet::GetSecondaryClipAmmoAttribute());
-	BO_LOG_GAS(Log,
+
+	BO_LOG_GAS(Verbose,
 		"ApplyAmmoCost before: Character=%s Slot=%s Primary=%.0f Secondary=%.0f Local=%s Authority=%s",
 		*GetNameSafe(PlayerCharacter),
 		*WeaponSlotTag.ToString(),
@@ -807,7 +807,7 @@ bool UBlackoutGA_FireWeapon::ApplyAmmoCost()
 		const float SecondaryClipAmmo = SecondaryClipAmmoBefore;
 		if (SecondaryClipAmmo < 1.0f)
 		{
-			BO_LOG_GAS(Warning,
+			BO_LOG_GAS(Verbose,
 				"ApplyAmmoCost failed: 보조 무기 탄약 부족 Character=%s Secondary=%.0f",
 				*GetNameSafe(PlayerCharacter),
 				SecondaryClipAmmo);
@@ -815,7 +815,7 @@ bool UBlackoutGA_FireWeapon::ApplyAmmoCost()
 		}
 
 		AbilitySystemComponent->ApplyModToAttribute(UBlackoutAmmoAttributeSet::GetSecondaryClipAmmoAttribute(), EGameplayModOp::Additive, -1.0f);
-		BO_LOG_GAS(Log,
+		BO_LOG_GAS(Verbose,
 			"ApplyAmmoCost after: Character=%s Slot=%s Primary=%.0f Secondary=%.0f",
 			*GetNameSafe(PlayerCharacter),
 			*WeaponSlotTag.ToString(),
@@ -827,7 +827,7 @@ bool UBlackoutGA_FireWeapon::ApplyAmmoCost()
 	const float PrimaryClipAmmo = PrimaryClipAmmoBefore;
 	if (PrimaryClipAmmo < 1.0f)
 	{
-		BO_LOG_GAS(Warning,
+		BO_LOG_GAS(Verbose,
 			"ApplyAmmoCost failed: 주 무기 탄약 부족 Character=%s Primary=%.0f",
 			*GetNameSafe(PlayerCharacter),
 			PrimaryClipAmmo);
@@ -835,7 +835,7 @@ bool UBlackoutGA_FireWeapon::ApplyAmmoCost()
 	}
 
 	AbilitySystemComponent->ApplyModToAttribute(UBlackoutAmmoAttributeSet::GetPrimaryClipAmmoAttribute(), EGameplayModOp::Additive, -1.0f);
-	BO_LOG_GAS(Log,
+	BO_LOG_GAS(Verbose,
 		"ApplyAmmoCost after: Character=%s Slot=%s Primary=%.0f Secondary=%.0f",
 		*GetNameSafe(PlayerCharacter),
 		*WeaponSlotTag.ToString(),
@@ -913,7 +913,7 @@ void UBlackoutGA_FireWeapon::PlayFireMontage()
 		PlayerCharacter->Multicast_PlayFireMontage(FireMontage, 1.f, false);
 	}
 
-	BO_LOG_GAS(Log,
+	BO_LOG_GAS(Verbose,
 		"PlayFireMontage: Character=%s Weapon=%s Montage=%s",
 		*GetNameSafe(PlayerCharacter),
 		*GetNameSafe(EquippedFirearm),
@@ -949,7 +949,7 @@ void UBlackoutGA_FireWeapon::OnWeaponFireStartEventReceived(FGameplayEventData P
 		EquippedFirearm->Multicast_PlayWeaponFireAnimation();
 	}
 
-	BO_LOG_GAS(Log,
+	BO_LOG_GAS(Verbose,
 		"GA_FireWeapon fire event received: Character=%s Weapon=%s EventTag=%s",
 		*GetNameSafe(PlayerCharacter),
 		*GetNameSafe(EquippedFirearm),
@@ -975,6 +975,6 @@ void UBlackoutGA_FireWeapon::OnFireMontageCompleted()
 			*GetNameSafe(CachedFireMontage));
 	}
 
-	BO_LOG_GAS(Log, "GA_FireWeapon montage completed");
+	BO_LOG_GAS(Verbose, "GA_FireWeapon montage completed");
 	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
 }
