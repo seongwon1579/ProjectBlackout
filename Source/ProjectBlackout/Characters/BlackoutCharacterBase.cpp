@@ -382,6 +382,13 @@ void ABlackoutCharacterBase::SetDeadStateActive(bool bNewDead)
 	if (HasAuthority())
 	{
 		bIsDead = bNewDead;
+
+		// 서버 측에서도 즉시 캡슐 충돌 설정을 변경하여 플레이어 및 에네미 사망 시 동기화를 일치시킵니다.
+		if (UCapsuleComponent* CapsuleComp = GetCapsuleComponent())
+		{
+			CapsuleComp->SetCollisionResponseToChannel(ECC_Pawn, bNewDead ? ECR_Ignore : ECR_Block);
+			CapsuleComp->SetCollisionResponseToChannel(ECC_Camera, bNewDead ? ECR_Ignore : ECR_Block);
+		}
 	}
 
 	if (!AbilitySystemComponent)
@@ -486,6 +493,22 @@ void ABlackoutCharacterBase::OnRep_DownedStateTagBridge()
 void ABlackoutCharacterBase::OnRep_DeadStateTagBridge()
 {
 	ApplyReplicatedDeadStateTag();
+
+	if (UCapsuleComponent* CapsuleComp = GetCapsuleComponent())
+	{
+		if (bIsDead)
+		{
+			// 클라이언트 측 사망 복제 수신 시 폰 채널과의 충돌 반응을 무시로 전환하여 플레이어 캐릭터들이 통과할 수 있게 합니다.
+			CapsuleComp->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
+			CapsuleComp->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
+		}
+		else
+		{
+			// 부활 복제 수신 시 캡슐의 Pawn 충돌 반응을 다시 블록으로 원상복구합니다.
+			CapsuleComp->SetCollisionResponseToChannel(ECC_Pawn, ECR_Block);
+			CapsuleComp->SetCollisionResponseToChannel(ECC_Camera, ECR_Block);
+		}
+	}
 }
 
 void ABlackoutCharacterBase::BroadcastDownedStateChanged()
