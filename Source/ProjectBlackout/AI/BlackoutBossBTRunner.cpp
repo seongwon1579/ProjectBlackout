@@ -1,16 +1,16 @@
-#include "AI/BossBTRunner.h"
+#include "AI/BlackoutBossBTRunner.h"
 #include "AI/BlackoutBossAIController.h"
 #include "BehaviorTree/BehaviorTree.h"
 #include "GameFramework/Pawn.h"
 
-void UBossBTRunner::Initialize(ABlackoutBossAIController* InController,
+void UBlackoutBossBTRunner::Initialize(ABlackoutBossAIController* InController,
                                const TMap<EBOBossPhase, TObjectPtr<UBehaviorTree>>& InTrees)
 {
 	OwnerController = InController;
 	PhaseBehaviorTrees = InTrees;
 }
 
-void UBossBTRunner::RunPhaseBT(EBOBossPhase NewPhase)
+void UBlackoutBossBTRunner::RunPhaseBT(EBOBossPhase NewPhase)
 {
 	if (!OwnerController || NewPhase == EBOBossPhase::None) return;
 
@@ -27,7 +27,7 @@ void UBossBTRunner::RunPhaseBT(EBOBossPhase NewPhase)
 	CurrentPhase = NewPhase;
 }
 
-void UBossBTRunner::StopBT()
+void UBlackoutBossBTRunner::StopBT()
 {
 	if (!OwnerController) return;
 	

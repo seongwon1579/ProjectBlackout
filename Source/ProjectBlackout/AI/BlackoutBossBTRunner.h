@@ -1,15 +1,15 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "BOBossPhase.h"
+#include "Enum/BOBossPhase.h"
 #include "UObject/Object.h"
 #include "BehaviorTree/BehaviorTreeTypes.h"
-#include "BossBTRunner.generated.h"
+#include "BlackoutBossBTRunner.generated.h"
 
 class ABlackoutBossAIController;
 
 UCLASS()
-class PROJECTBLACKOUT_API UBossBTRunner : public UObject
+class PROJECTBLACKOUT_API UBlackoutBossBTRunner : public UObject
 {
 	GENERATED_BODY()
 
