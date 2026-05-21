@@ -244,6 +244,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Blackout|Interaction")
 	FVector GetFocusedInteractablePromptWorldLocation() const;
 
+	/** 외부(드롭 아이템 가시화 등)에서 다음 틱 스캔을 기다리지 않고 즉시 포커스된 상호작용 액터를 재탐색합니다. */
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Interaction")
+	void ForceRefreshFocusedInteractable();
+
 	FBlackoutReviveInteractionStateChangedNativeSignature OnReviveInteractionStateChangedNative;
 
 	bool TryBeginReviveInteraction(ABlackoutPlayerCharacter* Reviver, float InReviveDuration = 0.0f);

@@ -60,6 +60,9 @@ void ABlackoutDropItem::BeginPlay()
 
 	// 생성/BeginPlay 시점에 비주얼 상태 동기화
 	UpdateRewardVisual();
+
+	// 새로 스폰된 아이템이 플레이어 근처에 있을 수 있으므로, 즉시 포커스 스캔을 강제합니다.
+	NotifyLocalPlayerInteractableAvailable();
 }
 
 bool ABlackoutDropItem::CanInteract_Implementation(AActor* Interactor) const
@@ -311,6 +314,9 @@ void ABlackoutDropItem::OnSpawnFromPool_Implementation()
 	// 나이아가라 컴포넌트 가시성 동기화
 	UpdateRewardVisual();
 
+	// 풀 재사용 경로에서도 인접 로컬 플레이어가 즉시 위젯을 잡도록 트리거
+	NotifyLocalPlayerInteractableAvailable();
+
 	// 바닥에서 영구 방치되어 자원이 낭비되는 것을 차단하기 위해 30초 수명 타이머 시동 (서버 전용)
 	if (HasAuthority() && LifeTime > 0.0f)
 	{
@@ -447,6 +453,25 @@ void ABlackoutDropItem::OnLifeTimeExpired()
 	}
 }
 
+void ABlackoutDropItem::NotifyLocalPlayerInteractableAvailable()
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	for (TActorIterator<ABlackoutPlayerCharacter> It(World); It; ++It)
+	{
+		ABlackoutPlayerCharacter* PlayerCharacter = *It;
+		if (PlayerCharacter && PlayerCharacter->IsLocallyControlled())
+		{
+			PlayerCharacter->ForceRefreshFocusedInteractable();
+			break;
+		}
+	}
+}
+
 bool ABlackoutDropItem::TryResolvePlayerState(AActor* Interactor, ABlackoutPlayerState*& OutPlayerState) const
 {
 	OutPlayerState = nullptr;
@@ -479,6 +504,16 @@ void ABlackoutDropItem::PostNetReceive()
 
 	const bool bIsHiddenOnClient = IsHidden();
 
+	// movement 복제 등 빈번한 PostNetReceive마다 위젯/Niagara가 토글되는 것을 방지.
+	// 실제로 bHidden 값이 변했을 때만 동기화 작업을 수행합니다.
+	if (bHasCachedReplicatedHidden && bLastReplicatedHidden == bIsHiddenOnClient)
+	{
+		return;
+	}
+
+	bLastReplicatedHidden = bIsHiddenOnClient;
+	bHasCachedReplicatedHidden = true;
+
 	if (InteractionWidget)
 	{
 		InteractionWidget->SetHiddenInGame(bIsHiddenOnClient);
@@ -487,6 +522,12 @@ void ABlackoutDropItem::PostNetReceive()
 
 	// 클라이언트 측 가시성 복제에 따른 나이아가라 이펙트 완벽 동기화
 	UpdateRewardVisual();
+
+	// hidden→visible 전환 시 로컬 플레이어 포커스 스캔 즉시 트리거
+	if (!bIsHiddenOnClient)
+	{
+		NotifyLocalPlayerInteractableAvailable();
+	}
 }
 
 void ABlackoutDropItem::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -517,8 +558,29 @@ void ABlackoutDropItem::OnRep_bIsCollected()
 			InteractionWidget->SetHiddenInGame(true);
 			InteractionWidget->SetVisibility(false, true);
 		}
-		
+
 		UpdateRewardVisual();
+	}
+	else
+	{
+		// 풀 재사용 시 true→false 전환 시점에 클라이언트 측 콜리전·가시성·위젯을 원복합니다.
+		// PostNetReceive(bHidden 변경) 의존을 줄여, 패킷 순서/타이밍과 무관하게 위젯이 살아나도록 보장합니다.
+		if (InteractionSphere)
+		{
+			InteractionSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+		}
+		SetActorHiddenInGame(false);
+
+		if (InteractionWidget)
+		{
+			InteractionWidget->SetHiddenInGame(false);
+			InteractionWidget->SetVisibility(true, true);
+		}
+
+		UpdateRewardVisual();
+
+		// 풀 재사용으로 다시 활성화된 시점에 인접 플레이어가 위젯을 즉시 잡도록 강제 스캔
+		NotifyLocalPlayerInteractableAvailable();
 	}
 }
 
@@ -529,10 +591,12 @@ void ABlackoutDropItem::UpdateRewardVisual()
 
 	if (!bShouldBeVisible)
 	{
+		// 단순 hide 경로에서는 에셋을 비우지 않고 비활성화만 합니다.
+		// SetAsset(nullptr)은 풀 반환(OnReturnToPool)에서만 호출하여, 매 PostNetReceive마다 에셋이
+		// nullptr ↔ TargetFX로 교체되는 잔상/리셋을 방지합니다.
 		if (RewardEffectComponent)
 		{
 			RewardEffectComponent->DeactivateImmediate();
-			RewardEffectComponent->SetAsset(nullptr);
 		}
 		return;
 	}

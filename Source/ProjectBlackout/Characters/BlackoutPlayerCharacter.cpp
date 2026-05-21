@@ -265,7 +265,10 @@ FVector ABlackoutPlayerCharacter::GetFocusedInteractablePromptWorldLocation() co
 
 	FVector BoundsOrigin = FVector::ZeroVector;
 	FVector BoundsExtent = FVector::ZeroVector;
-	TargetActor->GetActorBounds(false, BoundsOrigin, BoundsExtent);
+	// 콜리전이 있는 컴포넌트만 bounds 계산에 포함합니다.
+	// false로 넘기면 Niagara emit particle 등 비콜리전 컴포넌트의 가변 bounds가 함께 잡혀
+	// 프롬프트 위치가 시뮬레이션 진행에 따라 화면 위쪽으로 끌려가는 버그가 발생합니다.
+	TargetActor->GetActorBounds(true, BoundsOrigin, BoundsExtent);
 	return BoundsOrigin + FVector(0.0f, 0.0f, BoundsExtent.Z + InteractionPromptHeightOffset);
 }
 
@@ -357,6 +360,13 @@ void ABlackoutPlayerCharacter::UpdateFocusedInteractable(float DeltaSeconds)
 		return;
 	}
 
+	InteractionScanElapsed = 0.0f;
+	RefreshFocusedInteractableActor();
+}
+
+void ABlackoutPlayerCharacter::ForceRefreshFocusedInteractable()
+{
+	// 스캔 누적 시간을 초기화하여, 다음 틱이 아닌 즉시 시점에 새 상호작용 대상이 잡히도록 합니다.
 	InteractionScanElapsed = 0.0f;
 	RefreshFocusedInteractableActor();
 }

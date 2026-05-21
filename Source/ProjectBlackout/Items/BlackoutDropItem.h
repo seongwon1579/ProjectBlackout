@@ -147,6 +147,11 @@ protected:
 	TObjectPtr<UNiagaraSystem> ConsumableFX;
 
 private:
+	// PostNetReceive에서 bHidden 변경 여부를 판단하기 위한 이전 값 캐시.
+	// movement 복제 등 빈번한 net 업데이트마다 위젯/Niagara를 재설정하던 동작을 방지합니다.
+	bool bLastReplicatedHidden = false;
+	bool bHasCachedReplicatedHidden = false;
+
 	FTimerHandle LifeTimeTimerHandle;
 
 	// 획득 시 클라이언트로의 즉각 복제(ForceNetUpdate) 완료 후 안전하게 풀로 반환하기 위한 미세 지연 타이머 핸들
@@ -154,4 +159,8 @@ private:
 
 	// 상호작용 가능한지 여부를 확인하기 위해 플레이어 상태를 조회하는 헬퍼 함수
 	bool TryResolvePlayerState(AActor* Interactor, ABlackoutPlayerState*& OutPlayerState) const;
+
+	// 드롭 아이템이 가시화되는 시점에 로컬 플레이어의 포커스 상호작용 탐색을 즉시 갱신.
+	// 100ms 스캔 인터벌 때문에 발생하는 위젯 표시 지연/실패를 막습니다.
+	void NotifyLocalPlayerInteractableAvailable();
 };
