@@ -146,6 +146,7 @@ namespace BlackoutGameplayTags
 	
 	// ─── Ravager Abilities ──────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Ability_PhaseLock, "Ability.PhaseLock");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_TargetChange, "Ability.TargetChange");
 	
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Bite_Single, "Ability.Ravager.Bite.Single");
 	

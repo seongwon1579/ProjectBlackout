@@ -150,6 +150,8 @@ namespace BlackoutGameplayTags
 	// ─── Ravager Abilities ─────────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_PhaseLock);
 	
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_TargetChange);
+	
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_Bite_Single);
 	
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_FromSingle_SwipeL);
