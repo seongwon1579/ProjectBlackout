@@ -33,6 +33,9 @@ classDiagram
 
     class UExecCalc_CombatReward {
         +Execute_Implementation(...) void
+        +SelectedClassTag 검증
+        +KillTag 검증
+        +DropItem 1개 랜덤 선택
     }
 
     class UExecCalc_Reload {
@@ -51,8 +54,11 @@ classDiagram
   - 히트박스 부위 태그는 `ABOProjectile::OnHit` 또는 `UGA_FireWeapon` 이 SpecHandle에 `SetByCaller`로 주입.
   - Cue 태그 `GameplayCue.Character.Hit` 로 `UGCN_HitImpact [Static]` 트리거.
 - **`ExecCalc_CombatReward` (TDD §5.1)**:
-  - Source PlayerState의 `SelectedClassTag` + 킬 태그 조합 검증 → 성공 시 `BloodRootCount/GulSerumCount` 또는 탄약 보충 GE 연쇄 적용.
-  - 클래스 A: `Kill.Melee`, 클래스 B: `Kill.MultiTarget.Count≥3`, 클래스 C: `Kill.WeakSpot` 등.
+  - Source PlayerState의 `SelectedClassTag` + 마지막 타격 Spec의 킬 태그 조합을 검증합니다.
+  - 조건 만족 시 즉시 자원을 지급하지 않고, 미니언 사망 위치에 `ABlackoutDropItem` 1개를 `UBlackoutPoolSubsystem::SpawnFromPool`로 스폰합니다.
+  - 드롭 후보는 주무기 탄약 40% / 보조무기 탄약 40% / 소모품 20% 중 하나이며, 실제 탄약·소모품 지급은 플레이어가 `[E]` 상호작용으로 획득할 때 처리합니다.
+  - 클래스 A: `Kill.Melee`, 클래스 B: `Kill.MultiTarget.Count3`, 클래스 C: `Kill.WeakSpot`.
+  - 실행 시점은 `ExecCalc_DamageCalc`와 같은 GE 실행 순서에 의존하지 않고, 서버에서 데미지 적용 및 사망 상태 확정이 끝난 직후의 사망 처리 경로에서 호출합니다. 다중 처치는 산탄·폭발·스플래시 판정 소유자가 배치 내 처치 수를 집계한 뒤 `Kill.MultiTarget.Count3`가 포함된 보상 Spec/컨텍스트로 후처리합니다.
 - **`ExecCalc_Reload`**:
   - `Missing = MaxClip - ClipAmmo`, `Grant = min(Missing, ReserveAmmo)` → `ClipAmmo += Grant`, `ReserveAmmo -= Grant`.
   - 주/보조 구분은 Spec의 `InstigatorTags`로 전달받음.

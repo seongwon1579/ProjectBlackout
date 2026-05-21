@@ -155,18 +155,24 @@ GE와 ExecCalc(실행 계산기)를 사용해, 피격 처리와 기믹 보상을
   - 굴 혈청 버프: `UBlackoutGA_UseGulSerum`이 ASC의 임시 스태미나 소비 배율을 설정해 구르기/전력 질주의 스태미나 소비 비율을 감소시킵니다.
   - `GE_Enrage`: Phase B 진입 시 보스에게 적용되는 스탯 펌핑 GE. 이동속도/공격속도 Attribute 증폭.
 - **조건부 보상 처리기 (`ExecCalc_CombatReward`)**:
-  - 적 액터 사망 시(On Death), 마지막 타격(Killing Blow) 속성(HitTag)을 평가.
-  - **조건 평가**:
+  - 조건부 킬 보상은 즉시 지급하지 않고, 서버가 월드에 `ABlackoutDropItem` 액터를 스폰한 뒤 플레이어가 `[E]` 상호작용으로 획득할 때 실제 자원을 지급합니다.
+  - 보상 판정은 **서버에서 데미지 적용과 사망 상태 확정이 끝난 직후** 실행합니다. `GE_Damage` 안에서 `ExecCalc_DamageCalc`와 같은 실행 순서에 의존하지 않고, `ApplyIncomingDamageSpec`/`OnDeath` 계열의 서버 권위 사망 확정 경로에서 마지막 타격 Spec을 넘겨 `ExecCalc_CombatReward` 또는 동등한 보상 판정 함수를 호출합니다.
+  - 보상 조건 태그는 마지막 타격 Spec의 Dynamic Asset Tags에 기록합니다.
+    - `GA_MeleePlayer`: 근접 공격 Spec에 `Kill.Melee` 부여.
+    - 모든 플레이어 공격 GA/무기 판정: 약점 치명타로 판정된 Spec에 `Kill.WeakSpot` 부여.
+    - 모든 플레이어 공격 GA/무기 판정: 단일 데미지 이벤트가 3마리 이상 처치한 경우 해당 이벤트의 Spec에 `Kill.MultiTarget.Count3` 부여.
+  - 단일 타겟 처치는 `ApplyIncomingDamageSpec`의 사망 확정 직후 즉시 보상 판정을 호출합니다. 산탄·폭발·스플래시처럼 한 입력/투사체가 여러 타겟을 처리하는 경우, GA/무기 판정 소유자가 데미지 배치의 처치 수를 먼저 집계하고 3마리 이상 처치가 확정된 뒤 각 사망 미니언의 보상 판정 Spec 또는 보상 컨텍스트에 `Kill.MultiTarget.Count3`를 포함해 호출합니다.
+  - `ExecCalc_CombatReward`는 Source `ABlackoutPlayerState::SelectedClassTag`와 마지막 타격 Spec의 킬 조건 태그를 조합해 보상 여부를 판정합니다.
     - A캐릭터(어썰트): `Kill.Melee` — 근접 무기 처치
-    - B캐릭터(데몰리션): `Kill.MultiTarget.Count≥3` — 단일 스플래시 데미지 이벤트로 3마리 이상 동시 처치
-    - C캐릭터(스나이퍼): `Kill.WeakSpot` — 약점(헤드) 치명타 처치
-  - **드랍 구성** (GDD §4.1 완전 반영):
-    | 조건 만족 캐릭터 | 드랍 아이템 | 스폰 방식 |
-    |---|---|---|
-    | A/B/C 공통 | **주무기 탄약 박스** | 획득자 현재 주무기 타입에 맞는 `PrimaryReserveAmmo` 충전 |
-    | A/B/C 공통 | **보조무기 탄약 박스** | 획득자 `SecondaryReserveAmmo` 충전 |
-    | A/B/C 공통 | **소모성 회복약** | **블러드 루트 OR 굴 혈청 중 50:50 무작위 드랍** |
-  - 조건 만족 시 가해자(Instigator) 주변에 해당 아이템 액터를 풀링 서브시스템에서 `GetFromPool`하여 서버에서 스폰합니다.
+    - B캐릭터(데몰리션): `Kill.MultiTarget.Count3` — 단일 스플래시/광역 데미지 이벤트로 3마리 이상 동시 처치
+    - C캐릭터(스나이퍼): `Kill.WeakSpot` — 약점 치명타 처치
+  - 조건을 만족하면 미니언 사망 위치에 드롭 후보 중 하나를 무작위로 선택해 1개만 스폰합니다.
+    | 드롭 후보 | 확률 | 획득 시 처리 |
+    |---|---:|---|
+    | **주무기 탄약 박스** | 40% | 획득자 `PrimaryReserveAmmo` 충전 |
+    | **보조무기 탄약 박스** | 40% | 획득자 `SecondaryReserveAmmo` 충전 |
+    | **소모품 박스** | 20% | 블러드 루트 OR 굴 혈청 중 50:50 무작위 지급 |
+  - 드롭 액터는 미니언 사망 위치에 약간의 scatter offset을 더해 `UBlackoutPoolSubsystem::SpawnFromPool`로 서버에서 스폰합니다.
 
 ### 5.1 플레이어 다운(Downed) 및 관전(Spectator) 모드 제어
 멀티플레이 협동을 위한 다단계 데스 생명 주기를 ASC와 Controller 상태를 통해 구현합니다.
@@ -347,12 +353,12 @@ GDD §8.3의 미니멀리즘 HUD 전체 구성 요소를 UI 위젯 레이어로 
 | Seed Pod (씨앗 포드) | 16 | 슈루드 씨앗 기믹 동시 투하 최대치(12) + 여유 |
 
 - **`IBlackoutPoolableInterface` 의무 구현**
-  - `OnSpawnFromPool()`: Hidden 해제, Collision 켜기, Tick 활성화, HP/탄약 리셋
-  - `OnReturnToPool()`: Destroy 대신 호출. Hidden 처리, Collision 해제, AI Controller 정지, Tick 비활성화
+  - `OnSpawnFromPool()`: Hidden 해제, Collision 켜기, Tick 활성화, 액터별 런타임 상태 리셋
+  - `OnReturnToPool()`: Destroy 대신 호출. Hidden 처리, Collision 해제, Timer/Delegate 정리, 필요 시 AI Controller 정지
 - **생명 주기 요약**
-  - **발사체**: GetFromPool → 충돌 판정 → 임팩트 GC 재생 → OnReturnToPool
-  - **드랍 아이템**: 조건부 킬 시 GetFromPool → 바닥 드랍 → 오버랩 획득 또는 수명 만료 → OnReturnToPool
-  - **미니언**: GetFromPool(위치/HP 리셋, BT 재실행) → HP 0 시 래그돌 N초 → OnReturnToPool
+  - **발사체**: SpawnFromPool → 충돌 판정 → 임팩트 GC 재생 → OnReturnToPool
+  - **드랍 아이템**: 조건부 킬 시 SpawnFromPool → 미니언 사망 위치에 바닥 드랍 → `[E]` 상호작용 획득 또는 수명 만료 → OnReturnToPool
+  - **미니언**: SpawnFromPool(위치/HP 리셋, BT 재실행) → HP 0 시 래그돌 N초 → OnReturnToPool
 
 ## 13. 애니메이션 및 로코모션 제어
 

@@ -30,8 +30,8 @@ classDiagram
     ABlackoutBossCharacter ..|> IBlackoutDamageable : implements
     ABlackoutBonfire ..|> IBlackoutInteractable : implements
     ABlackoutPortal ..|> IBlackoutInteractable : implements
-    ADropItem ..|> IBlackoutInteractable : implements
-    ADropItem ..|> IBlackoutPoolableInterface : implements
+    ABlackoutDropItem ..|> IBlackoutInteractable : implements
+    ABlackoutDropItem ..|> IBlackoutPoolableInterface : implements
 ```
 
 ## 구현 노트
