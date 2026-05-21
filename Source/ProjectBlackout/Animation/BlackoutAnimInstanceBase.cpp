@@ -46,6 +46,7 @@ void UBlackoutAnimInstanceBase::NativeUpdateAnimation(float DeltaSeconds)
 
 	// GAS 태그 상태 업데이트
 	bIsDowned = OwnerCharacter->IsDowned();
+	bIsDead = OwnerCharacter->IsDead();
 	bIsLocked = false;
 
 	if (UAbilitySystemComponent* ASC = OwnerCharacter->GetAbilitySystemComponent())
@@ -53,6 +54,11 @@ void UBlackoutAnimInstanceBase::NativeUpdateAnimation(float DeltaSeconds)
 		if (!bIsDowned)
 		{
 			bIsDowned = ASC->HasMatchingGameplayTag(BlackoutGameplayTags::State_Downed);
+		}
+
+		if (!bIsDead)
+		{
+			bIsDead = ASC->HasMatchingGameplayTag(BlackoutGameplayTags::State_Dead);
 		}
 
 		// 유물 전용 태그는 이동 블렌드스페이스를 잠그지 않습니다.
