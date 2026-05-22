@@ -1,7 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "GAS/Abilities/Boss/Ravager//GA_Ravager_Evade.h"
+#include "GAS/Abilities/Boss/Ravager/GA_Ravager_Evade.h"
 
 #include "BlackoutBossCharacter.h"
 
