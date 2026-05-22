@@ -28,6 +28,9 @@ classDiagram
     UGameplayCueNotify_Static <|-- UGCN_WeaponTrail
     UGameplayCueNotify_Static <|-- UGCN_WeaponImpact
 
+    UAnimNotify <|-- UBOAnimNotify_GameplayCue
+    UBOAnimNotify_GameplayCue --> UBlackoutWeaponCueLibrary : Cue 실행 요청
+
     class FBlackoutWeaponStat {
         <<DataTable Row>>
         +float BaseDamage
@@ -124,6 +127,12 @@ classDiagram
         <<Static GameplayCue>>
         +GameplayCueTag : GameplayCue.Weapon.*.Impact.*
     }
+
+    class UBOAnimNotify_GameplayCue {
+        <<AnimNotify>>
+        +FGameplayTag GameplayCueTag
+        +Notify(...) void
+    }
 ```
 
 ## 태그 규칙
@@ -185,3 +194,7 @@ sequenceDiagram
   - **휘두르기(Swing) GCN**: `UBlackoutCombatComponent::BeginMeleeAttackWindow` 시점에 무기의 `FireCueTag`를 Swing 효과 태그로 활용하여 `UBlackoutWeaponCueLibrary::ExecuteFireCue`로 실행합니다.
   - **피격(Impact) GCN**: `UBlackoutCombatComponent::UpdateMeleeAttackWindow` 시점에 스윕 충돌 결과(`HitResult`)가 유효하고 대상을 중복 피격 방지 목록에 처음 등록하는 시점에 `UBlackoutWeaponCueLibrary::ExecuteImpactCue`를 사용하여 표면 재질(PhysMaterial)에 알맞은 피격 큐를 실행합니다. (벽, 지형, 장애물 등 데미지를 받지 않는 환경 요소를 타격했을 때도 동일하게 피격 큐가 정상적으로 실행됩니다.)
 - **기존 태그 호환**: 현재의 `GameplayCue.Weapon.Fire`, `GameplayCue.Character.Hit`은 임시 기본값으로 유지할 수 있지만, 무기별 Cue 제작이 시작되면 위 태그 규칙으로 점진 교체합니다.
+- **재장전 및 조작 몽타주 (Reload & Chambering) GCN**:
+  - 무기별 고유 몽타주를 사용하는 경우, 몽타주 타임라인의 정확한 프레임(탄창 탈거, 삽입, 노리쇠 작동 등)에 `UBOAnimNotify_GameplayCue` 노티파이를 배치합니다.
+  - 노티파이 프로퍼티에 해당 타이밍에 대응하는 구체적인 GCN 태그(예: `GameplayCue.Weapon.ChicagoTypewriter.Reload.Detach`)를 직접 지정하여 즉시 재생합니다.
+  - 이 노티파이는 서버 및 클라이언트에서 동적으로 `UBlackoutWeaponCueLibrary::ExecuteWeaponCue`를 호출하여 사운드와 VFX를 동기화하여 트리거합니다.
