@@ -31,6 +31,5 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Debug")
 	bool bPrintDamageToScreen = true;
 
-	virtual bool ShouldUseMinionHealthBar() const override;
 	virtual void OnDeath() override;
 };

@@ -20,8 +20,6 @@ class PROJECTBLACKOUT_API ABlackoutBossCharacter : public ABlackoutEnemyCharacte
 public:
 	ABlackoutBossCharacter();
 
-	virtual void OnReturnToPool_Implementation() override;
-	
 	UFUNCTION()
 	UBORavagerData* GetPatternData(FGameplayTag AbilityTag) const;
 	
