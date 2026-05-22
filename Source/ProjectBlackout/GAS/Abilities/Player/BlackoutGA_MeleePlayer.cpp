@@ -865,7 +865,13 @@ FGameplayEffectSpecHandle UBlackoutGA_MeleePlayer::BuildDamageSpec() const
 		return SpecHandle;
 	}
 
-	SpecHandle.Data->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Damage, MeleeWeapon->GetBaseDamage());
+	float FinalDamage = MeleeWeapon->GetBaseDamage();
+	if (MeleeComboData && MeleeComboData->ComboSections.IsValidIndex(CurrentComboIndex))
+	{
+		FinalDamage *= MeleeComboData->ComboSections[CurrentComboIndex].DamageMultiplier;
+	}
+
+	SpecHandle.Data->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Damage, FinalDamage);
 	SpecHandle.Data->AddDynamicAssetTag(BlackoutGameplayTags::Kill_Melee);
 	return SpecHandle;
 }

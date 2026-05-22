@@ -31,7 +31,7 @@ classDiagram
         +FName SectionName
         +float WindowOpenAtSeconds
         +float WindowCloseAtSeconds
-        +float RecoveryEndAtSeconds
+        +float DamageMultiplier
     }
 
     class ABOShotgunFirearm {
@@ -135,7 +135,7 @@ classDiagram
   - Cue 복제와 부착 규칙은 소모품과 동일하게 ASC `ExecuteGameplayCue`와 `EffectCauser` 기준 오른손 `WeaponSocket` 부착으로 처리합니다.
 - **`UGA_Melee_Player`** (TDD v5 §4.1 v2):
   - 몽타주 재생은 `UAbilityTask_PlayMontageAndWait` 로 처리합니다. **`Multicast_PlayMeleeMontage` / `Multicast_JumpMeleeMontageSection` / `Multicast_StopMeleeMontage` 는 폐기**합니다. 시뮬레이트 프록시는 `FRepAnimMontageInfo` OnRep으로 자연 따라잡습니다.
-  - 콤보 섹션은 `ComboSections : TArray<FBlackoutComboSectionDef>` 로 정의하며, 각 항목이 섹션 이름과 `WindowOpenAtSeconds` / `WindowCloseAtSeconds` / `RecoveryEndAtSeconds` 를 담습니다.
+  - 콤보 섹션은 `ComboSections : TArray<FBlackoutComboSectionDef>` 로 정의하며, 각 항목이 섹션 이름과 `WindowOpenAtSeconds` / `WindowCloseAtSeconds` 및 해당 단계의 데미지 배율인 `DamageMultiplier` 를 담습니다.
   - 서버는 섹션 진입 시점(`GetServerWorldTimeSeconds()`)을 기준으로 `ScheduleComboWindowTimers` 가 윈도우 open/close 와 grace close 타이머를 `SetTimer` 합니다. **AnimNotifyState 는 콤보 상태 머신에 사용하지 않습니다** — 히트박스 활성/비활성(`HandleMeleeAttackWindowBegin/End`)과 시각 effect 트리거 전용.
   - 콤보 입력은 표준 `UAbilityTask_WaitInputPress` + ASC `EAbilityGenericReplicatedEvent::InputPressed` 경로로 수집합니다. 클라이언트는 활성 GA에 대해 `AbilitySpecInputPressed` 직후 명시적으로 `ServerSetReplicatedEvent(InputPressed, ...)` 를 호출하여 서버 GA의 `WaitInputPress` 를 발화시킵니다.
   - 서버 `OnComboInputPressed` 는 다음 순서로 판정: GA 활성 → SequenceId 단조성 → ClientEstimatedServerTime clamp → 윈도우 또는 grace 매칭 → 스태미나·쿨다운·상태 태그. 통과한 입력만 `Montage_SetNextSectionName(CurrentSection, ComboSections[CurrentComboIndex + 1].SectionName)` 으로 권위 점프시키며, 클라이언트가 자체적으로 `JumpToSection` 을 호출해 권위를 앞서지 않습니다.
