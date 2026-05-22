@@ -53,11 +53,6 @@ void ABlackoutBossCharacter::BeginPlay()
 		this, &ABlackoutBossCharacter::TryBindToHUD);
 }
 
-void ABlackoutBossCharacter::OnReturnToPool_Implementation()
-{
-	Destroy();
-}
-
 UBORavagerData* ABlackoutBossCharacter::GetPatternData(FGameplayTag AbilityTag) const
 {
 	const TObjectPtr<UBORavagerData>* Found = BossAbilityData.Find(AbilityTag);
