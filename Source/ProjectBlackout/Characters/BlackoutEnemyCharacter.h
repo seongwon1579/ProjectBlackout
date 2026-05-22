@@ -57,7 +57,11 @@ protected:
 	/** 미니언 스탯 데이터. BP 서브클래스(BP_RootHollow 등)에서 지정. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Data")
 	TObjectPtr<UBOMinionData> MinionData;
-
+	
+	/** Enemy Data, 각종 정보를 담는 데이터 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Data")
+	TObjectPtr<UDataAsset> EnemyData;
+	
 	/** 미니언 전용 체력바 위젯을 현재 ASC 상태에 맞게 초기화합니다. */
 	void InitializeMinionHealthBar();
 
