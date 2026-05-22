@@ -236,10 +236,10 @@ void UBlackoutGA_MeleePlayer::ProcessComboInput()
 	}
 	LastProcessedComboInputSequenceId = InputPayload.SequenceId;
 
-	// 후속 섹션이 없으면 더 이상 진행 불가.
-	if (!MeleeComboData->ComboSections.IsValidIndex(CurrentComboIndex + 1))
+	// 순환 콤보 적용: 마지막 콤보 단계 이후에는 다시 첫 번째 단계(인덱스 0)로 순환하여 진행합니다.
+	if (MeleeComboData->ComboSections.Num() == 0)
 	{
-		BO_LOG_GAS(Verbose, "GA_MeleePlayer combo input ignored: 마지막 콤보 단계");
+		BO_LOG_GAS(Warning, "GA_MeleePlayer combo failed: ComboSections가 비어 있음");
 		return;
 	}
 
@@ -422,7 +422,8 @@ bool UBlackoutGA_MeleePlayer::AdvanceToNextComboSection(const FBlackoutAbilityIn
 		return false;
 	}
 
-	const int32 NextComboIndex = CurrentComboIndex + 1;
+	// 순환 콤보 계산: 마지막 인덱스 이후 다시 0으로 순환하도록 모듈러 연산 적용
+	const int32 NextComboIndex = (CurrentComboIndex + 1) % MeleeComboData->ComboSections.Num();
 	if (!MeleeComboData->ComboSections.IsValidIndex(NextComboIndex))
 	{
 		bComboInputQueued = false;
@@ -864,7 +865,13 @@ FGameplayEffectSpecHandle UBlackoutGA_MeleePlayer::BuildDamageSpec() const
 		return SpecHandle;
 	}
 
-	SpecHandle.Data->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Damage, MeleeWeapon->GetBaseDamage());
+	float FinalDamage = MeleeWeapon->GetBaseDamage();
+	if (MeleeComboData && MeleeComboData->ComboSections.IsValidIndex(CurrentComboIndex))
+	{
+		FinalDamage *= MeleeComboData->ComboSections[CurrentComboIndex].DamageMultiplier;
+	}
+
+	SpecHandle.Data->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Damage, FinalDamage);
 	SpecHandle.Data->AddDynamicAssetTag(BlackoutGameplayTags::Kill_Melee);
 	return SpecHandle;
 }

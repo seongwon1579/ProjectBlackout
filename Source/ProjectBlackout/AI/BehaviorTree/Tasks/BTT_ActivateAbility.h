@@ -28,6 +28,9 @@ public:
 
 	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard|Input")
 	FBlackboardKeySelector TargetKey;
+	
+	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard|Input")
+	FBlackboardKeySelector SelectedAbilityTagKey;
 
 	virtual FGameplayTag ResolveAbilityTag(UBehaviorTreeComponent& OwnerComp) const;
 

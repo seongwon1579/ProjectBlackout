@@ -55,27 +55,17 @@ void ABOEnemyProjectile::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	if (CollisionComp)
-	{
-		CollisionComp->OnComponentHit.AddDynamic(this, &ABOEnemyProjectile::OnHit);
-	}
-	
-	if (!HasAuthority() && ProjectileMovement)
-	{
-		ProjectileMovement->SetActive(false);
-	}
+	SetCollisionEvent();
 }
 
-void ABOEnemyProjectile::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp,
-                               FVector NormalImpulse, const FHitResult& Hit)
+void ABOEnemyProjectile::OnBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
+                                        UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	if (ShouldIgnoreHit(OtherActor)) return;
-	
 	if (!HasAuthority()) return;
-	
-	ApplyDamageToTarget(OtherActor, Hit.BoneName);
+
+	ApplyDamageToTarget(OtherActor, SweepResult.BoneName);
 	Destroy();
-	
 }
 
 void ABOEnemyProjectile::ApplyDamageToTarget(AActor* Target, FName HitBoneName)
@@ -114,6 +104,20 @@ bool ABOEnemyProjectile::ShouldIgnoreHit(AActor* OtherActor) const
 	if (OtherActor == GetOwner()) return true;
 
 	return false;
+}
+
+void ABOEnemyProjectile::SetCollisionEvent()
+{
+	if (CollisionComp)
+	{
+		CollisionComp->OnComponentBeginOverlap.AddDynamic(this, &ABOEnemyProjectile::OnBeginOverlap);
+	}
+	
+	if (!HasAuthority() && ProjectileMovement)
+	{
+		ProjectileMovement->SetActive(false);
+	}
+	
 }
 
 

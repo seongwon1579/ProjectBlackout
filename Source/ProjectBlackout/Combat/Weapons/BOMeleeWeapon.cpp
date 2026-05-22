@@ -42,6 +42,7 @@ TArray<FHitResult> ABOMeleeWeapon::PerformSweep(const FVector& Forward)
 
 	FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(BOMeleeWeapon_Sweep), false, GetOwner());
 	QueryParams.AddIgnoredActor(this);
+	QueryParams.bReturnPhysicalMaterial = true;
 
 	GetWorld()->SweepMultiByChannel(HitResults, SweepStart, SweepEnd, SweepRotation, BlackoutCollisionChannels::WeaponTrace, CollisionShape, QueryParams);
 	return HitResults;

@@ -144,6 +144,12 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_DoubleBarrel_Impact_Metal, "GameplayCue.Weapon.DoubleBarrel.Impact.Metal");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_DoubleBarrel_Impact_Stone, "GameplayCue.Weapon.DoubleBarrel.Impact.Stone");
 	
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_SteelSword_Swing, "GameplayCue.Weapon.SteelSword.Swing");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_SteelSword_Impact_Default, "GameplayCue.Weapon.SteelSword.Impact.Default");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_SteelSword_Impact_Flesh, "GameplayCue.Weapon.SteelSword.Impact.Flesh");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_SteelSword_Impact_Metal, "GameplayCue.Weapon.SteelSword.Impact.Metal");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_SteelSword_Impact_Stone, "GameplayCue.Weapon.SteelSword.Impact.Stone");
+	
 	// ─── Ravager Abilities ──────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Ability_PhaseLock, "Ability.PhaseLock");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_TargetChange, "Ability.TargetChange");
