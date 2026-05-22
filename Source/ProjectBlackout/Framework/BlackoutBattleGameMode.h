@@ -8,7 +8,7 @@
 enum class EBlackoutMatchEndReason : uint8;
 class ABlackoutPlayerCharacter;
 class ABlackoutPlayerController;
-
+class UBOCharacterRoster;
 /**
  * 전투 레벨 전용 GameMode. 전투 진입 자원 초기화 / 체크포인트 등록 / 파티 전멸 복귀 처리.
  */
@@ -51,6 +51,13 @@ public:
 	// ClientTravel URL SessionId DedicatedSessionSubsystem에 위임
 	// 데디만 사용
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
+	
+	/** 캐릭터 선택 단일 ClassTag -> Pawn 매핑 */
+	UPROPERTY(EditDefaultsOnly , Category="Blackout|Players")
+	TObjectPtr<UBOCharacterRoster> CharacterRoster;
+	
+	/** 현재 PS-> SelectdClassTag 기준으로 Pawn 재스폰 + Possess. ShelterPrep 캐릭터 변경에서 사용 */
+	void RespawnPlayerWithSelectedClass(APlayerController* InController);
 	
 	UPROPERTY(EditDefaultsOnly, Category="Blackout|Battle|Players")
 	TArray<TSubclassOf<APawn>> PlayerClassPool;

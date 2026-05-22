@@ -11,6 +11,9 @@ class UInputAction;
 class UBlackoutAbilitySystemComponent;
 class UBlackoutCombatComponent;
 class AActor;
+class UBlackoutClassSelectWidget;
+class UBlackoutClassSelectWidgetController;
+class UBOCharacterRoster;
 
 UCLASS()
 class PROJECTBLACKOUT_API ABlackoutPlayerController : public APlayerController
@@ -60,6 +63,10 @@ public:
 	 */
 	UFUNCTION(Server, Reliable, Category = "Blackout|Controller|Spectator")
 	void Server_CycleSpectateTarget(int32 Direction);
+	
+	/** ESC 또는 OnSelectionConfirmed 후 자동 호출. Widget 정리 + IMC 원복. */
+	UFUNCTION(BlueprintCallable,Category="Blackout|ClassSelect")
+	void CloseClassSelectUI();
 
 #pragma region InputSetup
 protected:
@@ -115,6 +122,44 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input")
 	TObjectPtr<UInputAction> UseRelicAction;
+	
+	/** 캐릭터 선택 UI 활성 시에만 사용하는 입력 컨텍스트 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input|ClassSelect")
+	TObjectPtr<UInputMappingContext> ClassSelectMappingContext;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|ClassSelect")
+	TObjectPtr<UInputAction> ClassSelectNextAction;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|ClassSelect")
+	TObjectPtr<UInputAction> ClassSelectPrevAction;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input|ClassSelect")
+	TObjectPtr<UInputAction> ClassSelectConfirmAction;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input|ClassSelect")
+	TObjectPtr<UInputAction> ClassSelectCancelAction;
+	
+	/** UMG 위젯 클래스 WBP_ClassSelect */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly,Category="Blackout|ClassSelect")
+	TSubclassOf<UBlackoutClassSelectWidget> ClassSelectWidgetClass;
+	
+	/** 캐릭터 목록 데이터 에셋 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Blackout|ClassSelect")
+	TObjectPtr<UBOCharacterRoster> CharacterRoster;
+	
+	UPROPERTY(Transient)
+	TObjectPtr<UBlackoutClassSelectWidget> ClassSelectWidget;
+	
+	UPROPERTY(Transient)
+	TObjectPtr<UBlackoutClassSelectWidgetController> ClassSelectController;
+	
+	void OnClassSelectNextPressed();
+	void OnClassSelectPrevPressed();
+	void OnClassSelectConfirmPressed();
+	void OnClassSelectCancelPressed();
+
+	UFUNCTION()
+	void HandleClassSelectionConfirmed();
 
 	void OnFirePressed();
 	void OnFireReleased();

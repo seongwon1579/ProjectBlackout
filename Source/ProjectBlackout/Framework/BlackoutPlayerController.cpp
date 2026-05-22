@@ -10,7 +10,11 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
+#include "BlackoutGameState.h"
 #include "UI/BlackoutHUD.h"
+#include "Data/BOCharacterRoster.h"
+#include "UI/BlackoutClassSelectWidget.h"
+#include "UI/BlackoutClassSelectWidgetController.h"
 
 void ABlackoutPlayerController::AcknowledgePossession(APawn* P)
 {
@@ -26,6 +30,41 @@ void ABlackoutPlayerController::AcknowledgePossession(APawn* P)
 		FInputModeGameOnly InputMode;
 		SetInputMode(InputMode);
 		bShowMouseCursor = false;
+	}
+}
+
+void ABlackoutPlayerController::CloseClassSelectUI()
+{
+	if (!ClassSelectWidget && !ClassSelectController)
+	{
+		return;
+	}
+	
+	if (ClassSelectWidget)
+	{
+		ClassSelectWidget->RemoveFromParent();
+		ClassSelectWidget = nullptr;
+	}
+	
+	if (ClassSelectController)
+	{
+		ClassSelectController->OnSelectionConfirmed.RemoveDynamic(this, &ABlackoutPlayerController::HandleClassSelectionConfirmed);
+		ClassSelectController = nullptr;
+	}
+	
+	if (ULocalPlayer* LP = GetLocalPlayer())
+	{
+		if (UEnhancedInputLocalPlayerSubsystem* Sub = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LP))
+		{
+			if (ClassSelectMappingContext)
+			{
+				Sub->RemoveMappingContext(ClassSelectMappingContext);
+			}
+			if (DefaultMappingContext)
+			{
+				Sub->AddMappingContext(DefaultMappingContext,0);
+			}
+		}
 	}
 }
 
@@ -45,11 +84,38 @@ void ABlackoutPlayerController::OnRep_PlayerState()
 
 void ABlackoutPlayerController::Server_SelectClass_Implementation(FGameplayTag ClassTag)
 {
-	if (ABlackoutPlayerState* PS = GetPlayerState<ABlackoutPlayerState>())
+	if (!ClassTag.IsValid())
 	{
-		PS->SelectedClassTag = ClassTag;
-		BO_LOG_NET(Log, "Server_SelectClass: %s → %s", *GetName(), *ClassTag.ToString());
+		return;
 	}
+	ABlackoutPlayerState* PS = GetPlayerState<ABlackoutPlayerState>();
+	if (!PS)
+	{
+		return;
+	}
+	// ShelterPrep 외 상태에서의 호출 차단
+	const ABlackoutGameState* GS = GetWorld()->GetGameState<ABlackoutGameState>();
+	if (!GS || GS->CurrentMatchState != EBlackoutMatchState::ShelterPrep)
+	{
+		BO_LOG_NET(Warning, "Server_SelectClass: ShelterPrep 외 상태 호출 무시 (%s)", *GetName());
+		return;
+	}
+	
+	// 같은 클래스 재선택 무시
+	if (PS->SelectedClassTag.MatchesTagExact(ClassTag))
+	{
+		return;
+	}
+	
+	PS->SelectedClassTag =ClassTag;
+	BO_LOG_NET(Log, "Server_SelectClass: %s → %s", *GetName(), *ClassTag.ToString());
+	
+	if (ABlackoutBattleGameMode* GM = GetWorld()->GetAuthGameMode<ABlackoutBattleGameMode>())
+	{
+		GM->RespawnPlayerWithSelectedClass(this);
+	}
+	
+	
 }
 
 void ABlackoutPlayerController::Server_SetReady_Implementation(bool bNewReady)
@@ -175,6 +241,51 @@ void ABlackoutPlayerController::Client_ReturnToOwnPawnView_Implementation(float 
 
 void ABlackoutPlayerController::Client_OpenClassSelectUI_Implementation()
 {
+	if (!ClassSelectWidgetClass || !CharacterRoster)
+	{
+		BO_LOG_CORE(Warning, "OpenClassSelectUI: WidgetClass 또는 CharacterRoster 미설정 — BP_PlayerController 확인");
+		return;
+	}
+	
+	if (ClassSelectWidget)
+	{
+		return;
+	}
+	
+	ClassSelectController = NewObject<UBlackoutClassSelectWidgetController>(this);
+	if (!ClassSelectController || !ClassSelectController->Initialize(this,CharacterRoster))
+	{
+		ClassSelectController = nullptr;
+		return;
+	}
+	
+	ClassSelectController -> OnSelectionConfirmed.AddDynamic(
+		this , &ABlackoutPlayerController::HandleClassSelectionConfirmed);
+	
+	ClassSelectWidget = CreateWidget<UBlackoutClassSelectWidget>(this , ClassSelectWidgetClass);
+	if (!ClassSelectWidget)
+	{
+		ClassSelectController = nullptr;
+		return;
+	}
+	ClassSelectWidget->SetWidgetController(ClassSelectController);
+	ClassSelectWidget->AddToViewport();
+	
+	if (ULocalPlayer* LP = GetLocalPlayer())
+	{
+		if (UEnhancedInputLocalPlayerSubsystem* Sub = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LP))
+		{
+			if (DefaultMappingContext)
+			{
+				Sub->RemoveMappingContext(DefaultMappingContext);
+			}
+			if (ClassSelectMappingContext)
+			{
+				Sub->AddMappingContext(ClassSelectMappingContext,0);
+			}
+		}
+	}
+	
 	ReceiveOpenClassSelectUI();
 }
 
@@ -315,6 +426,60 @@ void ABlackoutPlayerController::SetupInputComponent()
 	{
 		EnhancedInputComponent->BindAction(SpectateNextAction, ETriggerEvent::Started, this, &ABlackoutPlayerController::OnSpectateNextPressed);
 	}
+	
+	if (ClassSelectNextAction)
+	{
+		EnhancedInputComponent->BindAction(ClassSelectNextAction , ETriggerEvent::Started ,this , & ABlackoutPlayerController::OnClassSelectNextPressed);
+	}
+	
+	if (ClassSelectPrevAction)
+	{
+		EnhancedInputComponent->BindAction(ClassSelectPrevAction ,ETriggerEvent::Started ,this , & ABlackoutPlayerController::OnClassSelectPrevPressed );
+	}
+	
+	if (ClassSelectConfirmAction)
+	{
+		EnhancedInputComponent->BindAction(ClassSelectConfirmAction,ETriggerEvent::Started,this, &ABlackoutPlayerController::OnClassSelectConfirmPressed);
+	}
+	
+	if (ClassSelectCancelAction)
+	{
+		EnhancedInputComponent->BindAction(ClassSelectCancelAction ,ETriggerEvent::Started ,this , & ABlackoutPlayerController::OnClassSelectCancelPressed);
+	}
+}
+
+void ABlackoutPlayerController::OnClassSelectNextPressed()
+{
+	if (ClassSelectWidget)
+	{
+		ClassSelectWidget->RequestNavigateNext();
+	}
+}
+
+void ABlackoutPlayerController::OnClassSelectPrevPressed()
+{
+	if (ClassSelectWidget)
+	{
+		ClassSelectWidget->RequestNavigatePrevious();
+	}
+}
+
+void ABlackoutPlayerController::OnClassSelectConfirmPressed()
+{
+	if (ClassSelectWidget)
+	{
+		ClassSelectWidget->RequestConfirm();
+	}
+}
+
+void ABlackoutPlayerController::OnClassSelectCancelPressed()
+{
+	CloseClassSelectUI();
+}
+
+void ABlackoutPlayerController::HandleClassSelectionConfirmed()
+{
+	CloseClassSelectUI();
 }
 
 void ABlackoutPlayerController::OnFirePressed()

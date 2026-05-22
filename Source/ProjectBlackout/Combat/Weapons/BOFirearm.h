@@ -52,6 +52,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	int32 GetMaxReserveAmmo() const;
+	
+	/** 외부 (캐릭터 선택 UI Controller 등) 가 DataTable 직접 lookup 하기 위한 row handle 노출. */
+	FDataTableRowHandle GetFirearmStatsRow() const { return FirearmStatsRow; }
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	float GetSplashRadius() const;

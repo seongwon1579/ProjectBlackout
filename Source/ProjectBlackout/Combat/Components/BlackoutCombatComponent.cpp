@@ -691,6 +691,32 @@ void UBlackoutCombatComponent::EndMeleeAttackWindow()
 	
 }
 
+void UBlackoutCombatComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	
+	// 서버에서 정리 , 클라이언트 무기는 replication으로 destroy
+	if (GetOwner() && GetOwner()->HasAuthority())
+	{
+		if (PrimaryWeapon)
+		{
+			PrimaryWeapon->Destroy();
+			PrimaryWeapon=nullptr;
+		}
+		if (SecondaryWeapon)
+		{
+			SecondaryWeapon->Destroy();
+			SecondaryWeapon=nullptr;
+		}
+		if (MeleeWeapon)
+		{
+			MeleeWeapon->Destroy();
+			MeleeWeapon= nullptr;
+		}
+	}
+	
+	Super::EndPlay(EndPlayReason);
+}
+
 ABOWeaponBase* UBlackoutCombatComponent::SpawnWeaponActor(TSubclassOf<ABOWeaponBase> WeaponClass)
 {
 	if (!WeaponClass || !GetWorld() || !GetOwner())
