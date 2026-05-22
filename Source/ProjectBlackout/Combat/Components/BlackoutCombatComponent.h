@@ -175,6 +175,8 @@ public:
 	void EndMeleeAttackWindow();
 	
 protected:
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	
 	UFUNCTION()
 	void OnRep_EquippedWeapon();
 
