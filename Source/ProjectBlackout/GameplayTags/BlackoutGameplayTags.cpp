@@ -143,6 +143,9 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_DoubleBarrel_Impact_Flesh, "GameplayCue.Weapon.DoubleBarrel.Impact.Flesh");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_DoubleBarrel_Impact_Metal, "GameplayCue.Weapon.DoubleBarrel.Impact.Metal");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_DoubleBarrel_Impact_Stone, "GameplayCue.Weapon.DoubleBarrel.Impact.Stone");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_DoubleBarrel_Reload_Open, "GameplayCue.Weapon.DoubleBarrel.Reload.Open");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_DoubleBarrel_Reload_Insert, "GameplayCue.Weapon.DoubleBarrel.Reload.Insert");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_DoubleBarrel_Reload_Close, "GameplayCue.Weapon.DoubleBarrel.Reload.Close");
 	
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_SteelSword_Swing, "GameplayCue.Weapon.SteelSword.Swing");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_SteelSword_Impact_Default, "GameplayCue.Weapon.SteelSword.Impact.Default");
