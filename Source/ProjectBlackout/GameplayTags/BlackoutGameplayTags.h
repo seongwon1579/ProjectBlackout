@@ -147,6 +147,12 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Weapon_DoubleBarrel_Impact_Metal);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Weapon_DoubleBarrel_Impact_Stone);
 	
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Weapon_SteelSword_Swing);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Weapon_SteelSword_Impact_Default);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Weapon_SteelSword_Impact_Flesh);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Weapon_SteelSword_Impact_Metal);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Weapon_SteelSword_Impact_Stone);
+	
 	// ─── Ravager Abilities ─────────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_PhaseLock);
 	
