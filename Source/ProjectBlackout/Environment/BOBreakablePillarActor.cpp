@@ -1,5 +1,7 @@
 #include "Environment/BOBreakablePillarActor.h"
 
+#include "Characters/BORavagerBoss.h"
+#include "Components/BoxComponent.h"
 #include "Components/ChildActorComponent.h"
 #include "Components/PrimitiveComponent.h"
 #include "Components/SceneComponent.h"
@@ -17,6 +19,18 @@ ABOBreakablePillarActor::ABOBreakablePillarActor()
 	// BP에서 ChildActorComponent를 붙일 공통 루트입니다.
 	Root = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
 	SetRootComponent(Root);
+
+	// Ravager 공격 히트박스가 직접 겹치는 전용 판정 박스입니다.
+	PillarHitbox = CreateDefaultSubobject<UBoxComponent>(TEXT("PillarHitbox"));
+	PillarHitbox->SetupAttachment(Root);
+	PillarHitbox->SetBoxExtent(FVector(120.0f, 120.0f, 300.0f));
+	PillarHitbox->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	PillarHitbox->SetCollisionObjectType(ECC_Pawn);
+	PillarHitbox->SetCollisionResponseToAllChannels(ECR_Ignore);
+	// Ravager 공격 히트박스가 현재 Pawn 타입을 사용하므로 동일 채널 오버랩으로 판정을 받습니다.
+	PillarHitbox->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+	PillarHitbox->SetGenerateOverlapEvents(true);
+	PillarHitbox->CanCharacterStepUpOn = ECB_No;
 }
 
 void ABOBreakablePillarActor::BeginPlay()
@@ -48,6 +62,11 @@ void ABOBreakablePillarActor::BeginPlay()
 
 	ApplyCurrentState();
 
+	if (HasAuthority() && bIsBroken)
+	{
+		ScheduleBrokenPieceHide();
+	}
+
 	// 테스트가 필요할 때만 자동으로 BreakPillar를 호출합니다.
 	if (HasAuthority() && !bIsBroken && bAutoBreakForTest)
 	{
@@ -60,6 +79,41 @@ void ABOBreakablePillarActor::GetLifetimeReplicatedProps(TArray<FLifetimePropert
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(ABOBreakablePillarActor, bIsBroken);
+	DOREPLIFETIME(ABOBreakablePillarActor, bAreBrokenPiecesHidden);
+}
+
+FGameplayTag ABOBreakablePillarActor::GetHitPartTag(FName BoneName) const
+{
+	(void)BoneName;
+	return FGameplayTag();
+}
+
+void ABOBreakablePillarActor::ReceiveDamageFromHitbox(const FGameplayEffectSpecHandle& SpecHandle, FName BoneName)
+{
+	(void)BoneName;
+
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	if (bIsBroken)
+	{
+		return;
+	}
+
+	if (!SpecHandle.IsValid() || !SpecHandle.Data.IsValid())
+	{
+		BO_LOG_CORE(Warning, "기둥이 유효하지 않은 피해 스펙을 받았습니다: %s", *GetName());
+		return;
+	}
+
+	if (!IsDamageSpecFromRavager(SpecHandle))
+	{
+		return;
+	}
+
+	BreakPillar();
 }
 
 void ABOBreakablePillarActor::BreakPillar()
@@ -76,10 +130,13 @@ void ABOBreakablePillarActor::BreakPillar()
 	}
 
 	GetWorldTimerManager().ClearTimer(AutoBreakTimerHandle);
+	GetWorldTimerManager().ClearTimer(HideBrokenPiecesTimerHandle);
 
 	bIsBroken = true;
+	bAreBrokenPiecesHidden = false;
 	ApplyCurrentState();
 	ApplyBreakImpulse();
+	ScheduleBrokenPieceHide();
 	UpdateDestroyedPillarState(true);
 	ForceNetUpdate();
 
@@ -95,6 +152,8 @@ void ABOBreakablePillarActor::ResetPillar()
 	}
 
 	GetWorldTimerManager().ClearTimer(AutoBreakTimerHandle);
+	GetWorldTimerManager().ClearTimer(HideBrokenPiecesTimerHandle);
+	bAreBrokenPiecesHidden = false;
 
 	if (!bIsBroken)
 	{
@@ -175,14 +234,62 @@ void ABOBreakablePillarActor::OnRep_IsBroken()
 	}
 }
 
+void ABOBreakablePillarActor::OnRep_AreBrokenPiecesHidden()
+{
+	ApplyCurrentState();
+}
+
 void ABOBreakablePillarActor::ApplyCurrentState()
 {
+	if (IsValid(PillarHitbox))
+	{
+		PillarHitbox->SetCollisionEnabled(!bIsBroken ? ECollisionEnabled::QueryOnly : ECollisionEnabled::NoCollision);
+		PillarHitbox->SetGenerateOverlapEvents(!bIsBroken);
+	}
+
 	ApplyWholeMeshState(!bIsBroken);
+
+	const bool bShowBrokenPieces = bIsBroken && !bAreBrokenPiecesHidden;
 
 	for (UChildActorComponent* PieceComponent : BreakPieces)
 	{
-		ApplyPieceState(PieceComponent, bIsBroken, bIsBroken);
+		ApplyPieceState(PieceComponent, bShowBrokenPieces, bShowBrokenPieces);
 	}
+}
+
+void ABOBreakablePillarActor::ScheduleBrokenPieceHide()
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	GetWorldTimerManager().ClearTimer(HideBrokenPiecesTimerHandle);
+
+	if (!bIsBroken || bAreBrokenPiecesHidden || BrokenPieceVisibleDuration <= 0.0f)
+	{
+		return;
+	}
+
+	GetWorldTimerManager().SetTimer(
+		HideBrokenPiecesTimerHandle,
+		this,
+		&ABOBreakablePillarActor::HideBrokenPieces,
+		BrokenPieceVisibleDuration,
+		false
+	);
+}
+
+void ABOBreakablePillarActor::HideBrokenPieces()
+{
+	if (!HasAuthority() || !bIsBroken || bAreBrokenPiecesHidden)
+	{
+		return;
+	}
+
+	bAreBrokenPiecesHidden = true;
+	ApplyCurrentState();
+	ForceNetUpdate();
 }
 
 void ABOBreakablePillarActor::ApplyWholeMeshState(bool bVisible)
@@ -220,7 +327,7 @@ void ABOBreakablePillarActor::ApplyPieceState(UChildActorComponent* PieceCompone
 	PieceComponent->SetHiddenInGame(!bVisible, true);
 	PieceComponent->SetVisibility(bVisible, true);
 
-	if (AActor* PieceChildActor = PieceComponent->GetChildActor())
+	if (AActor* PieceChildActor = PieceComponent->GetChildActor	())
 	{
 		PieceChildActor->SetActorHiddenInGame(!bVisible);
 	}
@@ -377,6 +484,38 @@ void ABOBreakablePillarActor::EnsurePrimitiveIsMovable(UPrimitiveComponent* Prim
 			}
 		}
 	}
+}
+
+bool ABOBreakablePillarActor::IsDamageSpecFromRavager(const FGameplayEffectSpecHandle& SpecHandle) const
+{
+	if (!SpecHandle.IsValid() || !SpecHandle.Data.IsValid())
+	{
+		return false;
+	}
+
+	const FGameplayEffectContextHandle& EffectContext = SpecHandle.Data->GetContext();
+	TArray<AActor*, TInlineAllocator<3>> SourceCandidates;
+	SourceCandidates.Add(EffectContext.GetEffectCauser());
+	SourceCandidates.Add(EffectContext.GetInstigator());
+	SourceCandidates.Add(EffectContext.GetOriginalInstigator());
+
+	for (AActor* SourceCandidate : SourceCandidates)
+	{
+		if (IsValid(SourceCandidate) && SourceCandidate->IsA(ABORavagerBoss::StaticClass()))
+		{
+			return true;
+		}
+	}
+
+	if (const UObject* SourceObject = EffectContext.GetSourceObject())
+	{
+		if (const AActor* SourceActor = Cast<AActor>(SourceObject))
+		{
+			return SourceActor->IsA(ABORavagerBoss::StaticClass());
+		}
+	}
+
+	return false;
 }
 
 void ABOBreakablePillarActor::UpdateDestroyedPillarState(bool bDestroyed) const

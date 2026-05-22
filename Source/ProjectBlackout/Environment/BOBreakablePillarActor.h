@@ -2,14 +2,16 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "Interfaces/BlackoutDamageable.h"
 #include "BOBreakablePillarActor.generated.h"
 
 class UChildActorComponent;
+class UBoxComponent;
 class UPrimitiveComponent;
 class USceneComponent;
 
 UCLASS(Blueprintable)
-class PROJECTBLACKOUT_API ABOBreakablePillarActor : public AActor
+class PROJECTBLACKOUT_API ABOBreakablePillarActor : public AActor, public IBlackoutDamageable
 {
 	GENERATED_BODY()
 
@@ -35,10 +37,20 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Blackout|Breakable")
 	bool IsBroken() const { return bIsBroken; }
 
+	// 기둥은 별도 부위 판정을 사용하지 않으므로 기본 태그만 반환합니다.
+	virtual FGameplayTag GetHitPartTag(FName BoneName) const override;
+
+	// Ravager 공격에서 들어온 피해 스펙만 받아 기둥 파괴를 트리거합니다.
+	virtual void ReceiveDamageFromHitbox(const FGameplayEffectSpecHandle& SpecHandle, FName BoneName) override;
+
 protected:
 	// BP에서 하위 ChildActorComponent를 붙일 기준 루트입니다.
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Breakable")
 	TObjectPtr<USceneComponent> Root;
+
+	// Ravager 공격 히트박스가 직접 맞는 전용 판정 박스입니다.
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Breakable|Collision")
+	TObjectPtr<UBoxComponent> PillarHitbox;
 
 	// 통짜 기둥으로 사용할 ChildActorComponent입니다.
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Breakable")
@@ -84,12 +96,23 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Breakable|Physics", meta = (ClampMin = "0.0"))
 	float PieceAngularDamping = 2.0f;
 
+	// 파괴된 조각이 화면에 유지되는 시간입니다. 0 이하면 자동 숨김을 사용하지 않습니다.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Breakable|Timing", meta = (ClampMin = "0.0"))
+	float BrokenPieceVisibleDuration = 15.0f;
+
 	// 실제 파괴 여부를 네트워크로 동기화합니다.
 	UPROPERTY(ReplicatedUsing = OnRep_IsBroken, VisibleInstanceOnly, BlueprintReadOnly, Category = "Blackout|Breakable")
 	bool bIsBroken = false;
 
+	// 파괴된 조각이 자동으로 숨겨졌는지 네트워크로 동기화합니다.
+	UPROPERTY(ReplicatedUsing = OnRep_AreBrokenPiecesHidden, VisibleInstanceOnly, BlueprintReadOnly, Category = "Blackout|Breakable")
+	bool bAreBrokenPiecesHidden = false;
+
 	UFUNCTION()
 	void OnRep_IsBroken();
+
+	UFUNCTION()
+	void OnRep_AreBrokenPiecesHidden();
 
 private:
 	// Reset 시 원래 위치로 복원하기 위한 조각 초기 트랜스폼입니다.
@@ -99,8 +122,17 @@ private:
 	// 디버그 자동 파괴용 타이머입니다.
 	FTimerHandle AutoBreakTimerHandle;
 
+	// 파괴된 조각을 일정 시간 뒤 숨기기 위한 타이머입니다.
+	FTimerHandle HideBrokenPiecesTimerHandle;
+
 	// 현재 파괴 상태를 컴포넌트 시각/물리 상태에 반영합니다.
 	void ApplyCurrentState();
+
+	// 서버에서 파괴된 조각을 일정 시간 뒤 숨기도록 예약합니다.
+	void ScheduleBrokenPieceHide();
+
+	// 서버에서 파괴된 조각을 숨김 상태로 전환합니다.
+	void HideBrokenPieces();
 
 	// 통짜 메시에 보임/숨김 상태를 적용합니다.
 	void ApplyWholeMeshState(bool bVisible);
@@ -122,6 +154,9 @@ private:
 
 	// 물리 또는 이동이 필요한 컴포넌트가 Movable 상태인지 보장합니다.
 	void EnsurePrimitiveIsMovable(UPrimitiveComponent* PrimitiveComponent) const;
+
+	// 현재 피해 스펙의 출처가 Ravager인지 판정합니다.
+	bool IsDamageSpecFromRavager(const FGameplayEffectSpecHandle& SpecHandle) const;
 
 	// GameState의 파괴 기록 배열을 갱신합니다.
 	void UpdateDestroyedPillarState(bool bDestroyed) const;
