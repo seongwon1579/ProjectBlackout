@@ -1,18 +1,18 @@
-#include "GAS/Abilities/BlackoutBossGameplayAbility.h"
+#include "GAS/Abilities/Boss/Ravager/GA_Ravager_Base.h"
 
-#include "BlackoutBossCharacter.h"
+#include "Characters/BlackoutBossCharacter.h"
 #include "BlackoutGameplayTags.h"
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 
-const FName UBlackoutBossGameplayAbility::WarpTargetName = FName("MW_Target");
+const FName UGA_Ravager_Base::WarpTargetName = FName("MW_Target");
 
-UBlackoutBossGameplayAbility::UBlackoutBossGameplayAbility()
+UGA_Ravager_Base::UGA_Ravager_Base()
 {
 	ActivationOwnedTags.AddTag(BlackoutGameplayTags::Ability_PhaseLock);
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 }
 
-void UBlackoutBossGameplayAbility::OnAvatarSet(const FGameplayAbilityActorInfo* ActorInfo,
+void UGA_Ravager_Base::OnAvatarSet(const FGameplayAbilityActorInfo* ActorInfo,
                                                const FGameplayAbilitySpec& Spec)
 {
 	Super::OnAvatarSet(ActorInfo, Spec);
@@ -24,7 +24,7 @@ void UBlackoutBossGameplayAbility::OnAvatarSet(const FGameplayAbilityActorInfo* 
 	}
 }
 
-void UBlackoutBossGameplayAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
+void UGA_Ravager_Base::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
                                                    const FGameplayAbilityActorInfo* ActorInfo,
                                                    const FGameplayAbilityActivationInfo ActivationInfo,
                                                    const FGameplayEventData* TriggerEventData)
@@ -51,7 +51,7 @@ void UBlackoutBossGameplayAbility::ActivateAbility(const FGameplayAbilitySpecHan
 	PostActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 }
 
-void UBlackoutBossGameplayAbility::EndAbility(const FGameplayAbilitySpecHandle Handle,
+void UGA_Ravager_Base::EndAbility(const FGameplayAbilitySpecHandle Handle,
                                               const FGameplayAbilityActorInfo* ActorInfo,
                                               const FGameplayAbilityActivationInfo ActivationInfo,
                                               bool bReplicateEndAbility, bool bWasCancelled)
@@ -68,7 +68,7 @@ void UBlackoutBossGameplayAbility::EndAbility(const FGameplayAbilitySpecHandle H
 }
 
 
-FGameplayTag UBlackoutBossGameplayAbility::SelectMontageTag(const FGameplayEventData* TriggerEventData) const
+FGameplayTag UGA_Ravager_Base::SelectMontageTag(const FGameplayEventData* TriggerEventData) const
 {
 	if (CachedPatternData && CachedPatternData->Montages.Num() == 1)
 	{
@@ -77,12 +77,12 @@ FGameplayTag UBlackoutBossGameplayAbility::SelectMontageTag(const FGameplayEvent
 	return FGameplayTag::EmptyTag;
 }
 
-bool UBlackoutBossGameplayAbility::IsValid() const
+bool UGA_Ravager_Base::IsValid() const
 {
 	return CachedOwner && CachedPatternData;
 }
 
-bool UBlackoutBossGameplayAbility::TryResolveMontage(const FGameplayEventData* TriggerEventData)
+bool UGA_Ravager_Base::TryResolveMontage(const FGameplayEventData* TriggerEventData)
 {
 	const FGameplayTag MontageTag = SelectMontageTag(TriggerEventData);
 	SelectedMontage = GetMontage(MontageTag);
@@ -95,7 +95,7 @@ bool UBlackoutBossGameplayAbility::TryResolveMontage(const FGameplayEventData* T
 	return true;
 }
 
-void UBlackoutBossGameplayAbility::TrySetupMotionWarp(const FGameplayAbilitySpecHandle Handle,
+void UGA_Ravager_Base::TrySetupMotionWarp(const FGameplayAbilitySpecHandle Handle,
                                                       const FGameplayAbilityActorInfo* ActorInfo,
                                                       const FGameplayAbilityActivationInfo ActivationInfo,
                                                       const FGameplayEventData* TriggerEventData)
@@ -115,7 +115,7 @@ void UBlackoutBossGameplayAbility::TrySetupMotionWarp(const FGameplayAbilitySpec
 	);
 }
 
-void UBlackoutBossGameplayAbility::PlayMontage()
+void UGA_Ravager_Base::PlayMontage()
 {
 	UAbilityTask_PlayMontageAndWait* MontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
 		this,
@@ -126,13 +126,13 @@ void UBlackoutBossGameplayAbility::PlayMontage()
 		true,
 		1.f
 	);
-	MontageTask->OnCompleted.AddDynamic(this, &UBlackoutBossGameplayAbility::OnMontageEnded);
-	MontageTask->OnInterrupted.AddDynamic(this, &UBlackoutBossGameplayAbility::OnMontageEnded);
-	MontageTask->OnCancelled.AddDynamic(this, &UBlackoutBossGameplayAbility::OnMontageEnded);
+	MontageTask->OnCompleted.AddDynamic(this, &UGA_Ravager_Base::OnMontageEnded);
+	MontageTask->OnInterrupted.AddDynamic(this, &UGA_Ravager_Base::OnMontageEnded);
+	MontageTask->OnCancelled.AddDynamic(this, &UGA_Ravager_Base::OnMontageEnded);
 	MontageTask->ReadyForActivation();
 }
 
-UAnimMontage* UBlackoutBossGameplayAbility::GetMontage(const FGameplayTag& Tag)
+UAnimMontage* UGA_Ravager_Base::GetMontage(const FGameplayTag& Tag)
 {
 	if (!Tag.IsValid() || !CachedPatternData) return nullptr;
 
@@ -140,7 +140,7 @@ UAnimMontage* UBlackoutBossGameplayAbility::GetMontage(const FGameplayTag& Tag)
 	return Found ? Found->Get() : nullptr;
 }
 
-void UBlackoutBossGameplayAbility::OnMontageEnded()
+void UGA_Ravager_Base::OnMontageEnded()
 {
 	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
 }

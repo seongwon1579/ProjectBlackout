@@ -1,7 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GAS/Abilities/BlackoutBossGameplayAbility.h"
+#include "GAS/Abilities/Boss/Ravager/GA_Ravager_Base.h"
 #include "GA_Ravager_Shockwave.generated.h"
 
 /**
@@ -10,7 +10,7 @@
 class UAbilityTask_WaitGameplayEvent;
 
 UCLASS()
-class PROJECTBLACKOUT_API UGA_Ravager_Shockwave : public UBlackoutBossGameplayAbility
+class PROJECTBLACKOUT_API UGA_Ravager_Shockwave : public UGA_Ravager_Base
 {
 	GENERATED_BODY()
 

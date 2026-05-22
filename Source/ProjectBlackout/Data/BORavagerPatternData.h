@@ -6,7 +6,7 @@
 #include "GameplayEffect.h"
 #include "GameplayTagContainer.h"
 #include "Engine/DataAsset.h"
-#include "BORavagerData.generated.h"
+#include "BORavagerPatternData.generated.h"
 
 /**
  * 
@@ -194,7 +194,7 @@ struct FBossEnergyBurstSettings
 };
 
 UCLASS()
-class PROJECTBLACKOUT_API UBORavagerData : public UDataAsset
+class PROJECTBLACKOUT_API UBORavagerPatternData : public UDataAsset
 {
 	GENERATED_BODY()
 
@@ -231,4 +231,22 @@ public:
 	
 	UPROPERTY(EditAnywhere, Category = "Blackout|EnergyBurst")
 	FBossEnergyBurstSettings EnergyBurstSettings;
+};
+
+UCLASS()
+class PROJECTBLACKOUT_API UBORavagerData : public UDataAsset
+{
+	GENERATED_BODY()
+	
+public:
+	bool IsValid(){ return MaxHealth > 0.f && MovementSpeed > 0.f && !Name.IsEmpty(); }
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Stats")
+	FText Name;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Stats")
+	float MaxHealth = 10000.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Stats")
+	float MovementSpeed = 300.f;
 };

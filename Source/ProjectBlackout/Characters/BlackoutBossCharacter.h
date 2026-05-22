@@ -1,7 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "BORavagerData.h"
+#include "BORavagerPatternData.h"
 #include "Characters/BlackoutEnemyCharacter.h"
 #include "GameplayEffectTypes.h"
 #include "MotionWarpingComponent.h"
@@ -20,25 +20,34 @@ class PROJECTBLACKOUT_API ABlackoutBossCharacter : public ABlackoutEnemyCharacte
 public:
 	ABlackoutBossCharacter();
 
+	//virtual void OnReturnToPool_Implementation() override;
+
 	UFUNCTION()
-	UBORavagerData* GetPatternData(FGameplayTag AbilityTag) const;
+	UBORavagerPatternData* GetPatternData(FGameplayTag AbilityTag) const;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|MotionWarping")
 	TObjectPtr<UMotionWarpingComponent> MotionWarpingComponent;
 
-
 protected:
 	virtual void BeginPlay() override;
+
 	virtual void OnDeath() override;
 
+	virtual void SetData();
+
 	virtual void OnDamageReceived(const FOnAttributeChangeData& Data);
-	
+ 
+	virtual FText GetBossDisplayName() const;
+
+	virtual EBOBossPhase DetermineTargetPhase(float HealthRatio);
+
 	APawn* ResolveInstigatorPawn(AActor* SourceActor) const;
-	EBOBossPhase DetermineTargetPhase(float HealthRatio) const;
-	
+
 	void TryBindToHUD();
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Data", meta = (Categories = "Ability"))
-	TMap<FGameplayTag, TObjectPtr<UBORavagerData>> BossAbilityData;
-	
+	TMap<FGameplayTag, TObjectPtr<UBORavagerPatternData>> BossPatternData;
+
+	UPROPERTY(EditAnywhere, Category = "Blackout|Data")
+	TObjectPtr<UBORavagerData> BossData;
 };

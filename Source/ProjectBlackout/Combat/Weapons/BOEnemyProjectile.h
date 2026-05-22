@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "Data/BORavagerData.h"
+#include "Data/BORavagerPatternData.h"
 
 #include "BOEnemyProjectile.generated.h"
 

@@ -1,4 +1,4 @@
-#include "GAS/Abilities/Boss/Ravager//GA_Ravager_EnergyBurst.h"
+#include "GAS/Abilities/Boss/Ravager/GA_Ravager_EnergyBurst.h"
 
 #include "BlackoutBossCharacter.h"
 #include "BlackoutDamageable.h"

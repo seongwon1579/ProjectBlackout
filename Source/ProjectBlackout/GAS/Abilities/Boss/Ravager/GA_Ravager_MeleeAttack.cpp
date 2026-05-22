@@ -1,6 +1,6 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-#include "GAS/Abilities/Boss/Ravager//GA_Ravager_MeleeAttack.h"
+#include "GAS/Abilities/Boss/Ravager/GA_Ravager_MeleeAttack.h"
 
 #include "AbilitySystemComponent.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"

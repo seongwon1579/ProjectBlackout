@@ -1,4 +1,4 @@
-#include "GAS/Abilities/Boss/Ravager//GA_Ravager_Gorenado.h"
+#include "GAS/Abilities/Boss/Ravager/GA_Ravager_Gorenado.h"
 
 #include "AbilitySystemComponent.h"
 #include "BlackoutGameplayTags.h"

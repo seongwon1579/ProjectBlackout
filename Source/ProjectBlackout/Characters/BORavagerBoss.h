@@ -18,21 +18,17 @@ class PROJECTBLACKOUT_API ABORavagerBoss : public ABlackoutBossCharacter
 {
 	GENERATED_BODY()
 
-public:
-	ABORavagerBoss();
-
-
-protected:
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|AI")
-	TObjectPtr<UStateTree> ST_Ravager_Phases;
-
-	/** Phase C 진입 시 공격 선/후딜 감소를 위한 애니메이션 배속 승수 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blackout|Boss|Ravager")
-	float AnimPlayRateMultiplier = 1.0f;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Boss|Ravager")
-	int32 SummonedMinionCount;
-	
-	virtual void BeginPlay() override;
+// public:
+// 	virtual UDataAsset* GetPatternData(FGameplayTag AbilityTag) const;
+// 	
+// protected:
+// 	virtual void SetData() override;
+// 	virtual EBOBossPhase DetermineTargetPhase(float HealthRatio) const override;
+// 	virtual FText GetBossDisplayName() const override;
+//
+// 	UPROPERTY(EditAnywhere, Category = "Blackout|Ability")
+// 	TMap<FGameplayTag, TObjectPtr<UBORavagerPatternData>> BossPatternData;
+// 	
+// 	UPROPERTY(EditAnywhere, Category = "Blackout|Data")
+// 	TObjectPtr<UBORavagerData> BossData;
 };
