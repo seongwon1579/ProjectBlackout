@@ -13,14 +13,12 @@ void ABOEnemySpawnerProjectile::SetSpawnerData(const FMinionSpawnData& InData)
 	MinionData = InData;
 }
 
-void ABOEnemySpawnerProjectile::BeginPlay()
+void ABOEnemySpawnerProjectile::SetCollisionEvent()
 {
-	Super::BeginPlay();
-}
-
-void ABOEnemySpawnerProjectile::Tick(float DeltaSeconds)
-{
-	Super::Tick(DeltaSeconds);
+	if (CollisionComp)
+	{
+		CollisionComp->OnComponentHit.AddDynamic(this, &ABOEnemySpawnerProjectile::OnHit);
+	}
 }
 
 void ABOEnemySpawnerProjectile::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp,

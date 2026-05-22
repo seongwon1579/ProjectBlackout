@@ -19,15 +19,15 @@ public:
 	void SetSpawnerData(const FMinionSpawnData& InData);
 
 protected:
-	virtual void BeginPlay() override;
-	virtual void Tick(float DeltaSeconds) override;
+	virtual void SetCollisionEvent() override;
 	
-	virtual void OnHit(
+	UFUNCTION()
+	void OnHit(
 		UPrimitiveComponent* HitComp,
 		AActor* OtherActor,
 		UPrimitiveComponent* OtherComp,
 		FVector NormalImpulse,
-		const FHitResult& Hit) override;
+		const FHitResult& Hit);
 	
 	void Hatch();
 	

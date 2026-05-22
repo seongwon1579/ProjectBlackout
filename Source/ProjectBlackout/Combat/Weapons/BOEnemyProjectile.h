@@ -24,13 +24,19 @@ public:
 	
 protected:
 	virtual void BeginPlay() override;
+	
 	UFUNCTION()
-	virtual void OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
-			   UPrimitiveComponent* OtherComp, FVector NormalImpulse,
-			   const FHitResult& Hit);
+	void OnBeginOverlap(
+		UPrimitiveComponent* OverlappedComp,
+		AActor* OtherActor,
+		UPrimitiveComponent* OtherComp,
+		int32 OtherBodyIndex,
+		bool bFromSweep,
+		const FHitResult& SweepResult);
 	
 	virtual void ApplyDamageToTarget(AActor* Target, FName HitBoneName);
 	virtual bool ShouldIgnoreHit(AActor* OtherActor) const;
+	virtual void SetCollisionEvent();
 	
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<UCapsuleComponent> CollisionComp;
