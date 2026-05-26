@@ -107,6 +107,9 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_ChicagoTypewriter_Impact_Flesh, "GameplayCue.Weapon.ChicagoTypewriter.Impact.Flesh");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_ChicagoTypewriter_Impact_Metal, "GameplayCue.Weapon.ChicagoTypewriter.Impact.Metal");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_ChicagoTypewriter_Impact_Stone, "GameplayCue.Weapon.ChicagoTypewriter.Impact.Stone");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_ChicagoTypewriter_Reload_In, "GameplayCue.Weapon.ChicagoTypewriter.Reload.In");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_ChicagoTypewriter_Reload_Out, "GameplayCue.Weapon.ChicagoTypewriter.Reload.Out");
+	
 
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_RepeaterPistol_Fire, "GameplayCue.Weapon.RepeaterPistol.Fire");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_RepeaterPistol_Trail, "GameplayCue.Weapon.RepeaterPistol.Trail");
