@@ -124,6 +124,9 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_Sporebloom_Impact_Flesh, "GameplayCue.Weapon.Sporebloom.Impact.Flesh");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_Sporebloom_Impact_Metal, "GameplayCue.Weapon.Sporebloom.Impact.Metal");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_Sporebloom_Impact_Stone, "GameplayCue.Weapon.Sporebloom.Impact.Stone");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_Sporebloom_Reload_Rack, "GameplayCue.Weapon.Sporebloom.Reload.Rack");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_Sporebloom_Reload_Release, "GameplayCue.Weapon.Sporebloom.Reload.Release");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_Sporebloom_Reload_Reload, "GameplayCue.Weapon.Sporebloom.Reload.Reload");
 
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_Meridian_Fire, "GameplayCue.Weapon.Meridian.Fire");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_Meridian_Trail, "GameplayCue.Weapon.Meridian.Trail");
