@@ -811,3 +811,86 @@ void ABlackoutPlayerController::OnRequestSurrenderPressed()
 
 #pragma endregion 
 
+#if WITH_EDITOR || UE_BUILD_DEVELOPMENT
+void ABlackoutPlayerController::BO_SetMatchState(const FString& NewStateStr)
+{
+	FString TargetState = NewStateStr.ToLower().TrimStartAndEnd();
+	EBlackoutMatchState SelectedState = EBlackoutMatchState::WaitingForPlayers;
+	bool bIsValid = false;
+
+	if (TargetState.Equals(TEXT("inlobby")) || TargetState.Equals(TEXT("lobby")))
+	{
+		SelectedState = EBlackoutMatchState::InLobby;
+		bIsValid = true;
+	}
+	else if (TargetState.Equals(TEXT("starting")) || TargetState.Equals(TEXT("start")))
+	{
+		SelectedState = EBlackoutMatchState::Starting;
+		bIsValid = true;
+	}
+	else if (TargetState.Equals(TEXT("incombatready")) || TargetState.Equals(TEXT("ready")))
+	{
+		SelectedState = EBlackoutMatchState::InCombatReady;
+		bIsValid = true;
+	}
+	else if (TargetState.Equals(TEXT("incombat")) || TargetState.Equals(TEXT("combat")) || TargetState.Equals(TEXT("c")))
+	{
+		SelectedState = EBlackoutMatchState::InCombat;
+		bIsValid = true;
+	}
+	else if (TargetState.Equals(TEXT("ended")) || TargetState.Equals(TEXT("end")) || TargetState.Equals(TEXT("e")))
+	{
+		SelectedState = EBlackoutMatchState::Ended;
+		bIsValid = true;
+	}
+	else if (TargetState.Equals(TEXT("waitingforplayers")) || TargetState.Equals(TEXT("waiting")) || TargetState.Equals(TEXT("wait")) || TargetState.Equals(TEXT("w")))
+	{
+		SelectedState = EBlackoutMatchState::WaitingForPlayers;
+		bIsValid = true;
+	}
+	else if (TargetState.Equals(TEXT("shelterprep")) || TargetState.Equals(TEXT("prep")) || TargetState.Equals(TEXT("s1")))
+	{
+		SelectedState = EBlackoutMatchState::ShelterPrep;
+		bIsValid = true;
+	}
+	else if (TargetState.Equals(TEXT("midbosscombat")) || TargetState.Equals(TEXT("midboss")) || TargetState.Equals(TEXT("mid")) || TargetState.Equals(TEXT("m")))
+	{
+		SelectedState = EBlackoutMatchState::MidBossCombat;
+		bIsValid = true;
+	}
+	else if (TargetState.Equals(TEXT("sheltermid")) || TargetState.Equals(TEXT("midprep")) || TargetState.Equals(TEXT("s2")))
+	{
+		SelectedState = EBlackoutMatchState::ShelterMid;
+		bIsValid = true;
+	}
+	else if (TargetState.Equals(TEXT("mainbosscombat")) || TargetState.Equals(TEXT("mainboss")) || TargetState.Equals(TEXT("main")) || TargetState.Equals(TEXT("b")))
+	{
+		SelectedState = EBlackoutMatchState::MainBossCombat;
+		bIsValid = true;
+	}
+
+	if (bIsValid)
+	{
+		Server_SetMatchStateCheat(SelectedState);
+	}
+	else
+	{
+		BO_LOG_CORE(Warning, TEXT("알 수 없는 매치 상태 치트 문자열입니다: %s"), *NewStateStr);
+	}
+}
+
+void ABlackoutPlayerController::Server_SetMatchStateCheat_Implementation(EBlackoutMatchState NewState)
+{
+	if (ABlackoutGameState* GS = GetWorld() ? GetWorld()->GetGameState<ABlackoutGameState>() : nullptr)
+	{
+		GS->SetMatchState(NewState);
+		BO_LOG_NET(Log, TEXT("치트 명령어로 매치 상태를 강제 전환했습니다: %s"), *UEnum::GetValueAsString(NewState));
+	}
+}
+
+bool ABlackoutPlayerController::Server_SetMatchStateCheat_Validate(EBlackoutMatchState NewState)
+{
+	return true;
+}
+#endif 
+
