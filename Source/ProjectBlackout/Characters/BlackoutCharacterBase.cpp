@@ -254,7 +254,7 @@ bool ABlackoutCharacterBase::ApplyIncomingDamageSpec(const FGameplayEffectSpecHa
 
 	if (HealthAfter < HealthBefore)
 	{
-		OnHitReact();
+		OnHitReact(AppliedDamage);
 		return true;
 	}
 
@@ -312,8 +312,9 @@ bool ABlackoutCharacterBase::CanEnterDownedState() const
 	return false;
 }
 
-void ABlackoutCharacterBase::OnHitReact()
+void ABlackoutCharacterBase::OnHitReact(float AppliedDamage)
 {
+	(void)AppliedDamage;
 }
 
 void ABlackoutCharacterBase::OnStun()

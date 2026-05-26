@@ -115,10 +115,10 @@ public:
 	void SetDodgeMontagePlaying(bool bPlaying) { bIsDodgeMontagePlaying = bPlaying; }
 
 	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
-	void Multicast_PlayHitReactMontage(UAnimMontage* Montage, float PlayRate = 1.f);
+	void Multicast_PlayHitReactMontage(UAnimMontage* Montage, float PlayRate = 1.f, bool bAllowMovementDuringHitReact = false);
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
-	bool PlayHitReactMontage(UAnimMontage* Montage, float PlayRate = 1.f);
+	bool PlayHitReactMontage(UAnimMontage* Montage, float PlayRate = 1.f, bool bAllowMovementDuringHitReact = false);
 
 	UFUNCTION(NetMulticast, Reliable, Category = "Blackout|Animation")
 	void Multicast_PlayFireMontage(UAnimMontage* Montage, float PlayRate = 1.f, bool bRestartIfPlaying = false);
@@ -301,8 +301,8 @@ protected:
 	/** CharacterData를 기반으로 초기 어트리뷰트 값 설정 (GE 적용) */
 	virtual void InitializeAttributes();
 
-	/** 피격 시 플레이어 전용 히트 리액션 몽타주를 재생합니다. */
-	virtual void OnHitReact() override;
+	/** 피격 시 실제 적용된 데미지에 따라 플레이어 전용 히트 리액션 몽타주를 재생합니다. */
+	virtual void OnHitReact(float AppliedDamage) override;
 	virtual void OnDowned() override;
 	virtual bool CanEnterDownedState() const override;
 	virtual void OnDeath() override;
@@ -424,6 +424,9 @@ protected:
 	bool bIsHitReactMontagePlaying = false;
 
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Animation")
+	bool bCanMoveDuringHitReact = false;
+
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Animation")
 	bool bIsReviveMontagePlaying = false;
 
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Animation")
@@ -493,12 +496,30 @@ protected:
 	void UpdateFocusedInteractable(float DeltaSeconds);
 	void RefreshFocusedInteractableActor();
 	bool IsValidFocusedInteractable(AActor* CandidateActor) const;
+	UAnimMontage* SelectHitReactMontage(float AppliedDamage) const;
 
 	UFUNCTION(Server, Reliable, Category = "Blackout|Interaction")
 	void Server_InteractWithActor(AActor* TargetActor);
 
+	/** 경피격 전용 히트 리액션 몽타주입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
+	TObjectPtr<UAnimMontage> LightHitReactMontage;
+
+	/** 에임(줌) 상태에서 경피격 시 사용할 상체 전용 히트 리액션 몽타주입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
+	TObjectPtr<UAnimMontage> AimedLightHitReactMontage;
+
+	/** 강피격 전용 히트 리액션 몽타주입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
+	TObjectPtr<UAnimMontage> HeavyHitReactMontage;
+
+	/** 레거시 호환용 기본 히트 리액션 몽타주입니다. Light/Heavy가 비어 있을 때 대체로 사용합니다. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
 	TObjectPtr<UAnimMontage> HitReactMontage;
+
+	/** 이 값 이하의 실제 적용 데미지는 Light, 초과는 Heavy 몽타주를 사용합니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation", meta = (ClampMin = "0.0"))
+	float HeavyHitReactDamageThreshold = 30.0f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
 	TArray<FBlackoutFireMontageEntry> FireMontageEntries;
