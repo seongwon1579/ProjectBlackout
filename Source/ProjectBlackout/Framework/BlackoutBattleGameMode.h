@@ -98,7 +98,22 @@ public:
 	 */
 	void CycleSpectateTargetForSpectator(ABlackoutPlayerController* SpectatorController, int32 Direction);
 
+	/** 항복 투표 개시 */
+	void StartSurrenderVote(ABlackoutPlayerController* Proposer);
+
+	/** 찬성/반대 투표 처리 */
+	void CastSurrenderVote(ABlackoutPlayerController* Voter, bool bAgree);
+
 private:
+	void EvaluateSurrenderVote();
+	void HandleSurrenderSuccess();
+	void HandleSurrenderFailed(bool bIsTimeout);
+	void ClearSurrenderVotes();
+	void SetAllPlayersSurrenderInputContextActive(bool bActive);
+	void TimeoutSurrenderVote();
+
+	FTimerHandle SurrenderVoteTimerHandle;
+
 	void EvaluatePartyWipe();
 	ABlackoutPlayerCharacter* FindInitialSpectateTarget(ABlackoutPlayerController* SpectatorController);
 	void AssignSpectateTargetForDeadPlayer(ABlackoutPlayerController* SpectatorController);

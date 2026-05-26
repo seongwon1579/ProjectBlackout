@@ -1,4 +1,5 @@
 #include "BlackoutPlayerState.h"
+#include "BlackoutGameState.h"
 #include "BlackoutAbilitySystemComponent.h"
 #include "Data/BOCharacterData.h"
 #include "Data/BOConsumableData.h"
@@ -45,6 +46,8 @@ void ABlackoutPlayerState::GetLifetimeReplicatedProps(
 	DOREPLIFETIME(ABlackoutPlayerState, BloodRootCount);
 	DOREPLIFETIME(ABlackoutPlayerState, GulSerumCount);
 	DOREPLIFETIME(ABlackoutPlayerState, bIsReady);
+	DOREPLIFETIME(ABlackoutPlayerState, bRequestedSurrender);
+	DOREPLIFETIME(ABlackoutPlayerState, bVotedAgainstSurrender);
 }
 
 void ABlackoutPlayerState::ApplyBattleTransitionPolicy(
@@ -69,6 +72,13 @@ void ABlackoutPlayerState::ApplyBattleTransitionPolicy(
 		// 전멸 재시작: 소모품 초기값 복구
 		SetConsumableCounts(1, 1);
 		BO_LOG_CORE(Log, "ApplyBattleTransitionPolicy: PartyWipeRestart for %s",
+		            *GetPlayerName());
+		break;
+
+	case EBattleTransitionType::SurrenderRestart:
+		// 항복 재시작: 소모품 초기값 복구
+		SetConsumableCounts(1, 1);
+		BO_LOG_CORE(Log, "ApplyBattleTransitionPolicy: SurrenderRestart for %s",
 		            *GetPlayerName());
 		break;
 	}
@@ -322,5 +332,18 @@ void ABlackoutPlayerState::RestoreAtCheckpoint()
 	if (const UBOCharacterData* CharData = PC->GetCharacterData())
 	{
 		InitializeConsumablesFromCharacterData(CharData);
+	}
+}
+
+void ABlackoutPlayerState::OnRep_SurrenderVoteState()
+{
+	if (ABlackoutGameState* GS = GetWorld() ? GetWorld()->GetGameState<ABlackoutGameState>() : nullptr)
+	{
+		GS->OnSurrenderVoteStateChanged.Broadcast(
+			GS->bIsSurrenderVoteActive,
+			GS->SurrenderVoteYesCount,
+			GS->SurrenderVoteNoCount,
+			GS->SurrenderVoteEndTimeSeconds
+		);
 	}
 }

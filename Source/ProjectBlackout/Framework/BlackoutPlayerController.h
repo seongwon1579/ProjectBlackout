@@ -62,10 +62,32 @@ public:
 	 */
 	UFUNCTION(Server, Reliable, Category = "Blackout|Controller|Spectator")
 	void Server_CycleSpectateTarget(int32 Direction);
+
+	/** 쓰러지거나 완전 사망한 상태에서 항복 투표 개시 요청 */
+	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "Blackout|Controller|Surrender")
+	void Server_RequestSurrenderVote();
+
+	/** 개시된 항복 투표에 대해 찬성/반대 투표 행사 */
+	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "Blackout|Controller|Surrender")
+	void Server_CastSurrenderVote(bool bAgree);
+
+	/** 항복 투표 활성화 시 동적으로 찬성/반대 조작 IMC를 푸시/팝 하기 위한 클라이언트 RPC */
+	UFUNCTION(Client, Reliable, Category = "Blackout|Controller|Surrender")
+	void Client_SetSurrenderInputContextActive(bool bActive);
 	
 	/** ESC 또는 OnSelectionConfirmed 후 자동 호출. Widget 정리 + IMC 원복. */
 	UFUNCTION(BlueprintCallable,Category="Blackout|ClassSelect")
 	void CloseClassSelectUI();
+
+#if WITH_EDITOR || UE_BUILD_DEVELOPMENT
+public:
+	/** 디버그용 게임 진행 상태(MatchState) 강제 설정 콘솔 명령어 */
+	UFUNCTION(Exec, Category = "Blackout|Cheat")
+	void BO_SetMatchState(const FString& NewStateStr);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_SetMatchStateCheat(EBlackoutMatchState NewState);
+#endif
 
 #pragma region InputSetup
 protected:
@@ -88,6 +110,22 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input|Spectator")
 	TObjectPtr<UInputAction> SpectateNextAction;
+
+	/** 항복 투표가 활성화되었을 때 로컬 플레이어에게 동적으로 밀어 넣는 입력 매핑 컨텍스트입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input|Surrender")
+	TObjectPtr<UInputMappingContext> SurrenderVoteMappingContext;
+
+	/** 항복 투표 발의(최초 요청)용 입력 액션 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input|Surrender")
+	TObjectPtr<UInputAction> RequestSurrenderAction;
+
+	/** 찬성 투표용 입력 액션 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input|Surrender")
+	TObjectPtr<UInputAction> VoteYesAction;
+
+	/** 반대 투표용 입력 액션 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input|Surrender")
+	TObjectPtr<UInputAction> VoteNoAction;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input")
 	TObjectPtr<UInputAction> FireAction;
@@ -179,6 +217,9 @@ protected:
 	void OnUseRelicReleased();
 	void OnSpectatePrevPressed();
 	void OnSpectateNextPressed();
+	void OnVoteYesPressed();
+	void OnVoteNoPressed();
+	void OnRequestSurrenderPressed();
 
 	/** 관전 진입/이탈 시 SpectatorMappingContext를 푸시/팝합니다. */
 	void SetSpectatorInputContextActive(bool bActive);
