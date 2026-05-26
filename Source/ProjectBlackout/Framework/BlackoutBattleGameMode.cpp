@@ -40,7 +40,8 @@ GetDefaultPawnClassForController_Implementation(AController* InController)
 	}
 
 	// SelectedClassTag 우선
-	if (CharacterRoster)
+	const ABlackoutGameState* GS = GetGameState<ABlackoutGameState>();
+	if (const UBOCharacterRoster* CharacterRoster = GS? GS->CharacterRoster : nullptr )
 	{
 		if (const ABlackoutPlayerState* PS = InController
 			                                     ? InController->GetPlayerState<
@@ -251,7 +252,15 @@ void ABlackoutBattleGameMode::InitGame(const FString& MapName,
 void ABlackoutBattleGameMode::RespawnPlayerWithSelectedClass(
 	APlayerController* InController)
 {
-	if (!InController || !CharacterRoster)
+	if (!InController)
+	{
+		return;
+	}
+	
+	const ABlackoutGameState* GS = GetGameState<ABlackoutGameState>();
+	const UBOCharacterRoster* CharacterRoster = GS ? GS->CharacterRoster : nullptr;
+	
+	if (!CharacterRoster)
 	{
 		return;
 	}

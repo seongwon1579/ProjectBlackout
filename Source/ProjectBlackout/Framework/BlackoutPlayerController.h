@@ -13,7 +13,6 @@ class UBlackoutCombatComponent;
 class AActor;
 class UBlackoutClassSelectWidget;
 class UBlackoutClassSelectWidgetController;
-class UBOCharacterRoster;
 
 UCLASS()
 class PROJECTBLACKOUT_API ABlackoutPlayerController : public APlayerController
@@ -142,10 +141,6 @@ protected:
 	/** UMG 위젯 클래스 WBP_ClassSelect */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly,Category="Blackout|ClassSelect")
 	TSubclassOf<UBlackoutClassSelectWidget> ClassSelectWidgetClass;
-	
-	/** 캐릭터 목록 데이터 에셋 */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Blackout|ClassSelect")
-	TObjectPtr<UBOCharacterRoster> CharacterRoster;
 	
 	UPROPERTY(Transient)
 	TObjectPtr<UBlackoutClassSelectWidget> ClassSelectWidget;

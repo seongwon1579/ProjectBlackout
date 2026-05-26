@@ -241,9 +241,18 @@ void ABlackoutPlayerController::Client_ReturnToOwnPawnView_Implementation(float 
 
 void ABlackoutPlayerController::Client_OpenClassSelectUI_Implementation()
 {
-	if (!ClassSelectWidgetClass || !CharacterRoster)
+	if (!ClassSelectWidgetClass)
 	{
-		BO_LOG_CORE(Warning, "OpenClassSelectUI: WidgetClass 또는 CharacterRoster 미설정 — BP_PlayerController 확인");
+		BO_LOG_CORE(Warning, "OpenClassSelectUI: WidgetClass 미설정— BP_PlayerController 확인");
+		return;
+	}
+	
+	const ABlackoutGameState* GS = GetWorld()->GetGameState<ABlackoutGameState>();
+	const UBOCharacterRoster* CharacterRoster = GS ? GS->CharacterRoster :nullptr;
+	
+	if (!CharacterRoster)
+	{
+		BO_LOG_CORE(Warning, "OpenClassSelectUI: CharacterRoster 미설정 — BP_BlackoutGameState 확인");
 		return;
 	}
 	
