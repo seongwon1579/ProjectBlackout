@@ -109,7 +109,6 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_ChicagoTypewriter_Impact_Stone, "GameplayCue.Weapon.ChicagoTypewriter.Impact.Stone");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_ChicagoTypewriter_Reload_In, "GameplayCue.Weapon.ChicagoTypewriter.Reload.In");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_ChicagoTypewriter_Reload_Out, "GameplayCue.Weapon.ChicagoTypewriter.Reload.Out");
-	
 
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_RepeaterPistol_Fire, "GameplayCue.Weapon.RepeaterPistol.Fire");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_RepeaterPistol_Trail, "GameplayCue.Weapon.RepeaterPistol.Trail");
@@ -117,6 +116,7 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_RepeaterPistol_Impact_Flesh, "GameplayCue.Weapon.RepeaterPistol.Impact.Flesh");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_RepeaterPistol_Impact_Metal, "GameplayCue.Weapon.RepeaterPistol.Impact.Metal");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_RepeaterPistol_Impact_Stone, "GameplayCue.Weapon.RepeaterPistol.Impact.Stone");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_RepeaterPistol_Reload, "GameplayCue.Weapon.RepeaterPistol.Reload");
 
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_Sporebloom_Fire, "GameplayCue.Weapon.Sporebloom.Fire");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_Sporebloom_Trail, "GameplayCue.Weapon.Sporebloom.Trail");

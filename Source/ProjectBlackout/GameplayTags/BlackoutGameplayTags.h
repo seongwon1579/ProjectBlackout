@@ -119,6 +119,7 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Weapon_RepeaterPistol_Impact_Flesh);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Weapon_RepeaterPistol_Impact_Metal);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Weapon_RepeaterPistol_Impact_Stone);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Weapon_RepeaterPistol_Reload);
 
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Weapon_Sporebloom_Fire);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Weapon_Sporebloom_Trail);
