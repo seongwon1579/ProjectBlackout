@@ -99,7 +99,15 @@ void ABlackoutBattleGameMode::OnPlayerJoined(APlayerController* NewPlayer)
 					if (ABlackoutPlayerController* BPC = Cast<
 						ABlackoutPlayerController>(PC))
 					{
-						BPC->Client_OpenClassSelectUI();
+						if (BPC->IsLocalController())
+						{
+							// Listen Server host PC — Client RPC 가 OwningConnection nullptr 로 skip 되므로 직접 호출
+							BPC->Client_OpenClassSelectUI_Implementation();
+						}
+						else
+						{
+							BPC->Client_OpenClassSelectUI();
+						}
 					}
 				}
 

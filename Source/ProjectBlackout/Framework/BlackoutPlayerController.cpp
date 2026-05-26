@@ -252,10 +252,23 @@ void ABlackoutPlayerController::Client_OpenClassSelectUI_Implementation()
 	
 	if (!CharacterRoster)
 	{
-		BO_LOG_CORE(Warning, "OpenClassSelectUI: CharacterRoster 미설정 — BP_BlackoutGameState 확인");
+		if (!ClassSelectRetryHandle.IsValid())
+		{
+			BO_LOG_CORE(Warning, "OpenClassSelectUI: CharacterRoster 미수신 — GameState replication 대기, 0.5초 후 retry");
+			GetWorld()->GetTimerManager().SetTimer(
+				ClassSelectRetryHandle, this,
+				&ABlackoutPlayerController::Client_OpenClassSelectUI_Implementation,
+				0.5f, false);
+		}
+		else
+		{
+			BO_LOG_CORE(Warning, "OpenClassSelectUI: retry 후에도 CharacterRoster 미수신 — BP_BlackoutGameState 확인");
+			ClassSelectRetryHandle.Invalidate();
+		}
 		return;
 	}
-	
+	ClassSelectRetryHandle.Invalidate();
+
 	if (ClassSelectWidget)
 	{
 		return;
