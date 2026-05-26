@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "BORavagerPatternData.h"
+#include "BORavagerStatData.h"
 #include "Characters/BlackoutEnemyCharacter.h"
 #include "GameplayEffectTypes.h"
 #include "MotionWarpingComponent.h"
@@ -49,5 +50,5 @@ protected:
 	TMap<FGameplayTag, TObjectPtr<UBORavagerPatternData>> BossPatternData;
 
 	UPROPERTY(EditAnywhere, Category = "Blackout|Data")
-	TObjectPtr<UBORavagerData> BossData;
+	TObjectPtr<UBORavagerStatData> BossStatData;
 };

@@ -33,24 +33,27 @@ void ABlackoutBossCharacter::SetData()
 	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
 	if (!ASC) return;
 	
-	for (const auto& [Tag, Data] : BossPatternData)
+	if (HasAuthority())
 	{
-		if (!Data || !Data->GrantedAbility) continue;
-		ASC->GiveAbility(FGameplayAbilitySpec(Data->GrantedAbility, 1));
+		for (const auto& [Tag, Data] : BossPatternData)
+		{
+			if (!Data || !Data->GrantedAbility) continue;
+			ASC->GiveAbility(FGameplayAbilitySpec(Data->GrantedAbility, 1));
+		}
 	}
 	
 	if (AbilitySystemComponent)
 	{
 		AbilitySystemComponent->InitAbilityActorInfo(this, this);
 
-		if (BaseAttributeSet && BossData)
+		if (BaseAttributeSet && BossStatData)
 		{
 			AbilitySystemComponent->SetNumericAttributeBase(
 				UBlackoutBaseAttributeSet::GetMaxHealthAttribute(),
-				BossData->MaxHealth);
+				BossStatData->MaxHealth);
 			AbilitySystemComponent->SetNumericAttributeBase(
 				UBlackoutBaseAttributeSet::GetHealthAttribute(),
-				BossData->MaxHealth);
+				BossStatData->MaxHealth);
 		}
 	}
 }
@@ -88,9 +91,9 @@ void ABlackoutBossCharacter::OnDamageReceived(const FOnAttributeChangeData& Data
 
 FText ABlackoutBossCharacter::GetBossDisplayName() const
 {
-	if (BossData->IsValid())
+	if (BossStatData->IsValid())
 	{
-		return BossData->Name;
+		return BossStatData->Name;
 	}
 	return FText::FromString(TEXT("Ravager"));
 }
@@ -104,14 +107,7 @@ void ABlackoutBossCharacter::BeginPlay()
 	if (!ASC) return;
 	
 	SetData();
-
-	// for (const auto& [_, Data] : BossAbilityData)
-	// {
-	// 	if (!Data || !Data->GrantedAbility) continue;
-	//
-	// 	ASC->GiveAbility(FGameplayAbilitySpec(Data->GrantedAbility, 1));
-	// }
-
+	
 	if (HasAuthority())
 	{
 		ASC->GetGameplayAttributeValueChangeDelegate(
@@ -133,7 +129,17 @@ UBORavagerPatternData* ABlackoutBossCharacter::GetPatternData(FGameplayTag Abili
 
 EBOBossPhase ABlackoutBossCharacter::DetermineTargetPhase(float HealthRatio)
 {
-	return HealthRatio <= 0.5f ? EBOBossPhase::Phase2 : EBOBossPhase::Phase1;
+	if (HealthRatio <= 0.3f)
+	{
+		return EBOBossPhase::Phase3;
+	}
+	
+	if (HealthRatio <= 0.6f)
+	{
+		return EBOBossPhase::Phase2;
+	}
+	
+	return EBOBossPhase::Phase1;
 }
 
 APawn* ABlackoutBossCharacter::ResolveInstigatorPawn(AActor* SourceActor) const
