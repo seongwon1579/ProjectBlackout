@@ -625,36 +625,40 @@ FVector UBlackoutImpactIndicatorComponent::ResolveFireDirection(const ABOFirearm
 		}
 	}
 
-	const float DistanceToTarget = FVector::Dist(MuzzleLocation, AimTarget);
+	// 뷰 방향 벡터 조회
+	FVector ViewLocation = FVector::ZeroVector;
+	FRotator ViewRotation = FRotator::ZeroRotator;
+	if (const APawn* OwnerPawn = Cast<APawn>(GetOwner()))
+	{
+		if (const AController* OwnerController = OwnerPawn->GetController())
+		{
+			OwnerController->GetPlayerViewPoint(ViewLocation, ViewRotation);
+		}
+	}
+	const FVector ViewDir = ViewRotation.Vector();
+
+	// 부호화 투영 거리(내적) 계산
+	const float ProjectedDistance = FVector::DotProduct(AimTarget - MuzzleLocation, ViewDir);
+
+	// Alpha 계산: ProjectedDistance가 Threshold 이하(음수 포함)이면 1.0(완전 폴백), Threshold + BlendRange 이상이면 0.0(완전 기본)
 	float BlendAlpha = 0.f;
-	if (DistanceToTarget <= Threshold)
+	if (ProjectedDistance <= Threshold)
 	{
 		BlendAlpha = 1.0f;
 	}
-	else if (DistanceToTarget >= Threshold + BlendRange)
+	else if (ProjectedDistance >= Threshold + BlendRange)
 	{
 		BlendAlpha = 0.0f;
 	}
 	else if (BlendRange > 0.f)
 	{
-		BlendAlpha = 1.0f - ((DistanceToTarget - Threshold) / BlendRange);
+		BlendAlpha = 1.0f - ((ProjectedDistance - Threshold) / BlendRange);
 	}
 
-	if (BlendAlpha > 0.f)
+	if (BlendAlpha > 0.f && !ViewDir.IsNearlyZero())
 	{
-		// 안전한 Controller 추출 및 ViewPoint 조회
-		if (const APawn* OwnerPawn = Cast<APawn>(GetOwner()))
-		{
-			if (const AController* OwnerController = OwnerPawn->GetController())
-			{
-				FVector ViewLocation = FVector::ZeroVector;
-				FRotator ViewRotation = FRotator::ZeroRotator;
-				OwnerController->GetPlayerViewPoint(ViewLocation, ViewRotation);
-
-				const FVector FallbackTarget = ViewLocation + ViewRotation.Vector() * FallbackDist;
-				AimTarget = AimTarget + (FallbackTarget - AimTarget) * BlendAlpha;
-			}
-		}
+		const FVector FallbackTarget = ViewLocation + ViewDir * FallbackDist;
+		AimTarget = AimTarget + (FallbackTarget - AimTarget) * BlendAlpha;
 	}
 
 	FVector FireDirection = (AimTarget - MuzzleLocation).GetSafeNormal();
