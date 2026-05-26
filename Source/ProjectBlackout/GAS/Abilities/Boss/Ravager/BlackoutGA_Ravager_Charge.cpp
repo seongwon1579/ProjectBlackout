@@ -9,10 +9,6 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Tasks/AbilityTask_TickerTask.h"
 
-namespace
-{
-	static const TArray<FName> EmptyHitboxNames;
-}
 
 void UBlackoutGA_Ravager_Charge::PreActivate(const FGameplayAbilitySpecHandle Handle,
                                      const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo,
@@ -74,6 +70,8 @@ float UBlackoutGA_Ravager_Charge::GetDamageMagnitude() const
 
 const TArray<FName>& UBlackoutGA_Ravager_Charge::GetHitboxComponentNames() const
 {
+	static const TArray<FName> EmptyHitboxNames;
+	
 	if (!CachedPatternData) return EmptyHitboxNames;
 	return CachedPatternData->ChargeSettings.HitboxComponentNames;
 }

@@ -9,10 +9,6 @@
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "Tasks/AbilityTask_BossMeleeHitbox.h"
 
-namespace
-{
-	static const TArray<FName> EmptyHitboxNames;
-}
 
 void UBlackoutGA_Ravager_HitboxAttack::PreActivate(const FGameplayAbilitySpecHandle Handle,
                                            const FGameplayAbilityActorInfo* ActorInfo,
@@ -63,6 +59,7 @@ void UBlackoutGA_Ravager_HitboxAttack::EndAbility(const FGameplayAbilitySpecHand
 
 const TArray<FName>& UBlackoutGA_Ravager_HitboxAttack::GetHitboxComponentNames() const
 {
+	static const TArray<FName> EmptyHitboxNames;
 	return EmptyHitboxNames;
 }
 
@@ -85,6 +82,7 @@ void UBlackoutGA_Ravager_HitboxAttack::ClearHitboxTasks()
 
 void UBlackoutGA_Ravager_HitboxAttack::CacheHitboxComponents()
 {
+	
 	CachedHitboxComponents.Empty();
 	if (!CachedOwner) return;
 
