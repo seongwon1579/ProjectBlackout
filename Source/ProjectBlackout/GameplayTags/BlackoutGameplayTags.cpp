@@ -107,6 +107,8 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_ChicagoTypewriter_Impact_Flesh, "GameplayCue.Weapon.ChicagoTypewriter.Impact.Flesh");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_ChicagoTypewriter_Impact_Metal, "GameplayCue.Weapon.ChicagoTypewriter.Impact.Metal");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_ChicagoTypewriter_Impact_Stone, "GameplayCue.Weapon.ChicagoTypewriter.Impact.Stone");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_ChicagoTypewriter_Reload_In, "GameplayCue.Weapon.ChicagoTypewriter.Reload.In");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_ChicagoTypewriter_Reload_Out, "GameplayCue.Weapon.ChicagoTypewriter.Reload.Out");
 
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_RepeaterPistol_Fire, "GameplayCue.Weapon.RepeaterPistol.Fire");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_RepeaterPistol_Trail, "GameplayCue.Weapon.RepeaterPistol.Trail");
@@ -114,6 +116,7 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_RepeaterPistol_Impact_Flesh, "GameplayCue.Weapon.RepeaterPistol.Impact.Flesh");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_RepeaterPistol_Impact_Metal, "GameplayCue.Weapon.RepeaterPistol.Impact.Metal");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_RepeaterPistol_Impact_Stone, "GameplayCue.Weapon.RepeaterPistol.Impact.Stone");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_RepeaterPistol_Reload, "GameplayCue.Weapon.RepeaterPistol.Reload");
 
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_Sporebloom_Fire, "GameplayCue.Weapon.Sporebloom.Fire");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_Sporebloom_Trail, "GameplayCue.Weapon.Sporebloom.Trail");
@@ -121,6 +124,9 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_Sporebloom_Impact_Flesh, "GameplayCue.Weapon.Sporebloom.Impact.Flesh");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_Sporebloom_Impact_Metal, "GameplayCue.Weapon.Sporebloom.Impact.Metal");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_Sporebloom_Impact_Stone, "GameplayCue.Weapon.Sporebloom.Impact.Stone");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_Sporebloom_Reload_Rack, "GameplayCue.Weapon.Sporebloom.Reload.Rack");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_Sporebloom_Reload_Release, "GameplayCue.Weapon.Sporebloom.Reload.Release");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_Sporebloom_Reload_Reload, "GameplayCue.Weapon.Sporebloom.Reload.Reload");
 
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_Meridian_Fire, "GameplayCue.Weapon.Meridian.Fire");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_Meridian_Trail, "GameplayCue.Weapon.Meridian.Trail");
@@ -129,6 +135,8 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_Meridian_Impact_Metal, "GameplayCue.Weapon.Meridian.Impact.Metal");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_Meridian_Impact_Stone, "GameplayCue.Weapon.Meridian.Impact.Stone");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_Meridian_Explosion, "GameplayCue.Weapon.Meridian.Explosion");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_Meridian_Reload_In, "GameplayCue.Weapon.Meridian.Reload.In");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_Meridian_Reload_Out, "GameplayCue.Weapon.Meridian.Reload.Out");
 
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_RustyLeverAction_Fire, "GameplayCue.Weapon.RustyLeverAction.Fire");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_RustyLeverAction_Trail, "GameplayCue.Weapon.RustyLeverAction.Trail");
@@ -136,6 +144,12 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_RustyLeverAction_Impact_Flesh, "GameplayCue.Weapon.RustyLeverAction.Impact.Flesh");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_RustyLeverAction_Impact_Metal, "GameplayCue.Weapon.RustyLeverAction.Impact.Metal");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_RustyLeverAction_Impact_Stone, "GameplayCue.Weapon.RustyLeverAction.Impact.Stone");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_RustyLeverAction_Bolt_Push, "GameplayCue.Weapon.RustyLeverAction.Bolt.Push");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_RustyLeverAction_Bolt_Pull, "GameplayCue.Weapon.RustyLeverAction.Bolt.Pull");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_RustyLeverAction_Reload_Mag_In, "GameplayCue.Weapon.RustyLeverAction.Reload.Mag.In");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_RustyLeverAction_Reload_Mag_Out, "GameplayCue.Weapon.RustyLeverAction.Reload.Mag.Out");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_RustyLeverAction_Reload_Bolt_Push, "GameplayCue.Weapon.RustyLeverAction.Reload.Bolt.Push");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_RustyLeverAction_Reload_Bolt_Pull, "GameplayCue.Weapon.RustyLeverAction.Reload.Bolt.Pull");
 
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_DoubleBarrel_Fire, "GameplayCue.Weapon.DoubleBarrel.Fire");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_DoubleBarrel_Trail, "GameplayCue.Weapon.DoubleBarrel.Trail");
@@ -143,6 +157,9 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_DoubleBarrel_Impact_Flesh, "GameplayCue.Weapon.DoubleBarrel.Impact.Flesh");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_DoubleBarrel_Impact_Metal, "GameplayCue.Weapon.DoubleBarrel.Impact.Metal");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_DoubleBarrel_Impact_Stone, "GameplayCue.Weapon.DoubleBarrel.Impact.Stone");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_DoubleBarrel_Reload_Open, "GameplayCue.Weapon.DoubleBarrel.Reload.Open");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_DoubleBarrel_Reload_Insert, "GameplayCue.Weapon.DoubleBarrel.Reload.Insert");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_DoubleBarrel_Reload_Close, "GameplayCue.Weapon.DoubleBarrel.Reload.Close");
 	
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_SteelSword_Swing, "GameplayCue.Weapon.SteelSword.Swing");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_SteelSword_Impact_Default, "GameplayCue.Weapon.SteelSword.Impact.Default");
