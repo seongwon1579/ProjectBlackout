@@ -4,6 +4,7 @@
 #include "AbilitySystemGlobals.h"
 #include "AbilitySystemComponent.h"
 #include "Animation/AnimMontage.h"
+#include "Animation/BlackoutPlayerAnimInstance.h"
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "Combat/BlackoutWeaponCueLibrary.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
@@ -461,7 +462,49 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 	PlayFireMontage();
 
 	const FVector MuzzleLocation = CombatComponent->GetMuzzleTransform().GetLocation();
-	const FVector AimTarget = ImpactIndicatorComponent->GetAimTargetPoint();
+	FVector AimTarget = ImpactIndicatorComponent->GetAimTargetPoint();
+
+	// 사격 판정(LineTrace) 궤적을 애니메이션 방향과 동기화
+	float Threshold = 10.f;
+	float BlendRange = 15.f;
+	float FallbackDist = 100.f;
+
+	if (UBlackoutPlayerAnimInstance* AnimInstance = Cast<UBlackoutPlayerAnimInstance>(PlayerCharacter->GetMesh()->GetAnimInstance()))
+	{
+		Threshold = AnimInstance->GetSafeAimDistanceThreshold();
+		BlendRange = AnimInstance->GetSafeAimBlendRange();
+		FallbackDist = AnimInstance->GetFallbackAimTargetDistance();
+	}
+
+	const float DistanceToTarget = FVector::Dist(MuzzleLocation, AimTarget);
+	float BlendAlpha = 0.f;
+	if (DistanceToTarget <= Threshold)
+	{
+		BlendAlpha = 1.0f;
+	}
+	else if (DistanceToTarget >= Threshold + BlendRange)
+	{
+		BlendAlpha = 0.0f;
+	}
+	else if (BlendRange > 0.f)
+	{
+		BlendAlpha = 1.0f - ((DistanceToTarget - Threshold) / BlendRange);
+	}
+
+	if (BlendAlpha > 0.f)
+	{
+		APlayerController* PlayerController = Cast<APlayerController>(PlayerCharacter->GetController());
+		if (PlayerController)
+		{
+			FVector ViewLocation = FVector::ZeroVector;
+			FRotator ViewRotation = FRotator::ZeroRotator;
+			PlayerController->GetPlayerViewPoint(ViewLocation, ViewRotation);
+
+			const FVector FallbackTarget = ViewLocation + ViewRotation.Vector() * FallbackDist;
+			AimTarget = AimTarget + (FallbackTarget - AimTarget) * BlendAlpha;
+		}
+	}
+
 	const FVector BaseFireDirection = (AimTarget - MuzzleLocation).GetSafeNormal();
 	const FVector FireDirection = CombatComponent->GetSpreadDeviatedDirection(BaseFireDirection);
 

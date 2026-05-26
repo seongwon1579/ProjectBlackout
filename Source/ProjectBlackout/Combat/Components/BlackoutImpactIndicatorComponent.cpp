@@ -4,6 +4,12 @@
 #include "AbilitySystemGlobals.h"
 #include "BlackoutLog.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
+#include "Combat/Components/BlackoutImpactIndicatorComponent.h"
+
+#include "AbilitySystemComponent.h"
+#include "AbilitySystemGlobals.h"
+#include "BlackoutLog.h"
+#include "Combat/Components/BlackoutCombatComponent.h"
 #include "Combat/Weapons/BOFirearm.h"
 #include "Combat/Weapons/BOProjectile.h"
 #include "Components/PrimitiveComponent.h"
@@ -16,6 +22,9 @@
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/GameplayStaticsTypes.h"
+#include "GameFramework/Character.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Animation/BlackoutPlayerAnimInstance.h"
 
 namespace
 {
@@ -595,7 +604,60 @@ FVector UBlackoutImpactIndicatorComponent::ResolveFireDirection(const ABOFirearm
 		return FVector::ZeroVector;
 	}
 
-	FVector FireDirection = (GetAimTargetPoint() - Firearm->GetMuzzleTransform().GetLocation()).GetSafeNormal();
+	const FVector MuzzleLocation = Firearm->GetMuzzleTransform().GetLocation();
+	FVector AimTarget = GetAimTargetPoint();
+
+	// 애니메이션 인스턴스의 안전 LERP 파라미터를 동적 쿼리하여 사격 마커 정렬
+	float Threshold = 10.f;
+	float BlendRange = 15.f;
+	float FallbackDist = 100.f;
+
+	if (const APawn* OwnerPawn = Cast<APawn>(GetOwner()))
+	{
+		if (const ACharacter* Character = Cast<ACharacter>(OwnerPawn))
+		{
+			if (const UBlackoutPlayerAnimInstance* AnimInstance = Cast<UBlackoutPlayerAnimInstance>(Character->GetMesh()->GetAnimInstance()))
+			{
+				Threshold = AnimInstance->GetSafeAimDistanceThreshold();
+				BlendRange = AnimInstance->GetSafeAimBlendRange();
+				FallbackDist = AnimInstance->GetFallbackAimTargetDistance();
+			}
+		}
+	}
+
+	const float DistanceToTarget = FVector::Dist(MuzzleLocation, AimTarget);
+	float BlendAlpha = 0.f;
+	if (DistanceToTarget <= Threshold)
+	{
+		BlendAlpha = 1.0f;
+	}
+	else if (DistanceToTarget >= Threshold + BlendRange)
+	{
+		BlendAlpha = 0.0f;
+	}
+	else if (BlendRange > 0.f)
+	{
+		BlendAlpha = 1.0f - ((DistanceToTarget - Threshold) / BlendRange);
+	}
+
+	if (BlendAlpha > 0.f)
+	{
+		// 안전한 Controller 추출 및 ViewPoint 조회
+		if (const APawn* OwnerPawn = Cast<APawn>(GetOwner()))
+		{
+			if (const AController* OwnerController = OwnerPawn->GetController())
+			{
+				FVector ViewLocation = FVector::ZeroVector;
+				FRotator ViewRotation = FRotator::ZeroRotator;
+				OwnerController->GetPlayerViewPoint(ViewLocation, ViewRotation);
+
+				const FVector FallbackTarget = ViewLocation + ViewRotation.Vector() * FallbackDist;
+				AimTarget = AimTarget + (FallbackTarget - AimTarget) * BlendAlpha;
+			}
+		}
+	}
+
+	FVector FireDirection = (AimTarget - MuzzleLocation).GetSafeNormal();
 	if (FireDirection.IsNearlyZero())
 	{
 		if (const AActor* OwnerActor = GetOwner())

@@ -21,6 +21,10 @@ public:
 	virtual void NativeInitializeAnimation() override;
 	virtual void NativeUpdateAnimation(float DeltaSeconds) override;
 
+	FORCEINLINE float GetSafeAimDistanceThreshold() const { return SafeAimDistanceThreshold; }
+	FORCEINLINE float GetSafeAimBlendRange() const { return SafeAimBlendRange; }
+	FORCEINLINE float GetFallbackAimTargetDistance() const { return FallbackAimTargetDistance; }
+
 protected:
 	/** 에임 오프셋 값을 갱신합니다. */
 	void UpdateAimOffset(float DeltaSeconds);
