@@ -26,6 +26,7 @@
 #include "UI/BlackoutSpectatorWidget.h"
 #include "UI/BlackoutValueBarWidget.h"
 #include "UI/BlackoutWeaponAmmoWidget.h"
+#include "UI/BlackoutSurrenderVoteWidget.h"
 
 namespace
 {
@@ -154,6 +155,11 @@ void UBlackoutHUDWidget::SetWidgetController(UBlackoutHUDWidgetController* InWid
 
 	// 초기 모드로 가시성을 한 번 정렬해 첫 프레임에 부적절한 위젯이 노출되지 않도록 합니다.
 	ApplyHUDMode(WidgetController->GetCurrentHUDMode());
+
+	if (SurrenderVoteWidget)
+	{
+		SurrenderVoteWidget->SetWidgetController(InWidgetController);
+	}
 
 	ReceiveWidgetControllerSet();
 }

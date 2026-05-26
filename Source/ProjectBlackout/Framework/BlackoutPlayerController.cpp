@@ -435,6 +435,21 @@ void ABlackoutPlayerController::SetupInputComponent()
 	{
 		EnhancedInputComponent->BindAction(SpectateNextAction, ETriggerEvent::Started, this, &ABlackoutPlayerController::OnSpectateNextPressed);
 	}
+
+	if (RequestSurrenderAction)
+	{
+		EnhancedInputComponent->BindAction(RequestSurrenderAction, ETriggerEvent::Started, this, &ABlackoutPlayerController::OnRequestSurrenderPressed);
+	}
+
+	if (VoteYesAction)
+	{
+		EnhancedInputComponent->BindAction(VoteYesAction, ETriggerEvent::Started, this, &ABlackoutPlayerController::OnVoteYesPressed);
+	}
+
+	if (VoteNoAction)
+	{
+		EnhancedInputComponent->BindAction(VoteNoAction, ETriggerEvent::Started, this, &ABlackoutPlayerController::OnVoteNoPressed);
+	}
 	
 	if (ClassSelectNextAction)
 	{
@@ -731,4 +746,68 @@ UBlackoutCombatComponent* ABlackoutPlayerController::GetBlackoutCombatComponent(
 	return BlackoutPlayerCharacter ? BlackoutPlayerCharacter->GetCombatComponent() : nullptr;
 }
 
+void ABlackoutPlayerController::Server_RequestSurrenderVote_Implementation()
+{
+	if (ABlackoutBattleGameMode* BattleGameMode = GetWorld() ? GetWorld()->GetAuthGameMode<ABlackoutBattleGameMode>() : nullptr)
+	{
+		BattleGameMode->StartSurrenderVote(this);
+	}
+}
+
+void ABlackoutPlayerController::Server_CastSurrenderVote_Implementation(bool bAgree)
+{
+	if (ABlackoutBattleGameMode* BattleGameMode = GetWorld() ? GetWorld()->GetAuthGameMode<ABlackoutBattleGameMode>() : nullptr)
+	{
+		BattleGameMode->CastSurrenderVote(this, bAgree);
+	}
+}
+
+void ABlackoutPlayerController::Client_SetSurrenderInputContextActive_Implementation(bool bActive)
+{
+	if (!IsLocalPlayerController() || !SurrenderVoteMappingContext)
+	{
+		return;
+	}
+
+	ULocalPlayer* LocalPlayer = GetLocalPlayer();
+	if (!LocalPlayer)
+	{
+		return;
+	}
+
+	UEnhancedInputLocalPlayerSubsystem* InputSubsystem =
+		ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LocalPlayer);
+	if (!InputSubsystem)
+	{
+		return;
+	}
+
+	if (bActive)
+	{
+		// 높은 우선순위(2)로 매핑 컨텍스트를 푸시하여 투표 조작이 최우선이 되도록 합니다.
+		InputSubsystem->AddMappingContext(SurrenderVoteMappingContext, 2);
+	}
+	else
+	{
+		InputSubsystem->RemoveMappingContext(SurrenderVoteMappingContext);
+	}
+}
+
+void ABlackoutPlayerController::OnVoteYesPressed()
+{
+	Server_CastSurrenderVote(true);
+}
+
+void ABlackoutPlayerController::OnVoteNoPressed()
+{
+	Server_CastSurrenderVote(false);
+}
+
+void ABlackoutPlayerController::OnRequestSurrenderPressed()
+{
+	// 서버에 항복 투표 발의(요청)를 보냅니다.
+	Server_RequestSurrenderVote();
+}
+
 #pragma endregion 
+

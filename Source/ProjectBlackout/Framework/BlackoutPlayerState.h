@@ -67,6 +67,12 @@ public:
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Blackout|PlayerState")
 	bool bIsReady = false;
 
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_SurrenderVoteState, Category = "Blackout|PlayerState")
+	bool bRequestedSurrender = false;
+
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_SurrenderVoteState, Category = "Blackout|PlayerState")
+	bool bVotedAgainstSurrender = false;
+
 	UPROPERTY(BlueprintAssignable, Category = "Blackout|PlayerState|Consumables")
 	FBlackoutConsumableCountsChangedSignature OnConsumableCountsChanged;
 
@@ -76,6 +82,9 @@ protected:
 
 	UFUNCTION()
 	void OnRep_GulSerumCount();
+
+	UFUNCTION()
+	void OnRep_SurrenderVoteState();
 
 	void BroadcastConsumableCounts();
 

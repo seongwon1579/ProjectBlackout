@@ -704,8 +704,17 @@ void ABlackoutBattleGameMode::HandlePartyWipe()
 		}
 
 		BlackoutPS->bIsReady = false;
-		BlackoutPS->ApplyBattleTransitionPolicy(
-			EBattleTransitionType::PartyWipeRestart);
+
+		EBattleTransitionType Transition = EBattleTransitionType::PartyWipeRestart;
+		if (const ABlackoutGameState* GS = GetGameState<ABlackoutGameState>())
+		{
+			if (GS->bIsSurrenderVoteActive)
+			{
+				Transition = EBattleTransitionType::SurrenderRestart;
+			}
+		}
+
+		BlackoutPS->ApplyBattleTransitionPolicy(Transition);
 
 		if (APlayerController* PC = BlackoutPS->GetPlayerController())
 		{
@@ -766,6 +775,272 @@ void ABlackoutBattleGameMode::HandlePartyWipe()
 	const FString Location = bHasCheckpoint
 		                         ? CurrentCheckpointActor->GetName()
 		                         : TEXT("none");
-	BO_LOG_NET(Log, "파티 전멸 - 체크포인트 복귀 + Ready 재요청 (CurrentCheckpoint=%s)",
-	           *Location);
+	
+	bool bIsSurrender = false;
+	if (const ABlackoutGameState* GS = GetGameState<ABlackoutGameState>())
+	{
+		bIsSurrender = GS->bIsSurrenderVoteActive;
+	}
+
+	if (bIsSurrender)
+	{
+		BO_LOG_NET(Log, "합의 항복 - 체크포인트 복귀 + Ready 재요청 (CurrentCheckpoint=%s)",
+				   *Location);
+	}
+	else
+	{
+		BO_LOG_NET(Log, "파티 전멸 - 체크포인트 복귀 + Ready 재요청 (CurrentCheckpoint=%s)",
+				   *Location);
+	}
+}
+
+void ABlackoutBattleGameMode::StartSurrenderVote(ABlackoutPlayerController* Proposer)
+{
+	if (!Proposer || !GameState)
+	{
+		return;
+	}
+
+	ABlackoutGameState* GS = GetGameState<ABlackoutGameState>();
+	if (!GS)
+	{
+		return;
+	}
+
+	// 1. 쿨다운 검사
+	const float CurrentTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+	if (CurrentTime < GS->SurrenderVoteCooldownEndTime)
+	{
+		BO_LOG_NET(Warning, "항복 투표 발의 거부: 쿨다운 중입니다. (남은 시간: %.1fs)", GS->SurrenderVoteCooldownEndTime - CurrentTime);
+		return;
+	}
+
+	// 2. 매치 상태 검사 (전투 중이어야 함)
+	if (!IsActiveCombatState(GS->CurrentMatchState))
+	{
+		BO_LOG_NET(Warning, "항복 투표 발의 거부: 전투 중이 아닙니다. (State=%s)", *UEnum::GetValueAsString(GS->CurrentMatchState));
+		return;
+	}
+
+	// 3. 발의자 자격 검사 (쓰러졌거나 완전히 사망한 플레이어만 가능)
+	const ABlackoutPlayerCharacter* ProposerPawn = Cast<ABlackoutPlayerCharacter>(Proposer->GetPawn());
+	const bool bCanPropose = ProposerPawn && (ProposerPawn->IsDowned() || ProposerPawn->IsDead());
+	if (!bCanPropose)
+	{
+		BO_LOG_NET(Warning, "항복 투표 발의 거부: 생존자는 항복을 발의할 수 없습니다. (Proposer=%s)", *Proposer->GetName());
+		return;
+	}
+
+	// 4. 솔로 플레이어 예외 차단
+	if (GameState->PlayerArray.Num() <= 1)
+	{
+		BO_LOG_NET(Warning, "항복 투표 발의 거부: 1인 솔로 플레이 시에는 투표를 할 수 없습니다.");
+		return;
+	}
+
+	// 5. 이미 활성화된 투표가 있는 경우 무시
+	if (GS->bIsSurrenderVoteActive)
+	{
+		return;
+	}
+
+	BO_LOG_NET(Log, "항복 투표 발의 성공: 발의자=%s", *Proposer->GetName());
+
+	// 6. 상태 변수 초기화
+	GS->bIsSurrenderVoteActive = true;
+	GS->SurrenderVoteYesCount = 0;
+	GS->SurrenderVoteNoCount = 0;
+	GS->SurrenderVoteEndTimeSeconds = CurrentTime + 30.f;
+
+	for (APlayerState* PSBase : GameState->PlayerArray)
+	{
+		if (ABlackoutPlayerState* PS = Cast<ABlackoutPlayerState>(PSBase))
+		{
+			PS->bRequestedSurrender = false;
+			PS->bVotedAgainstSurrender = false;
+		}
+	}
+
+	// 7. 발의자 자동 찬성
+	if (ABlackoutPlayerState* ProposerPS = Proposer->GetPlayerState<ABlackoutPlayerState>())
+	{
+		ProposerPS->bRequestedSurrender = true;
+	}
+
+	// 8. 30초 타이머 예약
+	GetWorldTimerManager().ClearTimer(SurrenderVoteTimerHandle);
+	GetWorldTimerManager().SetTimer(
+		SurrenderVoteTimerHandle,
+		this,
+		&ABlackoutBattleGameMode::TimeoutSurrenderVote,
+		30.f,
+		false
+	);
+
+	// 9. 모든 플레이어에게 투표 IMC 푸시
+	SetAllPlayersSurrenderInputContextActive(true);
+
+	// 10. 투표 평가 실행
+	EvaluateSurrenderVote();
+}
+
+void ABlackoutBattleGameMode::CastSurrenderVote(ABlackoutPlayerController* Voter, bool bAgree)
+{
+	ABlackoutGameState* GS = GetGameState<ABlackoutGameState>();
+	if (!GS || !GS->bIsSurrenderVoteActive)
+	{
+		return;
+	}
+
+	ABlackoutPlayerState* VoterPS = Voter ? Voter->GetPlayerState<ABlackoutPlayerState>() : nullptr;
+	if (!VoterPS)
+	{
+		return;
+	}
+
+	VoterPS->bRequestedSurrender = bAgree;
+	VoterPS->bVotedAgainstSurrender = !bAgree;
+
+	BO_LOG_NET(Log, "투표 접수: %s -> %s", *Voter->GetName(), bAgree ? TEXT("찬성") : TEXT("반대"));
+
+	EvaluateSurrenderVote();
+}
+
+void ABlackoutBattleGameMode::EvaluateSurrenderVote()
+{
+	ABlackoutGameState* GS = GetGameState<ABlackoutGameState>();
+	if (!GS || !GS->bIsSurrenderVoteActive)
+	{
+		return;
+	}
+
+	const int32 TotalPlayerCount = GameState->PlayerArray.Num();
+	const int32 Required = FMath::Max(1, (TotalPlayerCount / 2) + 1);
+
+	int32 YesCount = 0;
+	int32 NoCount = 0;
+
+	for (APlayerState* PSBase : GameState->PlayerArray)
+	{
+		if (const ABlackoutPlayerState* PS = Cast<ABlackoutPlayerState>(PSBase))
+		{
+			if (PS->bRequestedSurrender)
+			{
+				++YesCount;
+			}
+			else if (PS->bVotedAgainstSurrender)
+			{
+				++NoCount;
+			}
+		}
+	}
+
+	GS->SurrenderVoteYesCount = YesCount;
+	GS->SurrenderVoteNoCount = NoCount;
+	GS->RequiredSurrenderVoteCount = Required;
+
+	BO_LOG_NET(Log, "항복 투표 평가: 찬성=%d, 반대=%d, 필요=%d, 접속인원=%d", YesCount, NoCount, Required, TotalPlayerCount);
+
+	// 가결 성공 조건
+	if (YesCount >= Required)
+	{
+		HandleSurrenderSuccess();
+		return;
+	}
+
+	// 조기 기각 조건 (반대표가 너무 많아 남은 미투표자가 전원 찬성해도 도달이 안 될 때)
+	if ((TotalPlayerCount - NoCount) < Required)
+	{
+		HandleSurrenderFailed(false);
+		return;
+	}
+
+	// 수치 변경을 델리게이트 브로드캐스트하여 동기화
+	GS->OnSurrenderVoteStateChanged.Broadcast(
+		GS->bIsSurrenderVoteActive,
+		YesCount,
+		NoCount,
+		GS->SurrenderVoteEndTimeSeconds
+	);
+}
+
+void ABlackoutBattleGameMode::TimeoutSurrenderVote()
+{
+	BO_LOG_NET(Log, "항복 투표 기각: 제한 시간(30초) 초과");
+	HandleSurrenderFailed(true);
+}
+
+void ABlackoutBattleGameMode::HandleSurrenderSuccess()
+{
+	BO_LOG_NET(Log, "항복 투표 가결 완료! 체크포인트로 퇴각합니다.");
+
+	GetWorldTimerManager().ClearTimer(SurrenderVoteTimerHandle);
+	SetAllPlayersSurrenderInputContextActive(false);
+
+	// 복귀 수행
+	HandlePartyWipe();
+
+	// 투표 데이터 정리
+	ClearSurrenderVotes();
+}
+
+void ABlackoutBattleGameMode::HandleSurrenderFailed(bool bIsTimeout)
+{
+	BO_LOG_NET(Log, "항복 투표 부결 및 기각 처리.");
+
+	GetWorldTimerManager().ClearTimer(SurrenderVoteTimerHandle);
+	SetAllPlayersSurrenderInputContextActive(false);
+
+	// 1분(60초) 발의 제한 쿨다운 설정
+	if (ABlackoutGameState* GS = GetGameState<ABlackoutGameState>())
+	{
+		const float CurrentTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+		GS->SurrenderVoteCooldownEndTime = CurrentTime + 60.f;
+	}
+
+	ClearSurrenderVotes();
+}
+
+void ABlackoutBattleGameMode::ClearSurrenderVotes()
+{
+	ABlackoutGameState* GS = GetGameState<ABlackoutGameState>();
+	if (!GS)
+	{
+		return;
+	}
+
+	GS->bIsSurrenderVoteActive = false;
+	GS->SurrenderVoteYesCount = 0;
+	GS->SurrenderVoteNoCount = 0;
+	GS->SurrenderVoteEndTimeSeconds = 0.f;
+
+	for (APlayerState* PSBase : GameState->PlayerArray)
+	{
+		if (ABlackoutPlayerState* PS = Cast<ABlackoutPlayerState>(PSBase))
+		{
+			PS->bRequestedSurrender = false;
+			PS->bVotedAgainstSurrender = false;
+		}
+	}
+
+	GS->OnSurrenderVoteStateChanged.Broadcast(false, 0, 0, 0.f);
+}
+
+void ABlackoutBattleGameMode::SetAllPlayersSurrenderInputContextActive(bool bActive)
+{
+	if (!GameState)
+	{
+		return;
+	}
+
+	for (APlayerState* PSBase : GameState->PlayerArray)
+	{
+		if (const ABlackoutPlayerState* PS = Cast<ABlackoutPlayerState>(PSBase))
+		{
+			if (ABlackoutPlayerController* PC = Cast<ABlackoutPlayerController>(PS->GetPlayerController()))
+			{
+				PC->Client_SetSurrenderInputContextActive(bActive);
+			}
+		}
+	}
 }

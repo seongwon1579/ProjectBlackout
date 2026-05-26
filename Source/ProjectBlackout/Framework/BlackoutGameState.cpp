@@ -14,6 +14,12 @@ void ABlackoutGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 	DOREPLIFETIME(ABlackoutGameState, MatchTimer);
 	DOREPLIFETIME(ABlackoutGameState, DestroyedPillarIds);
 	DOREPLIFETIME(ABlackoutGameState, bRedMistPhaseActive);
+	DOREPLIFETIME(ABlackoutGameState, bIsSurrenderVoteActive);
+	DOREPLIFETIME(ABlackoutGameState, SurrenderVoteYesCount);
+	DOREPLIFETIME(ABlackoutGameState, SurrenderVoteNoCount);
+	DOREPLIFETIME(ABlackoutGameState, RequiredSurrenderVoteCount);
+	DOREPLIFETIME(ABlackoutGameState, SurrenderVoteEndTimeSeconds);
+	DOREPLIFETIME(ABlackoutGameState, SurrenderVoteCooldownEndTime);
 }
 
 void ABlackoutGameState::AddPlayerState(APlayerState* PlayerState)
@@ -50,4 +56,14 @@ void ABlackoutGameState::OnRep_CurrentMatchState()
 void ABlackoutGameState::OnRep_DestroyedPillarIds()
 {
 	BO_LOG_NET(Verbose, "DestroyedPillarIds updated, count=%d", DestroyedPillarIds.Num());
+}
+
+void ABlackoutGameState::OnRep_SurrenderVoteActive()
+{
+	OnSurrenderVoteStateChanged.Broadcast(
+		bIsSurrenderVoteActive,
+		SurrenderVoteYesCount,
+		SurrenderVoteNoCount,
+		SurrenderVoteEndTimeSeconds
+	);
 }

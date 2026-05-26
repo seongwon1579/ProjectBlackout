@@ -98,6 +98,9 @@ protected:
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD|Spectator")
 	TObjectPtr<UBlackoutSpectatorWidget> SpectatorWidget;
 
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD|Surrender")
+	TObjectPtr<class UBlackoutSurrenderVoteWidget> SurrenderVoteWidget;
+
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
 	TObjectPtr<UWidget> ImpactIndicatorWidget;
 

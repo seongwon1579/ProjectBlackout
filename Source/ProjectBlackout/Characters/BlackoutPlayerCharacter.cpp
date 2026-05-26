@@ -1207,7 +1207,24 @@ void ABlackoutPlayerCharacter::OnDowned()
 
 bool ABlackoutPlayerCharacter::CanEnterDownedState() const
 {
-	return !IsDead() && !IsDowned();
+	if (IsDead() || IsDowned())
+	{
+		return false;
+	}
+
+	// 1인 솔로 플레이 시에는 부활시켜 줄 아군이 없으므로 다운 상태에 진입할 수 없게 차단하여 즉시 완전 사망(OnDeath)하도록 유도합니다.
+	if (const UWorld* World = GetWorld())
+	{
+		if (const AGameStateBase* GS = World->GetGameState())
+		{
+			if (GS->PlayerArray.Num() <= 1)
+			{
+				return false;
+			}
+		}
+	}
+
+	return true;
 }
 
 void ABlackoutPlayerCharacter::OnDeath()
