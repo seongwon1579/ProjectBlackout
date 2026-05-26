@@ -59,13 +59,18 @@ void UBlackoutGA_Ravager_HitboxAttack::EndAbility(const FGameplayAbilitySpecHand
 
 const TArray<FName>& UBlackoutGA_Ravager_HitboxAttack::GetHitboxComponentNames() const
 {
-	static const TArray<FName> EmptyHitboxNames;
-	return EmptyHitboxNames;
+	return GetEmptyHitboxNames();
 }
 
 bool UBlackoutGA_Ravager_HitboxAttack::HasValidSettings() const
 {
 	return CachedPatternData->BasicAttackSettings.IsValid();
+}
+
+const TArray<FName>& UBlackoutGA_Ravager_HitboxAttack::GetEmptyHitboxNames()
+{
+	static const TArray<FName> Empty;
+	return Empty;
 }
 
 void UBlackoutGA_Ravager_HitboxAttack::ClearHitboxTasks()

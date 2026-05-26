@@ -32,6 +32,8 @@ protected:
 	virtual float GetDamageMagnitude() const { return 0.f; }
 	virtual const TArray<FName>& GetHitboxComponentNames() const;
 	virtual bool HasValidSettings() const override;
+	
+	static const TArray<FName>& GetEmptyHitboxNames();
 
 	// 적 한 명을 맞추자마자 히트박스를 끌 것인가? (true = 단발 타격, false = 범위 내 다중/관통 타격 가능)
 	virtual bool ShouldClearHitboxOnHit() const { return true; }

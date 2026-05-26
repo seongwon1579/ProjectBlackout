@@ -70,11 +70,10 @@ float UBlackoutGA_Ravager_Charge::GetDamageMagnitude() const
 
 const TArray<FName>& UBlackoutGA_Ravager_Charge::GetHitboxComponentNames() const
 {
-	static const TArray<FName> EmptyHitboxNames;
-	
-	if (!CachedPatternData) return EmptyHitboxNames;
+	if (!CachedPatternData) return GetEmptyHitboxNames();
 	return CachedPatternData->ChargeSettings.HitboxComponentNames;
 }
+
 
 bool UBlackoutGA_Ravager_Charge::HasValidSettings() const
 {
