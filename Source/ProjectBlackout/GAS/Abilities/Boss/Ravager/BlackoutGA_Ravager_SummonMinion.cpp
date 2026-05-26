@@ -1,4 +1,4 @@
-#include "GAS/Abilities/Boss/Ravager/GA_Ravager_SummonMinion.h"
+#include "GAS/Abilities/Boss/Ravager/BlackoutGA_Ravager_SummonMinion.h"
 
 #include "BlackoutBossCharacter.h"
 #include "BlackoutGameplayTags.h"
@@ -6,7 +6,7 @@
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "Kismet/GameplayStatics.h"
 
-void UGA_Ravager_SummonMinion::SetupEventListeners()
+void UBlackoutGA_Ravager_SummonMinion::SetupEventListeners()
 {
 	Super::SetupEventListeners();
 	
@@ -25,24 +25,24 @@ void UGA_Ravager_SummonMinion::SetupEventListeners()
 	
 	if (WaitSpawnEvent)
 	{
-		WaitSpawnEvent->EventReceived.AddDynamic(this, &UGA_Ravager_SummonMinion::OnSpawnMinionNotify);
+		WaitSpawnEvent->EventReceived.AddDynamic(this, &UBlackoutGA_Ravager_SummonMinion::OnSpawnMinionNotify);
 		WaitSpawnEvent->ReadyForActivation();
 	}
 }
 
-bool UGA_Ravager_SummonMinion::HasValidSettings() const
+bool UBlackoutGA_Ravager_SummonMinion::HasValidSettings() const
 {
 	return CachedPatternData->MinionSettings.IsValid();
 }
 
-void UGA_Ravager_SummonMinion::OnSpawnMinionNotify(FGameplayEventData Payload)
+void UBlackoutGA_Ravager_SummonMinion::OnSpawnMinionNotify(FGameplayEventData Payload)
 {
 	if (!CanActivatePattern()) return;
 	
 	SetSpawnerProjectiles();
 }
 
-void UGA_Ravager_SummonMinion::SetSpawnerProjectiles()
+void UBlackoutGA_Ravager_SummonMinion::SetSpawnerProjectiles()
 {
 	if (!CanActivatePattern()) return;
 	
@@ -60,7 +60,7 @@ void UGA_Ravager_SummonMinion::SetSpawnerProjectiles()
 	}
 }
 
-void UGA_Ravager_SummonMinion::ThrowSingleSpawnerProjectile(const FVector& SpawnLocation, const FRotator& BaseRotation,
+void UBlackoutGA_Ravager_SummonMinion::ThrowSingleSpawnerProjectile(const FVector& SpawnLocation, const FRotator& BaseRotation,
 	int32 Index, int32 Total)
 {
 	if (!CanActivatePattern()) return;
@@ -98,7 +98,7 @@ void UGA_Ravager_SummonMinion::ThrowSingleSpawnerProjectile(const FVector& Spawn
 	}
 }
 
-void UGA_Ravager_SummonMinion::ResolveSpawnLocation(FVector& OutLocation) const
+void UBlackoutGA_Ravager_SummonMinion::ResolveSpawnLocation(FVector& OutLocation) const
 {
 	if (!CanActivatePattern()) return;
 	

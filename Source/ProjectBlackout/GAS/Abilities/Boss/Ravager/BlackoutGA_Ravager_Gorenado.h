@@ -1,8 +1,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GAS/Abilities/Boss/Ravager/GA_Ravager_Base.h"
-#include "GA_Ravager_Gorenado.generated.h"
+#include "GAS/Abilities/Boss/Ravager/BlackoutGA_Ravager_Base.h"
+#include "BlackoutGA_Ravager_Gorenado.generated.h"
 
 /**
  * Phase C — 궁극기 볼텍스 소용돌이 (중앙으로 흡입)
@@ -10,7 +10,7 @@
 class UAbilityTask_WaitGameplayEvent;
 
 UCLASS()
-class PROJECTBLACKOUT_API UGA_Ravager_Gorenado : public UBlackoutGA_Ravager_Base
+class PROJECTBLACKOUT_API UBlackoutGA_Ravager_Gorenado : public UBlackoutGA_Ravager_Base
 {
 	GENERATED_BODY()
 

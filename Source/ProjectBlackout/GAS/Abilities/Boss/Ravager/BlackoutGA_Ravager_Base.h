@@ -4,17 +4,17 @@
 #include "Data/BORavagerPatternData.h"
 #include "GAS/Abilities/BlackoutEnemyGameplayAbility.h"
 #include "GAS/Abilities/BlackoutGameplayAbility.h"
-#include "GA_Ravager_Base.generated.h"
+#include "BlackoutGA_Ravager_Base.generated.h"
 
 class ABlackoutBossCharacter;
 class UAnimMontage;
 
 UCLASS(Abstract)
-class PROJECTBLACKOUT_API UGA_Ravager_Base : public UBlackoutEnemyGameplayAbility
+class PROJECTBLACKOUT_API UBlackoutGA_Ravager_Base : public UBlackoutEnemyGameplayAbility
 {
 	GENERATED_BODY()
 public:
-	UGA_Ravager_Base();
+	UBlackoutGA_Ravager_Base();
 	
 protected:
 	virtual void OnAvatarSet(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec) override;
