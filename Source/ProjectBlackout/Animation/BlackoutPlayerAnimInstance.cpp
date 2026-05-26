@@ -82,7 +82,38 @@ void UBlackoutPlayerAnimInstance::UpdateAimOffset(float DeltaSeconds)
 	UpdateAimTarget();
 
 	const FVector AimOrigin = CombatComponent->GetMuzzleTransform().GetLocation();
-	const FRotator AimRotation = UKismetMathLibrary::FindLookAtRotation(AimOrigin, AimTargetLocation);
+	FVector SafeAimTarget = AimTargetLocation;
+
+	const float DistanceToTarget = FVector::Dist(AimOrigin, AimTargetLocation);
+
+	// Alpha 계산: SafeAimDistanceThreshold 이하이면 1.0(완전 폴백), Threshold + BlendRange 이상이면 0.0(완전 기본)
+	float BlendAlpha = 0.f;
+	if (DistanceToTarget <= SafeAimDistanceThreshold)
+	{
+		BlendAlpha = 1.0f;
+	}
+	else if (DistanceToTarget >= SafeAimDistanceThreshold + SafeAimBlendRange)
+	{
+		BlendAlpha = 0.0f;
+	}
+	else if (SafeAimBlendRange > 0.f)
+	{
+		BlendAlpha = 1.0f - ((DistanceToTarget - SafeAimDistanceThreshold) / SafeAimBlendRange);
+	}
+
+	if (BlendAlpha > 0.f)
+	{
+		FVector ViewLocation;
+		FRotator ViewRotation;
+		if (GetAimTraceViewPoint(ViewLocation, ViewRotation))
+		{
+			const FVector FallbackTarget = ViewLocation + ViewRotation.Vector() * FallbackAimTargetDistance;
+			// 기본 타겟과 폴백 타겟을 직접적인 벡터 수학식(A + (B - A) * t)으로 LERP 보간하여 100% 컴파일 안전성을 보장합니다.
+			SafeAimTarget = AimTargetLocation + (FallbackTarget - AimTargetLocation) * BlendAlpha;
+		}
+	}
+
+	const FRotator AimRotation = UKismetMathLibrary::FindLookAtRotation(AimOrigin, SafeAimTarget);
 	const FRotator ActorRotation = PlayerCharacter->GetActorRotation();
 	const FRotator Delta = UKismetMathLibrary::NormalizedDeltaRotator(AimRotation, ActorRotation);
 	const float TargetYaw = FMath::Clamp(Delta.Yaw, -180.f, 180.f);
