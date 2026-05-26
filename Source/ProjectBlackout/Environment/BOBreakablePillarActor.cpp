@@ -6,9 +6,30 @@
 #include "Components/PrimitiveComponent.h"
 #include "Components/SceneComponent.h"
 #include "Core/BlackoutLog.h"
+#include "Engine/World.h"
 #include "Framework/BlackoutGameState.h"
 #include "Net/UnrealNetwork.h"
 #include "TimerManager.h"
+
+namespace
+{
+	const TCHAR* GetBlackoutNetModeString(const ENetMode NetMode)
+	{
+		switch (NetMode)
+		{
+		case NM_Standalone:
+			return TEXT("Standalone");
+		case NM_DedicatedServer:
+			return TEXT("DedicatedServer");
+		case NM_ListenServer:
+			return TEXT("ListenServer");
+		case NM_Client:
+			return TEXT("Client");
+		default:
+			return TEXT("Unknown");
+		}
+	}
+}
 
 ABOBreakablePillarActor::ABOBreakablePillarActor()
 {
@@ -113,6 +134,12 @@ void ABOBreakablePillarActor::ReceiveDamageFromHitbox(const FGameplayEffectSpecH
 		return;
 	}
 
+	BO_LOG_CORE(Log,
+		"기둥 파괴 조건 충족: Actor=%s EffectClass=%s NetMode=%s",
+		*GetName(),
+		*GetNameSafe(BreakDustEffectClass.Get()),
+		GetBlackoutNetModeString(GetNetMode()));
+
 	BreakPillar();
 }
 
@@ -136,6 +163,12 @@ void ABOBreakablePillarActor::BreakPillar()
 	bAreBrokenPiecesHidden = false;
 	ApplyCurrentState();
 	ApplyBreakImpulse();
+	BO_LOG_CORE(Log,
+		"기둥 파괴 더스트 멀티캐스트 호출: Actor=%s EffectClass=%s NetMode=%s",
+		*GetName(),
+		*GetNameSafe(BreakDustEffectClass.Get()),
+		GetBlackoutNetModeString(GetNetMode()));
+	Multicast_PlayBreakDustEffect();
 	ScheduleBrokenPieceHide();
 	UpdateDestroyedPillarState(true);
 	ForceNetUpdate();
@@ -221,6 +254,13 @@ void ABOBreakablePillarActor::RefreshBreakPieces()
 
 void ABOBreakablePillarActor::OnRep_IsBroken()
 {
+	BO_LOG_CORE(Log,
+		"OnRep_IsBroken 호출: Actor=%s bIsBroken=%s bAreBrokenPiecesHidden=%s NetMode=%s",
+		*GetName(),
+		bIsBroken ? TEXT("true") : TEXT("false"),
+		bAreBrokenPiecesHidden ? TEXT("true") : TEXT("false"),
+		GetBlackoutNetModeString(GetNetMode()));
+
 	if (!bIsBroken)
 	{
 		RestorePieceTransforms();
@@ -237,6 +277,18 @@ void ABOBreakablePillarActor::OnRep_IsBroken()
 void ABOBreakablePillarActor::OnRep_AreBrokenPiecesHidden()
 {
 	ApplyCurrentState();
+}
+
+void ABOBreakablePillarActor::Multicast_PlayBreakDustEffect_Implementation()
+{
+	BO_LOG_CORE(Log,
+		"기둥 파괴 더스트 멀티캐스트 수신: Actor=%s EffectClass=%s NetMode=%s LocalRole=%d",
+		*GetName(),
+		*GetNameSafe(BreakDustEffectClass.Get()),
+		GetBlackoutNetModeString(GetNetMode()),
+		static_cast<int32>(GetLocalRole()));
+
+	PlayBreakDustEffect();
 }
 
 void ABOBreakablePillarActor::ApplyCurrentState()
@@ -435,6 +487,98 @@ void ABOBreakablePillarActor::ApplyBreakImpulse()
 
 		const FVector Impulse = (OutwardDirection * BreakImpulseStrength) + (GetActorUpVector() * BreakImpulseUpwardBoost);
 		PrimitiveComponent->AddImpulse(Impulse, NAME_None, true);
+	}
+}
+
+void ABOBreakablePillarActor::PlayBreakDustEffect()
+{
+	if (!BreakDustEffectClass)
+	{
+		
+		return;
+	}
+
+	if (GetNetMode() == NM_DedicatedServer)
+	{
+		
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		
+		return;
+	}
+
+	// 기둥 기준 오프셋을 월드 좌표로 변환해 더스트 BP를 자연스럽게 배치합니다.
+	const FVector SpawnLocation = GetActorTransform().TransformPosition(BreakDustLocationOffset);
+	const FRotator SpawnRotation = (GetActorRotation() + BreakDustRotationOffset).GetNormalized();
+
+	
+
+	FActorSpawnParameters SpawnParameters;
+	SpawnParameters.Owner = this;
+	SpawnParameters.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+	AActor* SpawnedDustEffect = World->SpawnActor<AActor>(BreakDustEffectClass, SpawnLocation, SpawnRotation, SpawnParameters);
+	if (!IsValid(SpawnedDustEffect))
+	{
+		
+		return;
+	}
+
+	BO_LOG_CORE(Log,
+		"기둥 파괴 더스트 스폰 성공: Actor=%s SpawnedEffect=%s",
+		*GetName(),
+		*GetNameSafe(SpawnedDustEffect));
+
+	static const FName TriggerEffectFunctionNames[] =
+	{
+		FName(TEXT("Trigger Effect")),
+		FName(TEXT("TriggerEffect"))
+	};
+
+	UFunction* TriggerEffectFunction = nullptr;
+	FName ResolvedTriggerEffectFunctionName = NAME_None;
+
+	for (const FName& CandidateFunctionName : TriggerEffectFunctionNames)
+	{
+		TriggerEffectFunction = SpawnedDustEffect->FindFunction(CandidateFunctionName);
+		if (TriggerEffectFunction)
+		{
+			ResolvedTriggerEffectFunctionName = CandidateFunctionName;
+			break;
+		}
+	}
+
+	if (TriggerEffectFunction)
+	{
+		SpawnedDustEffect->ProcessEvent(TriggerEffectFunction, nullptr);
+		BO_LOG_CORE(Log,
+			"기둥 파괴 더스트 TriggerEffect 호출 성공: Actor=%s SpawnedEffect=%s Function=%s",
+			*GetName(),
+			*GetNameSafe(SpawnedDustEffect),
+			*ResolvedTriggerEffectFunctionName.ToString());
+	}
+	else
+	{
+		BO_LOG_CORE(Warning,
+			"기둥 파괴 더스트 TriggerEffect 호출 실패: 함수가 없음 Actor=%s SpawnedEffect=%s TriedFunctions=%s,%s",
+			*GetName(),
+			*GetNameSafe(SpawnedDustEffect),
+			*TriggerEffectFunctionNames[0].ToString(),
+			*TriggerEffectFunctionNames[1].ToString());
+	}
+
+	if (BreakDustLifeSpan > 0.0f)
+	{
+		SpawnedDustEffect->SetLifeSpan(BreakDustLifeSpan);
+		BO_LOG_CORE(Log,
+			"기둥 파괴 더스트 수명 설정: Actor=%s SpawnedEffect=%s LifeSpan=%.2f",
+			*GetName(),
+			*GetNameSafe(SpawnedDustEffect),
+			BreakDustLifeSpan);
 	}
 }
 
