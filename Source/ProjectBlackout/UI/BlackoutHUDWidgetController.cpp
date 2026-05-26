@@ -12,6 +12,7 @@
 #include "EngineUtils.h"
 #include "Framework/BlackoutPlayerController.h"
 #include "Framework/BlackoutPlayerState.h"
+#include "Framework/BlackoutGameState.h"
 #include "GAS/Abilities/Player/BlackoutGA_Revive.h"
 #include "GAS/Attributes/BlackoutAmmoAttributeSet.h"
 #include "GAS/Attributes/BlackoutBaseAttributeSet.h"
@@ -170,6 +171,14 @@ void UBlackoutHUDWidgetController::BindCallbacksToDependencies()
 	{
 		BO_LOG_CORE(Warning, "HUD 무기 바인딩 보류: CombatComponent가 유효하지 않습니다.");
 	}
+
+	if (UWorld* World = GetWorld())
+	{
+		if (ABlackoutGameState* GS = World->GetGameState<ABlackoutGameState>())
+		{
+			GS->OnSurrenderVoteStateChanged.AddUniqueDynamic(this, &UBlackoutHUDWidgetController::HandleSurrenderVoteStateChanged);
+		}
+	}
 }
 
 void UBlackoutHUDWidgetController::BroadcastInitialValues()
@@ -187,6 +196,19 @@ void UBlackoutHUDWidgetController::BroadcastInitialValues()
 	CurrentHUDMode = EvaluateHUDMode();
 	OnHUDModeChanged.Broadcast(CurrentHUDMode);
 	OnDownedStateHUDDataChanged.Broadcast(BuildDownedStateHUDData(CurrentHUDMode));
+
+	if (UWorld* World = GetWorld())
+	{
+		if (const ABlackoutGameState* GS = World->GetGameState<ABlackoutGameState>())
+		{
+			OnSurrenderVoteStateChanged.Broadcast(
+				GS->bIsSurrenderVoteActive,
+				GS->SurrenderVoteYesCount,
+				GS->SurrenderVoteNoCount,
+				GS->SurrenderVoteEndTimeSeconds
+			);
+		}
+	}
 }
 
 bool UBlackoutHUDWidgetController::GetImpactIndicatorData(FBlackoutImpactIndicatorData& OutIndicatorData) const
@@ -879,4 +901,9 @@ FBlackoutDownedStateHUDData UBlackoutHUDWidgetController::BuildDownedStateHUDDat
 	}
 
 	return HUDData;
+}
+
+void UBlackoutHUDWidgetController::HandleSurrenderVoteStateChanged(bool bIsActive, int32 YesCount, int32 NoCount, float EndTimeSeconds)
+{
+	OnSurrenderVoteStateChanged.Broadcast(bIsActive, YesCount, NoCount, EndTimeSeconds);
 }

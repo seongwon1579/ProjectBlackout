@@ -28,6 +28,7 @@ enum class EBattleTransitionType : uint8
 	LobbyToBattle       UMETA(DisplayName = "Lobby To Battle"),
 	CheckpointRest      UMETA(DisplayName = "Checkpoint Rest"),
 	PartyWipeRestart    UMETA(DisplayName = "Party Wipe Restart"),
+	SurrenderRestart    UMETA(DisplayName = "Surrender Restart"),
 };
 
 // 매치 전체 생애주기 상태. ABlackoutGameState::CurrentMatchState 에서 Replicated.

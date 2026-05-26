@@ -5,8 +5,11 @@
 #include "Core/BlackoutTypes.h"
 #include "BlackoutGameState.generated.h"
 
+class UBOCharacterRoster;
+
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FBlackoutPlayerArrayChangedSignature);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FBlackoutMatchStateChangedSignature, EBlackoutMatchState, NewState);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_FourParams(FBlackoutSurrenderVoteStateChangedSignature, bool, bIsActive, int32, YesCount, int32, NoCount, float, EndTimeSeconds);
 
 UCLASS()
 class PROJECTBLACKOUT_API ABlackoutGameState : public AGameStateBase
@@ -37,6 +40,10 @@ public:
 
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Blackout|GameState")
 	float MatchTimer = 0.f;
+	
+	/** 선택 가능 캐릭터 목록  */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly,Category="Blackout|GameState")
+	TObjectPtr<UBOCharacterRoster> CharacterRoster;
 
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_DestroyedPillarIds, Category = "Blackout|GameState")
 	TArray<int32> DestroyedPillarIds;
@@ -44,10 +51,34 @@ public:
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Blackout|GameState")
 	bool bRedMistPhaseActive = false;
 
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_SurrenderVoteActive, Category = "Blackout|GameState")
+	bool bIsSurrenderVoteActive = false;
+
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Blackout|GameState")
+	int32 SurrenderVoteYesCount = 0;
+
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Blackout|GameState")
+	int32 SurrenderVoteNoCount = 0;
+
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Blackout|GameState")
+	int32 RequiredSurrenderVoteCount = 0;
+
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Blackout|GameState")
+	float SurrenderVoteEndTimeSeconds = 0.f;
+
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Blackout|GameState")
+	float SurrenderVoteCooldownEndTime = 0.f;
+
+	UPROPERTY(BlueprintAssignable, Category = "Blackout|GameState")
+	FBlackoutSurrenderVoteStateChangedSignature OnSurrenderVoteStateChanged;
+
 protected:
 	UFUNCTION()
 	void OnRep_CurrentMatchState();
 
 	UFUNCTION()
 	void OnRep_DestroyedPillarIds();
+
+	UFUNCTION()
+	void OnRep_SurrenderVoteActive();
 };

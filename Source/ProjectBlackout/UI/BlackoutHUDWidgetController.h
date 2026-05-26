@@ -33,6 +33,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FBlackoutHUDConsumablesChangedSigna
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FBlackoutHUDConsumableSlotsChangedSignature, const FBlackoutConsumableSlotData&, BloodRootData, const FBlackoutConsumableSlotData&, GulSerumData);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FBlackoutHUDModeChangedSignature, EBlackoutHUDMode, HUDMode);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FBlackoutHUDDownedStateDataChangedSignature, const FBlackoutDownedStateHUDData&, DownedStateHUDData);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_FourParams(FBlackoutHUDSurrenderVoteStateChangedSignature, bool, bIsActive, int32, YesCount, int32, NoCount, float, EndTimeSeconds);
 
 UCLASS(BlueprintType)
 class PROJECTBLACKOUT_API UBlackoutHUDWidgetController : public UObject
@@ -111,6 +112,9 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Blackout|HUD|Downed")
 	FBlackoutHUDDownedStateDataChangedSignature OnDownedStateHUDDataChanged;
 
+	UPROPERTY(BlueprintAssignable, Category = "Blackout|HUD|Surrender")
+	FBlackoutHUDSurrenderVoteStateChangedSignature OnSurrenderVoteStateChanged;
+
 protected:
 	UFUNCTION()
 	void HandleEquippedWeaponChanged(ABOWeaponBase* EquippedWeapon, FGameplayTag WeaponSlotTag);
@@ -147,6 +151,9 @@ private:
 
 	UFUNCTION()
 	void HandleConsumablesChanged(int32 BloodRootCount, int32 GulSerumCount);
+
+	UFUNCTION()
+	void HandleSurrenderVoteStateChanged(bool bIsActive, int32 YesCount, int32 NoCount, float EndTimeSeconds);
 
 	/** State.Downed / State.BeingRevived / State.Dead 태그 변경 이벤트 진입점입니다. */
 	void HandleDownedRelatedTagChanged(const FGameplayTag CallbackTag, int32 NewCount);

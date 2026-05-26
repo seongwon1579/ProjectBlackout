@@ -8,7 +8,6 @@
 enum class EBlackoutMatchEndReason : uint8;
 class ABlackoutPlayerCharacter;
 class ABlackoutPlayerController;
-class UBOCharacterRoster;
 /**
  * 전투 레벨 전용 GameMode. 전투 진입 자원 초기화 / 체크포인트 등록 / 파티 전멸 복귀 처리.
  */
@@ -51,10 +50,6 @@ public:
 	// ClientTravel URL SessionId DedicatedSessionSubsystem에 위임
 	// 데디만 사용
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
-	
-	/** 캐릭터 선택 단일 ClassTag -> Pawn 매핑 */
-	UPROPERTY(EditDefaultsOnly , Category="Blackout|Players")
-	TObjectPtr<UBOCharacterRoster> CharacterRoster;
 	
 	/** 현재 PS-> SelectdClassTag 기준으로 Pawn 재스폰 + Possess. ShelterPrep 캐릭터 변경에서 사용 */
 	void RespawnPlayerWithSelectedClass(APlayerController* InController);
@@ -103,7 +98,22 @@ public:
 	 */
 	void CycleSpectateTargetForSpectator(ABlackoutPlayerController* SpectatorController, int32 Direction);
 
+	/** 항복 투표 개시 */
+	void StartSurrenderVote(ABlackoutPlayerController* Proposer);
+
+	/** 찬성/반대 투표 처리 */
+	void CastSurrenderVote(ABlackoutPlayerController* Voter, bool bAgree);
+
 private:
+	void EvaluateSurrenderVote();
+	void HandleSurrenderSuccess();
+	void HandleSurrenderFailed(bool bIsTimeout);
+	void ClearSurrenderVotes();
+	void SetAllPlayersSurrenderInputContextActive(bool bActive);
+	void TimeoutSurrenderVote();
+
+	FTimerHandle SurrenderVoteTimerHandle;
+
 	void EvaluatePartyWipe();
 	ABlackoutPlayerCharacter* FindInitialSpectateTarget(ABlackoutPlayerController* SpectatorController);
 	void AssignSpectateTargetForDeadPlayer(ABlackoutPlayerController* SpectatorController);

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Characters/BlackoutEnemyCharacter.h"
+#include "BlackoutMinionCharacter.h"
 #include "GameplayEffectTypes.h"
 #include "BlackoutDamageTestDummy.generated.h"
 
@@ -10,7 +10,7 @@
  * 에디터에 배치한 뒤 FireWeapon/GE_Damage/Hitbox 경로를 확인하는 용도로 사용합니다.
  */
 UCLASS(Blueprintable)
-class PROJECTBLACKOUT_API ABlackoutDamageTestDummy : public ABlackoutEnemyCharacter
+class PROJECTBLACKOUT_API ABlackoutDamageTestDummy : public ABlackoutMinionCharacter
 {
 	GENERATED_BODY()
 
