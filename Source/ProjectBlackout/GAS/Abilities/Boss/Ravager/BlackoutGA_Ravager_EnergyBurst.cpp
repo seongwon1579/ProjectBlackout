@@ -1,4 +1,4 @@
-#include "GAS/Abilities/Boss/Ravager/GA_Ravager_EnergyBurst.h"
+#include "GAS/Abilities/Boss/Ravager/BlackoutGA_Ravager_EnergyBurst.h"
 
 #include "BlackoutBossCharacter.h"
 #include "BlackoutDamageable.h"
@@ -7,7 +7,15 @@
 #include "BlackoutGameplayTags.h"
 #include "Engine/OverlapResult.h"
 
-void UGA_Ravager_EnergyBurst::SetupEventListeners()
+void UBlackoutGA_Ravager_EnergyBurst::PreActivateAbility(const FGameplayAbilitySpecHandle Handle,
+	const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo,
+	const FGameplayEventData* TriggerEventData)
+{
+	Super::PreActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+	TrySetupMotionWarp(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+}
+
+void UBlackoutGA_Ravager_EnergyBurst::SetupEventListeners()
 {
 	if (WaitBeginEvent)
 	{
@@ -29,7 +37,7 @@ void UGA_Ravager_EnergyBurst::SetupEventListeners()
     
 	if (WaitBeginEvent)
 	{
-		WaitBeginEvent->EventReceived.AddDynamic(this, &UGA_Ravager_EnergyBurst::OnEnergyBurstNotify);
+		WaitBeginEvent->EventReceived.AddDynamic(this, &UBlackoutGA_Ravager_EnergyBurst::OnEnergyBurstNotify);
 		WaitBeginEvent->ReadyForActivation();
 	}
 	
@@ -42,12 +50,12 @@ void UGA_Ravager_EnergyBurst::SetupEventListeners()
     
 	if (WaitEndEvent)
 	{
-		WaitEndEvent->EventReceived.AddDynamic(this, &UGA_Ravager_EnergyBurst::OffEnergyBurstNotify);
+		WaitEndEvent->EventReceived.AddDynamic(this, &UBlackoutGA_Ravager_EnergyBurst::OffEnergyBurstNotify);
 		WaitEndEvent->ReadyForActivation();
 	}
 }
 
-void UGA_Ravager_EnergyBurst::EndAbility(const FGameplayAbilitySpecHandle Handle,
+void UBlackoutGA_Ravager_EnergyBurst::EndAbility(const FGameplayAbilitySpecHandle Handle,
 	const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo,
 	bool bReplicateEndAbility, bool bWasCancelled)
 {
@@ -59,9 +67,9 @@ void UGA_Ravager_EnergyBurst::EndAbility(const FGameplayAbilitySpecHandle Handle
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
 
-void UGA_Ravager_EnergyBurst::OnEnergyBurstNotify(FGameplayEventData Payload)
+void UBlackoutGA_Ravager_EnergyBurst::OnEnergyBurstNotify(FGameplayEventData Payload)
 {
-	if (!IsValid())
+	if (!CanActivatePattern())
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[%s] EnergyBurst invalid"), *GetName());
 		return;
@@ -73,11 +81,11 @@ void UGA_Ravager_EnergyBurst::OnEnergyBurstNotify(FGameplayEventData Payload)
 	if (!World) return;
 	
 	World->GetTimerManager().SetTimer(
-	DamageTimer, this, &UGA_Ravager_EnergyBurst::ApplyDamage,
+	DamageTimer, this, &UBlackoutGA_Ravager_EnergyBurst::ApplyDamage,
 	Settings.DamageTickInterval, true);
 }
 
-void UGA_Ravager_EnergyBurst::OffEnergyBurstNotify(FGameplayEventData Payload)
+void UBlackoutGA_Ravager_EnergyBurst::OffEnergyBurstNotify(FGameplayEventData Payload)
 {
 	UWorld* World = GetWorld();
 	if (!World) return;
@@ -85,9 +93,9 @@ void UGA_Ravager_EnergyBurst::OffEnergyBurstNotify(FGameplayEventData Payload)
 	World->GetTimerManager().ClearTimer(DamageTimer);
 }
 
-void UGA_Ravager_EnergyBurst::ApplyDamage()
+void UBlackoutGA_Ravager_EnergyBurst::ApplyDamage()
 {
-	if (!IsValid()) return;
+	if (!CanActivatePattern()) return;
 	
 	const FBossEnergyBurstSettings& Settings = CachedPatternData->EnergyBurstSettings;
 	
@@ -133,7 +141,7 @@ void UGA_Ravager_EnergyBurst::ApplyDamage()
 	}
 }
 
-bool UGA_Ravager_EnergyBurst::IsValid() const
+bool UBlackoutGA_Ravager_EnergyBurst::HasValidSettings() const
 {
-	return Super::IsValid() && CachedPatternData->EnergyBurstSettings.IsValid();
+	return CachedPatternData->EnergyBurstSettings.IsValid();
 }

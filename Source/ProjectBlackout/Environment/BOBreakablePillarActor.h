@@ -100,6 +100,22 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Breakable|Timing", meta = (ClampMin = "0.0"))
 	float BrokenPieceVisibleDuration = 15.0f;
 
+	// 기둥 파괴 순간에 재생할 더스트 BP 클래스입니다.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Breakable|VFX")
+	TSubclassOf<AActor> BreakDustEffectClass;
+
+	// 더스트 BP를 기둥 중심에서 얼마나 띄워서 재생할지 조정합니다.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Breakable|VFX")
+	FVector BreakDustLocationOffset = FVector::ZeroVector;
+
+	// 더스트 BP 회전을 기둥 회전 기준으로 보정합니다.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Breakable|VFX")
+	FRotator BreakDustRotationOffset = FRotator::ZeroRotator;
+
+	// 외부 BP가 자체 수명을 정리하지 않을 때 사용할 선택적 수명입니다. 0 이하면 그대로 둡니다.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Breakable|VFX", meta = (ClampMin = "0.0"))
+	float BreakDustLifeSpan = 0.0f;
+
 	// 실제 파괴 여부를 네트워크로 동기화합니다.
 	UPROPERTY(ReplicatedUsing = OnRep_IsBroken, VisibleInstanceOnly, BlueprintReadOnly, Category = "Blackout|Breakable")
 	bool bIsBroken = false;
@@ -113,6 +129,10 @@ protected:
 
 	UFUNCTION()
 	void OnRep_AreBrokenPiecesHidden();
+
+	// 파괴 순간의 더스트 연출을 현재 접속 중인 모든 클라이언트에 동기화합니다.
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_PlayBreakDustEffect();
 
 private:
 	// Reset 시 원래 위치로 복원하기 위한 조각 초기 트랜스폼입니다.
@@ -148,6 +168,9 @@ private:
 
 	// 파괴 시 조각에 바깥 방향 임펄스를 적용합니다.
 	void ApplyBreakImpulse();
+
+	// 현재 월드에서 더스트 BP를 실제로 스폰합니다.
+	void PlayBreakDustEffect();
 
 	// ChildActor 내부에서 주 물리 컴포넌트를 찾습니다.
 	UPrimitiveComponent* ResolvePrimitiveFromChild(UChildActorComponent* ChildActorComponent) const;

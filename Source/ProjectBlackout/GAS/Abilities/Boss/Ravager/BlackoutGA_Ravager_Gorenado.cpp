@@ -1,4 +1,4 @@
-#include "GAS/Abilities/Boss/Ravager/GA_Ravager_Gorenado.h"
+#include "GAS/Abilities/Boss/Ravager/BlackoutGA_Ravager_Gorenado.h"
 
 #include "AbilitySystemComponent.h"
 #include "BlackoutGameplayTags.h"
@@ -10,7 +10,7 @@
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "Engine/OverlapResult.h"
 
-void UGA_Ravager_Gorenado::SetupEventListeners()
+void UBlackoutGA_Ravager_Gorenado::SetupEventListeners()
 {
 	if (WaitBeginEvent)
 	{
@@ -32,7 +32,7 @@ void UGA_Ravager_Gorenado::SetupEventListeners()
 
 	if (WaitBeginEvent)
 	{
-		WaitBeginEvent->EventReceived.AddDynamic(this, &UGA_Ravager_Gorenado::OnPullStartNotify);
+		WaitBeginEvent->EventReceived.AddDynamic(this, &UBlackoutGA_Ravager_Gorenado::OnPullStartNotify);
 		WaitBeginEvent->ReadyForActivation();
 	}
 
@@ -45,14 +45,14 @@ void UGA_Ravager_Gorenado::SetupEventListeners()
 
 	if (WaitEndEvent)
 	{
-		WaitEndEvent->EventReceived.AddDynamic(this, &UGA_Ravager_Gorenado::OnPullEndNotify);
+		WaitEndEvent->EventReceived.AddDynamic(this, &UBlackoutGA_Ravager_Gorenado::OnPullEndNotify);
 		WaitEndEvent->ReadyForActivation();
 	}
 }
 
-void UGA_Ravager_Gorenado::UpdatePulling()
+void UBlackoutGA_Ravager_Gorenado::UpdatePulling()
 {
-	if (!IsValid()) return;
+	if (!CanActivatePattern()) return;
 	
 	const FBossGorenadoSettings& Settings = CachedPatternData->GorenadoSettings;
 	
@@ -85,9 +85,9 @@ void UGA_Ravager_Gorenado::UpdatePulling()
 	}
 }
 
-void UGA_Ravager_Gorenado::ApplyDamage()
+void UBlackoutGA_Ravager_Gorenado::ApplyDamage()
 {
-	if (!IsValid()) return;
+	if (!CanActivatePattern()) return;
 	
 	const FBossGorenadoSettings& Settings = CachedPatternData->GorenadoSettings;
 	
@@ -135,9 +135,9 @@ void UGA_Ravager_Gorenado::ApplyDamage()
 	}
 }
 
-bool UGA_Ravager_Gorenado::IsTargetBlocked(AActor* Target) const
+bool UBlackoutGA_Ravager_Gorenado::IsTargetBlocked(AActor* Target) const
 {
-	if (!Target|| !IsValid()) return false;
+	if (!Target|| !CanActivatePattern()) return false;
 	
 	UWorld* World = GetWorld();
 	if (!World) return false;
@@ -157,9 +157,9 @@ bool UGA_Ravager_Gorenado::IsTargetBlocked(AActor* Target) const
 		Params);
 }
 
-void UGA_Ravager_Gorenado::PullTarget(AActor* Target, float DeltaTime)
+void UBlackoutGA_Ravager_Gorenado::PullTarget(AActor* Target, float DeltaTime)
 {
-	if (!Target || !IsValid() ) return;
+	if (!Target || !CanActivatePattern() ) return;
 	
 	const FBossGorenadoSettings& Settings = CachedPatternData->GorenadoSettings;
 	
@@ -182,12 +182,7 @@ void UGA_Ravager_Gorenado::PullTarget(AActor* Target, float DeltaTime)
 	}
 }
 
-bool UGA_Ravager_Gorenado::IsValid() const
-{
-	return Super::IsValid() && CachedPatternData->GorenadoSettings.IsValid();
-}
-
-void UGA_Ravager_Gorenado::EndAbility(const FGameplayAbilitySpecHandle Handle,
+void UBlackoutGA_Ravager_Gorenado::EndAbility(const FGameplayAbilitySpecHandle Handle,
 	const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo,
 	bool bReplicateEndAbility, bool bWasCancelled)
 {
@@ -200,13 +195,14 @@ void UGA_Ravager_Gorenado::EndAbility(const FGameplayAbilitySpecHandle Handle,
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
 
-void UGA_Ravager_Gorenado::OnPullStartNotify(FGameplayEventData Payload)
+bool UBlackoutGA_Ravager_Gorenado::HasValidSettings() const
 {
-	if (!IsValid())
-	{
-		UE_LOG(LogTemp, Warning, TEXT("[%s] Gorenado invalid"), *GetName());
-		return;
-	}
+	return CachedPatternData->GorenadoSettings.IsValid();
+}
+
+void UBlackoutGA_Ravager_Gorenado::OnPullStartNotify(FGameplayEventData Payload)
+{
+	if (!CanActivatePattern()) return;
 
 	const FBossGorenadoSettings& Settings = CachedPatternData->GorenadoSettings;
 
@@ -216,16 +212,16 @@ void UGA_Ravager_Gorenado::OnPullStartNotify(FGameplayEventData Payload)
 	World->GetTimerManager().SetTimer(
 		UpdateTimer,
 		this,
-		&UGA_Ravager_Gorenado::UpdatePulling,
+		&UBlackoutGA_Ravager_Gorenado::UpdatePulling,
 		UpdateInterval,
 		true);
 
 	World->GetTimerManager().SetTimer(
-		DamageTimer, this, &UGA_Ravager_Gorenado::ApplyDamage,
+		DamageTimer, this, &UBlackoutGA_Ravager_Gorenado::ApplyDamage,
 		Settings.DamageTickInterval, true);
 }
 
-void UGA_Ravager_Gorenado::OnPullEndNotify(FGameplayEventData Payload)
+void UBlackoutGA_Ravager_Gorenado::OnPullEndNotify(FGameplayEventData Payload)
 {
 	UWorld* World = GetWorld();
 	if (!World) return;

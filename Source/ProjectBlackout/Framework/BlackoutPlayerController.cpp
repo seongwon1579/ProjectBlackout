@@ -626,7 +626,7 @@ void ABlackoutPlayerController::OnDebugSelfDamagePressed()
 
 	if (ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(GetPawn()))
 	{
-		PlayerCharacter->Server_RequestDebugSelfDamage(10.f);
+		PlayerCharacter->Server_RequestDebugSelfDamage(30.f);
 	}
 }
 

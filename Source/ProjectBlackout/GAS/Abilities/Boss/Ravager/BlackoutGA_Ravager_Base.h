@@ -4,17 +4,17 @@
 #include "Data/BORavagerPatternData.h"
 #include "GAS/Abilities/BlackoutEnemyGameplayAbility.h"
 #include "GAS/Abilities/BlackoutGameplayAbility.h"
-#include "GA_Ravager_Base.generated.h"
+#include "BlackoutGA_Ravager_Base.generated.h"
 
 class ABlackoutBossCharacter;
 class UAnimMontage;
 
 UCLASS(Abstract)
-class PROJECTBLACKOUT_API UGA_Ravager_Base : public UBlackoutEnemyGameplayAbility
+class PROJECTBLACKOUT_API UBlackoutGA_Ravager_Base : public UBlackoutEnemyGameplayAbility
 {
 	GENERATED_BODY()
 public:
-	UGA_Ravager_Base();
+	UBlackoutGA_Ravager_Base();
 	
 protected:
 	virtual void OnAvatarSet(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec) override;
@@ -25,10 +25,11 @@ protected:
 	virtual void PostActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) {}
 	virtual void SetupEventListeners() {}
 	virtual FGameplayTag SelectMontageTag(const FGameplayEventData* TriggerEventData) const;
-	virtual bool IsValid() const;
+	virtual bool CanActivatePattern() const;
+	virtual bool HasValidSettings() const { return true; }  
 	
 	bool TryResolveMontage(const FGameplayEventData* TriggerEventData);
-	void TrySetupMotionWarp(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData);
+	USceneComponent* TrySetupMotionWarp(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData);
 	void PlayMontage();
 	UAnimMontage* GetMontage(const FGameplayTag& Tag);
 	

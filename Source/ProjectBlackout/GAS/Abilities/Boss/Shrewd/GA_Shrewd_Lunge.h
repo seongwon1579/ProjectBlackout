@@ -1,14 +1,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GAS/Abilities/Boss/Ravager/GA_Ravager_Base.h"
+#include "GAS/Abilities/Boss/Ravager/BlackoutGA_Ravager_Base.h"
 #include "GA_Shrewd_Lunge.generated.h"
 
 /**
  * 지면 페이즈 — 장거리 강습 도약 (Motion Warping)
  */
 UCLASS()
-class PROJECTBLACKOUT_API UGA_Shrewd_Lunge : public UGA_Ravager_Base
+class PROJECTBLACKOUT_API UGA_Shrewd_Lunge : public UBlackoutGA_Ravager_Base
 {
 	GENERATED_BODY()
 

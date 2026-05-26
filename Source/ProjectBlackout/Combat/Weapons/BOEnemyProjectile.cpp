@@ -8,6 +8,7 @@
 #include "BlackoutDamageable.h"
 #include "BlackoutGameplayTags.h"
 #include "NiagaraComponent.h"
+#include "Components/BoxComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 
@@ -17,8 +18,9 @@ ABOEnemyProjectile::ABOEnemyProjectile()
 	
 	bReplicates = true;
 	
-	CollisionComp = CreateDefaultSubobject<UCapsuleComponent>(TEXT("Collision"));
-	CollisionComp->SetCollisionProfileName(TEXT("EnemyProjectile")); 
+	CollisionComp = CreateDefaultSubobject<UBoxComponent>(TEXT("Collision"));
+	CollisionComp->SetCollisionProfileName(TEXT("EnemyProjectile"));
+	CollisionComp->SetBoxExtent(FVector(50.f, 150.f, 30.f)); 
 	RootComponent = CollisionComp;
     
 	ProjectileMovement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("Movement"));

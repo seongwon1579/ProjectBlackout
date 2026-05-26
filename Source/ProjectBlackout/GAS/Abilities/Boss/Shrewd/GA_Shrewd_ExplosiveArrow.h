@@ -1,14 +1,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GAS/Abilities/Boss/Ravager/GA_Ravager_Base.h"
+#include "GAS/Abilities/Boss/Ravager/BlackoutGA_Ravager_Base.h"
 #include "GA_Shrewd_ExplosiveArrow.generated.h"
 
 /**
  * 발판 페이즈 — 폭발 속성 단발 투사체
  */
 UCLASS()
-class PROJECTBLACKOUT_API UGA_Shrewd_ExplosiveArrow : public UGA_Ravager_Base
+class PROJECTBLACKOUT_API UGA_Shrewd_ExplosiveArrow : public UBlackoutGA_Ravager_Base
 {
 	GENERATED_BODY()
 

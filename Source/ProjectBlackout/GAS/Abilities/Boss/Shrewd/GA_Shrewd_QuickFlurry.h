@@ -1,14 +1,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GAS/Abilities/Boss/Ravager/GA_Ravager_Base.h"
+#include "GAS/Abilities/Boss/Ravager/BlackoutGA_Ravager_Base.h"
 #include "GA_Shrewd_QuickFlurry.generated.h"
 
 /**
  * 발판 페이즈 — 짧은 딜레이 후 복수 화살 연사
  */
 UCLASS()
-class PROJECTBLACKOUT_API UGA_Shrewd_QuickFlurry : public UGA_Ravager_Base
+class PROJECTBLACKOUT_API UGA_Shrewd_QuickFlurry : public UBlackoutGA_Ravager_Base
 {
 	GENERATED_BODY()
 

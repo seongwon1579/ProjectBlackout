@@ -3,7 +3,7 @@
 
 #include "Combat/Weapons/BOEnemySpawnerProjectile.h"
 
-#include "Components/CapsuleComponent.h"
+#include "Components/BoxComponent.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 
