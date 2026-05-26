@@ -10,16 +10,16 @@
 class UAbilityTask_WaitGameplayEvent;
 
 UCLASS()
-class PROJECTBLACKOUT_API UGA_Ravager_Gorenado : public UGA_Ravager_Base
+class PROJECTBLACKOUT_API UGA_Ravager_Gorenado : public UBlackoutGA_Ravager_Base
 {
 	GENERATED_BODY()
 
 protected:
 	virtual void SetupEventListeners() override;
 	
-	virtual	bool IsValid() const override;
-	
 	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
+	
+	virtual bool HasValidSettings() const override;
 	
 	UFUNCTION()
 	void OnPullStartNotify(FGameplayEventData Payload);

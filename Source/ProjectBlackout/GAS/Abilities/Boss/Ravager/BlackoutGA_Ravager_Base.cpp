@@ -31,7 +31,7 @@ void UGA_Ravager_Base::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
-	if (!CachedPatternData)
+	if (!CanActivatePattern())
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[%s] No PatternData (key: %s)"),
 		       *GetName(), *PatternDataTag.ToString());
@@ -77,9 +77,9 @@ FGameplayTag UGA_Ravager_Base::SelectMontageTag(const FGameplayEventData* Trigge
 	return FGameplayTag::EmptyTag;
 }
 
-bool UGA_Ravager_Base::IsValid() const
+bool UGA_Ravager_Base::CanActivatePattern() const
 {
-	return CachedOwner && CachedPatternData;
+	return CachedOwner && CachedPatternData && HasValidSettings();
 }
 
 bool UGA_Ravager_Base::TryResolveMontage(const FGameplayEventData* TriggerEventData)
@@ -95,24 +95,29 @@ bool UGA_Ravager_Base::TryResolveMontage(const FGameplayEventData* TriggerEventD
 	return true;
 }
 
-void UGA_Ravager_Base::TrySetupMotionWarp(const FGameplayAbilitySpecHandle Handle,
+USceneComponent* UGA_Ravager_Base::TrySetupMotionWarp(const FGameplayAbilitySpecHandle Handle,
                                                       const FGameplayAbilityActorInfo* ActorInfo,
                                                       const FGameplayAbilityActivationInfo ActivationInfo,
                                                       const FGameplayEventData* TriggerEventData)
 {
 	
-	if (!CachedOwner || !CachedOwner->MotionWarpingComponent) return;
+	if (!CachedOwner || !CachedOwner->MotionWarpingComponent || !TriggerEventData) return nullptr;
 
 	const APawn* Target = Cast<const APawn>(TriggerEventData->Target.Get());
-	if (!Target) return;
+	if (!Target) return nullptr;
+	
+	USceneComponent* TargetRoot = Target->GetRootComponent();
+	if (!TargetRoot) return nullptr;
 
 	CachedOwner->MotionWarpingComponent->AddOrUpdateWarpTargetFromComponent(
 		WarpTargetName,
-		Target->GetRootComponent(),
+		TargetRoot,
 		NAME_None,
 		true,
 		FVector::ZeroVector
 	);
+	
+	return TargetRoot;
 }
 
 void UGA_Ravager_Base::PlayMontage()

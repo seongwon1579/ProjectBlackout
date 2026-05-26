@@ -9,7 +9,7 @@ class UAbilityTask_WaitGameplayEvent;
  * Phase B — 제자리 웅크려 충전 후 광역 에너지 파동
  */
 UCLASS()
-class PROJECTBLACKOUT_API UGA_Ravager_EnergyBurst : public UGA_Ravager_Base
+class PROJECTBLACKOUT_API UGA_Ravager_EnergyBurst : public UBlackoutGA_Ravager_Base
 {
 	GENERATED_BODY()
 
@@ -25,7 +25,7 @@ protected:
 
 	void ApplyDamage();
 	
-	virtual bool IsValid() const override;
+	virtual bool HasValidSettings() const override;
 	
 private:
 	UPROPERTY(Transient)

@@ -61,7 +61,7 @@ void UGA_Ravager_EnergyBurst::EndAbility(const FGameplayAbilitySpecHandle Handle
 
 void UGA_Ravager_EnergyBurst::OnEnergyBurstNotify(FGameplayEventData Payload)
 {
-	if (!IsValid())
+	if (!CanActivatePattern())
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[%s] EnergyBurst invalid"), *GetName());
 		return;
@@ -87,7 +87,7 @@ void UGA_Ravager_EnergyBurst::OffEnergyBurstNotify(FGameplayEventData Payload)
 
 void UGA_Ravager_EnergyBurst::ApplyDamage()
 {
-	if (!IsValid()) return;
+	if (!CanActivatePattern()) return;
 	
 	const FBossEnergyBurstSettings& Settings = CachedPatternData->EnergyBurstSettings;
 	
@@ -133,7 +133,7 @@ void UGA_Ravager_EnergyBurst::ApplyDamage()
 	}
 }
 
-bool UGA_Ravager_EnergyBurst::IsValid() const
+bool UGA_Ravager_EnergyBurst::HasValidSettings() const
 {
-	return Super::IsValid() && CachedPatternData->EnergyBurstSettings.IsValid();
+	return CachedPatternData->EnergyBurstSettings.IsValid();
 }

@@ -34,9 +34,14 @@ void UGA_Ravager_Shockwave::SetupEventListeners()
 	}
 }
 
+bool UGA_Ravager_Shockwave::HasValidSettings() const
+{
+	return CachedPatternData->ProjectileSettings.IsValid();
+}
+
 void UGA_Ravager_Shockwave::OnSpawnProjectileNotify(FGameplayEventData Payload)
 {
-	if (!CachedOwner || !CachedPatternData || !CachedPatternData->ProjectileSettings.IsValid()) return;
+	if (!CanActivatePattern()) return;
 
 	const TSubclassOf<ABOEnemyProjectile> ProjectileClass = CachedPatternData->ProjectileSettings.ProjectileClass;
 
@@ -67,7 +72,7 @@ void UGA_Ravager_Shockwave::OnSpawnProjectileNotify(FGameplayEventData Payload)
 
 void UGA_Ravager_Shockwave::ResolveSpawnTransform(FVector& OutLocation, FRotator& OutRotation) const
 {
-	if (!CachedOwner || !CachedPatternData || !CachedPatternData->ProjectileSettings.IsValid())
+	if (!CanActivatePattern())
 	{
 		OutLocation = FVector::ZeroVector;
 		OutRotation = FRotator::ZeroRotator;

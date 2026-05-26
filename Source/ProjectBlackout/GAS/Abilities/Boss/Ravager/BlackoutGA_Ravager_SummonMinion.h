@@ -1,7 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GAS/Abilities/Boss/Ravager/GA_Ravager_Base.h"
+#include "GAS/Abilities/Boss/Ravager/BlackoutGA_Ravager_Base.h"
 #include "GA_Ravager_SummonMinion.generated.h"
 
 class UAbilityTask_WaitGameplayEvent;
@@ -13,12 +13,14 @@ class UAbilityTask_WaitGameplayEvent;
  * 실제 스폰은 UBlackoutPoolSubsystem 경유 — SpawnActor 직접 호출 금지.
  */
 UCLASS()
-class PROJECTBLACKOUT_API UGA_Ravager_SummonMinion : public UGA_Ravager_Base
+class PROJECTBLACKOUT_API UGA_Ravager_SummonMinion : public UBlackoutGA_Ravager_Base
 {
 	GENERATED_BODY()
 
 protected:
 	virtual void SetupEventListeners() override;
+	
+	virtual bool HasValidSettings() const override;
 
 	UFUNCTION()
 	void OnSpawnMinionNotify(FGameplayEventData Payload);

@@ -25,10 +25,11 @@ protected:
 	virtual void PostActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) {}
 	virtual void SetupEventListeners() {}
 	virtual FGameplayTag SelectMontageTag(const FGameplayEventData* TriggerEventData) const;
-	virtual bool IsValid() const;
+	virtual bool CanActivatePattern() const;
+	virtual bool HasValidSettings() const { return true; }  
 	
 	bool TryResolveMontage(const FGameplayEventData* TriggerEventData);
-	void TrySetupMotionWarp(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData);
+	USceneComponent* TrySetupMotionWarp(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData);
 	void PlayMontage();
 	UAnimMontage* GetMontage(const FGameplayTag& Tag);
 	

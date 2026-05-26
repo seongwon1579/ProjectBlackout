@@ -30,15 +30,22 @@ void UGA_Ravager_SummonMinion::SetupEventListeners()
 	}
 }
 
+bool UGA_Ravager_SummonMinion::HasValidSettings() const
+{
+	return CachedPatternData->MinionSettings.IsValid();
+}
+
 void UGA_Ravager_SummonMinion::OnSpawnMinionNotify(FGameplayEventData Payload)
 {
-	if (!CachedOwner || !CachedPatternData || !CachedPatternData->MinionSettings.IsValid()) return;
+	if (!CanActivatePattern()) return;
 	
 	SetSpawnerProjectiles();
 }
 
 void UGA_Ravager_SummonMinion::SetSpawnerProjectiles()
 {
+	if (!CanActivatePattern()) return;
+	
 	const FBossMinionSpawnSettings& Settings = CachedPatternData->MinionSettings;
 	
 	FVector SpawnLocation;
@@ -56,6 +63,8 @@ void UGA_Ravager_SummonMinion::SetSpawnerProjectiles()
 void UGA_Ravager_SummonMinion::ThrowSingleSpawnerProjectile(const FVector& SpawnLocation, const FRotator& BaseRotation,
 	int32 Index, int32 Total)
 {
+	if (!CanActivatePattern()) return;
+	
 	const FBossMinionSpawnSettings& Settings = CachedPatternData->MinionSettings;
 	
 	float YawOffset = 0.f;
@@ -91,6 +100,8 @@ void UGA_Ravager_SummonMinion::ThrowSingleSpawnerProjectile(const FVector& Spawn
 
 void UGA_Ravager_SummonMinion::ResolveSpawnLocation(FVector& OutLocation) const
 {
+	if (!CanActivatePattern()) return;
+	
 	const FName& SocketName = CachedPatternData->MinionSettings.SocketName;
 	USkeletalMeshComponent* Mesh = CachedOwner->GetMesh();
 	
