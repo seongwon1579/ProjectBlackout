@@ -136,6 +136,12 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_RustyLeverAction_Impact_Flesh, "GameplayCue.Weapon.RustyLeverAction.Impact.Flesh");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_RustyLeverAction_Impact_Metal, "GameplayCue.Weapon.RustyLeverAction.Impact.Metal");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_RustyLeverAction_Impact_Stone, "GameplayCue.Weapon.RustyLeverAction.Impact.Stone");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_RustyLeverAction_Bolt_Push, "GameplayCue.Weapon.RustyLeverAction.Bolt.Push");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_RustyLeverAction_Bolt_Pull, "GameplayCue.Weapon.RustyLeverAction.Bolt.Pull");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_RustyLeverAction_Reload_Mag_In, "GameplayCue.Weapon.RustyLeverAction.Reload.Mag.In");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_RustyLeverAction_Reload_Mag_Out, "GameplayCue.Weapon.RustyLeverAction.Reload.Mag.Out");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_RustyLeverAction_Reload_Bolt_Push, "GameplayCue.Weapon.RustyLeverAction.Reload.Bolt.Push");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_RustyLeverAction_Reload_Bolt_Pull, "GameplayCue.Weapon.RustyLeverAction.Reload.Bolt.Pull");
 
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_DoubleBarrel_Fire, "GameplayCue.Weapon.DoubleBarrel.Fire");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Weapon_DoubleBarrel_Trail, "GameplayCue.Weapon.DoubleBarrel.Trail");
