@@ -9,7 +9,7 @@
 #include "BOEnemyProjectile.generated.h"
 
 class UNiagaraComponent;
-class UCapsuleComponent;
+class UBoxComponent;
 class UProjectileMovementComponent;
 
 UCLASS()
@@ -39,7 +39,7 @@ protected:
 	virtual void SetCollisionEvent();
 	
 	UPROPERTY(VisibleAnywhere)
-	TObjectPtr<UCapsuleComponent> CollisionComp;
+	TObjectPtr<UBoxComponent> CollisionComp;
     
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<UProjectileMovementComponent> ProjectileMovement;

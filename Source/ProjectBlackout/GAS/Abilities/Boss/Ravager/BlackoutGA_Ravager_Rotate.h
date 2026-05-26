@@ -3,14 +3,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GAS/Abilities/Boss/Ravager/GA_Ravager_Base.h"
-#include "GA_Ravager_Rotate.generated.h"
+#include "GAS/Abilities/Boss/Ravager/BlackoutGA_Ravager_Base.h"
+#include "BlackoutGA_Ravager_Rotate.generated.h"
 
 /**
  *
  */
 UCLASS()
-class PROJECTBLACKOUT_API UGA_Ravager_Rotate : public UGA_Ravager_Base
+class PROJECTBLACKOUT_API UBlackoutGA_Ravager_Rotate : public UBlackoutGA_Ravager_Base
 {
 	GENERATED_BODY()
 

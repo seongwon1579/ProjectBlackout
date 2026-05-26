@@ -1,4 +1,4 @@
-#include "GAS/Abilities/Boss/Ravager/GA_Ravager_Shockwave.h"
+#include "GAS/Abilities/Boss/Ravager/BlackoutGA_Ravager_Shockwave.h"
 
 #include "BlackoutBossCharacter.h"
 #include "BlackoutGameplayTags.h"
@@ -6,7 +6,7 @@
 #include "Abilities/Tasks/AbilityTask.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 
-void UGA_Ravager_Shockwave::PreActivateAbility(const FGameplayAbilitySpecHandle Handle,
+void UBlackoutGA_Ravager_Shockwave::PreActivateAbility(const FGameplayAbilitySpecHandle Handle,
                                                const FGameplayAbilityActorInfo* ActorInfo,
                                                const FGameplayAbilityActivationInfo ActivationInfo,
                                                const FGameplayEventData* TriggerEventData)
@@ -16,7 +16,7 @@ void UGA_Ravager_Shockwave::PreActivateAbility(const FGameplayAbilitySpecHandle 
 	TrySetupMotionWarp(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 }
 
-void UGA_Ravager_Shockwave::SetupEventListeners()
+void UBlackoutGA_Ravager_Shockwave::SetupEventListeners()
 {
 	Super::SetupEventListeners();
 
@@ -29,14 +29,19 @@ void UGA_Ravager_Shockwave::SetupEventListeners()
 	);
 	if (WaitSpawnEvent)
 	{
-		WaitSpawnEvent->EventReceived.AddDynamic(this, &UGA_Ravager_Shockwave::OnSpawnProjectileNotify);
+		WaitSpawnEvent->EventReceived.AddDynamic(this, &UBlackoutGA_Ravager_Shockwave::OnSpawnProjectileNotify);
 		WaitSpawnEvent->ReadyForActivation();
 	}
 }
 
-void UGA_Ravager_Shockwave::OnSpawnProjectileNotify(FGameplayEventData Payload)
+bool UBlackoutGA_Ravager_Shockwave::HasValidSettings() const
 {
-	if (!CachedOwner || !CachedPatternData || !CachedPatternData->ProjectileSettings.IsValid()) return;
+	return CachedPatternData->ProjectileSettings.IsValid();
+}
+
+void UBlackoutGA_Ravager_Shockwave::OnSpawnProjectileNotify(FGameplayEventData Payload)
+{
+	if (!CanActivatePattern()) return;
 
 	const TSubclassOf<ABOEnemyProjectile> ProjectileClass = CachedPatternData->ProjectileSettings.ProjectileClass;
 
@@ -65,9 +70,9 @@ void UGA_Ravager_Shockwave::OnSpawnProjectileNotify(FGameplayEventData Payload)
 	}
 }
 
-void UGA_Ravager_Shockwave::ResolveSpawnTransform(FVector& OutLocation, FRotator& OutRotation) const
+void UBlackoutGA_Ravager_Shockwave::ResolveSpawnTransform(FVector& OutLocation, FRotator& OutRotation) const
 {
-	if (!CachedOwner || !CachedPatternData || !CachedPatternData->ProjectileSettings.IsValid())
+	if (!CanActivatePattern())
 	{
 		OutLocation = FVector::ZeroVector;
 		OutRotation = FRotator::ZeroRotator;
