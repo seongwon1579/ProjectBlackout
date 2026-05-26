@@ -4,6 +4,7 @@
 #include "AbilitySystemGlobals.h"
 #include "AbilitySystemComponent.h"
 #include "Animation/AnimMontage.h"
+#include "Animation/BlackoutPlayerAnimInstance.h"
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "Combat/BlackoutWeaponCueLibrary.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
@@ -461,7 +462,54 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 	PlayFireMontage();
 
 	const FVector MuzzleLocation = CombatComponent->GetMuzzleTransform().GetLocation();
-	const FVector AimTarget = ImpactIndicatorComponent->GetAimTargetPoint();
+	FVector AimTarget = ImpactIndicatorComponent->GetAimTargetPoint();
+
+	// 사격 판정(LineTrace) 궤적을 애니메이션 방향과 동기화
+	float Threshold = 10.f;
+	float BlendRange = 15.f;
+	float FallbackDist = 100.f;
+
+	if (UBlackoutPlayerAnimInstance* AnimInstance = Cast<UBlackoutPlayerAnimInstance>(PlayerCharacter->GetMesh()->GetAnimInstance()))
+	{
+		Threshold = AnimInstance->GetSafeAimDistanceThreshold();
+		BlendRange = AnimInstance->GetSafeAimBlendRange();
+		FallbackDist = AnimInstance->GetFallbackAimTargetDistance();
+	}
+
+	// 뷰 방향 벡터 조회
+	FVector ViewLocation = FVector::ZeroVector;
+	FRotator ViewRotation = FRotator::ZeroRotator;
+	APlayerController* PlayerController = Cast<APlayerController>(PlayerCharacter->GetController());
+	if (PlayerController)
+	{
+		PlayerController->GetPlayerViewPoint(ViewLocation, ViewRotation);
+	}
+	const FVector ViewDir = ViewRotation.Vector();
+
+	// 부호화 투영 거리(내적) 계산
+	const float ProjectedDistance = FVector::DotProduct(AimTarget - MuzzleLocation, ViewDir);
+
+	// Alpha 계산: ProjectedDistance가 Threshold 이하(음수 포함)이면 1.0(완전 폴백), Threshold + BlendRange 이상이면 0.0(완전 기본)
+	float BlendAlpha = 0.f;
+	if (ProjectedDistance <= Threshold)
+	{
+		BlendAlpha = 1.0f;
+	}
+	else if (ProjectedDistance >= Threshold + BlendRange)
+	{
+		BlendAlpha = 0.0f;
+	}
+	else if (BlendRange > 0.f)
+	{
+		BlendAlpha = 1.0f - ((ProjectedDistance - Threshold) / BlendRange);
+	}
+
+	if (BlendAlpha > 0.f && !ViewDir.IsNearlyZero())
+	{
+		const FVector FallbackTarget = ViewLocation + ViewDir * FallbackDist;
+		AimTarget = AimTarget + (FallbackTarget - AimTarget) * BlendAlpha;
+	}
+
 	const FVector BaseFireDirection = (AimTarget - MuzzleLocation).GetSafeNormal();
 	const FVector FireDirection = CombatComponent->GetSpreadDeviatedDirection(BaseFireDirection);
 
