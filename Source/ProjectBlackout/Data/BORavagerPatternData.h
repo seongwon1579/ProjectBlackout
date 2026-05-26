@@ -15,7 +15,7 @@ class ABOEnemySpawnerProjectile;
 class ABOEnemyProjectile; 
 
 USTRUCT()
-struct FBossMeleeSettings
+struct FBossBasicAttackSettings
 {
 	GENERATED_BODY()
 	
@@ -193,6 +193,38 @@ struct FBossEnergyBurstSettings
 	bool IsValid() const { return DamageEffect != nullptr; }
 };
 
+USTRUCT(BlueprintType)
+struct FBossChargeSettings
+{
+	GENERATED_BODY()
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Damage")
+	TSubclassOf<UGameplayEffect> DamageEffect;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Damage")
+	float DamageMagnitude = 100.f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Hitbox")
+	TArray<FName> HitboxComponentNames;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Animation")
+	FName EndSectionName = FName("End");
+	
+	UPROPERTY(EditAnywhere, meta = (ClampMin = "0"))
+	float ChargeSpeed = 1500.f;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Logic", meta = (ClampMin = "0.0"))
+	float ChargeStopDistance = 1000.f;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Logic", meta = (ClampMin = "0.001"))
+	float CheckInterval = 0.02f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Logic", meta = (ClampMin = "0.0"))
+	float MaxChargeDuration = 3.f;
+
+	bool IsValid() const { return DamageEffect != nullptr && HitboxComponentNames.Num() > 0; }
+};
+
 UCLASS()
 class PROJECTBLACKOUT_API UBORavagerPatternData : public UDataAsset
 {
@@ -218,7 +250,7 @@ public:
 	float AttackRangeVariance = 0.f;
 	
 	UPROPERTY(EditAnywhere, Category = "Blackout|Melee")
-	FBossMeleeSettings MeleeSettings;
+	FBossBasicAttackSettings BasicAttackSettings;
 	
 	UPROPERTY(EditAnywhere, Category = "Blackout|Projectile")
 	FBossProjectileSettings ProjectileSettings;
@@ -231,22 +263,7 @@ public:
 	
 	UPROPERTY(EditAnywhere, Category = "Blackout|EnergyBurst")
 	FBossEnergyBurstSettings EnergyBurstSettings;
-};
-
-UCLASS()
-class PROJECTBLACKOUT_API UBORavagerData : public UDataAsset
-{
-	GENERATED_BODY()
 	
-public:
-	bool IsValid(){ return MaxHealth > 0.f && MovementSpeed > 0.f && !Name.IsEmpty(); }
-	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Stats")
-	FText Name;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Stats")
-	float MaxHealth = 10000.f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Stats")
-	float MovementSpeed = 300.f;
+	UPROPERTY(EditAnywhere, Category = "Blackout|Charge")
+	FBossChargeSettings ChargeSettings;
 };
