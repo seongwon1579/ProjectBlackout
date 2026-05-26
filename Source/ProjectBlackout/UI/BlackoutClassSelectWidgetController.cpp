@@ -11,7 +11,7 @@
 #include "Framework/BlackoutPlayerController.h"
 
 bool UBlackoutClassSelectWidgetController::Initialize(
-	APlayerController* InPlayerController, UBOCharacterRoster* InRoster)
+	APlayerController* InPlayerController,const UBOCharacterRoster* InRoster)
 {
 	if (!InPlayerController || !InRoster || InRoster->Characters.Num() == 0)
 	{

@@ -30,7 +30,7 @@ class PROJECTBLACKOUT_API UBlackoutClassSelectWidgetController : public UObject
 	
 public:
 	UFUNCTION(BlueprintCallable, Category="Blackout|ClassSelect")
-	bool Initialize(APlayerController* InPlayerController , UBOCharacterRoster* InRoster);
+	bool Initialize(APlayerController* InPlayerController , const UBOCharacterRoster* InRoster);
 	
 	/** 현재 인덱스의 Display 를 다시 broadcast. Widget 초기 표시 시 호출 */
 	UFUNCTION(BlueprintCallable, Category="Blackout|ClassSelect")
@@ -57,6 +57,6 @@ private:
 	FBlackoutFirearmStat LookupFirearmStat(TSubclassOf<ABOFirearm> WeaponClass) const;
 	
 	TWeakObjectPtr<APlayerController> PlayerController;
-	TWeakObjectPtr<UBOCharacterRoster> Roster;
+	TWeakObjectPtr<const UBOCharacterRoster> Roster;
 	int32 CurrentIndex = 0;
 };
