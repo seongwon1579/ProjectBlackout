@@ -451,9 +451,10 @@ void ABlackoutPlayerCharacter::Server_InteractWithActor_Implementation(AActor* T
 
 // 회피 몽타주 재생은 GAS 표준 PlayMontageAndWait → ASC::PlayMontage 경로로 처리됩니다.
 
-void ABlackoutPlayerCharacter::Multicast_PlayHitReactMontage_Implementation(UAnimMontage* Montage, float PlayRate)
+void ABlackoutPlayerCharacter::Multicast_PlayHitReactMontage_Implementation(UAnimMontage* Montage, float PlayRate,
+	bool bAllowMovementDuringHitReact)
 {
-	PlayHitReactMontage(Montage, PlayRate);
+	PlayHitReactMontage(Montage, PlayRate, bAllowMovementDuringHitReact);
 }
 
 void ABlackoutPlayerCharacter::Multicast_PlayFireMontage_Implementation(UAnimMontage* Montage, float PlayRate, bool bRestartIfPlaying)
@@ -628,12 +629,13 @@ bool ABlackoutPlayerCharacter::StopReloadMontage(UAnimMontage* Montage, float Bl
 	return true;
 }
 
-bool ABlackoutPlayerCharacter::PlayHitReactMontage(UAnimMontage* Montage, float PlayRate)
+bool ABlackoutPlayerCharacter::PlayHitReactMontage(UAnimMontage* Montage, float PlayRate, bool bAllowMovementDuringHitReact)
 {
 	if (!Montage)
 	{
 		BO_LOG_GAS(Warning, "PlayHitReactMontage failed: Montage가 비어 있음");
 		bIsHitReactMontagePlaying = false;
+		bCanMoveDuringHitReact = false;
 		return false;
 	}
 
@@ -642,6 +644,7 @@ bool ABlackoutPlayerCharacter::PlayHitReactMontage(UAnimMontage* Montage, float 
 	{
 		BO_LOG_GAS(Warning, "PlayHitReactMontage failed: MeshComponent가 비어 있음");
 		bIsHitReactMontagePlaying = false;
+		bCanMoveDuringHitReact = false;
 		return false;
 	}
 
@@ -650,13 +653,17 @@ bool ABlackoutPlayerCharacter::PlayHitReactMontage(UAnimMontage* Montage, float 
 	{
 		BO_LOG_GAS(Warning, "PlayHitReactMontage failed: AnimInstance가 비어 있음");
 		bIsHitReactMontagePlaying = false;
+		bCanMoveDuringHitReact = false;
 		return false;
 	}
 
 	if (AnimInstance->GetCurrentActiveMontage() == Montage && AnimInstance->Montage_IsPlaying(Montage))
 	{
 		bIsHitReactMontagePlaying = true;
-		BO_LOG_GAS(Verbose, "PlayHitReactMontage skipped: 이미 같은 히트 몽타주가 재생 중임");
+		bCanMoveDuringHitReact = bAllowMovementDuringHitReact;
+		BO_LOG_GAS(Verbose,
+			"PlayHitReactMontage skipped: 이미 같은 히트 몽타주가 재생 중임 AllowMove=%s",
+			bCanMoveDuringHitReact ? TEXT("true") : TEXT("false"));
 		return true;
 	}
 
@@ -667,17 +674,20 @@ bool ABlackoutPlayerCharacter::PlayHitReactMontage(UAnimMontage* Montage, float 
 		MontageEndedDelegate.BindUObject(this, &ABlackoutPlayerCharacter::HandleHitReactMontageEnded);
 		AnimInstance->Montage_SetEndDelegate(MontageEndedDelegate, Montage);
 		bIsHitReactMontagePlaying = true;
+		bCanMoveDuringHitReact = bAllowMovementDuringHitReact;
 	}
 	else
 	{
 		bIsHitReactMontagePlaying = false;
+		bCanMoveDuringHitReact = false;
 	}
 
 	BO_LOG_GAS(Log,
-		"PlayHitReactMontage result=%.2f Local=%s Authority=%s Montage=%s",
+		"PlayHitReactMontage result=%.2f Local=%s Authority=%s AllowMove=%s Montage=%s",
 		PlayResult,
 		IsLocallyControlled() ? TEXT("true") : TEXT("false"),
 		HasAuthority() ? TEXT("true") : TEXT("false"),
+		bCanMoveDuringHitReact ? TEXT("true") : TEXT("false"),
 		*GetNameSafe(Montage));
 
 	return PlayResult > 0.f;
@@ -982,6 +992,7 @@ void ABlackoutPlayerCharacter::CommitPendingWeaponSwap()
 void ABlackoutPlayerCharacter::HandleHitReactMontageEnded(UAnimMontage* Montage, bool bInterrupted)
 {
 	bIsHitReactMontagePlaying = false;
+	bCanMoveDuringHitReact = false;
 	BO_LOG_GAS(Log,
 		"Hit react montage ended: Interrupted=%s Montage=%s",
 		bInterrupted ? TEXT("true") : TEXT("false"),
@@ -1100,22 +1111,97 @@ void ABlackoutPlayerCharacter::BroadcastReviveInteractionStateChanged()
 	OnReviveInteractionStateChangedNative.Broadcast(this, IsBeingRevived());
 }
 
-void ABlackoutPlayerCharacter::OnHitReact()
+UAnimMontage* ABlackoutPlayerCharacter::SelectHitReactMontage(float AppliedDamage) const
 {
-	Super::OnHitReact();
+	const bool bUseHeavyHitReact = AppliedDamage > HeavyHitReactDamageThreshold;
+	const bool bIsAimingHitReact = !bUseHeavyHitReact
+		&& CombatComponent
+		&& CombatComponent->IsAiming()
+		&& !IsDowned()
+		&& !IsDead();
+
+	// Light/Heavy 전용 몽타주가 비어 있어도 기존 단일 몽타주 자산으로 안전하게 폴백합니다.
+	if (bUseHeavyHitReact)
+	{
+		if (HeavyHitReactMontage)
+		{
+			return HeavyHitReactMontage;
+		}
+
+		if (HitReactMontage)
+		{
+			return HitReactMontage;
+		}
+
+		return LightHitReactMontage;
+	}
+
+	if (bIsAimingHitReact)
+	{
+		if (AimedLightHitReactMontage)
+		{
+			return AimedLightHitReactMontage;
+		}
+
+		if (LightHitReactMontage)
+		{
+			return LightHitReactMontage;
+		}
+
+		if (HitReactMontage)
+		{
+			return HitReactMontage;
+		}
+
+		return HeavyHitReactMontage;
+	}
+
+	if (LightHitReactMontage)
+	{
+		return LightHitReactMontage;
+	}
+
+	if (HitReactMontage)
+	{
+		return HitReactMontage;
+	}
+
+	return HeavyHitReactMontage;
+}
+
+void ABlackoutPlayerCharacter::OnHitReact(float AppliedDamage)
+{
+	Super::OnHitReact(AppliedDamage);
 
 	if (!HasAuthority())
 	{
 		return;
 	}
 
-	if (!HitReactMontage)
+	UAnimMontage* SelectedHitReactMontage = SelectHitReactMontage(AppliedDamage);
+	const bool bIsAimingLightHitReact = AppliedDamage <= HeavyHitReactDamageThreshold
+		&& CombatComponent
+		&& CombatComponent->IsAiming()
+		&& !IsDowned()
+		&& !IsDead();
+	if (!SelectedHitReactMontage)
 	{
-		BO_LOG_GAS(Verbose, "OnHitReact skipped: HitReactMontage가 비어 있음");
+		BO_LOG_GAS(Verbose, "OnHitReact skipped: 사용할 히트 몽타주가 비어 있음 Damage=%.1f", AppliedDamage);
 		return;
 	}
 
-	Multicast_PlayHitReactMontage(HitReactMontage, 1.f);
+	BO_LOG_GAS(Log,
+		"OnHitReact selected montage: Damage=%.1f Threshold=%.1f Type=%s Aiming=%s AllowMove=%s Montage=%s",
+		AppliedDamage,
+		HeavyHitReactDamageThreshold,
+		AppliedDamage > HeavyHitReactDamageThreshold
+			? TEXT("Heavy")
+			: (bIsAimingLightHitReact ? TEXT("AimedLight") : TEXT("Light")),
+		bIsAimingLightHitReact ? TEXT("true") : TEXT("false"),
+		bIsAimingLightHitReact ? TEXT("true") : TEXT("false"),
+		*GetNameSafe(SelectedHitReactMontage));
+
+	Multicast_PlayHitReactMontage(SelectedHitReactMontage, 1.f, bIsAimingLightHitReact);
 }
 
 void ABlackoutPlayerCharacter::HandleDownedStateChanged(bool bWasDowned, bool bIsCurrentlyDowned)
@@ -1143,6 +1229,7 @@ void ABlackoutPlayerCharacter::HandleDownedStateChanged(bool bWasDowned, bool bI
 void ABlackoutPlayerCharacter::ApplyDownedStateLocally()
 {
 	bIsHitReactMontagePlaying = false;
+	bCanMoveDuringHitReact = false;
 	bIsDodgeMontagePlaying = false;
 	bIsWeaponSwapMontagePlaying = false;
 	bIsReviveMontagePlaying = false;
@@ -1240,6 +1327,7 @@ void ABlackoutPlayerCharacter::OnDeath()
 	EndReviveInteraction(nullptr);
 
 	bIsHitReactMontagePlaying = false;
+	bCanMoveDuringHitReact = false;
 	bIsDodgeMontagePlaying = false;
 	bIsWeaponSwapMontagePlaying = false;
 	bIsReviveMontagePlaying = false;
@@ -2129,7 +2217,7 @@ void ABlackoutPlayerCharacter::DoMove(float Right, float Forward)
 		return;
 	}
 
-	if (bIsHitReactMontagePlaying)
+	if (bIsHitReactMontagePlaying && !bCanMoveDuringHitReact)
 	{
 		return;
 	}
