@@ -189,6 +189,8 @@ namespace BlackoutGameplayTags
 	
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_EnergyBurst, "Ability.Ravager.EnergyBurst");
 	
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Charge, "Ability.Ravager.Charge");
+	
 	// ─── Wraith Abilities ──────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Wraith_FireTwinArrows, "Ability.Wraith.FireTwinArrows");
 	UE_DEFINE_GAMEPLAY_TAG(Cooldown_Wraith_FireTwinArrows, "Cooldown.Wraith.FireTwinArrows");
@@ -214,6 +216,8 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_OffGorenado, "Event.Enemy.Attack.OffGorenado");
 	
 	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_Spawn_Projectile, "Event.Enemy.Attack.Spawn.Projectile");
+	
+	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_Charge_LoopStart, "Event.Enemy.Attack.Charge.LoopStart");
 	
 	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_OnEnergyBurst, "Event.Enemy.Attack.OnEnergyBurst");
 	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_OffEnergyBurst, "Event.Enemy.Attack.OffEnergyBurst");
