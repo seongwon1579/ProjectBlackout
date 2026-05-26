@@ -134,6 +134,8 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Weapon_Meridian_Impact_Metal);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Weapon_Meridian_Impact_Stone);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Weapon_Meridian_Explosion);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Weapon_Meridian_Reload_In);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Weapon_Meridian_Reload_Out);
 
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Weapon_RustyLeverAction_Fire);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Weapon_RustyLeverAction_Trail);
