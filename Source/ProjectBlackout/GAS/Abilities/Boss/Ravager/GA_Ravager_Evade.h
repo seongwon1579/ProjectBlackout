@@ -3,14 +3,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GAS/Abilities/BlackoutBossGameplayAbility.h"
+#include "GAS/Abilities/Boss/Ravager/GA_Ravager_Base.h"
 #include "GA_Ravager_Evade.generated.h"
 
 /**
- * 
+ *
  */
 UCLASS()
-class PROJECTBLACKOUT_API UGA_Ravager_Evade : public UBlackoutBossGameplayAbility
+class PROJECTBLACKOUT_API UGA_Ravager_Evade : public UGA_Ravager_Base
 {
 	GENERATED_BODY()
 	

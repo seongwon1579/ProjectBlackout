@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GAS/Abilities/BlackoutBossGameplayAbility.h"
+#include "GAS/Abilities/Boss/Ravager/GA_Ravager_Base.h"
 #include "GameplayEffect.h"
 #include "GA_Ravager_MeleeAttack.generated.h"
 
@@ -13,7 +13,7 @@ struct FGameplayEventData;
 class UAbilityTask_BossMeleeHitbox;
 
 UCLASS()
-class PROJECTBLACKOUT_API UGA_Ravager_MeleeAttack : public UBlackoutBossGameplayAbility
+class PROJECTBLACKOUT_API UGA_Ravager_MeleeAttack : public UGA_Ravager_Base
 {
 	GENERATED_BODY()
 

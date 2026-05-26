@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/Interface.h"
-#include "Data/BORavagerData.h"
+#include "Data/BORavagerPatternData.h"
 
 #include "BlackoutPullable.generated.h"
 

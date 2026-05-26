@@ -28,40 +28,31 @@ void ABlackoutBossCharacter::OnDeath()
 	}
 }
 
-void ABlackoutBossCharacter::BeginPlay()
+void ABlackoutBossCharacter::SetData()
 {
-	Super::BeginPlay();
-
 	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
 	if (!ASC) return;
-
-	for (const auto& [_, Data] : BossAbilityData)
+	
+	for (const auto& [Tag, Data] : BossPatternData)
 	{
 		if (!Data || !Data->GrantedAbility) continue;
-
 		ASC->GiveAbility(FGameplayAbilitySpec(Data->GrantedAbility, 1));
 	}
-
-	if (HasAuthority())
+	
+	if (AbilitySystemComponent)
 	{
-		ASC->GetGameplayAttributeValueChangeDelegate(
-			   UBlackoutBaseAttributeSet::GetHealthAttribute())
-		   .AddUObject(this, &ABlackoutBossCharacter::OnDamageReceived);
+		AbilitySystemComponent->InitAbilityActorInfo(this, this);
+
+		if (BaseAttributeSet && BossData)
+		{
+			AbilitySystemComponent->SetNumericAttributeBase(
+				UBlackoutBaseAttributeSet::GetMaxHealthAttribute(),
+				BossData->MaxHealth);
+			AbilitySystemComponent->SetNumericAttributeBase(
+				UBlackoutBaseAttributeSet::GetHealthAttribute(),
+				BossData->MaxHealth);
+		}
 	}
-
-	GetWorld()->GetTimerManager().SetTimerForNextTick(
-		this, &ABlackoutBossCharacter::TryBindToHUD);
-}
-
-void ABlackoutBossCharacter::OnReturnToPool_Implementation()
-{
-	Destroy();
-}
-
-UBORavagerData* ABlackoutBossCharacter::GetPatternData(FGameplayTag AbilityTag) const
-{
-	const TObjectPtr<UBORavagerData>* Found = BossAbilityData.Find(AbilityTag);
-	return Found ? Found->Get() : nullptr;
 }
 
 void ABlackoutBossCharacter::OnDamageReceived(const FOnAttributeChangeData& Data)
@@ -95,6 +86,56 @@ void ABlackoutBossCharacter::OnDamageReceived(const FOnAttributeChangeData& Data
 	}
 }
 
+FText ABlackoutBossCharacter::GetBossDisplayName() const
+{
+	if (BossData->IsValid())
+	{
+		return BossData->Name;
+	}
+	return FText::FromString(TEXT("Ravager"));
+}
+
+
+void ABlackoutBossCharacter::BeginPlay()
+{
+	Super::BeginPlay();
+
+	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
+	if (!ASC) return;
+	
+	SetData();
+
+	// for (const auto& [_, Data] : BossAbilityData)
+	// {
+	// 	if (!Data || !Data->GrantedAbility) continue;
+	//
+	// 	ASC->GiveAbility(FGameplayAbilitySpec(Data->GrantedAbility, 1));
+	// }
+
+	if (HasAuthority())
+	{
+		ASC->GetGameplayAttributeValueChangeDelegate(
+			   UBlackoutBaseAttributeSet::GetHealthAttribute())
+		   .AddUObject(this, &ABlackoutBossCharacter::OnDamageReceived);
+	}
+
+	GetWorld()->GetTimerManager().SetTimerForNextTick(
+		this, &ABlackoutBossCharacter::TryBindToHUD);
+}
+
+
+UBORavagerPatternData* ABlackoutBossCharacter::GetPatternData(FGameplayTag AbilityTag) const
+{
+	const TObjectPtr<UBORavagerPatternData>* Found = BossPatternData.Find(AbilityTag);
+	return Found ? Found->Get() : nullptr;
+}
+
+
+EBOBossPhase ABlackoutBossCharacter::DetermineTargetPhase(float HealthRatio)
+{
+	return HealthRatio <= 0.5f ? EBOBossPhase::Phase2 : EBOBossPhase::Phase1;
+}
+
 APawn* ABlackoutBossCharacter::ResolveInstigatorPawn(AActor* SourceActor) const
 {
 	if (!SourceActor) return nullptr;
@@ -104,16 +145,6 @@ APawn* ABlackoutBossCharacter::ResolveInstigatorPawn(AActor* SourceActor) const
 	if (APlayerState* PS = Cast<APlayerState>(SourceActor)) return PS->GetPawn();
 
 	return nullptr;
-}
-
-EBOBossPhase ABlackoutBossCharacter::DetermineTargetPhase(float HealthRatio) const
-{
-	if (HealthRatio <= 0.5f)
-	{
-		return EBOBossPhase::Phase2;
-	}
-
-	return EBOBossPhase::Phase1;
 }
 
 void ABlackoutBossCharacter::TryBindToHUD()
@@ -128,7 +159,7 @@ void ABlackoutBossCharacter::TryBindToHUD()
 		{
 			if (UBlackoutEnemyHUDWidgetController* EnemyHUDController = BlackoutHUD->GetEnemyHUDWidgetController())
 			{
-				EnemyHUDController->BindToEnemy(GetAbilitySystemComponent(), FText::FromString(TEXT("Ravager")));
+				EnemyHUDController->BindToEnemy(GetAbilitySystemComponent(), GetBossDisplayName());
 				bBound = true;
 			}
 		}

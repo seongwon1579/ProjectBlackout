@@ -5,6 +5,8 @@
 #include "Core/BlackoutTypes.h"
 #include "BlackoutGameState.generated.h"
 
+class UBOCharacterRoster;
+
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FBlackoutPlayerArrayChangedSignature);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FBlackoutMatchStateChangedSignature, EBlackoutMatchState, NewState);
 
@@ -37,6 +39,10 @@ public:
 
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Blackout|GameState")
 	float MatchTimer = 0.f;
+	
+	/** 선택 가능 캐릭터 목록  */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly,Category="Blackout|GameState")
+	TObjectPtr<UBOCharacterRoster> CharacterRoster;
 
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_DestroyedPillarIds, Category = "Blackout|GameState")
 	TArray<int32> DestroyedPillarIds;

@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "BORavagerData.h"
+#include "BORavagerPatternData.h"
 #include "BehaviorTree/BTService.h"
 #include "BTS_CheckChaseDistance.generated.h"
 
@@ -44,5 +44,5 @@ protected:
 	// float Threshold;
 	
 	UPROPERTY(Transient)
-	TObjectPtr<UBORavagerData> CachedData;
+	TObjectPtr<UBORavagerPatternData> CachedData;
 };

@@ -1,20 +1,20 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Data/BORavagerData.h"
+#include "Data/BORavagerPatternData.h"
 #include "GAS/Abilities/BlackoutEnemyGameplayAbility.h"
 #include "GAS/Abilities/BlackoutGameplayAbility.h"
-#include "BlackoutBossGameplayAbility.generated.h"
+#include "GA_Ravager_Base.generated.h"
 
 class ABlackoutBossCharacter;
 class UAnimMontage;
 
 UCLASS(Abstract)
-class PROJECTBLACKOUT_API UBlackoutBossGameplayAbility : public UBlackoutEnemyGameplayAbility
+class PROJECTBLACKOUT_API UGA_Ravager_Base : public UBlackoutEnemyGameplayAbility
 {
 	GENERATED_BODY()
 public:
-	UBlackoutBossGameplayAbility();
+	UGA_Ravager_Base();
 	
 protected:
 	virtual void OnAvatarSet(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec) override;
@@ -39,7 +39,7 @@ protected:
 	FGameplayTag PatternDataTag;
 	
 	UPROPERTY(Transient)
-	TObjectPtr<UBORavagerData> CachedPatternData;
+	TObjectPtr<UBORavagerPatternData> CachedPatternData;
 	
 	UPROPERTY(Transient)
 	TObjectPtr<ABlackoutBossCharacter> CachedOwner;

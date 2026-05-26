@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
-#include "GAS/Abilities/BlackoutBossGameplayAbility.h"
+#include "GAS/Abilities/Boss/Ravager/GA_Ravager_Base.h"
 #include "GA_Shrewd_LoSTeleport.generated.h"
 
 /**
@@ -14,7 +14,7 @@
  *      (기본값: GA.Shrewd.MeleeCombo)
  */
 UCLASS()
-class PROJECTBLACKOUT_API UGA_Shrewd_LoSTeleport : public UBlackoutBossGameplayAbility
+class PROJECTBLACKOUT_API UGA_Shrewd_LoSTeleport : public UGA_Ravager_Base
 {
 	GENERATED_BODY()
 
