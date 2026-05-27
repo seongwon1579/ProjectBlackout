@@ -18,6 +18,9 @@ UBlackoutGA_SwapWeapon::UBlackoutGA_SwapWeapon()
 	AssetTags.AddTag(BlackoutGameplayTags::Ability_Player_SwapWeapon);
 	SetAssetTags(AssetTags);
 	CancelAbilitiesWithTag.AddTag(BlackoutGameplayTags::Ability_Player_Reload);
+	CancelAbilitiesWithTag.AddTag(BlackoutGameplayTags::Ability_Player_Dodge);
+	CancelAbilitiesWithTag.AddTag(BlackoutGameplayTags::Ability_Player_Melee);
+
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Downed);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Locked);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Attacking);

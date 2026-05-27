@@ -28,6 +28,12 @@ UBlackoutGA_Dodge::UBlackoutGA_Dodge()
 	// 태그의 동적 관리를 위해 ActivationOwnedTags가 아닌 코드 수동 추가로 전환합니다.
 	// ActivationOwnedTags.AddTag(BlackoutGameplayTags::State_Locked);
 	
+	FGameplayTagContainer AssetTags;
+	AssetTags.AddTag(BlackoutGameplayTags::Ability_Player_Dodge);
+	SetAssetTags(AssetTags);
+
+	AbilityTags.AddTag(BlackoutGameplayTags::Ability_Player_Dodge);
+
 	CancelAbilitiesWithTag.AddTag(BlackoutGameplayTags::Ability_Player_Reload);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Downed);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Locked);

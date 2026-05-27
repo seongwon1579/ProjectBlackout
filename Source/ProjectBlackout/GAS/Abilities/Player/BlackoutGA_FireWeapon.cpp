@@ -369,6 +369,10 @@ UBlackoutGA_FireWeapon::UBlackoutGA_FireWeapon()
 	InputID = EBlackoutAbilityInputID::Fire;
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::LocalPredicted;
+
+	CancelAbilitiesWithTag.AddTag(BlackoutGameplayTags::Ability_Player_Dodge);
+	CancelAbilitiesWithTag.AddTag(BlackoutGameplayTags::Ability_Player_Melee);
+
 	ActivationRequiredTags.AddTag(BlackoutGameplayTags::State_Aiming);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Sprinting);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Reloading);

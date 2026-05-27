@@ -16,6 +16,9 @@ UBlackoutGA_Aim::UBlackoutGA_Aim()
 	AssetTags.AddTag(BlackoutGameplayTags::Ability_Player_Aim);
 	SetAssetTags(AssetTags);
 
+	CancelAbilitiesWithTag.AddTag(BlackoutGameplayTags::Ability_Player_Dodge);
+	CancelAbilitiesWithTag.AddTag(BlackoutGameplayTags::Ability_Player_Melee);
+
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Sprinting);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Downed);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Locked);

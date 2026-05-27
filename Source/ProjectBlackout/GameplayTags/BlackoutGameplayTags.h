@@ -21,6 +21,7 @@ namespace BlackoutGameplayTags
 	
 	// ─── Character Abilities ───────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Player_Dodge);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Player_Melee);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Player_Aim);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Player_Reload);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Player_SwapWeapon);

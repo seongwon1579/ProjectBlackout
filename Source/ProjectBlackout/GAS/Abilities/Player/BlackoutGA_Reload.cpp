@@ -20,6 +20,10 @@ UBlackoutGA_Reload::UBlackoutGA_Reload()
 	FGameplayTagContainer AssetTags;
 	AssetTags.AddTag(BlackoutGameplayTags::Ability_Player_Reload);
 	SetAssetTags(AssetTags);
+
+	CancelAbilitiesWithTag.AddTag(BlackoutGameplayTags::Ability_Player_Dodge);
+	CancelAbilitiesWithTag.AddTag(BlackoutGameplayTags::Ability_Player_Melee);
+
 	ActivationOwnedTags.AddTag(BlackoutGameplayTags::State_Reloading);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Downed);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Locked);
