@@ -121,7 +121,7 @@ FBlackoutFirearmStat UBlackoutClassSelectWidgetController::LookupFirearmStat(
 	{
 		return {};
 	}
-	const FDataTableRowHandle RowHandle = CDO->GetFirearmStatsRow();
+	const FDataTableRowHandle RowHandle = CDO->GetUIStatsRow();
 	if (!RowHandle.DataTable || RowHandle.RowName.IsNone())
 	{
 		return {};

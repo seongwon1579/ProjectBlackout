@@ -41,6 +41,8 @@ public:
 
 	virtual bool InitializeStatsFromDataTable() override;
 
+	virtual FDataTableRowHandle GetUIStatsRow() const override { return ShotgunStatsRow; }
+
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	TArray<FBlackoutShotgunPelletHit> FireShotgun(const FVector& BaseDirection, const FGameplayEffectSpecHandle& DamageSpecHandle);
 
