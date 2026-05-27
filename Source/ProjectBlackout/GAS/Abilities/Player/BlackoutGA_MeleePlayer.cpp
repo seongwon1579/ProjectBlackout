@@ -4,6 +4,7 @@
 #include "AbilitySystemInterface.h"
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 #include "Abilities/Tasks/AbilityTask_WaitInputPress.h"
+#include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "Animation/AnimMontage.h"
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
@@ -22,7 +23,9 @@ UBlackoutGA_MeleePlayer::UBlackoutGA_MeleePlayer()
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::LocalPredicted;
 
-	ActivationOwnedTags.AddTag(BlackoutGameplayTags::State_Attacking);
+	// 태그의 동적 관리를 위해 ActivationOwnedTags가 아닌 코드 수동 추가로 전환합니다.
+	// ActivationOwnedTags.AddTag(BlackoutGameplayTags::State_Attacking);
+	
 	CancelAbilitiesWithTag.AddTag(BlackoutGameplayTags::Ability_Player_Reload);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Aiming);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Sprinting);
@@ -64,6 +67,15 @@ void UBlackoutGA_MeleePlayer::ActivateAbility(const FGameplayAbilitySpecHandle H
 		}
 	}
 
+	// 행동 차단 태그를 수동으로 부여합니다.
+	if (UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo())
+	{
+		if (!AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Attacking))
+		{
+			AbilitySystemComponent->AddLooseGameplayTag(BlackoutGameplayTags::State_Attacking);
+		}
+	}
+
 	ResetComboState();
 	CurrentComboIndex = 0;
 
@@ -102,6 +114,9 @@ void UBlackoutGA_MeleePlayer::ActivateAbility(const FGameplayAbilitySpecHandle H
 	// 클라이언트의 윈도우는 입력 전파 보조 상태로만 유지하고, 섹션 전환은 서버 복제를 따릅니다.
 	ScheduleSectionTimers(0);
 
+	// 캔슬 감지 태스크 활성화
+	StartCancelableEventTask();
+
 	// 입력 수집은 양측 모두에서. 클라이언트는 표준 GAS 경로로 서버에 InputPressed 를 전파합니다.
 	StartComboInputTask();
 }
@@ -129,6 +144,15 @@ void UBlackoutGA_MeleePlayer::EndAbility(const FGameplayAbilitySpecHandle Handle
 		}
 	}
 
+	// 행동 차단 태그를 수동으로 제거 및 안전 회수합니다.
+	if (UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo())
+	{
+		if (AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Attacking))
+		{
+			AbilitySystemComponent->RemoveLooseGameplayTag(BlackoutGameplayTags::State_Attacking);
+		}
+	}
+
 	ClearAllComboTimers();
 	ResetComboState();
 
@@ -136,6 +160,12 @@ void UBlackoutGA_MeleePlayer::EndAbility(const FGameplayAbilitySpecHandle Handle
 	{
 		ComboInputTask->EndTask();
 		ComboInputTask = nullptr;
+	}
+
+	if (CancelableEventTask)
+	{
+		CancelableEventTask->EndTask();
+		CancelableEventTask = nullptr;
 	}
 
 	if (MontageTask)
@@ -219,6 +249,79 @@ void UBlackoutGA_MeleePlayer::OnComboInputPressed(float TimeWaited)
 	if (IsActive())
 	{
 		StartComboInputTask();
+	}
+}
+
+void UBlackoutGA_MeleePlayer::StartCancelableEventTask()
+{
+	if (CancelableEventTask)
+	{
+		CancelableEventTask->EndTask();
+		CancelableEventTask = nullptr;
+	}
+
+	CancelableEventTask = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(
+		this,
+		BlackoutGameplayTags::Event_Montage_AbilityCancelable,
+		nullptr,
+		false,
+		false);
+
+	if (CancelableEventTask)
+	{
+		CancelableEventTask->EventReceived.AddDynamic(this, &UBlackoutGA_MeleePlayer::OnAbilityCancelableEventReceived);
+		CancelableEventTask->ReadyForActivation();
+	}
+}
+
+void UBlackoutGA_MeleePlayer::OnAbilityCancelableEventReceived(FGameplayEventData Payload)
+{
+	BO_LOG_GAS(Log, "GA_MeleePlayer: 캔슬 윈도우 오픈 (Event_Montage_AbilityCancelable 수신). 다른 행동의 시전을 대기합니다.");
+	
+	bCancelWindowOpen = true;
+
+	// 행동 차단 태그를 동적으로 제거하여 다른 어빌리티가 활성화될 수 있게 허용합니다.
+	if (UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo())
+	{
+		if (AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Attacking))
+		{
+			AbilitySystemComponent->RemoveLooseGameplayTag(BlackoutGameplayTags::State_Attacking);
+		}
+	}
+
+	// 캔슬 윈도우가 열려 있는 동안 무브먼트(WASD) 입력을 실시간(0.02초 주기) 모니터링하기 시작합니다.
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().SetTimer(
+			CancelInputCheckTimerHandle,
+			this,
+			&UBlackoutGA_MeleePlayer::CheckCancelInput,
+			0.02f,
+			true);
+	}
+}
+
+void UBlackoutGA_MeleePlayer::CheckCancelInput()
+{
+	if (!bCancelWindowOpen)
+	{
+		return;
+	}
+
+	if (ABlackoutPlayerCharacter* PlayerCharacter = CurrentActorInfo ? Cast<ABlackoutPlayerCharacter>(CurrentActorInfo->AvatarActor.Get()) : nullptr)
+	{
+		// 플레이어의 이동 입력(WASD)이 감지되면 즉시 몽타주를 정지하고 무기를 안전하게 복구합니다.
+		if (!PlayerCharacter->GetCachedMoveInput().IsNearlyZero())
+		{
+			BO_LOG_GAS(Log, "GA_MeleePlayer: 캔슬 윈도우 내 이동 입력 감지. 몽타주를 강제 정지하고 어빌리티를 취소합니다.");
+
+			if (MeleeComboData && MeleeComboData->MeleeMontage)
+			{
+				PlayerCharacter->StopAnimMontage(MeleeComboData->MeleeMontage);
+			}
+
+			K2_EndAbility();
+		}
 	}
 }
 
@@ -422,6 +525,20 @@ bool UBlackoutGA_MeleePlayer::AdvanceToNextComboSection(const FBlackoutAbilityIn
 		return false;
 	}
 
+	// 콤보 섹션 전환 시 캔슬 윈도우 및 체크 타이머를 초기화하고 행동 차단 태그를 안전 복구합니다.
+	bCancelWindowOpen = false;
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(CancelInputCheckTimerHandle);
+	}
+	if (UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo())
+	{
+		if (!AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Attacking))
+		{
+			AbilitySystemComponent->AddLooseGameplayTag(BlackoutGameplayTags::State_Attacking);
+		}
+	}
+
 	// 순환 콤보 계산: 마지막 인덱스 이후 다시 0으로 순환하도록 모듈러 연산 적용
 	const int32 NextComboIndex = (CurrentComboIndex + 1) % MeleeComboData->ComboSections.Num();
 	if (!MeleeComboData->ComboSections.IsValidIndex(NextComboIndex))
@@ -481,6 +598,10 @@ bool UBlackoutGA_MeleePlayer::AdvanceToNextComboSection(const FBlackoutAbilityIn
 
 	// 새 섹션의 윈도우/그레이스 타이머 예약 (서버 권위).
 	ScheduleSectionTimers(CurrentComboIndex);
+
+	// 다음 콤보 섹션 진행에 따라 캔슬 감지 태스크 갱신
+	StartCancelableEventTask();
+
 	return true;
 }
 
@@ -796,6 +917,7 @@ void UBlackoutGA_MeleePlayer::ResetComboState()
 	bComboGraceWindowOpen = false;
 	bComboInputQueued = false;
 	bHasQueuedComboInputPayload = false;
+	bCancelWindowOpen = false;
 	CurrentSectionEnteredServerTime = 0.f;
 	ComboWindowOpenedServerTime = 0.f;
 	ComboWindowClosedServerTime = 0.f;
@@ -812,6 +934,7 @@ void UBlackoutGA_MeleePlayer::ClearAllComboTimers()
 		TimerManager.ClearTimer(ComboWindowCloseTimerHandle);
 		TimerManager.ClearTimer(ComboGraceCloseTimerHandle);
 		TimerManager.ClearTimer(ComboInputBufferTimerHandle);
+		TimerManager.ClearTimer(CancelInputCheckTimerHandle);
 	}
 }
 

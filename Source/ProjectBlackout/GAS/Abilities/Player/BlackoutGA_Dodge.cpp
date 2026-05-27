@@ -4,6 +4,7 @@
 #include "AbilitySystemInterface.h"
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 #include "Abilities/Tasks/AbilityTask_WaitInputPress.h"
+#include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "Animation/AnimMontage.h"
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
@@ -24,7 +25,9 @@ UBlackoutGA_Dodge::UBlackoutGA_Dodge()
 	// i-frame 을 위한 임시 제거
 	// ActivationOwnedTags.AddTag(BlackoutGameplayTags::State_Invulnerable);
 
-	ActivationOwnedTags.AddTag(BlackoutGameplayTags::State_Locked);
+	// 태그의 동적 관리를 위해 ActivationOwnedTags가 아닌 코드 수동 추가로 전환합니다.
+	// ActivationOwnedTags.AddTag(BlackoutGameplayTags::State_Locked);
+	
 	CancelAbilitiesWithTag.AddTag(BlackoutGameplayTags::Ability_Player_Reload);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Downed);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Locked);
@@ -101,6 +104,15 @@ void UBlackoutGA_Dodge::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
 		MeleeAbility->K2_CancelAbility();
 	}
 
+	// 행동 차단 태그를 수동으로 부여합니다. (캔슬 윈도우 내 동적 격리를 위함)
+	if (UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo())
+	{
+		if (!AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Locked))
+		{
+			AbilitySystemComponent->AddLooseGameplayTag(BlackoutGameplayTags::State_Locked);
+		}
+	}
+
 	// v2.3 (옵션 A — 클라 권위 위치 동기화):
 	// - bIgnoreClientMovementErrorChecksAndCorrection: 서버가 ClientAdjustPosition RPC 를 보내지 않음 (jitter 차단).
 	// - bServerAcceptClientAuthoritativePosition: 매 ServerMove 마다 서버가 클라 보고 위치를 그대로 채택.
@@ -147,6 +159,15 @@ void UBlackoutGA_Dodge::EndAbility(const FGameplayAbilitySpecHandle Handle, cons
 		}
 	}
 
+	// 행동 차단 태그를 수동으로 제거 및 안전 회수합니다.
+	if (UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo())
+	{
+		if (AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Locked))
+		{
+			AbilitySystemComponent->RemoveLooseGameplayTag(BlackoutGameplayTags::State_Locked);
+		}
+	}
+
 	ClearAllChainTimers();
 	ResetChainState();
 	LastProcessedChainInputSequenceId = 0;
@@ -155,6 +176,12 @@ void UBlackoutGA_Dodge::EndAbility(const FGameplayAbilitySpecHandle Handle, cons
 	{
 		ChainInputTask->EndTask();
 		ChainInputTask = nullptr;
+	}
+
+	if (CancelableEventTask)
+	{
+		CancelableEventTask->EndTask();
+		CancelableEventTask = nullptr;
 	}
 
 	if (MontageTask)
@@ -235,6 +262,79 @@ void UBlackoutGA_Dodge::OnChainInputPressed(float TimeWaited)
 	if (IsActive())
 	{
 		StartChainInputTask();
+	}
+}
+
+void UBlackoutGA_Dodge::StartCancelableEventTask()
+{
+	if (CancelableEventTask)
+	{
+		CancelableEventTask->EndTask();
+		CancelableEventTask = nullptr;
+	}
+
+	CancelableEventTask = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(
+		this,
+		BlackoutGameplayTags::Event_Montage_AbilityCancelable,
+		nullptr,
+		false,
+		false);
+
+	if (CancelableEventTask)
+	{
+		CancelableEventTask->EventReceived.AddDynamic(this, &UBlackoutGA_Dodge::OnAbilityCancelableEventReceived);
+		CancelableEventTask->ReadyForActivation();
+	}
+}
+
+void UBlackoutGA_Dodge::OnAbilityCancelableEventReceived(FGameplayEventData Payload)
+{
+	BO_LOG_GAS(Log, "GA_Dodge: 캔슬 윈도우 오픈 (Event_Montage_AbilityCancelable 수신). 다른 행동의 시전을 대기합니다.");
+	
+	bCancelWindowOpen = true;
+
+	// 행동 차단 태그를 동적으로 제거하여 다른 어빌리티가 활성화될 수 있게 허용합니다.
+	if (UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo())
+	{
+		if (AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Locked))
+		{
+			AbilitySystemComponent->RemoveLooseGameplayTag(BlackoutGameplayTags::State_Locked);
+		}
+	}
+
+	// 캔슬 윈도우가 열려 있는 동안 무브먼트(WASD) 입력을 실시간(0.02초 주기) 모니터링하기 시작합니다.
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().SetTimer(
+			CancelInputCheckTimerHandle,
+			this,
+			&UBlackoutGA_Dodge::CheckCancelInput,
+			0.02f,
+			true);
+	}
+}
+
+void UBlackoutGA_Dodge::CheckCancelInput()
+{
+	if (!bCancelWindowOpen)
+	{
+		return;
+	}
+
+	if (ABlackoutPlayerCharacter* PlayerCharacter = CurrentActorInfo ? Cast<ABlackoutPlayerCharacter>(CurrentActorInfo->AvatarActor.Get()) : nullptr)
+	{
+		// 플레이어의 이동 입력(WASD)이 감지되면 즉시 몽타주를 정지하고 일반 무브먼트로 제어를 인계합니다.
+		if (!PlayerCharacter->GetCachedMoveInput().IsNearlyZero())
+		{
+			BO_LOG_GAS(Log, "GA_Dodge: 캔슬 윈도우 내 이동 입력 감지. 몽타주를 강제 정지하고 어빌리티를 취소합니다.");
+
+			if (DodgeData && DodgeData->DodgeMontage)
+			{
+				PlayerCharacter->StopAnimMontage(DodgeData->DodgeMontage);
+			}
+
+			K2_EndAbility();
+		}
 	}
 }
 
@@ -551,6 +651,15 @@ bool UBlackoutGA_Dodge::StartDodgeInternal(ABlackoutPlayerCharacter* PlayerChara
 	ResetChainState();
 	ClearAllChainTimers();
 
+	// 체인 재시작 등으로 인해 캔슬 윈도우 상태가 리셋될 경우 행동 차단 태그를 명시적으로 복구합니다.
+	if (UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo())
+	{
+		if (!AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Locked))
+		{
+			AbilitySystemComponent->AddLooseGameplayTag(BlackoutGameplayTags::State_Locked);
+		}
+	}
+
 	const FRotator TargetRotation(0.f, DodgeDirection.Rotation().Yaw, 0.f);
 	PlayerCharacter->SetActorRotation(TargetRotation);
 	PlayerCharacter->SetDodgeMontagePlaying(true);
@@ -603,6 +712,9 @@ bool UBlackoutGA_Dodge::StartDodgeInternal(ABlackoutPlayerCharacter* PlayerChara
 
 	// 체인 윈도우/그레이스 타이머 예약. 체인 재시작 시에는 서버 권위 상태만 갱신됩니다.
 	ScheduleChainTimers();
+
+	// 캔슬 감지 태스크 활성화 (첫 실행 및 체인 재시작 공통)
+	StartCancelableEventTask();
 
 	return true;
 }
@@ -857,6 +969,7 @@ void UBlackoutGA_Dodge::ClearAllChainTimers()
 		TimerManager.ClearTimer(ChainWindowCloseTimerHandle);
 		TimerManager.ClearTimer(ChainGraceCloseTimerHandle);
 		TimerManager.ClearTimer(ChainInputBufferTimerHandle);
+		TimerManager.ClearTimer(CancelInputCheckTimerHandle);
 	}
 }
 
@@ -866,6 +979,7 @@ void UBlackoutGA_Dodge::ResetChainState()
 	bChainGraceWindowOpen = false;
 	bChainInputQueued = false;
 	bHasQueuedChainInputPayload = false;
+	bCancelWindowOpen = false;
 	ChainWindowOpenedServerTime = 0.f;
 	ChainWindowClosedServerTime = 0.f;
 	ActiveChainGraceDuration = 0.f;

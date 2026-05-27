@@ -246,6 +246,7 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(Event_Montage_ReloadWeaponStart, "Event.Montage.Reload.WeaponStart");
 	UE_DEFINE_GAMEPLAY_TAG(Event_Montage_ReloadAmmoCommit, "Event.Montage.Reload.AmmoCommit");
 	UE_DEFINE_GAMEPLAY_TAG(Event_Montage_WeaponSwapCommit, "Event.Montage.WeaponSwap.Commit");
+	UE_DEFINE_GAMEPLAY_TAG(Event_Montage_AbilityCancelable, "Event.Montage.AbilityCancelable");
 
 	// ─── Shelter ──────────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(State_InShelter,        "State.InShelter");
