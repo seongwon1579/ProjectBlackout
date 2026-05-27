@@ -87,6 +87,48 @@ namespace
 		return nullptr;
 	}
 
+	const AActor* ResolveDamageSourceActor(const FGameplayEffectSpecHandle& SpecHandle)
+	{
+		if (!SpecHandle.IsValid() || !SpecHandle.Data.IsValid())
+		{
+			return nullptr;
+		}
+
+		const FGameplayEffectContextHandle& EffectContext = SpecHandle.Data->GetContext();
+		TArray<const AActor*, TInlineAllocator<4>> SourceCandidates;
+		SourceCandidates.Add(EffectContext.GetEffectCauser());
+		SourceCandidates.Add(EffectContext.GetInstigator());
+		SourceCandidates.Add(EffectContext.GetOriginalInstigator());
+
+		if (const UObject* SourceObject = EffectContext.GetSourceObject())
+		{
+			if (const AActor* SourceActor = Cast<AActor>(SourceObject))
+			{
+				SourceCandidates.Add(SourceActor);
+			}
+		}
+
+		for (const AActor* SourceCandidate : SourceCandidates)
+		{
+			if (IsValid(SourceCandidate))
+			{
+				return SourceCandidate;
+			}
+		}
+
+		return nullptr;
+	}
+
+	FVector ResolveDamageSourceWorldLocation(const FGameplayEffectSpecHandle& SpecHandle, const AActor* FallbackTargetActor)
+	{
+		if (const AActor* DamageSourceActor = ResolveDamageSourceActor(SpecHandle))
+		{
+			return DamageSourceActor->GetActorLocation();
+		}
+
+		return FallbackTargetActor ? FallbackTargetActor->GetActorLocation() : FVector::ZeroVector;
+	}
+
 	FVector ResolveDamageNumberWorldLocation(const ABlackoutCharacterBase* TargetCharacter, FName BoneName)
 	{
 		if (!TargetCharacter)
@@ -254,7 +296,8 @@ bool ABlackoutCharacterBase::ApplyIncomingDamageSpec(const FGameplayEffectSpecHa
 
 	if (HealthAfter < HealthBefore)
 	{
-		OnHitReact(AppliedDamage);
+		const FVector DamageSourceLocation = ResolveDamageSourceWorldLocation(SpecHandle, this);
+		OnHitReact(AppliedDamage, DamageSourceLocation);
 		return true;
 	}
 
@@ -312,9 +355,10 @@ bool ABlackoutCharacterBase::CanEnterDownedState() const
 	return false;
 }
 
-void ABlackoutCharacterBase::OnHitReact(float AppliedDamage)
+void ABlackoutCharacterBase::OnHitReact(float AppliedDamage, const FVector& DamageSourceLocation)
 {
 	(void)AppliedDamage;
+	(void)DamageSourceLocation;
 }
 
 void ABlackoutCharacterBase::OnStun()
