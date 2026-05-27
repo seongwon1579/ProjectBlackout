@@ -723,3 +723,11 @@ bool UBlackoutAbilitySystemComponent::ShouldSkipCostInShelter() const
 {
 	return HasMatchingGameplayTag(BlackoutGameplayTags::State_InShelter);
 }
+
+void UBlackoutAbilitySystemComponent::Server_RemoveLooseGameplayTag_Implementation(FGameplayTag TagToRemove)
+{
+	if (HasMatchingGameplayTag(TagToRemove))
+	{
+		RemoveLooseGameplayTag(TagToRemove);
+	}
+}

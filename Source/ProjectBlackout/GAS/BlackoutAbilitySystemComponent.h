@@ -131,6 +131,12 @@ public:
 	 */
 	bool ShouldSkipCostInShelter() const;
 
+	/**
+	 * 클라이언트가 캔슬 윈도우 도달 시 서버에 차단 LooseTag의 즉각적인 제거를 순차적으로 강제 통보하는 Reliable 서버 RPC입니다.
+	 */
+	UFUNCTION(Server, Reliable)
+	void Server_RemoveLooseGameplayTag(FGameplayTag TagToRemove);
+
 protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Blackout|Stamina")
 	float StaminaRegenDelay = 1.2f;

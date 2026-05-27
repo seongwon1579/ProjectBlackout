@@ -32,8 +32,6 @@ UBlackoutGA_Dodge::UBlackoutGA_Dodge()
 	AssetTags.AddTag(BlackoutGameplayTags::Ability_Player_Dodge);
 	SetAssetTags(AssetTags);
 
-	AbilityTags.AddTag(BlackoutGameplayTags::Ability_Player_Dodge);
-
 	CancelAbilitiesWithTag.AddTag(BlackoutGameplayTags::Ability_Player_Reload);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Downed);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Locked);
@@ -305,6 +303,15 @@ void UBlackoutGA_Dodge::OnAbilityCancelableEventReceived(FGameplayEventData Payl
 		if (AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Locked))
 		{
 			AbilitySystemComponent->RemoveLooseGameplayTag(BlackoutGameplayTags::State_Locked);
+		}
+
+		// 네트워크 시차로 인한 서버 예측 실패(Prediction Failed) 방지를 위해, 클라이언트 로컬에서 선제적으로 서버에도 태그 제거 RPC를 동기화하여 전송합니다.
+		if (GetCurrentActorInfo() && GetCurrentActorInfo()->IsLocallyControlled())
+		{
+			if (UBlackoutAbilitySystemComponent* BlackoutASC = Cast<UBlackoutAbilitySystemComponent>(AbilitySystemComponent))
+			{
+				BlackoutASC->Server_RemoveLooseGameplayTag(BlackoutGameplayTags::State_Locked);
+			}
 		}
 	}
 

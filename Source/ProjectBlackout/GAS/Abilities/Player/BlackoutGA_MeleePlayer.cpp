@@ -30,8 +30,6 @@ UBlackoutGA_MeleePlayer::UBlackoutGA_MeleePlayer()
 	AssetTags.AddTag(BlackoutGameplayTags::Ability_Player_Melee);
 	SetAssetTags(AssetTags);
 
-	AbilityTags.AddTag(BlackoutGameplayTags::Ability_Player_Melee);
-
 	CancelAbilitiesWithTag.AddTag(BlackoutGameplayTags::Ability_Player_Reload);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Aiming);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Sprinting);
@@ -292,6 +290,15 @@ void UBlackoutGA_MeleePlayer::OnAbilityCancelableEventReceived(FGameplayEventDat
 		if (AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Attacking))
 		{
 			AbilitySystemComponent->RemoveLooseGameplayTag(BlackoutGameplayTags::State_Attacking);
+		}
+
+		// 네트워크 시차로 인한 서버 예측 실패(Prediction Failed) 방지를 위해, 클라이언트 로컬에서 선제적으로 서버에도 태그 제거 RPC를 동기화하여 전송합니다.
+		if (GetCurrentActorInfo() && GetCurrentActorInfo()->IsLocallyControlled())
+		{
+			if (UBlackoutAbilitySystemComponent* BlackoutASC = Cast<UBlackoutAbilitySystemComponent>(AbilitySystemComponent))
+			{
+				BlackoutASC->Server_RemoveLooseGameplayTag(BlackoutGameplayTags::State_Attacking);
+			}
 		}
 	}
 
