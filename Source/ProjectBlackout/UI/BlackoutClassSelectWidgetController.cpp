@@ -9,6 +9,9 @@
 #include "Data/BOCharacterRoster.h"
 #include "Engine/DataTable.h"
 #include "Framework/BlackoutPlayerController.h"
+#include "Framework/BlackoutCharacterPreviewManager.h"
+#include "Kismet/GameplayStatics.h"
+#include "Engine/TextureRenderTarget2D.h"
 
 bool UBlackoutClassSelectWidgetController::Initialize(
 	APlayerController* InPlayerController,const UBOCharacterRoster* InRoster)
@@ -32,6 +35,7 @@ void UBlackoutClassSelectWidgetController::BroadcastCurrentSelection()
 		return;
 	}
 	OnSelectionChanged.Broadcast(BuildDisplayData(CurrentIndex));
+	UpdatePreviewPawn();
 }
 
 void UBlackoutClassSelectWidgetController::NavigateNext()
@@ -42,6 +46,7 @@ void UBlackoutClassSelectWidgetController::NavigateNext()
 	}
 	CurrentIndex = (CurrentIndex+1) % Roster->Characters.Num();
 	OnSelectionChanged.Broadcast(BuildDisplayData(CurrentIndex));
+	UpdatePreviewPawn();
 }
 
 void UBlackoutClassSelectWidgetController::NavigatePrevious()
@@ -53,6 +58,7 @@ void UBlackoutClassSelectWidgetController::NavigatePrevious()
 	const int32 Count = Roster->Characters.Num();
 	CurrentIndex = (CurrentIndex-1 +Count) % Count;
 	OnSelectionChanged.Broadcast(BuildDisplayData(CurrentIndex));
+	UpdatePreviewPawn();
 }
 
 void UBlackoutClassSelectWidgetController::ConfirmSelection()
@@ -71,6 +77,16 @@ void UBlackoutClassSelectWidgetController::ConfirmSelection()
 		BPC->Server_SelectClass(Selected->ClassTag);
 	}
 	OnSelectionConfirmed.Broadcast();
+}
+
+void UBlackoutClassSelectWidgetController::BeginDestroy()
+{
+	if (PreviewManager.IsValid())
+	{
+		PreviewManager->ClearPreview();
+	}
+	
+	Super::BeginDestroy();
 }
 
 FBlackoutClassSelectDisplayData UBlackoutClassSelectWidgetController::
@@ -116,4 +132,45 @@ FBlackoutFirearmStat UBlackoutClassSelectWidgetController::LookupFirearmStat(
 		return *Row;
 	}
 	return {};
+}
+
+void UBlackoutClassSelectWidgetController::UpdatePreviewPawn()
+{
+	
+	if (!PreviewManager.IsValid())
+	{
+		TArray<AActor*> Found;
+		UGameplayStatics::GetAllActorsOfClass(this ,ABlackoutCharacterPreviewManager::StaticClass(),Found);
+		if (Found.Num()>0)
+		{
+			PreviewManager= Cast<ABlackoutCharacterPreviewManager>(Found[0]);
+		}
+	}
+	
+	if (!PreviewManager.IsValid())
+	{
+		return;
+	}
+
+	// RT 한 번만 broadcast — Widget 이 Image_Portrait 에 동적 bind
+	if (!bRenderTargetBroadcast)
+	{
+		if (UTextureRenderTarget2D* RT = PreviewManager->GetRenderTarget())
+		{
+			OnPreviewRenderTargetReady.Broadcast(RT);
+			bRenderTargetBroadcast = true;
+		}
+	}
+
+	if (!Roster.IsValid() || !Roster->Characters.IsValidIndex(CurrentIndex))
+	{
+		return;
+	}
+
+	const UBOCharacterData* Selected= Roster->Characters[CurrentIndex];
+	if (!Selected)
+	{
+		return;
+	}
+	PreviewManager->SetPreviewCharacter(Selected->PawnClass);
 }

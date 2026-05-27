@@ -8,6 +8,7 @@
 #include "BlackoutClassSelectWidget.generated.h"
 
 class UBlackoutClassSelectWidgetController;
+class UTextureRenderTarget2D;
 
 /**
  * 캐릭터 선택 UI 위젯
@@ -41,13 +42,19 @@ protected:
 	
 	UFUNCTION(BlueprintImplementableEvent, meta=(DisplayName="On Selection Confirmed"), Category="Blackout|ClassSelect")
 	void ReceiveSelectConfirmed();
-	
+
+	UFUNCTION(BlueprintImplementableEvent, meta=(DisplayName="On Preview Render Target Ready"), Category="Blackout|ClassSelect")
+	void ReceivePreviewRenderTargetReady(UTextureRenderTarget2D* RenderTarget);
+
 private:
 	UFUNCTION()
 	void HandleSelectionChanged(const FBlackoutClassSelectDisplayData& DisplayData);
 
 	UFUNCTION()
 	void HandleSelectionConfirmed();
-	
+
+	UFUNCTION()
+	void HandlePreviewRenderTargetReady(UTextureRenderTarget2D* RenderTarget);
+
 	void UnbindWidgetControllerCallbacks();
 };

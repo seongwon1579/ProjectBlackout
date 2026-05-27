@@ -3,6 +3,7 @@
 
 #include "BlackoutClassSelectWidget.h"
 #include "UI/BlackoutClassSelectWidgetController.h"
+#include "Engine/TextureRenderTarget2D.h"
 
 void UBlackoutClassSelectWidget::SetWidgetController(
 	UBlackoutClassSelectWidgetController* InController)
@@ -16,7 +17,8 @@ void UBlackoutClassSelectWidget::SetWidgetController(
 	}
 	WidgetController->OnSelectionChanged.AddDynamic(this, &UBlackoutClassSelectWidget::HandleSelectionChanged);
 	WidgetController->OnSelectionConfirmed.AddDynamic(this, &UBlackoutClassSelectWidget::HandleSelectionConfirmed);
-	
+	WidgetController->OnPreviewRenderTargetReady.AddDynamic(this, &UBlackoutClassSelectWidget::HandlePreviewRenderTargetReady);
+
 	WidgetController->BroadcastCurrentSelection();
 }
 
@@ -61,13 +63,19 @@ void UBlackoutClassSelectWidget::HandleSelectionConfirmed()
 	ReceiveSelectConfirmed();
 }
 
+void UBlackoutClassSelectWidget::HandlePreviewRenderTargetReady(UTextureRenderTarget2D* RenderTarget)
+{
+	ReceivePreviewRenderTargetReady(RenderTarget);
+}
+
 void UBlackoutClassSelectWidget::UnbindWidgetControllerCallbacks()
 {
 	if (!WidgetController)
 	{
 		return;
 	}
-	
+
 	WidgetController->OnSelectionChanged.RemoveDynamic(this, &UBlackoutClassSelectWidget::HandleSelectionChanged);
 	WidgetController->OnSelectionConfirmed.RemoveDynamic(this, &UBlackoutClassSelectWidget::HandleSelectionConfirmed);
+	WidgetController->OnPreviewRenderTargetReady.RemoveDynamic(this, &UBlackoutClassSelectWidget::HandlePreviewRenderTargetReady);
 }
