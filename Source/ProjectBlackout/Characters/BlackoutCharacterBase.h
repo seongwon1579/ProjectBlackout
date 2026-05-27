@@ -72,8 +72,8 @@ protected:
 	/** HP 0 도달 시 즉시 사망 대신 다운 상태로 전환할 수 있는지 여부입니다. */
 	virtual bool CanEnterDownedState() const;
 
-	/** 피격 시 실제 적용된 데미지를 기준으로 히트 리액션 몽타주 재생 등 공통 처리를 수행합니다. */
-	virtual void OnHitReact(float AppliedDamage);
+	/** 피격 시 실제 적용된 데미지와 공격자 위치를 기준으로 히트 리액션 몽타주 재생 등 공통 처리를 수행합니다. */
+	virtual void OnHitReact(float AppliedDamage, const FVector& DamageSourceLocation);
 
 	/** 기절(State.Stun) 태그 부여 시 이동/액션 봉쇄 처리. */
 	virtual void OnStun();

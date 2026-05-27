@@ -1111,7 +1111,56 @@ void ABlackoutPlayerCharacter::BroadcastReviveInteractionStateChanged()
 	OnReviveInteractionStateChangedNative.Broadcast(this, IsBeingRevived());
 }
 
-UAnimMontage* ABlackoutPlayerCharacter::SelectHitReactMontage(float AppliedDamage) const
+UAnimMontage* ABlackoutPlayerCharacter::SelectDirectionalHitReactMontage(UAnimMontage* FrontMontage, UAnimMontage* BackMontage,
+	UAnimMontage* DefaultMontage, bool bIsBackHitReact) const
+{
+	if (bIsBackHitReact)
+	{
+		if (BackMontage)
+		{
+			return BackMontage;
+		}
+
+		if (DefaultMontage)
+		{
+			return DefaultMontage;
+		}
+
+		return FrontMontage;
+	}
+
+	if (FrontMontage)
+	{
+		return FrontMontage;
+	}
+
+	if (DefaultMontage)
+	{
+		return DefaultMontage;
+	}
+
+	return BackMontage;
+}
+
+bool ABlackoutPlayerCharacter::IsBackHitReact(const FVector& DamageSourceLocation) const
+{
+	const FVector ToDamageSource = (DamageSourceLocation - GetActorLocation()).GetSafeNormal2D();
+	if (ToDamageSource.IsNearlyZero())
+	{
+		return false;
+	}
+
+	const FVector Forward2D = GetActorForwardVector().GetSafeNormal2D();
+	if (Forward2D.IsNearlyZero())
+	{
+		return false;
+	}
+
+	const float ForwardDot = FVector::DotProduct(Forward2D, ToDamageSource);
+	return ForwardDot <= BackHitReactDirectionDotThreshold;
+}
+
+UAnimMontage* ABlackoutPlayerCharacter::SelectHitReactMontage(float AppliedDamage, bool bIsBackHitReact) const
 {
 	const bool bUseHeavyHitReact = AppliedDamage > HeavyHitReactDamageThreshold;
 	const bool bIsAimingHitReact = !bUseHeavyHitReact
@@ -1123,9 +1172,10 @@ UAnimMontage* ABlackoutPlayerCharacter::SelectHitReactMontage(float AppliedDamag
 	// Light/Heavy 전용 몽타주가 비어 있어도 기존 단일 몽타주 자산으로 안전하게 폴백합니다.
 	if (bUseHeavyHitReact)
 	{
-		if (HeavyHitReactMontage)
+		if (UAnimMontage* SelectedMontage = SelectDirectionalHitReactMontage(
+			HeavyFrontHitReactMontage, HeavyBackHitReactMontage, HeavyHitReactMontage, bIsBackHitReact))
 		{
-			return HeavyHitReactMontage;
+			return SelectedMontage;
 		}
 
 		if (HitReactMontage)
@@ -1133,19 +1183,22 @@ UAnimMontage* ABlackoutPlayerCharacter::SelectHitReactMontage(float AppliedDamag
 			return HitReactMontage;
 		}
 
-		return LightHitReactMontage;
+		return SelectDirectionalHitReactMontage(
+			LightFrontHitReactMontage, LightBackHitReactMontage, LightHitReactMontage, bIsBackHitReact);
 	}
 
 	if (bIsAimingHitReact)
 	{
-		if (AimedLightHitReactMontage)
+		if (UAnimMontage* SelectedMontage = SelectDirectionalHitReactMontage(
+			AimedLightFrontHitReactMontage, AimedLightBackHitReactMontage, AimedLightHitReactMontage, bIsBackHitReact))
 		{
-			return AimedLightHitReactMontage;
+			return SelectedMontage;
 		}
 
-		if (LightHitReactMontage)
+		if (UAnimMontage* SelectedMontage = SelectDirectionalHitReactMontage(
+			LightFrontHitReactMontage, LightBackHitReactMontage, LightHitReactMontage, bIsBackHitReact))
 		{
-			return LightHitReactMontage;
+			return SelectedMontage;
 		}
 
 		if (HitReactMontage)
@@ -1156,9 +1209,10 @@ UAnimMontage* ABlackoutPlayerCharacter::SelectHitReactMontage(float AppliedDamag
 		return HeavyHitReactMontage;
 	}
 
-	if (LightHitReactMontage)
+	if (UAnimMontage* SelectedMontage = SelectDirectionalHitReactMontage(
+		LightFrontHitReactMontage, LightBackHitReactMontage, LightHitReactMontage, bIsBackHitReact))
 	{
-		return LightHitReactMontage;
+		return SelectedMontage;
 	}
 
 	if (HitReactMontage)
@@ -1166,19 +1220,21 @@ UAnimMontage* ABlackoutPlayerCharacter::SelectHitReactMontage(float AppliedDamag
 		return HitReactMontage;
 	}
 
-	return HeavyHitReactMontage;
+	return SelectDirectionalHitReactMontage(
+		HeavyFrontHitReactMontage, HeavyBackHitReactMontage, HeavyHitReactMontage, bIsBackHitReact);
 }
 
-void ABlackoutPlayerCharacter::OnHitReact(float AppliedDamage)
+void ABlackoutPlayerCharacter::OnHitReact(float AppliedDamage, const FVector& DamageSourceLocation)
 {
-	Super::OnHitReact(AppliedDamage);
+	Super::OnHitReact(AppliedDamage, DamageSourceLocation);
 
 	if (!HasAuthority())
 	{
 		return;
 	}
 
-	UAnimMontage* SelectedHitReactMontage = SelectHitReactMontage(AppliedDamage);
+	const bool bIsBackHitReact = IsBackHitReact(DamageSourceLocation);
+	UAnimMontage* SelectedHitReactMontage = SelectHitReactMontage(AppliedDamage, bIsBackHitReact);
 	const bool bIsAimingLightHitReact = AppliedDamage <= HeavyHitReactDamageThreshold
 		&& CombatComponent
 		&& CombatComponent->IsAiming()
@@ -1191,12 +1247,13 @@ void ABlackoutPlayerCharacter::OnHitReact(float AppliedDamage)
 	}
 
 	BO_LOG_GAS(Log,
-		"OnHitReact selected montage: Damage=%.1f Threshold=%.1f Type=%s Aiming=%s AllowMove=%s Montage=%s",
+		"OnHitReact selected montage: Damage=%.1f Threshold=%.1f Type=%s Direction=%s Aiming=%s AllowMove=%s Montage=%s",
 		AppliedDamage,
 		HeavyHitReactDamageThreshold,
 		AppliedDamage > HeavyHitReactDamageThreshold
 			? TEXT("Heavy")
 			: (bIsAimingLightHitReact ? TEXT("AimedLight") : TEXT("Light")),
+		bIsBackHitReact ? TEXT("Back") : TEXT("Front"),
 		bIsAimingLightHitReact ? TEXT("true") : TEXT("false"),
 		bIsAimingLightHitReact ? TEXT("true") : TEXT("false"),
 		*GetNameSafe(SelectedHitReactMontage));

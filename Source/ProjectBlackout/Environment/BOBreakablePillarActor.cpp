@@ -571,7 +571,7 @@ void ABOBreakablePillarActor::PlayBreakDustEffect()
 			*TriggerEffectFunctionNames[1].ToString());
 	}
 
-	if (BreakDustLifeSpan > 0.0f)
+	if (BreakDustLifeSpan > 0.0f) 
 	{
 		SpawnedDustEffect->SetLifeSpan(BreakDustLifeSpan);
 		BO_LOG_CORE(Log,

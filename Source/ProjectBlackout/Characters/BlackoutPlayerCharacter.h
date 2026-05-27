@@ -301,8 +301,8 @@ protected:
 	/** CharacterData를 기반으로 초기 어트리뷰트 값 설정 (GE 적용) */
 	virtual void InitializeAttributes();
 
-	/** 피격 시 실제 적용된 데미지에 따라 플레이어 전용 히트 리액션 몽타주를 재생합니다. */
-	virtual void OnHitReact(float AppliedDamage) override;
+	/** 피격 시 실제 적용된 데미지와 공격 방향에 따라 플레이어 전용 히트 리액션 몽타주를 재생합니다. */
+	virtual void OnHitReact(float AppliedDamage, const FVector& DamageSourceLocation) override;
 	virtual void OnDowned() override;
 	virtual bool CanEnterDownedState() const override;
 	virtual void OnDeath() override;
@@ -496,10 +496,41 @@ protected:
 	void UpdateFocusedInteractable(float DeltaSeconds);
 	void RefreshFocusedInteractableActor();
 	bool IsValidFocusedInteractable(AActor* CandidateActor) const;
-	UAnimMontage* SelectHitReactMontage(float AppliedDamage) const;
+	UAnimMontage* SelectHitReactMontage(float AppliedDamage, bool bIsBackHitReact) const;
+	UAnimMontage* SelectDirectionalHitReactMontage(UAnimMontage* FrontMontage, UAnimMontage* BackMontage,
+		UAnimMontage* DefaultMontage, bool bIsBackHitReact) const;
+	bool IsBackHitReact(const FVector& DamageSourceLocation) const;
 
 	UFUNCTION(Server, Reliable, Category = "Blackout|Interaction")
 	void Server_InteractWithActor(AActor* TargetActor);
+
+	/** 이 값보다 dot 값이 작으면 뒤에서 맞은 것으로 간주합니다. 값이 작을수록 뒤 판정 범위가 넓어집니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation", meta = (ClampMin = "-1.0", ClampMax = "1.0"))
+	float BackHitReactDirectionDotThreshold = -0.2f;
+
+	/** 일반 상태 경피격 시 전면/측면 방향으로 사용할 몽타주입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
+	TObjectPtr<UAnimMontage> LightFrontHitReactMontage;
+
+	/** 일반 상태 경피격 시 후면 방향으로 사용할 몽타주입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
+	TObjectPtr<UAnimMontage> LightBackHitReactMontage;
+
+	/** 에임 상태 경피격 시 전면/측면 방향으로 사용할 상체 전용 몽타주입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
+	TObjectPtr<UAnimMontage> AimedLightFrontHitReactMontage;
+
+	/** 에임 상태 경피격 시 후면 방향으로 사용할 상체 전용 몽타주입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
+	TObjectPtr<UAnimMontage> AimedLightBackHitReactMontage;
+
+	/** 강피격 시 전면/측면 방향으로 사용할 몽타주입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
+	TObjectPtr<UAnimMontage> HeavyFrontHitReactMontage;
+
+	/** 강피격 시 후면 방향으로 사용할 몽타주입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
+	TObjectPtr<UAnimMontage> HeavyBackHitReactMontage;
 
 	/** 경피격 전용 히트 리액션 몽타주입니다. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
