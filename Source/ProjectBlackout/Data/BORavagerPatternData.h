@@ -112,6 +112,15 @@ struct FBossMinionSpawnSettings
 	UPROPERTY(EditAnywhere)
 	float ThrowPitch = 45.f;
     
+	UPROPERTY(EditAnywhere, Category = "Elite")
+	FMinionSpawnData EliteMinionSpawnData;
+
+	UPROPERTY(EditAnywhere, Category = "Elite")
+	int32 EliteSpawnCount = 1;
+
+	UPROPERTY(EditAnywhere, Category = "Elite")
+	float EliteSpawnRadius = 500.f;
+
 	bool IsValid() const;
 	
 };

@@ -5,6 +5,9 @@
 #include "BOEnemySpawnerProjectile.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "Kismet/GameplayStatics.h"
+#include "AI/BlackoutBossAIController.h"
+#include "AbilitySystemComponent.h"
+#include "GameFramework/Character.h"
 
 void UBlackoutGA_Ravager_SummonMinion::SetupEventListeners()
 {
@@ -57,6 +60,25 @@ void UBlackoutGA_Ravager_SummonMinion::SetSpawnerProjectiles()
 	for (int32 i = 0; i < Count; i++)
 	{
 		ThrowSingleSpawnerProjectile(SpawnLocation, BaseRotation, i , Count);
+	}
+
+	// 보스 페이즈 판정 및 엘리트 미니언 지연 스폰 등록 (Phase 2 이상일 때)
+	if (ABlackoutBossAIController* BossAIC = Cast<ABlackoutBossAIController>(CachedOwner->GetController()))
+	{
+		if (BossAIC->GetCurrentPhase() >= EBOBossPhase::Phase2)
+		{
+			UWorld* World = GetWorld();
+			if (World)
+			{
+				World->GetTimerManager().SetTimer(
+					EliteSpawnTimerHandle,
+					this,
+					&UBlackoutGA_Ravager_SummonMinion::SpawnEliteMinionsDirectly,
+					Settings.MinionSpawnData.HatchDelay,
+					false
+				);
+			}
+		}
 	}
 }
 
@@ -114,4 +136,71 @@ void UBlackoutGA_Ravager_SummonMinion::ResolveSpawnLocation(FVector& OutLocation
 		OutLocation = CachedOwner->GetActorLocation() + FVector(0, 0, 100);
 		UE_LOG(LogTemp, Warning, TEXT("[%s] Socket '%s' not found"), *GetName(), *SocketName.ToString());
 	}
+}
+
+void UBlackoutGA_Ravager_SummonMinion::SpawnEliteMinionsDirectly()
+{
+	if (!CanActivatePattern()) return;
+
+	const FBossMinionSpawnSettings& Settings = CachedPatternData->MinionSettings;
+	if (!Settings.EliteMinionSpawnData.MinionClass) return;
+
+	UWorld* World = GetWorld();
+	if (!World) return;
+
+	const int32 EliteCount = Settings.EliteSpawnCount;
+	const float SpawnRadius = Settings.EliteSpawnRadius;
+	const FVector BossLocation = CachedOwner->GetActorLocation();
+
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Owner = CachedOwner;
+	SpawnParams.Instigator = CachedOwner;
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+
+	for (int32 i = 0; i < EliteCount; i++)
+	{
+		// 보스 반경 내 무작위 각도 및 거리 오프셋 계산
+		const float RandomAngle = FMath::FRand() * 360.f;
+		const float RandomRadius = FMath::FRand() * SpawnRadius;
+
+		FVector SpawnLocation = BossLocation + FRotator(0.f, RandomAngle, 0.f).Vector() * RandomRadius;
+		SpawnLocation.Z = BossLocation.Z + 50.f; // 지면에 배치하기 위한 오프셋 적용
+
+		ACharacter* EliteMinion = World->SpawnActor<ACharacter>(
+			Settings.EliteMinionSpawnData.MinionClass,
+			SpawnLocation,
+			FRotator::ZeroRotator,
+			SpawnParams
+		);
+
+		if (EliteMinion)
+		{
+			EliteMinion->SpawnDefaultController();
+
+			// 텔레포트 등장 연출용 GameplayCue 발동
+			if (IAbilitySystemInterface* ASI = Cast<IAbilitySystemInterface>(EliteMinion))
+			{
+				if (UAbilitySystemComponent* MinionASC = ASI->GetAbilitySystemComponent())
+				{
+					FGameplayCueParameters CueParams;
+					CueParams.Location = SpawnLocation;
+					MinionASC->ExecuteGameplayCue(BlackoutGameplayTags::GameplayCue_Wraith_Teleport_End, CueParams);
+				}
+			}
+		}
+	}
+}
+
+void UBlackoutGA_Ravager_SummonMinion::EndAbility(const FGameplayAbilitySpecHandle Handle,
+                                                 const FGameplayAbilityActorInfo* ActorInfo,
+                                                 const FGameplayAbilityActivationInfo ActivationInfo,
+                                                 bool bReplicateEndAbility, bool bWasCancelled)
+{
+	UWorld* World = GetWorld();
+	if (World && EliteSpawnTimerHandle.IsValid())
+	{
+		World->GetTimerManager().ClearTimer(EliteSpawnTimerHandle);
+	}
+
+	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
