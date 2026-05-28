@@ -1,6 +1,6 @@
 #include "GAS/Abilities/Boss/Ravager/BlackoutGA_Ravager_EnergyBurst.h"
 
-#include "BlackoutBossCharacter.h"
+#include "BORavagerBoss.h"
 #include "BlackoutDamageable.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "AbilitySystemComponent.h"
