@@ -1,59 +1,138 @@
 #include "Characters/BORavagerBoss.h"
 
 #include "AbilitySystemComponent.h"
+#include "AIController.h"
 #include "BlackoutAbilitySystemComponent.h"
 #include "BlackoutBaseAttributeSet.h"
-#include "Abilities/GameplayAbility.h"
+#include "BlackoutBossAIController.h"
+#include "BrainComponent.h"
+#include "GameplayEffectExtension.h"
+#include "Animation/UBlackoutRavagerAnimInstance.h"
+#include "GameFramework/PlayerState.h"
 
 
-// ABORavagerBoss::ABORavagerBoss()
-// {
-// 	PrimaryActorTick.bCanEverTick = true;
-// }
-//
-// UDataAsset* ABORavagerBoss::GetPatternData(FGameplayTag AbilityTag) const
-// {
-// 	const TObjectPtr<UBORavagerPatternData>* Found = BossPatternData.Find(AbilityTag);
-// 	return Found ? Found->Get() : nullptr;
-// }
-//
-// void ABORavagerBoss::SetData()
-// {
-// 	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
-// 	if (!ASC) return;
-// 	
-// 	for (const auto& [Tag, Data] : BossPatternData)
-// 	{
-// 		if (!Data || !Data->GrantedAbility) continue;
-// 		ASC->GiveAbility(FGameplayAbilitySpec(Data->GrantedAbility, 1));
-// 	}
-// 	
-// 	if (AbilitySystemComponent)
-// 	{
-// 		AbilitySystemComponent->InitAbilityActorInfo(this, this);
-//
-// 		if (BaseAttributeSet && BossData)
-// 		{
-// 			AbilitySystemComponent->SetNumericAttributeBase(
-// 				UBlackoutBaseAttributeSet::GetMaxHealthAttribute(),
-// 				BossData->MaxHealth);
-// 			AbilitySystemComponent->SetNumericAttributeBase(
-// 				UBlackoutBaseAttributeSet::GetHealthAttribute(),
-// 				BossData->MaxHealth);
-// 		}
-// 	}
-// }
-//
-// EBOBossPhase ABORavagerBoss::DetermineTargetPhase(float HealthRatio) const
-// {
-// 	return HealthRatio <= 0.5f ? EBOBossPhase::Phase2 : EBOBossPhase::Phase1;
-// }
-//
-// FText ABORavagerBoss::GetBossDisplayName() const
-// {
-// 	if (BossData->IsValid())
-// 	{
-// 		return BossData->Name;
-// 	}
-// 	return FText::FromString(TEXT("Ravager"));
-// }
+UBORavagerPatternData* ABORavagerBoss::GetPatternData(FGameplayTag AbilityTag) const
+{
+	const TObjectPtr<UBORavagerPatternData>* Found = BossPatternData.Find(AbilityTag);
+	return Found ? Found->Get() : nullptr;
+}
+
+void ABORavagerBoss::OnDeath()
+{
+	Super::OnDeath();
+	
+	if (UAbilitySystemComponent* ASC = GetAbilitySystemComponent())
+	{
+		ASC->CancelAllAbilities();
+	}
+	
+	if (AAIController* AIC = Cast<AAIController>(GetController()))
+	{
+		if (UBrainComponent* Brain = AIC->GetBrainComponent())
+		{
+			Brain->StopLogic("Dead");
+		}
+	}
+	
+	if (UUBlackoutRavagerAnimInstance* Anim = Cast<UUBlackoutRavagerAnimInstance>(
+		GetMesh()->GetAnimInstance()))
+	{
+		Anim->OnDeath();
+	}
+}
+
+void ABORavagerBoss::SetData()
+{
+	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
+	if (!ASC) return;
+	
+	if (HasAuthority())
+	{
+		for (const auto& [Tag, Data] : BossPatternData)
+		{
+			if (!Data || !Data->GrantedAbility) continue;
+			ASC->GiveAbility(FGameplayAbilitySpec(Data->GrantedAbility, 1));
+		}
+	}
+	
+	if (AbilitySystemComponent)
+	{
+		AbilitySystemComponent->InitAbilityActorInfo(this, this);
+
+		if (BaseAttributeSet && BossStatData)
+		{
+			AbilitySystemComponent->SetNumericAttributeBase(
+				UBlackoutBaseAttributeSet::GetMaxHealthAttribute(),
+				BossStatData->MaxHealth);
+			AbilitySystemComponent->SetNumericAttributeBase(
+				UBlackoutBaseAttributeSet::GetHealthAttribute(),
+				BossStatData->MaxHealth);
+		}
+	}
+}
+
+void ABORavagerBoss::OnDamageReceived(const FOnAttributeChangeData& Data)
+{
+	const float DamageDealt = Data.OldValue - Data.NewValue;
+	if (DamageDealt <= 0.f || !Data.GEModData) return;
+	
+	ABlackoutBossAIController* AIC = Cast<ABlackoutBossAIController>(GetController());
+	if (!AIC) return;
+	
+	AActor* SourceActor = Data.GEModData->EffectSpec.GetContext().GetInstigator();
+	if (APawn* InstigatorPawn = ResolveInstigatorPawn(SourceActor))
+	{
+		if (InstigatorPawn != this)
+		{
+			AIC->RecordDamage(InstigatorPawn, DamageDealt);
+		}
+	}
+	
+	if (UAbilitySystemComponent* ASC = GetAbilitySystemComponent())
+	{
+		const float MaxHP = ASC->GetNumericAttribute(UBlackoutBaseAttributeSet::GetMaxHealthAttribute());
+		if (MaxHP > 0.f)
+		{
+			const float CurrentHP = Data.NewValue;
+			const float HealthRatio = CurrentHP / MaxHP;
+	
+			const EBOBossPhase TargetPhase = DetermineTargetPhase(HealthRatio);
+			AIC->RequestPhaseChange(TargetPhase);
+		}
+	}
+}
+
+FText ABORavagerBoss::GetBossDisplayName() const
+{
+	if (BossStatData->IsValid())
+	{
+		return BossStatData->Name;
+	}
+	return FText::FromString(TEXT("Ravager"));
+}
+
+EBOBossPhase ABORavagerBoss::DetermineTargetPhase(float HealthRatio)
+{
+	if (HealthRatio <= 0.3f)
+	{
+		return EBOBossPhase::Phase3;
+	}
+	
+	if (HealthRatio <= 0.6f)
+	{
+		return EBOBossPhase::Phase2;
+	}
+	
+	return EBOBossPhase::Phase1;
+}
+
+APawn* ABORavagerBoss::ResolveInstigatorPawn(AActor* SourceActor) const
+{
+	if (!SourceActor) return nullptr;
+
+	if (APawn* Pawn = Cast<APawn>(SourceActor)) return Pawn;
+	if (AController* C = Cast<AController>(SourceActor)) return C->GetPawn();
+	if (APlayerState* PS = Cast<APlayerState>(SourceActor)) return PS->GetPawn();
+
+	return nullptr;
+}
