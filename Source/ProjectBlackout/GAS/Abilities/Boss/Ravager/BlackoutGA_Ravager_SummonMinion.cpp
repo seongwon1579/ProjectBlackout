@@ -47,7 +47,11 @@ void UBlackoutGA_Ravager_SummonMinion::OnSpawnMinionNotify(FGameplayEventData Pa
 
 void UBlackoutGA_Ravager_SummonMinion::SetSpawnerProjectiles()
 {
-	if (!CanActivatePattern()) return;
+	if (!CanActivatePattern())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[SummonMinion] CanActivatePattern failed in SetSpawnerProjectiles."));
+		return;
+	}
 	
 	const FBossMinionSpawnSettings& Settings = CachedPatternData->MinionSettings;
 	
@@ -57,28 +61,32 @@ void UBlackoutGA_Ravager_SummonMinion::SetSpawnerProjectiles()
 	const FRotator BaseRotation = CachedOwner->GetActorRotation();
 	const int32 Count = Settings.SpawnCount;
 	
+	UE_LOG(LogTemp, Log, TEXT("[SummonMinion] SetSpawnerProjectiles called. Spawning Spawner Projectiles. Count: %d"), Count);
+
 	for (int32 i = 0; i < Count; i++)
 	{
 		ThrowSingleSpawnerProjectile(SpawnLocation, BaseRotation, i , Count);
 	}
 
-	// 보스 페이즈 판정 및 엘리트 미니언 지연 스폰 등록 (Phase 2 이상일 때)
+	// 보스 페이즈 판정 및 엘리트 미니언 즉시 스폰 (Phase 2 이상일 때)
 	if (ABlackoutBossAIController* BossAIC = Cast<ABlackoutBossAIController>(CachedOwner->GetController()))
 	{
-		if (BossAIC->GetCurrentPhase() >= EBOBossPhase::Phase2)
+		const EBOBossPhase CurrentPhase = BossAIC->GetCurrentPhase();
+		UE_LOG(LogTemp, Log, TEXT("[SummonMinion] Current Boss Phase: %d"), (int32)CurrentPhase);
+
+		if (CurrentPhase >= EBOBossPhase::Phase2)
 		{
-			UWorld* World = GetWorld();
-			if (World)
-			{
-				World->GetTimerManager().SetTimer(
-					EliteSpawnTimerHandle,
-					this,
-					&UBlackoutGA_Ravager_SummonMinion::SpawnEliteMinionsDirectly,
-					Settings.MinionSpawnData.HatchDelay,
-					false
-				);
-			}
+			UE_LOG(LogTemp, Log, TEXT("[SummonMinion] Boss Phase is Phase2 or higher. Immediately spawning elite minions."));
+			SpawnEliteMinionsDirectly();
 		}
+		else
+		{
+			UE_LOG(LogTemp, Log, TEXT("[SummonMinion] Boss Phase is lower than Phase2. Skipping elite minion spawn."));
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[SummonMinion] Failed to get BlackoutBossAIController from Owner controller."));
 	}
 }
 
@@ -140,13 +148,27 @@ void UBlackoutGA_Ravager_SummonMinion::ResolveSpawnLocation(FVector& OutLocation
 
 void UBlackoutGA_Ravager_SummonMinion::SpawnEliteMinionsDirectly()
 {
-	if (!CanActivatePattern()) return;
+	UE_LOG(LogTemp, Log, TEXT("[SummonMinion] SpawnEliteMinionsDirectly called."));
+
+	if (!CachedOwner || !CachedPatternData)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[SummonMinion] CachedOwner or CachedPatternData is null inside SpawnEliteMinionsDirectly!"));
+		return;
+	}
 
 	const FBossMinionSpawnSettings& Settings = CachedPatternData->MinionSettings;
-	if (!Settings.EliteMinionSpawnData.MinionClass) return;
+	if (!Settings.EliteMinionSpawnData.MinionClass)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[SummonMinion] EliteMinionSpawnData.MinionClass is null. Please allocate it in the BORavagerPatternData asset."));
+		return;
+	}
 
 	UWorld* World = GetWorld();
-	if (!World) return;
+	if (!World)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[SummonMinion] World is null inside SpawnEliteMinionsDirectly."));
+		return;
+	}
 
 	const int32 EliteCount = Settings.EliteSpawnCount;
 	const float SpawnRadius = Settings.EliteSpawnRadius;
@@ -156,6 +178,9 @@ void UBlackoutGA_Ravager_SummonMinion::SpawnEliteMinionsDirectly()
 	SpawnParams.Owner = CachedOwner;
 	SpawnParams.Instigator = CachedOwner;
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+
+	UE_LOG(LogTemp, Log, TEXT("[SummonMinion] Spawning %d Elite Minions of class %s within radius %.2f around boss location %s"), 
+		EliteCount, *Settings.EliteMinionSpawnData.MinionClass->GetName(), SpawnRadius, *BossLocation.ToString());
 
 	for (int32 i = 0; i < EliteCount; i++)
 	{
@@ -175,6 +200,7 @@ void UBlackoutGA_Ravager_SummonMinion::SpawnEliteMinionsDirectly()
 
 		if (EliteMinion)
 		{
+			UE_LOG(LogTemp, Log, TEXT("[SummonMinion] Successfully spawned Elite Minion: %s at %s"), *EliteMinion->GetName(), *SpawnLocation.ToString());
 			EliteMinion->SpawnDefaultController();
 
 			// 텔레포트 등장 연출용 GameplayCue 발동
@@ -185,22 +211,21 @@ void UBlackoutGA_Ravager_SummonMinion::SpawnEliteMinionsDirectly()
 					FGameplayCueParameters CueParams;
 					CueParams.Location = SpawnLocation;
 					MinionASC->ExecuteGameplayCue(BlackoutGameplayTags::GameplayCue_Wraith_Teleport_End, CueParams);
+					UE_LOG(LogTemp, Log, TEXT("[SummonMinion] Executed Wraith_Teleport_End GameplayCue for Elite: %s"), *EliteMinion->GetName());
+				}
+				else
+				{
+					UE_LOG(LogTemp, Warning, TEXT("[SummonMinion] Minion ASC is null. GameplayCue skipped."));
 				}
 			}
+			else
+			{
+				UE_LOG(LogTemp, Warning, TEXT("[SummonMinion] Minion does not implement IAbilitySystemInterface."));
+			}
+		}
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT("[SummonMinion] Failed to spawn Elite Minion of class %s at %s!"), *Settings.EliteMinionSpawnData.MinionClass->GetName(), *SpawnLocation.ToString());
 		}
 	}
-}
-
-void UBlackoutGA_Ravager_SummonMinion::EndAbility(const FGameplayAbilitySpecHandle Handle,
-                                                 const FGameplayAbilityActorInfo* ActorInfo,
-                                                 const FGameplayAbilityActivationInfo ActivationInfo,
-                                                 bool bReplicateEndAbility, bool bWasCancelled)
-{
-	UWorld* World = GetWorld();
-	if (World && EliteSpawnTimerHandle.IsValid())
-	{
-		World->GetTimerManager().ClearTimer(EliteSpawnTimerHandle);
-	}
-
-	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
