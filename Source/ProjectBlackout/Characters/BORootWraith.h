@@ -1,7 +1,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameplayTagContainer.h"
 #include "Characters/BlackoutMinionCharacter.h"
 #include "Templates/SubclassOf.h"
 #include "BORootWraith.generated.h"
@@ -21,13 +20,7 @@ class PROJECTBLACKOUT_API ABORootWraith : public ABlackoutMinionCharacter
 public:
 	ABORootWraith();
 
-	virtual void BeginPlay() override;
-	virtual void OnSpawnFromPool_Implementation() override;
-
 protected:
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Visual")
-	FGameplayTag SpawnGameplayCueTag;
-
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|AI")
 	TObjectPtr<UStateTree> ST_RootWraith;
 
@@ -40,8 +33,5 @@ protected:
 	/** 이동속도 */
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly, Category = "Blackout|Movement" ,meta=(ClampMin=0.0f , UIMin=0.0f , UIMax=300.0f))
 	float DefaultFlySpeed = 75.f;
-
-private:
-	void PlayTeleportEndGameplayCue();
 	
 };
