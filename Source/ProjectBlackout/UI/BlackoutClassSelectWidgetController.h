@@ -11,12 +11,18 @@
 class APlayerController;
 class UBOCharacterRoster;
 class ABOFirearm;
+class ABlackoutCharacterPreviewManager;
+class UTextureRenderTarget2D;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(
 FBlackoutClassSelectionChangedSignature,
 const FBlackoutClassSelectDisplayData&, DisplayData
 );
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FBlackoutClassSelectionConfirmedSignature);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(
+FBlackoutPreviewRenderTargetReadySignature,
+UTextureRenderTarget2D*, RenderTarget
+);
 
 
 /**
@@ -51,12 +57,23 @@ public:
 	
 	UPROPERTY(BlueprintAssignable, Category="Blackout|ClassSelect")
 	FBlackoutClassSelectionConfirmedSignature OnSelectionConfirmed;
+
+	/** Manager 의 client-local RT 가 준비되면 한 번 broadcast. Widget 이 Image_Portrait 에 SetBrushFromTexture */
+	UPROPERTY(BlueprintAssignable, Category="Blackout|Preview")
+	FBlackoutPreviewRenderTargetReadySignature OnPreviewRenderTargetReady;
+
+	virtual void BeginDestroy() override;
 	
 private:
 	FBlackoutClassSelectDisplayData BuildDisplayData(int32 Index) const;
 	FBlackoutFirearmStat LookupFirearmStat(TSubclassOf<ABOFirearm> WeaponClass) const;
 	
+	/** SubLevel 안 Manager 찾기 , 현재 인덱스 캐릭터 Pawn 갱신 첫 호출 시 GetAllActorsOfClass 로 lookup, 이후 캐싱 활용 */
+	void UpdatePreviewPawn();
+	
 	TWeakObjectPtr<APlayerController> PlayerController;
 	TWeakObjectPtr<const UBOCharacterRoster> Roster;
+	TWeakObjectPtr<class ABlackoutCharacterPreviewManager> PreviewManager;
 	int32 CurrentIndex = 0;
+	bool bRenderTargetBroadcast = false;
 };

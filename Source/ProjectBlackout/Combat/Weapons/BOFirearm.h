@@ -56,6 +56,10 @@ public:
 	/** 외부 (캐릭터 선택 UI Controller 등) 가 DataTable 직접 lookup 하기 위한 row handle 노출. */
 	FDataTableRowHandle GetFirearmStatsRow() const { return FirearmStatsRow; }
 
+	/** UI 표시용 stats row. sub class (Shotgun 등) 는 자기 row 반환하도록 override */
+	UFUNCTION(BlueprintCallable, Category="Blackout|Stats")
+	virtual FDataTableRowHandle GetUIStatsRow() const { return FirearmStatsRow; }
+
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	float GetSplashRadius() const;
 
