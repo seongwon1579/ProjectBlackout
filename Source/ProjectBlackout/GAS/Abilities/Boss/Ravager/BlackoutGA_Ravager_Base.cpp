@@ -2,6 +2,7 @@
 
 #include "Characters/BlackoutBossCharacter.h"
 #include "BlackoutGameplayTags.h"
+#include "BORavagerBoss.h"
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 
 const FName UBlackoutGA_Ravager_Base::WarpTargetName = FName("MW_Target");
@@ -17,7 +18,7 @@ void UBlackoutGA_Ravager_Base::OnAvatarSet(const FGameplayAbilityActorInfo* Acto
 {
 	Super::OnAvatarSet(ActorInfo, Spec);
 
-	CachedOwner = Cast<ABlackoutBossCharacter>(ActorInfo->AvatarActor.Get());
+	CachedOwner = Cast<ABORavagerBoss>(ActorInfo->AvatarActor.Get());
 	if (CachedOwner && PatternDataTag.IsValid())
 	{
 		CachedPatternData = CachedOwner->GetPatternData(PatternDataTag);

@@ -3,7 +3,7 @@
 
 #include "GAS/Abilities/Boss/Ravager/BlackoutGA_Ravager_HitboxAttack.h"
 
-#include "BlackoutBossCharacter.h"
+#include "BORavagerBoss.h"
 #include "BlackoutGameplayTags.h"
 #include "BOWeaponDebugUtils.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
