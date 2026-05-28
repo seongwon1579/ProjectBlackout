@@ -4,9 +4,10 @@
 #include "BlackoutGameplayTags.h"
 #include "BOEnemySpawnerProjectile.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
-#include "Kismet/GameplayStatics.h"
 #include "AI/BlackoutBossAIController.h"
 #include "AbilitySystemComponent.h"
+#include "BlackoutLog.h"
+#include "BORavagerBoss.h"
 #include "GameFramework/Character.h"
 
 void UBlackoutGA_Ravager_SummonMinion::SetupEventListeners()
@@ -61,8 +62,6 @@ void UBlackoutGA_Ravager_SummonMinion::SetSpawnerProjectiles()
 	const FRotator BaseRotation = CachedOwner->GetActorRotation();
 	const int32 Count = Settings.SpawnCount;
 	
-	UE_LOG(LogTemp, Log, TEXT("[SummonMinion] SetSpawnerProjectiles called. Spawning Spawner Projectiles. Count: %d"), Count);
-
 	for (int32 i = 0; i < Count; i++)
 	{
 		ThrowSingleSpawnerProjectile(SpawnLocation, BaseRotation, i , Count);
@@ -71,17 +70,9 @@ void UBlackoutGA_Ravager_SummonMinion::SetSpawnerProjectiles()
 	// 보스 페이즈 판정 및 엘리트 미니언 즉시 스폰 (Phase 2 이상일 때)
 	if (ABlackoutBossAIController* BossAIC = Cast<ABlackoutBossAIController>(CachedOwner->GetController()))
 	{
-		const EBOBossPhase CurrentPhase = BossAIC->GetCurrentPhase();
-		UE_LOG(LogTemp, Log, TEXT("[SummonMinion] Current Boss Phase: %d"), (int32)CurrentPhase);
-
-		if (CurrentPhase >= EBOBossPhase::Phase2)
+		if (BossAIC->GetCurrentPhase() >= EBOBossPhase::Phase2)
 		{
-			UE_LOG(LogTemp, Log, TEXT("[SummonMinion] Boss Phase is Phase2 or higher. Immediately spawning elite minions."));
 			SpawnEliteMinionsDirectly();
-		}
-		else
-		{
-			UE_LOG(LogTemp, Log, TEXT("[SummonMinion] Boss Phase is lower than Phase2. Skipping elite minion spawn."));
 		}
 	}
 	else
@@ -148,8 +139,6 @@ void UBlackoutGA_Ravager_SummonMinion::ResolveSpawnLocation(FVector& OutLocation
 
 void UBlackoutGA_Ravager_SummonMinion::SpawnEliteMinionsDirectly()
 {
-	UE_LOG(LogTemp, Log, TEXT("[SummonMinion] SpawnEliteMinionsDirectly called."));
-
 	if (!CachedOwner || !CachedPatternData)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[SummonMinion] CachedOwner or CachedPatternData is null inside SpawnEliteMinionsDirectly!"));
@@ -159,14 +148,14 @@ void UBlackoutGA_Ravager_SummonMinion::SpawnEliteMinionsDirectly()
 	const FBossMinionSpawnSettings& Settings = CachedPatternData->MinionSettings;
 	if (!Settings.EliteMinionSpawnData.MinionClass)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[SummonMinion] EliteMinionSpawnData.MinionClass is null. Please allocate it in the BORavagerPatternData asset."));
+		BO_LOG_AI(Warning, "[SummonMinion] EliteMinionSpawnData.MinionClass is null. Please allocate it in the BORavagerPatternData asset.");
 		return;
 	}
 
 	UWorld* World = GetWorld();
 	if (!World)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[SummonMinion] World is null inside SpawnEliteMinionsDirectly."));
+		BO_LOG_AI(Warning, "[SummonMinion] World is null inside SpawnEliteMinionsDirectly.");
 		return;
 	}
 
@@ -178,9 +167,6 @@ void UBlackoutGA_Ravager_SummonMinion::SpawnEliteMinionsDirectly()
 	SpawnParams.Owner = CachedOwner;
 	SpawnParams.Instigator = CachedOwner;
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
-
-	UE_LOG(LogTemp, Log, TEXT("[SummonMinion] Spawning %d Elite Minions of class %s within radius %.2f around boss location %s"), 
-		EliteCount, *Settings.EliteMinionSpawnData.MinionClass->GetName(), SpawnRadius, *BossLocation.ToString());
 
 	for (int32 i = 0; i < EliteCount; i++)
 	{
@@ -200,7 +186,6 @@ void UBlackoutGA_Ravager_SummonMinion::SpawnEliteMinionsDirectly()
 
 		if (EliteMinion)
 		{
-			UE_LOG(LogTemp, Log, TEXT("[SummonMinion] Successfully spawned Elite Minion: %s at %s"), *EliteMinion->GetName(), *SpawnLocation.ToString());
 			EliteMinion->SpawnDefaultController();
 
 			// 텔레포트 등장 연출용 GameplayCue 발동
@@ -211,21 +196,14 @@ void UBlackoutGA_Ravager_SummonMinion::SpawnEliteMinionsDirectly()
 					FGameplayCueParameters CueParams;
 					CueParams.Location = SpawnLocation;
 					MinionASC->ExecuteGameplayCue(BlackoutGameplayTags::GameplayCue_Wraith_Teleport_End, CueParams);
-					UE_LOG(LogTemp, Log, TEXT("[SummonMinion] Executed Wraith_Teleport_End GameplayCue for Elite: %s"), *EliteMinion->GetName());
-				}
-				else
-				{
-					UE_LOG(LogTemp, Warning, TEXT("[SummonMinion] Minion ASC is null. GameplayCue skipped."));
 				}
 			}
-			else
-			{
-				UE_LOG(LogTemp, Warning, TEXT("[SummonMinion] Minion does not implement IAbilitySystemInterface."));
-			}
+
+			BO_LOG_AI(Log, "Successfully spawned Elite Minion at %s", *SpawnLocation.ToString())
 		}
 		else
 		{
-			UE_LOG(LogTemp, Error, TEXT("[SummonMinion] Failed to spawn Elite Minion of class %s at %s!"), *Settings.EliteMinionSpawnData.MinionClass->GetName(), *SpawnLocation.ToString());
+			BO_LOG_AI(Error, "Failed to spawn Elite Minion of class %s at %s!", *Settings.EliteMinionSpawnData.MinionClass->GetName(), *SpawnLocation.ToString());
 		}
 	}
 }
