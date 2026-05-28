@@ -4,6 +4,7 @@
 #include "AI/BehaviorTree/Services/BTS_CheckChaseDistance.h"
 
 #include "BlackoutBossCharacter.h"
+#include "BORavagerBoss.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "BehaviorTree/BTNodeHelper.h"
 #include "BehaviorTree/Blackboard/BlackboardKeyType_Bool.h"
@@ -81,7 +82,7 @@ void UBTS_CheckChaseDistance::OnBecomeRelevant(UBehaviorTreeComponent& OwnerComp
 	AAIController* AICon = OwnerComp.GetAIOwner();
 	if (!AICon) return;
 
-	ABlackoutBossCharacter* Owner = Cast<ABlackoutBossCharacter>(AICon->GetPawn());
+	ABORavagerBoss* Owner = Cast<ABORavagerBoss>(AICon->GetPawn());
 	if (!IsValid(Owner)) return;
 
 	FGameplayTag PatternTag = FGameplayTag::RequestGameplayTag(BB->GetValueAsName(ActiveAbilityTagKey.SelectedKeyName));

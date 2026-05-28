@@ -4,7 +4,7 @@
 #include "BlackoutGameplayTags.h"
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimMontage.h"
-#include "BlackoutBossCharacter.h"
+#include "BORavagerBoss.h"
 #include "BlackoutPullable.h"
 
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"

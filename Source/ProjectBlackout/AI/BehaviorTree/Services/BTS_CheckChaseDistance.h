@@ -39,9 +39,6 @@ public:
 	FBlackboardKeySelector AcceptanceRadiusKey;
 
 protected:
-
-	// UPROPERTY(EditAnywhere, Category = "Blackout|Parmas")
-	// float Threshold;
 	
 	UPROPERTY(Transient)
 	TObjectPtr<UBORavagerPatternData> CachedData;
