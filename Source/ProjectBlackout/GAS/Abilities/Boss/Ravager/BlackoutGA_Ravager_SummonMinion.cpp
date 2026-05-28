@@ -201,17 +201,6 @@ void UBlackoutGA_Ravager_SummonMinion::SpawnEliteMinionsDirectly()
 		{
 			EliteMinion->SpawnDefaultController();
 
-			// 텔레포트 등장 연출용 GameplayCue 발동
-			if (IAbilitySystemInterface* ASI = Cast<IAbilitySystemInterface>(EliteMinion))
-			{
-				if (UAbilitySystemComponent* MinionASC = ASI->GetAbilitySystemComponent())
-				{
-					FGameplayCueParameters CueParams;
-					CueParams.Location = SpawnLocation;
-					MinionASC->ExecuteGameplayCue(BlackoutGameplayTags::GameplayCue_Wraith_Teleport_End, CueParams);
-				}
-			}
-
 			BO_LOG_AI(Log, "Successfully spawned Elite Minion at %s", *SpawnLocation.ToString())
 		}
 		else
