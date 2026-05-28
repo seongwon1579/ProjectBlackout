@@ -6,6 +6,7 @@
 #include "Combat/Components/BlackoutImpactIndicatorComponent.h"
 #include "Combat/Weapons/BOFirearm.h"
 #include "Combat/Weapons/BOWeaponBase.h"
+#include "GAS/BlackoutAbilitySystemComponent.h"
 #include "Core/BlackoutLog.h"
 #include "Data/BOCharacterData.h"
 #include "Data/BOConsumableData.h"
@@ -624,6 +625,16 @@ FBlackoutConsumableSlotData UBlackoutHUDWidgetController::MakeConsumableSlotData
 	SlotData.CurrentCount = PlayerState.IsValid() ? PlayerState->GetConsumableCount(ConsumableData->ConsumableTag) : 0;
 	SlotData.MaxCount = ConsumableData->MaxCount;
 	SlotData.Icon = ConsumableData->Icon.LoadSynchronous();
+
+	// ASC가 유효할 경우 소모품 어빌리티의 실시간 쿨다운 정보(남은 시간, 총 지속 시간)를 쿼리하여 반영합니다.
+	if (UBlackoutAbilitySystemComponent* BlackoutASC = Cast<UBlackoutAbilitySystemComponent>(AbilitySystemComponent.Get()))
+	{
+		float Remaining = 0.0f;
+		float Duration = 0.0f;
+		BlackoutASC->GetConsumableCooldownInfo(ConsumableData->ConsumableTag, Remaining, Duration);
+		SlotData.CooldownRemaining = Remaining;
+		SlotData.CooldownDuration = Duration;
+	}
 
 	return SlotData;
 }

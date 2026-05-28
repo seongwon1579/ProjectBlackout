@@ -146,20 +146,28 @@ classDiagram
 
     class UBlackoutConsumableSlotWidget {
         -FBlackoutConsumableSlotData SlotData
+        -float CooldownRemaining
+        -float CooldownDuration
+        -bool bIsConsumableAvailable
         -UImage* IconImage
         -UTextBlock* CountText
         +SetConsumableSlotData(FBlackoutConsumableSlotData) void
+        +SetConsumableCount(int32) void
+        +SetConsumableIcon(UTexture2D*) void
+        +NativeTick(FGeometry, float) void
+        #ReceiveConsumableCooldownUpdated(float RemainingTime, float Duration) void
     }
 
     class FBlackoutConsumableSlotData {
         <<Struct>>
-        +FGameplayTag ConsumableTag
+        +UBOConsumableData* ConsumableData
         +UTexture2D* Icon
-        +FText DisplayName
-        +int32 Count
+        +FGameplayTag ConsumableTag
+        +int32 CurrentCount
         +int32 MaxCount
-        +float Cooldown
-        +bool bIsAvailable
+        +float CooldownRemaining
+        +float CooldownDuration
+        +bool bIsValid
     }
 
     class UBOConsumableData {
@@ -173,6 +181,18 @@ classDiagram
         +TSubclassOf~UGameplayAbility~ UseAbility
         +TSubclassOf~UGameplayEffect~ GameplayEffect
         +TMap~FGameplayTag, float~ EffectMagnitudes
+    }
+
+    class UBlackoutGA_UseConsumable {
+        -float ConsumableCooldownEndTime
+        +GetCooldownRemainingTime() float
+        +GetCooldownDuration() float
+        +ResetConsumableCooldown() void
+    }
+
+    class UBlackoutAbilitySystemComponent {
+        +GetConsumableCooldownInfo(FGameplayTag, float&, float&) bool
+        +ResetConsumableCooldownForTag(FGameplayTag) void
     }
 
     class ABlackoutPlayerController {
@@ -256,6 +276,8 @@ classDiagram
     UBlackoutHUDWidgetController --> UBlackoutAmmoAttributeSet : reads Ammo
     UBlackoutHUDWidgetController --> ABOWeaponBase : reads display data
     UBlackoutHUDWidgetController --> UBOConsumableData : reads icon/tuning
+    UBlackoutHUDWidgetController --> UBlackoutAbilitySystemComponent : queries cooldown info
+    UBlackoutAbilitySystemComponent --> UBlackoutGA_UseConsumable : queries cooldown
     UBlackoutHUDWidgetController --> FBlackoutConsumableSlotData : builds display data
     UBlackoutConsumableSlotWidget --> FBlackoutConsumableSlotData : renders
 ```

@@ -675,6 +675,41 @@ void UBlackoutAbilitySystemComponent::StopHealthRegen()
 	ActiveHealthRegenSourceTag = FGameplayTag();
 }
 
+bool UBlackoutAbilitySystemComponent::GetConsumableCooldownInfo(FGameplayTag ConsumableTag, float& OutRemainingTime, float& OutDuration) const
+{
+	OutRemainingTime = 0.0f;
+	OutDuration = 0.0f;
+
+	if (!ConsumableTag.IsValid())
+	{
+		return false;
+	}
+
+	// const 멤버 함수 내에서 어빌리티 리스트 락을 획득하기 위해 const_cast를 활용합니다.
+	FScopedAbilityListLock Lock(*const_cast<UBlackoutAbilitySystemComponent*>(this));
+
+	for (const FGameplayAbilitySpec& AbilitySpec : ActivatableAbilities.Items)
+	{
+		const UBOConsumableData* ConsumableData = Cast<UBOConsumableData>(AbilitySpec.SourceObject.Get());
+		if (!ConsumableData || !ConsumableData->ConsumableTag.MatchesTagExact(ConsumableTag))
+		{
+			continue;
+		}
+
+		for (const UGameplayAbility* AbilityInstance : AbilitySpec.GetAbilityInstances())
+		{
+			if (const UBlackoutGA_UseConsumable* ConsumableAbility = Cast<UBlackoutGA_UseConsumable>(AbilityInstance))
+			{
+				OutRemainingTime = ConsumableAbility->GetCooldownRemainingTime();
+				OutDuration = ConsumableAbility->GetCooldownDuration();
+				return OutRemainingTime > 0.0f;
+			}
+		}
+	}
+
+	return false;
+}
+
 void UBlackoutAbilitySystemComponent::ResetConsumableCooldownForTag(FGameplayTag ConsumableTag)
 {
 	if (!ConsumableTag.IsValid())

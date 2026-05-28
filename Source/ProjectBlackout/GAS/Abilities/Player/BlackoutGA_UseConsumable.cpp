@@ -463,3 +463,22 @@ void UBlackoutGA_UseConsumable::EndWeaponHolsterOverride(const FGameplayAbilityA
 
 	CombatComponent->EndEquippedWeaponHolsterOverride();
 }
+
+float UBlackoutGA_UseConsumable::GetCooldownRemainingTime() const
+{
+	if (const UWorld* World = GetWorld())
+	{
+		return FMath::Max(0.0f, ConsumableCooldownEndTime - World->GetTimeSeconds());
+	}
+	return 0.0f;
+}
+
+float UBlackoutGA_UseConsumable::GetCooldownDuration() const
+{
+	// ResolveConsumableData는 non-const 함수이므로 const_cast 처리합니다.
+	if (const UBOConsumableData* ResolvedConsumableData = const_cast<UBlackoutGA_UseConsumable*>(this)->ResolveConsumableData())
+	{
+		return ResolvedConsumableData->Cooldown;
+	}
+	return 0.0f;
+}

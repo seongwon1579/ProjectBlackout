@@ -132,6 +132,13 @@ public:
 	bool ShouldSkipCostInShelter() const;
 
 	/**
+	 * 특정 소모품 태그에 대한 쿨다운 정보(남은 시간, 총 지속 시간)를 조회합니다.
+	 * 쿨다운 진행 여부를 반환합니다.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Blackout|GAS|Consumable")
+	bool GetConsumableCooldownInfo(FGameplayTag ConsumableTag, float& OutRemainingTime, float& OutDuration) const;
+
+	/**
 	 * 클라이언트가 캔슬 윈도우 도달 시 서버에 차단 LooseTag의 즉각적인 제거를 순차적으로 강제 통보하는 Reliable 서버 RPC입니다.
 	 */
 	UFUNCTION(Server, Reliable)
