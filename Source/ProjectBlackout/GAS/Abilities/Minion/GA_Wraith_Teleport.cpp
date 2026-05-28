@@ -37,9 +37,6 @@ void UGA_Wraith_Teleport::ActivateAbility(
 		return;
 	}
 
-	// 무적 (서버 -> 클라 동기화)
-	ASC->AddLooseGameplayTag(BlackoutGameplayTags::State_Invulnerable);
-
 	// EQS 비동기 호출
 	FEnvQueryRequest Request(TeleportQuery, Avatar);
 	Request.Execute(EEnvQueryRunMode::SingleResult, this,
