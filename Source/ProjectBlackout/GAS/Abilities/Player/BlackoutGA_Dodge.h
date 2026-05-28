@@ -75,7 +75,7 @@ private:
 	UFUNCTION()
 	void OnDodgeMontageBlendOut();
 
-	void StartMontageTask();
+	bool StartMontageTask();
 
 	void StartChainInputTask();
 
@@ -129,6 +129,7 @@ private:
 	 * TODO(stamina-cost): TDD §4.1 v2 에서는 GE Cost 로 처리하도록 명시.
 	 * 현재는 v1 의 `ApplyModToAttribute` 경로를 유지하고, 후속 PR 에서 GE 기반으로 교체합니다.
 	 */
+	bool CanPayStaminaCost() const;
 	bool ConsumeStamina() const;
 
 	FVector CalculateDodgeDirection(const FGameplayAbilityActorInfo* ActorInfo, bool& bOutIsBackstep, bool bPreferControlForwardWhenNoInput = false, const FBlackoutAbilityInputSyncPayload* InputPayload = nullptr) const;
