@@ -6,6 +6,7 @@
 #include "Combat/Components/BlackoutImpactIndicatorComponent.h"
 #include "Combat/Weapons/BOFirearm.h"
 #include "Combat/Weapons/BOWeaponBase.h"
+#include "GAS/BlackoutAbilitySystemComponent.h"
 #include "Core/BlackoutLog.h"
 #include "Data/BOCharacterData.h"
 #include "Data/BOConsumableData.h"
@@ -132,6 +133,26 @@ void UBlackoutHUDWidgetController::BindCallbacksToDependencies()
 			.AddUObject(this, &UBlackoutHUDWidgetController::HandleDownedRelatedTagChanged);
 
 		BoundStateTagAbilitySystemComponent = ASC;
+	}
+
+	if (ASC && BoundCooldownAbilitySystemComponent.Get() != ASC)
+	{
+		// 이전 ASC에 맺어두었던 쿨다운 변경 델리게이트를 안전하게 해제합니다.
+		if (UBlackoutAbilitySystemComponent* PreviousBlackoutASC = Cast<UBlackoutAbilitySystemComponent>(BoundCooldownAbilitySystemComponent.Get()))
+		{
+			if (ConsumableCooldownChangedHandle.IsValid())
+			{
+				PreviousBlackoutASC->OnConsumableCooldownChanged.Remove(ConsumableCooldownChangedHandle);
+			}
+		}
+
+		// 새 ASC의 쿨다운 변경 델리게이트를 구독합니다.
+		if (UBlackoutAbilitySystemComponent* BlackoutASC = Cast<UBlackoutAbilitySystemComponent>(ASC))
+		{
+			ConsumableCooldownChangedHandle = BlackoutASC->OnConsumableCooldownChanged.AddUObject(
+				this, &UBlackoutHUDWidgetController::HandleConsumableCooldownChanged);
+			BoundCooldownAbilitySystemComponent = ASC;
+		}
 	}
 
 	if (ABlackoutPlayerState* BlackoutPlayerState = PlayerState.Get())
@@ -625,6 +646,16 @@ FBlackoutConsumableSlotData UBlackoutHUDWidgetController::MakeConsumableSlotData
 	SlotData.MaxCount = ConsumableData->MaxCount;
 	SlotData.Icon = ConsumableData->Icon.LoadSynchronous();
 
+	// ASC가 유효할 경우 소모품 어빌리티의 실시간 쿨다운 정보(남은 시간, 총 지속 시간)를 쿼리하여 반영합니다.
+	if (UBlackoutAbilitySystemComponent* BlackoutASC = Cast<UBlackoutAbilitySystemComponent>(AbilitySystemComponent.Get()))
+	{
+		float Remaining = 0.0f;
+		float Duration = 0.0f;
+		BlackoutASC->GetConsumableCooldownInfo(ConsumableData->ConsumableTag, Remaining, Duration);
+		SlotData.CooldownRemaining = Remaining;
+		SlotData.CooldownDuration = Duration;
+	}
+
 	return SlotData;
 }
 
@@ -760,6 +791,12 @@ void UBlackoutHUDWidgetController::HandleConsumablesChanged(int32 BloodRootCount
 {
 	OnConsumablesChanged.Broadcast(BloodRootCount, GulSerumCount);
 	BroadcastConsumableSlots(BloodRootCount, GulSerumCount);
+}
+
+void UBlackoutHUDWidgetController::HandleConsumableCooldownChanged(FGameplayTag ConsumableTag)
+{
+	// 쿨다운 상태가 변했을 때(시작 또는 리셋) 소모품 슬롯 데이터를 다시 빌드하여 UI 위젯으로 브로드캐스트합니다.
+	BroadcastConsumables();
 }
 
 bool UBlackoutHUDWidgetController::GetDownedStateHUDData(FBlackoutDownedStateHUDData& OutHUDData) const
