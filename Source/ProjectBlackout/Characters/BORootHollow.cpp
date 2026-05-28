@@ -1,8 +1,11 @@
 #include "Characters/BORootHollow.h"
 
+#include "MotionWarpingComponent.h"
+
 ABORootHollow::ABORootHollow()
 {
 	PrimaryActorTick.bCanEverTick = true;
+	MotionWarpingComponent = CreateDefaultSubobject<UMotionWarpingComponent>(TEXT("MotionWarpingComponent"));
 }
 
 void ABORootHollow::PerformCharge()
