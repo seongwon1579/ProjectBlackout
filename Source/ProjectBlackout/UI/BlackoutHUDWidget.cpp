@@ -141,6 +141,11 @@ void UBlackoutHUDWidget::SetWidgetController(UBlackoutHUDWidgetController* InWid
 	UnbindWidgetControllerCallbacks();
 	WidgetController = InWidgetController;
 
+	if (StaminaBarWidget)
+	{
+		StaminaBarWidget->SetUseInterpolation(true);
+	}
+
 	WidgetController->OnHealthChanged.AddDynamic(this, &UBlackoutHUDWidget::HandleHealthChanged);
 	WidgetController->OnStaminaChanged.AddDynamic(this, &UBlackoutHUDWidget::HandleStaminaChanged);
 	WidgetController->OnAmmoChanged.AddDynamic(this, &UBlackoutHUDWidget::HandleAmmoChanged);

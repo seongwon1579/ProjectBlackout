@@ -152,6 +152,9 @@ private:
 	UFUNCTION()
 	void HandleConsumablesChanged(int32 BloodRootCount, int32 GulSerumCount);
 
+	// ASC의 쿨다운 변경 델리게이트 콜백을 수신하여 UI 슬롯 데이터를 브로드캐스트합니다.
+	void HandleConsumableCooldownChanged(FGameplayTag ConsumableTag);
+
 	UFUNCTION()
 	void HandleSurrenderVoteStateChanged(bool bIsActive, int32 YesCount, int32 NoCount, float EndTimeSeconds);
 
@@ -185,6 +188,10 @@ private:
 	FDelegateHandle BeingRevivedTagChangedHandle;
 	FDelegateHandle DeadTagChangedHandle;
 	TWeakObjectPtr<UAbilitySystemComponent> BoundStateTagAbilitySystemComponent;
+
+	// 소모품 쿨다운 변경 델리게이트 핸들 및 바인딩용 ASC 포인터입니다.
+	FDelegateHandle ConsumableCooldownChangedHandle;
+	TWeakObjectPtr<UAbilitySystemComponent> BoundCooldownAbilitySystemComponent;
 
 	EBlackoutHUDMode CurrentHUDMode = EBlackoutHUDMode::Combat;
 };

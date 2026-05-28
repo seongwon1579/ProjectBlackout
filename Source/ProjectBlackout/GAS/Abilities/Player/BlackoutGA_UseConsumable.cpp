@@ -101,11 +101,6 @@ void UBlackoutGA_UseConsumable::ActivateAbility(const FGameplayAbilitySpecHandle
 	bStartedPredictedConsumableCooldown = false;
 	PendingConsumableData = ResolvedConsumableData;
 	ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get());
-	if (PlayerCharacter && !PlayerCharacter->HasAuthority())
-	{
-		StartConsumableCooldown(ResolvedConsumableData);
-		bStartedPredictedConsumableCooldown = true;
-	}
 
 	if (ConsumableMontage)
 	{
@@ -177,11 +172,6 @@ void UBlackoutGA_UseConsumable::EndAbility(const FGameplayAbilitySpecHandle Hand
 		EndWeaponHolsterOverride(ActorInfo);
 	}
 
-	if (bWasCancelled && bStartedPredictedConsumableCooldown)
-	{
-		ConsumableCooldownEndTime = 0.0f;
-	}
-
 	PendingConsumableData = nullptr;
 	bStartedPredictedConsumableCooldown = false;
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
@@ -191,6 +181,15 @@ void UBlackoutGA_UseConsumable::ResetConsumableCooldown()
 {
 	ConsumableCooldownEndTime = 0.0f;
 	bStartedPredictedConsumableCooldown = false;
+
+	// 쿨다운 리셋 상태를 UI에 즉시 동기화하도록 전파합니다.
+	if (const UBOConsumableData* UsedConsumableData = ResolveConsumableData())
+	{
+		if (UBlackoutAbilitySystemComponent* BlackoutASC = Cast<UBlackoutAbilitySystemComponent>(GetAbilitySystemComponentFromActorInfo()))
+		{
+			BlackoutASC->NotifyConsumableCooldownChanged(UsedConsumableData->ConsumableTag);
+		}
+	}
 }
 
 void UBlackoutGA_UseConsumable::ConsumeAndApplyEffect()
@@ -225,6 +224,13 @@ void UBlackoutGA_UseConsumable::ConsumeAndApplyEffect()
 	bKeepActiveAfterMontage = ApplyConsumableEffect(PendingConsumableData);
 	ApplyConfiguredGameplayEffect(PendingConsumableData);
 	StartConsumableCooldown(PendingConsumableData);
+
+	// 서버에서 실제 소모품이 적용 및 소모되었을 때, 클라이언트 측에도 동기화 명령을 내려 로컬 쿨다운을 작동시킵니다.
+	if (UBlackoutAbilitySystemComponent* BlackoutComponent = const_cast<UBlackoutAbilitySystemComponent*>(BlackoutASC))
+	{
+		BlackoutComponent->Client_StartConsumableCooldown(PendingConsumableData->ConsumableTag, PendingConsumableData->Cooldown);
+	}
+
 	ExecuteConsumableUseCue(PendingConsumableData);
 
 	ReceiveConsumableUsed(PendingConsumableData);
@@ -408,6 +414,12 @@ void UBlackoutGA_UseConsumable::StartConsumableCooldown(const UBOConsumableData*
 	{
 		ConsumableCooldownEndTime = World->GetTimeSeconds() + UsedConsumableData->Cooldown;
 	}
+
+	// 쿨다운 시작 상태를 UI에 즉시 동기화하도록 전파합니다.
+	if (UBlackoutAbilitySystemComponent* BlackoutASC = Cast<UBlackoutAbilitySystemComponent>(GetAbilitySystemComponentFromActorInfo()))
+	{
+		BlackoutASC->NotifyConsumableCooldownChanged(UsedConsumableData->ConsumableTag);
+	}
 }
 
 void UBlackoutGA_UseConsumable::ApplySlowMovementSpeed(const FGameplayAbilityActorInfo* ActorInfo)
@@ -462,4 +474,23 @@ void UBlackoutGA_UseConsumable::EndWeaponHolsterOverride(const FGameplayAbilityA
 	}
 
 	CombatComponent->EndEquippedWeaponHolsterOverride();
+}
+
+float UBlackoutGA_UseConsumable::GetCooldownRemainingTime() const
+{
+	if (const UWorld* World = GetWorld())
+	{
+		return FMath::Max(0.0f, ConsumableCooldownEndTime - World->GetTimeSeconds());
+	}
+	return 0.0f;
+}
+
+float UBlackoutGA_UseConsumable::GetCooldownDuration() const
+{
+	// ResolveConsumableData는 non-const 함수이므로 const_cast 처리합니다.
+	if (const UBOConsumableData* ResolvedConsumableData = const_cast<UBlackoutGA_UseConsumable*>(this)->ResolveConsumableData())
+	{
+		return ResolvedConsumableData->Cooldown;
+	}
+	return 0.0f;
 }
