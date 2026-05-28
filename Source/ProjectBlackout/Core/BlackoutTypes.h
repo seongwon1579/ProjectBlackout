@@ -57,3 +57,11 @@ enum class EBlackoutMatchEndReason:uint8
 	Timeout UMETA(DisplayName = "Timeout"),
 	
 };
+
+// 보스 종류 , 매치 진행 스테이지와 OnBossDefeated 분기에 사용
+UENUM(BlueprintType)
+enum class EBossType : uint8
+{
+	Mid UMETA(DisplayName = "Mid Boss"),
+	Main UMETA(DisplayName = "Main Boss"),
+};

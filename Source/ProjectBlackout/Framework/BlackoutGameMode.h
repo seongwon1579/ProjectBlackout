@@ -5,6 +5,8 @@
 #include "BlackoutGameMode.generated.h"
 
 enum class EBlackoutMatchState : uint8;
+class APlayerController;
+
 
 UCLASS(Abstract)
 class PROJECTBLACKOUT_API ABlackoutGameMode : public AGameModeBase
@@ -18,6 +20,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|GameMode")
 	virtual void HandlePartyWipe();
+	
+	UFUNCTION(BlueprintCallable , Category="Blackout|GameMode")
+	virtual void RespawnPlayerWithSelectedClass(APlayerController* InController);
 
 	// 정원 충족 + 전원 bIsReady == true 조건 검사. Lobby / Battle 공용.
 	UFUNCTION(BlueprintCallable, Category = "Blackout|GameMode")

@@ -1,6 +1,7 @@
 #include "BlackoutGameState.h"
 #include "Net/UnrealNetwork.h"
 #include "BlackoutLog.h"
+#include "BlackoutPlayerController.h"
 
 ABlackoutGameState::ABlackoutGameState()
 {
@@ -45,12 +46,14 @@ void ABlackoutGameState::SetMatchState(EBlackoutMatchState NewState)
 	CurrentMatchState = NewState;
 	BO_LOG_NET(Log, "MatchState 전환: %s", *UEnum::GetValueAsString(NewState));
 	OnMatchStateChanged.Broadcast(NewState);
+	TryOpenLocalClassSelectUI();  // 서버(host) 로컬 PC
 }
 
 void ABlackoutGameState::OnRep_CurrentMatchState()
 {
 	BO_LOG_NET(Log, "MatchState OnRep: %s", *UEnum::GetValueAsString(CurrentMatchState));
 	OnMatchStateChanged.Broadcast(CurrentMatchState);
+	TryOpenLocalClassSelectUI();  // 클라 로컬 PC
 }
 
 void ABlackoutGameState::OnRep_DestroyedPillarIds()
@@ -66,4 +69,20 @@ void ABlackoutGameState::OnRep_SurrenderVoteActive()
 		SurrenderVoteNoCount,
 		SurrenderVoteEndTimeSeconds
 	);
+}
+
+void ABlackoutGameState::TryOpenLocalClassSelectUI()
+{
+	if (CurrentMatchState != EBlackoutMatchState::ShelterPrep)
+	{
+		return;
+	}
+	if (UWorld* World = GetWorld())
+	{
+		if (ABlackoutPlayerController* PC =
+			Cast<ABlackoutPlayerController>(World->GetFirstPlayerController()))
+		{
+			PC->Client_OpenClassSelectUI_Implementation();
+		}
+	}
 }

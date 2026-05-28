@@ -1,8 +1,11 @@
 #include "BlackoutGameMode.h"
+
+#include "BlackoutAbilitySystemComponent.h"
 #include "BlackoutGameState.h"
 #include "BlackoutPlayerState.h"
 #include "BlackoutPlayerController.h"
 #include "BlackoutLog.h"
+#include "BOCharacterRoster.h"
 #include "Core/BlackoutTypes.h"
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/GameStateBase.h"
@@ -38,6 +41,9 @@ ABlackoutGameMode::ABlackoutGameMode()
 	GameStateClass        = ABlackoutGameState::StaticClass();
 	PlayerStateClass      = ABlackoutPlayerState::StaticClass();
 	PlayerControllerClass = ABlackoutPlayerController::StaticClass();
+
+	// Seamless Travel: 맵 이동 시 PlayerController/PlayerState 유지 (커넥션 끊김 없이 상태 이관).
+	bUseSeamlessTravel = true;
 }
 
 void ABlackoutGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
@@ -74,6 +80,61 @@ void ABlackoutGameMode::Logout(AController* Exiting)
 void ABlackoutGameMode::HandlePartyWipe()
 {
 	BO_LOG_CORE(Log, "HandlePartyWipe triggered");
+}
+
+void ABlackoutGameMode::RespawnPlayerWithSelectedClass(
+	APlayerController* InController)
+{
+	
+	if (!InController)
+	{
+		return;
+	}
+	
+	const ABlackoutGameState* GS = GetGameState<ABlackoutGameState>();
+	const UBOCharacterRoster* CharacterRoster = GS? GS->CharacterRoster : nullptr;
+	
+	if (!CharacterRoster)
+	{
+		return;
+	}
+	
+	ABlackoutPlayerState* PS = InController->GetPlayerState<ABlackoutPlayerState>();
+	if (!PS || !PS->SelectedClassTag.IsValid())
+	{
+		return;
+	}
+	
+	TSubclassOf<APawn> NewClass = CharacterRoster->FindPawnClassByTag(PS->SelectedClassTag);
+	if (!NewClass)
+	{
+		return;
+	}
+	
+	FTransform SpawnTransform = FTransform::Identity;
+	if (APawn* OldPawn = InController->GetPawn())
+	{
+		SpawnTransform = OldPawn->GetActorTransform();
+		if (UBlackoutAbilitySystemComponent* BlackoutASC = PS->GetBlackoutAbilitySystemComponent())
+		{
+			BlackoutASC -> ClearAllAbilities();
+		}
+		InController->UnPossess();
+		OldPawn->Destroy();
+	}
+	
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Owner = InController;
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+	APawn* NewPawn =GetWorld()->SpawnActor<APawn>(NewClass , SpawnTransform , SpawnParams);
+	
+	if (!NewPawn)
+	{
+		return;
+	}
+	InController->Possess(NewPawn);
+	BO_LOG_NET(Log, "캐릭터 교체: %s -> %s",
+	*InController->GetName(), *GetNameSafe(NewClass.Get()));
 }
 
 // Ready 집계 기본 구현. 정원 미달이거나 한 명이라도 bIsReady == false 면 false.

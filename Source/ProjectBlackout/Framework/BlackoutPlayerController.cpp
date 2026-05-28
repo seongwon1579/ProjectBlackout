@@ -110,7 +110,7 @@ void ABlackoutPlayerController::Server_SelectClass_Implementation(FGameplayTag C
 	PS->SelectedClassTag =ClassTag;
 	BO_LOG_NET(Log, "Server_SelectClass: %s → %s", *GetName(), *ClassTag.ToString());
 	
-	if (ABlackoutBattleGameMode* GM = GetWorld()->GetAuthGameMode<ABlackoutBattleGameMode>())
+	if (ABlackoutGameMode* GM = GetWorld()->GetAuthGameMode<ABlackoutGameMode>())
 	{
 		GM->RespawnPlayerWithSelectedClass(this);
 	}
@@ -252,22 +252,11 @@ void ABlackoutPlayerController::Client_OpenClassSelectUI_Implementation()
 	
 	if (!CharacterRoster)
 	{
-		if (!ClassSelectRetryHandle.IsValid())
-		{
-			BO_LOG_CORE(Warning, "OpenClassSelectUI: CharacterRoster 미수신 — GameState replication 대기, 0.5초 후 retry");
-			GetWorld()->GetTimerManager().SetTimer(
-				ClassSelectRetryHandle, this,
-				&ABlackoutPlayerController::Client_OpenClassSelectUI_Implementation,
-				0.5f, false);
-		}
-		else
-		{
-			BO_LOG_CORE(Warning, "OpenClassSelectUI: retry 후에도 CharacterRoster 미수신 — BP_BlackoutGameState 확인");
-			ClassSelectRetryHandle.Invalidate();
-		}
+		// GameState OnRep(TryOpenLocalClassSelectUI) 시점에 호출되므로 정상 흐름에선 도달 X. 방어 가드.
+		BO_LOG_CORE(Warning, "OpenClassSelectUI: CharacterRoster 미수신 — BP_BlackoutGameState 확인");
 		return;
 	}
-	ClassSelectRetryHandle.Invalidate();
+	
 
 	if (ClassSelectWidget)
 	{

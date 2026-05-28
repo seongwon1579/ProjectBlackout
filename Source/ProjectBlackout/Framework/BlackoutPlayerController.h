@@ -186,9 +186,6 @@ protected:
 	UPROPERTY(Transient)
 	TObjectPtr<UBlackoutClassSelectWidgetController> ClassSelectController;
 
-	/** GameState replication 대기용 retry 핸들. 첫 호출 시 nullptr → 한 번만 retry 예약. */
-	FTimerHandle ClassSelectRetryHandle;
-
 	void OnClassSelectNextPressed();
 	void OnClassSelectPrevPressed();
 	void OnClassSelectConfirmPressed();

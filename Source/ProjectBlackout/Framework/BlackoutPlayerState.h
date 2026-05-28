@@ -27,6 +27,9 @@ public:
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
+	// Seamless Travel 시 새 PlayerState 로 보존 대상(SelectedClassTag) 복사.
+	virtual void CopyProperties(APlayerState* NewPlayerState) override;
+
 	UBlackoutAbilitySystemComponent* GetBlackoutAbilitySystemComponent() const { return AbilitySystemComponent; }
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|PlayerState")

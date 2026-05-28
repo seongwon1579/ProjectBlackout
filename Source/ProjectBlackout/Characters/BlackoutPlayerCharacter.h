@@ -106,11 +106,8 @@ public:
 	void Server_ReviveFromDowned(float RevivedHealth);
 
 	/** 전멸 후 체크포인트 복귀 시 서버가 사망/다운 상태와 전투 가능 상태를 복구합니다. */
-	void RestoreFromPartyWipeRestart();
-
-	// 회피 몽타주 RPC/헬퍼는 TDD §4.1 v2 에서 폐기되었습니다.
-	// 재생은 GAS 표준 PlayMontageAndWait + ASC::PlayMontage → FRepAnimMontageInfo 자동 복제.
-
+	void RestoreToFullState();
+	
 	/** GA_Dodge 가 회피 진행 상태를 외부에 알리기 위해 호출하는 setter. */
 	void SetDodgeMontagePlaying(bool bPlaying) { bIsDodgeMontagePlaying = bPlaying; }
 

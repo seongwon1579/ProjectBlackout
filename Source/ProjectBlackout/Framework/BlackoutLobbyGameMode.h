@@ -21,7 +21,7 @@ protected:
 	virtual void OnAllPlayersReady() override;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Blackout|Lobby")
-	FSoftObjectPath BattleMapPath;
+	TArray<FSoftObjectPath> BossStageMapPaths;
 	
 	// ServerTravel 중복 실행 방지 플래그 , StartBattle 최초 1회만
 	UPROPERTY(BlueprintReadOnly , Category = "Blackout|Lobby")
