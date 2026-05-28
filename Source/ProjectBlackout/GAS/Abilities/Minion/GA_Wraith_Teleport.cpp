@@ -40,8 +40,6 @@ void UGA_Wraith_Teleport::ActivateAbility(
 	// 무적 (서버 -> 클라 동기화)
 	ASC->AddLooseGameplayTag(BlackoutGameplayTags::State_Invulnerable);
 
-
-
 	// EQS 비동기 호출
 	FEnvQueryRequest Request(TeleportQuery, Avatar);
 	Request.Execute(EEnvQueryRunMode::SingleResult, this,
@@ -111,7 +109,13 @@ void UGA_Wraith_Teleport::OnVanishEvent(FGameplayEventData Payload)
 	{
 		return;
 	}
-	
+
+	// 무적 부여 (사라지는 순간부터)
+	if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
+	{
+		ASC->AddLooseGameplayTag(BlackoutGameplayTags::State_Invulnerable);
+	}
+
 	SetTeleportVisualsHidden(true);
 	Avatar->SetActorLocation(CachedDestination , false , nullptr , ETeleportType::TeleportPhysics);
 	
@@ -121,6 +125,7 @@ void UGA_Wraith_Teleport::OnVanishEvent(FGameplayEventData Payload)
 void UGA_Wraith_Teleport::OnAppearEvent(FGameplayEventData Payload)
 {
 	SetTeleportVisualsHidden(false);
+	RemoveInvulnerableTag();
 }
 
 
