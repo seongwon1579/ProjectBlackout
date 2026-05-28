@@ -4,8 +4,10 @@
 #include "BlackoutGameplayTags.h"
 #include "BOEnemySpawnerProjectile.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
+#include "Kismet/GameplayStatics.h"
 #include "AI/BlackoutBossAIController.h"
 #include "AbilitySystemComponent.h"
+#include "NavigationSystem.h"
 #include "BlackoutLog.h"
 #include "BORavagerBoss.h"
 #include "GameFramework/Character.h"
@@ -170,12 +172,23 @@ void UBlackoutGA_Ravager_SummonMinion::SpawnEliteMinionsDirectly()
 
 	for (int32 i = 0; i < EliteCount; i++)
 	{
-		// 보스 반경 내 무작위 각도 및 거리 오프셋 계산
+		// 보스 몸체와 직접 겹치지 않도록 최소 200.f ~ 최대 SpawnRadius 사이에서 거리를 무작위 선정
 		const float RandomAngle = FMath::FRand() * 360.f;
-		const float RandomRadius = FMath::FRand() * SpawnRadius;
+		const float RandomRadius = FMath::FRandRange(200.f, FMath::Max(200.f, SpawnRadius));
 
 		FVector SpawnLocation = BossLocation + FRotator(0.f, RandomAngle, 0.f).Vector() * RandomRadius;
 		SpawnLocation.Z = BossLocation.Z + 50.f; // 지면에 배치하기 위한 오프셋 적용
+
+		// NavMesh 투영을 통해 장애물 및 벽 내부에 끼는 것 방지
+		if (UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World))
+		{
+			FNavLocation ProjectedLocation;
+			if (NavSys->ProjectPointToNavigation(SpawnLocation, ProjectedLocation, FVector(200.f, 200.f, 200.f)))
+			{
+				SpawnLocation = ProjectedLocation.Location;
+				SpawnLocation.Z += 50.f; // 지면 위 스폰 유도
+			}
+		}
 
 		ACharacter* EliteMinion = World->SpawnActor<ACharacter>(
 			Settings.EliteMinionSpawnData.MinionClass,
