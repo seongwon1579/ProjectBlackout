@@ -26,6 +26,8 @@ public:
 	void RequestPhaseChange(EBOBossPhase NewPhase);
 	bool IsPhaseTransitionLocked() const;
 
+	EBOBossPhase GetCurrentPhase() const { return CurrentPhase; }
+
 	FOnBossPhaseChanged OnBossPhaseChanged;
 
 private:
