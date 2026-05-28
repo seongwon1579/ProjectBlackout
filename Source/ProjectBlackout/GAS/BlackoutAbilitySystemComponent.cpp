@@ -549,6 +549,34 @@ void UBlackoutAbilitySystemComponent::CancelHealthRegenOverTime()
 	BO_LOG_GAS(Log, "지속 체력 회복 취소: Owner=%s", *GetNameSafe(GetOwner()));
 }
 
+void UBlackoutAbilitySystemComponent::Client_StartConsumableCooldown_Implementation(FGameplayTag ConsumableTag, float CooldownDuration)
+{
+	if (!ConsumableTag.IsValid())
+	{
+		return;
+	}
+
+	ABILITYLIST_SCOPE_LOCK();
+
+	for (FGameplayAbilitySpec& AbilitySpec : ActivatableAbilities.Items)
+	{
+		const UBOConsumableData* ConsumableData = Cast<UBOConsumableData>(AbilitySpec.SourceObject.Get());
+		if (!ConsumableData || !ConsumableData->ConsumableTag.MatchesTagExact(ConsumableTag))
+		{
+			continue;
+		}
+
+		for (UGameplayAbility* AbilityInstance : AbilitySpec.GetAbilityInstances())
+		{
+			if (UBlackoutGA_UseConsumable* ConsumableAbility = Cast<UBlackoutGA_UseConsumable>(AbilityInstance))
+			{
+				// 서버로부터 쿨다운 돌입 명령을 받아 클라이언트 측에서도 해당 소모품 어빌리티의 로컬 쿨다운을 돌립니다.
+				ConsumableAbility->StartConsumableCooldown(ConsumableData);
+			}
+		}
+	}
+}
+
 void UBlackoutAbilitySystemComponent::Client_ResetConsumableCooldown_Implementation(FGameplayTag ConsumableTag)
 {
 	ResetConsumableCooldownForTag(ConsumableTag);
@@ -734,6 +762,14 @@ void UBlackoutAbilitySystemComponent::ResetConsumableCooldownForTag(FGameplayTag
 				ConsumableAbility->ResetConsumableCooldown();
 			}
 		}
+	}
+}
+
+void UBlackoutAbilitySystemComponent::NotifyConsumableCooldownChanged(FGameplayTag ConsumableTag)
+{
+	if (ConsumableTag.IsValid())
+	{
+		OnConsumableCooldownChanged.Broadcast(ConsumableTag);
 	}
 }
 

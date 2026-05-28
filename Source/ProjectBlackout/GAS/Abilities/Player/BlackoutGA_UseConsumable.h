@@ -38,6 +38,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Blackout|Consumable")
 	float GetCooldownDuration() const;
 
+	/** 소모품 쿨다운을 작동시킵니다. 외부(ASC 클라이언트 RPC 등)에서도 호출이 가능하도록 오픈합니다. */
+	void StartConsumableCooldown(const UBOConsumableData* UsedConsumableData);
+
 protected:
 	/** SourceObject가 비어 있을 때 사용할 폴백 소모품 데이터입니다. BP GA에서 직접 지정할 수 있습니다. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Consumable")
@@ -71,7 +74,6 @@ protected:
 	void ApplyConfiguredGameplayEffect(const UBOConsumableData* UsedConsumableData);
 	float GetEffectMagnitudeOrDefault(const UBOConsumableData* UsedConsumableData, FGameplayTag MagnitudeTag, float DefaultValue) const;
 	bool IsConsumableCooldownReady(const UBOConsumableData* UsedConsumableData) const;
-	void StartConsumableCooldown(const UBOConsumableData* UsedConsumableData);
 
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Consumable Used"), Category = "Blackout|Consumable")
 	void ReceiveConsumableUsed(const UBOConsumableData* UsedConsumableData);

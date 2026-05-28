@@ -10,6 +10,9 @@
 class UGameplayEffect;
 class UBOConsumableData;
 
+// 소모품 쿨다운이 시작되거나 리셋되었을 때 UI 동기화를 위해 발화하는 델리게이트입니다.
+DECLARE_MULTICAST_DELEGATE_OneParam(FBlackoutConsumableCooldownChangedSignature, FGameplayTag);
+
 USTRUCT()
 struct FBlackoutAbilityInputSyncPayload
 {
@@ -138,6 +141,19 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|GAS|Consumable")
 	bool GetConsumableCooldownInfo(FGameplayTag ConsumableTag, float& OutRemainingTime, float& OutDuration) const;
 
+	// 소모품 쿨다운 시작/리셋 시 UI에 즉시 동기화하도록 전파하는 델리게이트입니다.
+	FBlackoutConsumableCooldownChangedSignature OnConsumableCooldownChanged;
+
+	// 외부(어빌리티)에서 로컬 쿨다운 상태 변화를 감지했을 때 UI 동기화용 델리게이트를 브로드캐스트합니다.
+	void NotifyConsumableCooldownChanged(FGameplayTag ConsumableTag);
+
+	// 클라이언트 RPC를 public으로 오픈하여 어빌리티에서도 동기화를 요청할 수 있도록 지원합니다.
+	UFUNCTION(Client, Reliable)
+	void Client_StartConsumableCooldown(FGameplayTag ConsumableTag, float CooldownDuration);
+
+	UFUNCTION(Client, Reliable)
+	void Client_ResetConsumableCooldown(FGameplayTag ConsumableTag);
+
 	/**
 	 * 클라이언트가 캔슬 윈도우 도달 시 서버에 차단 LooseTag의 즉각적인 제거를 순차적으로 강제 통보하는 Reliable 서버 RPC입니다.
 	 */
@@ -180,8 +196,7 @@ private:
 	void StopHealthRegen();
 	void ResetConsumableCooldownForTag(FGameplayTag ConsumableTag);
 
-	UFUNCTION(Client, Reliable)
-	void Client_ResetConsumableCooldown(FGameplayTag ConsumableTag);
+
 
 	FTimerHandle StaminaRegenDelayTimerHandle;
 	FTimerHandle StaminaRegenTickTimerHandle;

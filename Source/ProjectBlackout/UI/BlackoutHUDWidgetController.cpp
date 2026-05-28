@@ -135,6 +135,26 @@ void UBlackoutHUDWidgetController::BindCallbacksToDependencies()
 		BoundStateTagAbilitySystemComponent = ASC;
 	}
 
+	if (ASC && BoundCooldownAbilitySystemComponent.Get() != ASC)
+	{
+		// 이전 ASC에 맺어두었던 쿨다운 변경 델리게이트를 안전하게 해제합니다.
+		if (UBlackoutAbilitySystemComponent* PreviousBlackoutASC = Cast<UBlackoutAbilitySystemComponent>(BoundCooldownAbilitySystemComponent.Get()))
+		{
+			if (ConsumableCooldownChangedHandle.IsValid())
+			{
+				PreviousBlackoutASC->OnConsumableCooldownChanged.Remove(ConsumableCooldownChangedHandle);
+			}
+		}
+
+		// 새 ASC의 쿨다운 변경 델리게이트를 구독합니다.
+		if (UBlackoutAbilitySystemComponent* BlackoutASC = Cast<UBlackoutAbilitySystemComponent>(ASC))
+		{
+			ConsumableCooldownChangedHandle = BlackoutASC->OnConsumableCooldownChanged.AddUObject(
+				this, &UBlackoutHUDWidgetController::HandleConsumableCooldownChanged);
+			BoundCooldownAbilitySystemComponent = ASC;
+		}
+	}
+
 	if (ABlackoutPlayerState* BlackoutPlayerState = PlayerState.Get())
 	{
 		if (BoundPlayerState.Get() != BlackoutPlayerState)
@@ -771,6 +791,12 @@ void UBlackoutHUDWidgetController::HandleConsumablesChanged(int32 BloodRootCount
 {
 	OnConsumablesChanged.Broadcast(BloodRootCount, GulSerumCount);
 	BroadcastConsumableSlots(BloodRootCount, GulSerumCount);
+}
+
+void UBlackoutHUDWidgetController::HandleConsumableCooldownChanged(FGameplayTag ConsumableTag)
+{
+	// 쿨다운 상태가 변했을 때(시작 또는 리셋) 소모품 슬롯 데이터를 다시 빌드하여 UI 위젯으로 브로드캐스트합니다.
+	BroadcastConsumables();
 }
 
 bool UBlackoutHUDWidgetController::GetDownedStateHUDData(FBlackoutDownedStateHUDData& OutHUDData) const
