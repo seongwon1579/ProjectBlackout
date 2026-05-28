@@ -208,6 +208,11 @@ namespace BlackoutGameplayTags
 	
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Charge, "Ability.Ravager.Charge");
 	
+	// ─── Hollow Abilities ──────────────────────────────────────────────────────
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Hollow_Spawn, "Ability.Hollow.Spawn");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Hollow_PreRoll, "Ability.Hollow.PreRoll");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Hollow_Attack, "Ability.Hollow.Attack");
+	
 	// ─── Wraith Abilities ──────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Wraith_FireTwinArrows, "Ability.Wraith.FireTwinArrows");
 	UE_DEFINE_GAMEPLAY_TAG(Cooldown_Wraith_FireTwinArrows, "Cooldown.Wraith.FireTwinArrows");
