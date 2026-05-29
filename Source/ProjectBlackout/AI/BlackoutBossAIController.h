@@ -18,17 +18,12 @@ public:
 
 	// 데미지를 받았을때 호출
 	virtual void RecordDamage(APawn* Source, float Amount);
-	void RecordDamage(APawn* Source, float Amount);
 
-	// 현재 보스의 페이즈 정보를 반환
-	EBOBossPhase GetCurrentPhase() const;
-	
 protected:
 
 	virtual void OnPossess  (APawn* InPawn) override;
 	virtual void OnUnPossess()              override;
-
-protected:
+	
 	UPROPERTY(Transient)
 	TObjectPtr<UAbilitySystemComponent> CachedASC;
 

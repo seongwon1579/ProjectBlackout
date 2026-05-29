@@ -15,6 +15,11 @@ void ABlackoutRavagerAIController::RequestPhaseChange(EBOBossPhase NewPhase)
 	}
 }
 
+EBOBossPhase ABlackoutRavagerAIController::GetCurrentPhase() const
+{
+	return PhaseEvaluator ? PhaseEvaluator->GetCurrentPhase() : EBOBossPhase::None;
+}
+
 void ABlackoutRavagerAIController::OnPossess(APawn* InPawn)
 {
 	Super::OnPossess(InPawn);
