@@ -1,13 +1,12 @@
 #include "BlackoutLobbyGameMode.h"
-#include "BlackoutPlayerController.h"
 #include "BlackoutPlayerState.h"
 #include "BlackoutGameState.h"
 #include "BlackoutLog.h"
 #include "BlackoutMatchFlowSubsystem.h"
 #include "Data/BOCharacterRoster.h"
 #include "GameFramework/GameModeBase.h"
-#include "GameFramework/GameStateBase.h"
 #include  "Characters/BlackoutPlayerCharacter.h"
+#include "Kismet/GameplayStatics.h"
 
 void ABlackoutLobbyGameMode::StartBattle()
 {
@@ -33,7 +32,11 @@ void ABlackoutLobbyGameMode::StartBattle()
 	{
 		GS->SetMatchState(EBlackoutMatchState::Starting);
 	}
-
+	// 프리뷰 sublevel 정리 
+	FLatentActionInfo LatentInfo;
+	UGameplayStatics::UnloadStreamLevel(this , PreviewLevelName ,LatentInfo , false);
+	GetWorld() ->FlushLevelStreaming();
+	
 	const FString PackageName = BossStageMapPaths[StageIndex].GetLongPackageName();
 	BO_LOG_NET(Log, "StartBattle : stage %d ServerTravel -> %s (bUseSeamlessTravel=%d)",
 		StageIndex, *PackageName, bUseSeamlessTravel ? 1 : 0);
@@ -108,4 +111,13 @@ UClass* ABlackoutLobbyGameMode::GetDefaultPawnClassForController_Implementation(
 		}
 	}
 	return Super::GetDefaultPawnClassForController_Implementation(InController);
+}
+
+void ABlackoutLobbyGameMode::BeginPlay()
+{
+	Super::BeginPlay();
+	
+	FLatentActionInfo LatentInfo;
+	UGameplayStatics::LoadStreamLevel(this, PreviewLevelName , true,false , LatentInfo);
+	
 }

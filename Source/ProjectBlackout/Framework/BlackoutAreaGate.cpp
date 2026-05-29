@@ -11,58 +11,20 @@ ABlackoutAreaGate::ABlackoutAreaGate()
 {
 	PrimaryActorTick.bCanEverTick = false;
 	bReplicates = true;
-
 	Barrier = CreateDefaultSubobject<UBoxComponent>(TEXT("Barrier"));
 	SetRootComponent(Barrier);
-	Barrier->SetCollisionProfileName(TEXT("BlockAllDynamic"));
-
+	Barrier->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	InteractionPrompt = FText::FromString(TEXT("준비"));
-}
-
-void ABlackoutAreaGate::BeginPlay()
-{
-	Super::BeginPlay();
-
-	// 매치 상태 변경 구독 — 서버/클라 양쪽 동일 파생으로 개폐. 초기 상태 즉시 반영.
-	if (ABlackoutGameState* GS = GetWorld() ? GetWorld()->GetGameState<ABlackoutGameState>() : nullptr)
-	{
-		GS->OnMatchStateChanged.AddDynamic(this, &ABlackoutAreaGate::HandleMatchStateChanged);
-		ApplyOpenState(GS->CurrentMatchState == TargetCombatPhase);
-	}
-}
-
-void ABlackoutAreaGate::HandleMatchStateChanged(EBlackoutMatchState NewState)
-{
-	ApplyOpenState(NewState == TargetCombatPhase);
-}
-
-EBlackoutMatchState ABlackoutAreaGate::GetPrecedingShelterPhase() const
-{
-	return TargetCombatPhase == EBlackoutMatchState::MainBossCombat
-		? EBlackoutMatchState::ShelterMid
-		: EBlackoutMatchState::ShelterPrep;
-}
-
-void ABlackoutAreaGate::ApplyOpenState(bool bOpen)
-{
-	bIsOpen = bOpen;
-	if (Barrier)
-	{
-		Barrier->SetCollisionEnabled(bOpen
-			? ECollisionEnabled::NoCollision
-			: ECollisionEnabled::QueryAndPhysics);
-	}
-	BO_LOG_NET(Log, "AreaGate %s: %s", *GetName(), bOpen ? TEXT("Open") : TEXT("Closed"));
 }
 
 bool ABlackoutAreaGate::CanInteract_Implementation(AActor* Interactor) const
 {
-	if (!Interactor || bIsOpen)
+	if (!Interactor)
 	{
 		return false;
 	}
 	const ABlackoutGameState* GS = GetWorld() ? GetWorld()->GetGameState<ABlackoutGameState>() : nullptr;
-	return GS && GS->CurrentMatchState == GetPrecedingShelterPhase();
+	return GS && GS->CurrentMatchState == EBlackoutMatchState::ShelterPrep;
 }
 
 void ABlackoutAreaGate::OnInteract_Implementation(AActor* Interactor)
@@ -80,7 +42,7 @@ void ABlackoutAreaGate::OnInteract_Implementation(AActor* Interactor)
 	}
 
 	PS->bIsReady = !PS->bIsReady;
-	BO_LOG_NET(Log, "AreaGate Ready 토글: %s = %d", *GetNameSafe(PS), PS->bIsReady ? 1 : 0);
+	BO_LOG_NET(Log, "이동 비석 Ready 토글: %s = %d", *GetNameSafe(PS), PS->bIsReady ? 1 : 0);
 
 	if (ABlackoutGameMode* GM = GetWorld()->GetAuthGameMode<ABlackoutGameMode>())
 	{
@@ -92,3 +54,4 @@ FText ABlackoutAreaGate::GetInteractionPrompt_Implementation() const
 {
 	return InteractionPrompt;
 }
+

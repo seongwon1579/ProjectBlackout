@@ -2,6 +2,7 @@
 #include "Net/UnrealNetwork.h"
 #include "BlackoutLog.h"
 #include "BlackoutPlayerController.h"
+#include "BlackoutPlayerState.h"
 
 ABlackoutGameState::ABlackoutGameState()
 {
@@ -82,6 +83,13 @@ void ABlackoutGameState::TryOpenLocalClassSelectUI()
 		if (ABlackoutPlayerController* PC =
 			Cast<ABlackoutPlayerController>(World->GetFirstPlayerController()))
 		{
+			if (const ABlackoutPlayerState* PS = PC->GetPlayerState<ABlackoutPlayerState>())
+			{
+				if (PS->SelectedClassTag.IsValid())
+				{
+					return;
+				}
+			}
 			PC->Client_OpenClassSelectUI_Implementation();
 		}
 	}

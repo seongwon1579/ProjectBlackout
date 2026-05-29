@@ -22,6 +22,9 @@ public:
 	virtual UClass* GetDefaultPawnClassForController_Implementation(AController* InController) override;
 
 protected:
+	
+	virtual void BeginPlay() override;
+	
 	virtual void OnPlayerJoined(APlayerController* NewPlayer) override;
 
 	// 전원 Ready 성립 시 StartBattle 트리거.
@@ -38,4 +41,7 @@ protected:
 private:
 	// 로비 도착 공통 처리 (입장=PostLogin, 복귀=seamless). 회복 + 전원 도착 시 ShelterPrep.
 	void HandleLobbyArrival(APlayerController* PC);
+	
+	// 캐릭선택 프리뷰 서브 레벨 
+	FName PreviewLevelName = TEXT("L_CharacterPreview");
 };
