@@ -4,8 +4,10 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "Engine/TimerHandle.h"
 #include "BlackoutCharacterPreviewManager.generated.h"
 
+class USceneCaptureComponent2D;
 /**
  * 캐릭터 선택 UI 의 3D Preview Pawn 라이프사이클 관리.
  * L_CharacterPreview Sublevel 안 한 개 배치. 위치 = Pawn spawn 위치.
@@ -48,6 +50,9 @@ protected:
 	UPROPERTY(Transient)
 	TSubclassOf<APawn> CurrentPawnClass;
 	
+	UPROPERTY(Transient)
+	TObjectPtr<USceneCaptureComponent2D> CaptureComp;
+	
 	UPROPERTY(EditAnywhere , Category="Blackout|Preview")
 	int32 RTSizeX = 768;
 	
@@ -57,5 +62,8 @@ protected:
 	UPROPERTY(Transient)
 	TObjectPtr<class UTextureRenderTarget2D> DynamicRT;
 
-
+private:
+	// 스폰 직후 1프레임 뒤 명시적 캡처(client 캡처 실행 강제).
+	void CaptureCurrentPreview();
+	FTimerHandle PreviewCaptureTimerHandle;
 };

@@ -63,4 +63,11 @@ protected:
 	// 현재 접속 중인 플레이어 컨트롤러. 서버 전용이므로 리플리케이션 대상 아님.
 	UPROPERTY(BlueprintReadOnly, Category = "Blackout|GameMode")
 	TArray<TObjectPtr<APlayerController>> ConnectedPlayers;
+	
+	// 레벨 전환 직전, 접속 중 전 클라에 화면 페이드아웃 브로드캐스트
+	void BroadcastScreenFadeOut(FLinearColor FadeColor);
+	
+	// 페이드아웃 후 실제 travel 까지 서버대기 
+	UPROPERTY(EditDefaultsOnly, Category="Blackout|Transition")
+	float FadeOutTravelDelay = 1.5f;
 };

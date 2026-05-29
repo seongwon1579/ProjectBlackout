@@ -15,6 +15,7 @@
 #include "Data/BOCharacterRoster.h"
 #include "UI/BlackoutClassSelectWidget.h"
 #include "UI/BlackoutClassSelectWidgetController.h"
+#include "Camera/PlayerCameraManager.h"
 
 void ABlackoutPlayerController::AcknowledgePossession(APawn* P)
 {
@@ -30,6 +31,13 @@ void ABlackoutPlayerController::AcknowledgePossession(APawn* P)
 		FInputModeGameOnly InputMode;
 		SetInputMode(InputMode);
 		bShowMouseCursor = false;
+	}
+	
+	// seamless travel 도착 후 폰빙의시 화면 복귀
+	if (bScreenFadePending)
+	{
+		bScreenFadePending = false;
+		StartScreenFadeIn();
 	}
 }
 
@@ -66,6 +74,19 @@ void ABlackoutPlayerController::CloseClassSelectUI()
 			}
 		}
 	}
+}
+
+void ABlackoutPlayerController::Client_StartScreenFadeOut_Implementation(
+	FLinearColor FadeColor)
+{
+	if (!PlayerCameraManager)
+	{
+		return;
+	}
+	LastFadeColor = FadeColor;
+	bScreenFadePending = true;
+	
+	PlayerCameraManager->StartCameraFade(0.0f ,1.0f ,ScreenFadeDuration , FadeColor ,false ,true);
 }
 
 void ABlackoutPlayerController::OnPossess(APawn* InPawn)
@@ -812,8 +833,17 @@ void ABlackoutPlayerController::OnRequestSurrenderPressed()
 }
 
 #pragma endregion 
+void ABlackoutPlayerController::StartScreenFadeIn()
+{
+	if (!PlayerCameraManager)
+	{
+		return;
+	}
+	PlayerCameraManager->StartCameraFade(1.0f, 0.0f , ScreenFadeDuration , LastFadeColor , false , false);
+}
 
 #if WITH_EDITOR || UE_BUILD_DEVELOPMENT
+
 void ABlackoutPlayerController::BO_SetMatchState(const FString& NewStateStr)
 {
 	FString TargetState = NewStateStr.ToLower().TrimStartAndEnd();
