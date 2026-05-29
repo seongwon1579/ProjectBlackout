@@ -1,41 +1,78 @@
 #include "Characters/BOShrewdBoss.h"
+
+#include "BlackoutAbilitySystemComponent.h"
+#include "BlackoutBaseAttributeSet.h"
+#include "BlackoutBossAIController.h"
+#include "GameplayEffectExtension.h"
+#include "UBOShrewdData.h"
+#include "GameFramework/PlayerState.h"
 #include "Net/UnrealNetwork.h"
 
 ABOShrewdBoss::ABOShrewdBoss()
 {
-	PrimaryActorTick.bCanEverTick = true;
-	bIsOnPlatform = false;
-	bReplicates = true;
+
 }
 
-void ABOShrewdBoss::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+void ABOShrewdBoss::Multicast_DebugAggroTarget_Implementation(const FString& TargetName)
 {
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-	DOREPLIFETIME(ABOShrewdBoss, bIsOnPlatform);
-}
-
-void ABOShrewdBoss::EnterPlatformPhase()
-{
-	if (HasAuthority())
+	if (GEngine)
 	{
-		bIsOnPlatform = true;
-		//OnPhaseChanged(BossPhase::Platform);
+		GEngine->AddOnScreenDebugMessage(
+			-1, 3.0f, FColor::Yellow,
+			FString::Printf(TEXT("Aggro Target: %s"), *TargetName));
 	}
 }
 
-void ABOShrewdBoss::EnterGroundPhase()
+void ABOShrewdBoss::SetData()
 {
-	if (HasAuthority())
+	if (!AbilitySystemComponent || !BaseAttributeSet || !ShrewdData)
 	{
-		bIsOnPlatform = false;
-		//OnPhaseChanged(BossPhase::Ground);
+		return;
+	}
+
+	AbilitySystemComponent->SetNumericAttributeBase(
+		UBlackoutBaseAttributeSet::GetMaxHealthAttribute(),
+		ShrewdData->MaxHealth);
+	AbilitySystemComponent->SetNumericAttributeBase(
+		UBlackoutBaseAttributeSet::GetHealthAttribute(),
+		ShrewdData->MaxHealth);
+
+	if (ShrewdData->GrantedAbilities.Num() > 0)
+	{
+		AbilitySystemComponent->GiveDefaultAbilities(ShrewdData->GrantedAbilities);
 	}
 }
 
-// void ABOShrewdBoss::OnPhaseChanged(BossPhase NewPhase)
-// {
-// 	Super::OnPhaseChanged(NewPhase);
-//
-// 	// TODO: 페이즈 변경 시 Shrewd 전용 이펙트, 애니메이션, 태그 부여 등 구현
-// }
+void ABOShrewdBoss::OnDamageReceived(const FOnAttributeChangeData& Data)
+{
+	const float DamageDealt = Data.OldValue - Data.NewValue;
+	if (DamageDealt <= 0.f || !Data.GEModData) return;
+	
+	ABlackoutBossAIController* AIC = Cast<ABlackoutBossAIController>(GetController());
+	if (!AIC) return;
+	
+	AActor* SourceActor = Data.GEModData->EffectSpec.GetContext().GetInstigator();
+	if (APawn* InstigatorPawn = ResolveInstigatorPawn(SourceActor))
+	{
+		if (InstigatorPawn != this)
+		{
+			AIC->RecordDamage(InstigatorPawn, DamageDealt);
+		}
+	}
+}
+
+APawn* ABOShrewdBoss::ResolveInstigatorPawn(AActor* SourceActor) const
+{
+	if (!SourceActor) return nullptr;
+
+	if (APawn* Pawn = Cast<APawn>(SourceActor)) return Pawn;
+	if (AController* C = Cast<AController>(SourceActor)) return C->GetPawn();
+	if (APlayerState* PS = Cast<APlayerState>(SourceActor)) return PS->GetPawn();
+
+	return nullptr;
+}
+
+FText ABOShrewdBoss::GetBossDisplayName() const
+{
+	return FText::FromString(TEXT("Shrewd"));
+}

@@ -8,6 +8,7 @@
 #include "AIController.h"
 #include "BlackoutBaseAttributeSet.h"
 #include "BlackoutGameplayTags.h"
+#include "BOShrewdBoss.h"
 #include "BehaviorTree/BlackboardComponent.h"
 
 UBlackoutAggroEvaluator::UBlackoutAggroEvaluator()
@@ -56,18 +57,18 @@ void UBlackoutAggroEvaluator::UpdateTarget()
 {
 	if (!CachedOwnerAIController) return;
 
-	UBlackboardComponent* BB = CachedOwnerAIController->GetBlackboardComponent();
+	//UBlackboardComponent* BB = CachedOwnerAIController->GetBlackboardComponent();
 	APawn* BestTarget = CalculateBestTarget(nullptr);
 
 	//TODO: 현재는 무한 반복으로 BestTarget이 세팅될 때까지 기다리지만 이 후에 보스방 입장 트리거로 Pawn에 입장을 확인하던지 perception으로 확인하던지 변경 필요
-	if (!BB || !BestTarget)
+	if (!BestTarget)
 	{
 		CachedOwnerAIController->GetWorldTimerManager().SetTimerForNextTick(
 			this, &UBlackoutAggroEvaluator::UpdateTarget);
 		return;
 	}
 
-	BB->SetValueAsObject(TEXT("Target"), BestTarget);
+	OnAggroTargetChanged.Broadcast(BestTarget);
 }
 
 void UBlackoutAggroEvaluator::OnAggroTargetChangeTagChanged(const FGameplayTag Tag, int32 NewCount)
@@ -160,7 +161,7 @@ float UBlackoutAggroEvaluator::CalculateAggroScore(APawn* Target) const
 		{
 			const float HP = ASC->GetNumericAttribute(UBlackoutBaseAttributeSet::GetHealthAttribute());
 			const float MaxHP = ASC->GetNumericAttribute(UBlackoutBaseAttributeSet::GetMaxHealthAttribute());
-
+	
 			if (MaxHP > 0.f)
 			{
 				Score += (1.f - HP / MaxHP) * LowHPWeight;
