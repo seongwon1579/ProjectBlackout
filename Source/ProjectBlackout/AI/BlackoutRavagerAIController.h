@@ -24,6 +24,8 @@ public:
 	// 외부(체력 이벤트 등)에서 페이즈 전환 요청
 	UFUNCTION()
 	void RequestPhaseChange(EBOBossPhase NewPhase);
+	
+	EBOBossPhase GetCurrentPhase() const;
 
 protected:
 	virtual void OnPossess(APawn* InPawn) override;

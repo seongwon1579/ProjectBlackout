@@ -9,6 +9,7 @@
 #include "AbilitySystemComponent.h"
 #include "NavigationSystem.h"
 #include "BlackoutLog.h"
+#include "BlackoutRavagerAIController.h"
 #include "BORavagerBoss.h"
 #include "GameFramework/Character.h"
 
@@ -70,7 +71,7 @@ void UBlackoutGA_Ravager_SummonMinion::SetSpawnerProjectiles()
 	}
 
 	// 보스 페이즈 판정 및 엘리트 미니언 즉시 스폰 (Phase 2 이상일 때)
-	if (ABlackoutBossAIController* BossAIC = Cast<ABlackoutBossAIController>(CachedOwner->GetController()))
+	if (ABlackoutRavagerAIController* BossAIC = Cast<ABlackoutRavagerAIController>(CachedOwner->GetController()))
 	{
 		if (BossAIC->GetCurrentPhase() >= EBOBossPhase::Phase2)
 		{
