@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "StateTreeEvaluatorBase.h"
-#include "BSTEval_AggroTarget.generated.h"
+#include "BSTEval_ShrewdAggroTarget.generated.h"
 
 class AAIController;
 
@@ -19,10 +19,10 @@ struct PROJECTBLACKOUT_API FBSTEval_AggroTargetInstanceData
 };
 
 USTRUCT(meta = (DisplayName = "Aggro Target Evaluator", Category = "Blackout|AI"))
-struct PROJECTBLACKOUT_API FBSTEval_AggroTarget : public FStateTreeEvaluatorCommonBase
+struct PROJECTBLACKOUT_API FBSTEval_ShrewdAggroTarget : public FStateTreeEvaluatorCommonBase
 {
 	GENERATED_BODY()
-
+	
 	using FInstanceDataType = FBSTEval_AggroTargetInstanceData;
 	virtual const UStruct* GetInstanceDataType() const override { return FInstanceDataType::StaticStruct(); }
 

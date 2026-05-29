@@ -4,13 +4,8 @@
 #include "Characters/BlackoutBossCharacter.h"
 #include "BOShrewdBoss.generated.h"
 
-class UStateTree;
+class UUBOShrewdData;
 
-/**
- * Shrewd Boss (중간 보스)
- * 발판(Platform) 및 지면(Ground) 페이즈를 오가는 보스.
- * (씨앗 패턴은 기획 보류로 인해 임시 제외됨)
- */
 UCLASS()
 class PROJECTBLACKOUT_API ABOShrewdBoss : public ABlackoutBossCharacter
 {
@@ -19,21 +14,22 @@ class PROJECTBLACKOUT_API ABOShrewdBoss : public ABlackoutBossCharacter
 public:
 	ABOShrewdBoss();
 
-	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Boss|Shrewd")
-	void EnterPlatformPhase();
-
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Boss|Shrewd")
-	void EnterGroundPhase();
-
+	UFUNCTION(NetMulticast, Unreliable)
+	void Multicast_DebugAggroTarget(const FString& TargetName);
+	
+	UPROPERTY(EditAnywhere, Category = "Blackout")
+	TObjectPtr<AActor> TelePortPtr;
+		
 protected:
-	//virtual void OnPhaseChanged(BossPhase NewPhase) override;
+	UPROPERTY(EditAnywhere, Category = "Blackout")
+	TObjectPtr<UUBOShrewdData> ShrewdData;
+	
+	virtual void SetData() override;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|AI")
-	TObjectPtr<UStateTree> ST_Shrewd_Phases;
-
-	/** 발판 위에 있는지 여부. StateTree Condition 등에서 참조. Replicated. */
-	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Boss|Shrewd")
-	bool bIsOnPlatform;
+	virtual void OnDamageReceived(const FOnAttributeChangeData& Data) override;
+ 
+	virtual FText GetBossDisplayName() const override;
+	
+	APawn* ResolveInstigatorPawn(AActor* SourceActor) const;
+	
 };

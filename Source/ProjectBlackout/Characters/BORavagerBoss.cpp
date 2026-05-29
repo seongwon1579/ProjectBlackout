@@ -5,6 +5,7 @@
 #include "BlackoutAbilitySystemComponent.h"
 #include "BlackoutBaseAttributeSet.h"
 #include "BlackoutBossAIController.h"
+#include "BlackoutRavagerAIController.h"
 #include "BrainComponent.h"
 #include "GameplayEffectExtension.h"
 #include "Animation/UBlackoutRavagerAnimInstance.h"
@@ -76,7 +77,7 @@ void ABORavagerBoss::OnDamageReceived(const FOnAttributeChangeData& Data)
 	const float DamageDealt = Data.OldValue - Data.NewValue;
 	if (DamageDealt <= 0.f || !Data.GEModData) return;
 	
-	ABlackoutBossAIController* AIC = Cast<ABlackoutBossAIController>(GetController());
+	ABlackoutRavagerAIController* AIC = Cast<ABlackoutRavagerAIController>(GetController());
 	if (!AIC) return;
 	
 	AActor* SourceActor = Data.GEModData->EffectSpec.GetContext().GetInstigator();
