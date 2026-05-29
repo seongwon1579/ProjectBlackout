@@ -1444,7 +1444,7 @@ void ABlackoutPlayerCharacter::Server_ReviveFromDowned_Implementation(float Revi
 	BO_LOG_GAS(Log, "ReviveFromDowned: Target=%s Health=%.1f", *GetName(), ClampedHealth);
 }
 
-void ABlackoutPlayerCharacter::RestoreFromPartyWipeRestart()
+void ABlackoutPlayerCharacter::RestoreToFullState()
 {
 	if (!HasAuthority())
 	{
@@ -1520,6 +1520,7 @@ void ABlackoutPlayerCharacter::RestoreFromPartyWipeRestart()
 	UpdateAimMovementMode();
 	BO_LOG_GAS(Log, "PartyWipeRestart 복구 완료: Player=%s", *GetNameSafe(this));
 }
+
 
 UAnimMontage* ABlackoutPlayerCharacter::SelectDeathMontage() const
 {

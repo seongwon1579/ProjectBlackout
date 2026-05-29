@@ -37,6 +37,18 @@ UAbilitySystemComponent* ABlackoutPlayerState::GetAbilitySystemComponent() const
 	return AbilitySystemComponent;
 }
 
+void ABlackoutPlayerState::CopyProperties(APlayerState* NewPlayerState)
+{
+	Super::CopyProperties(NewPlayerState);
+
+	// Seamless Travel 로 새 PS 생성 시 선택 클래스 계승 (로비 → 보스맵).
+	// 소모품/GAS 는 보스맵 PossessedBy 가 클래스 기반으로 재초기화하므로 복사 X.
+	if (ABlackoutPlayerState* NewPS = Cast<ABlackoutPlayerState>(NewPlayerState))
+	{
+		NewPS->SelectedClassTag = SelectedClassTag;
+	}
+}
+
 void ABlackoutPlayerState::GetLifetimeReplicatedProps(
 	TArray<FLifetimeProperty>& OutLifetimeProps) const
 {

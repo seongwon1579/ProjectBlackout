@@ -25,7 +25,7 @@ public:
 protected:
 	virtual void BeginPlay() override;
 
-	// 이 쉘터가 활성화되는 매치 페이즈 (ShelterPrep / ShelterMid). 디자이너가 배치별 지정.
+	// 이 쉘터가 활성화되는 매치 페이즈 (ShelterPrep). 디자이너가 배치별 지정.
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Shelter")
 	EBlackoutMatchState TargetShelterPhase = EBlackoutMatchState::ShelterPrep;
 	

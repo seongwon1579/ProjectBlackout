@@ -81,4 +81,8 @@ protected:
 
 	UFUNCTION()
 	void OnRep_SurrenderVoteActive();
+
+private:
+	// ShelterPrep 진입 시 로컬 PC 의 클래스 선택 UI 를 연다 (서버/클라 공통, 로컬 1개만).
+	void TryOpenLocalClassSelectUI();
 };

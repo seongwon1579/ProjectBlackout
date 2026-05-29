@@ -273,7 +273,6 @@ void UBlackoutDedicatedSessionSubsystem::SendHeartbeat()
 				MS == EBlackoutMatchState::InCombat ||
 				MS == EBlackoutMatchState::ShelterPrep ||
 				MS == EBlackoutMatchState::MidBossCombat ||
-				MS == EBlackoutMatchState::ShelterMid ||
 				MS == EBlackoutMatchState::MainBossCombat;
 			StatusStr = bPlaying ? TEXT("playing") : TEXT("idle");
 		}
