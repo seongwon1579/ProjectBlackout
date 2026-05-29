@@ -1,40 +1,25 @@
-#include "AI/StateTree/BSTEval_AggroTarget.h"
+#include "AI/StateTree/BSTEval_ShrewdAggroTarget.h"
 #include "StateTreeExecutionContext.h"
 #include "AIController.h"
-#include "Perception/AIPerceptionComponent.h"
-#include "Characters/BlackoutPlayerCharacter.h"
+#include "BlackoutShrewdAIController.h"
 
-void FBSTEval_AggroTarget::Tick(FStateTreeExecutionContext& Context, const float DeltaTime) const
+
+
+void FBSTEval_ShrewdAggroTarget::Tick(FStateTreeExecutionContext& Context, const float DeltaTime) const
 {
+	
+	
 	FInstanceDataType& Data = Context.GetInstanceData(*this);
-	if (!Data.Controller || !Data.Controller->HasAuthority()) return;
-
-	APawn* OwnerPawn = Data.Controller->GetPawn();
-	if (!OwnerPawn) return;
-
-	UAIPerceptionComponent* PerceptionComp = Data.Controller->GetAIPerceptionComponent();
-	if (!PerceptionComp) return;
-
-	TArray<AActor*> Perceived;
-	PerceptionComp->GetCurrentlyPerceivedActors(nullptr, Perceived);
-
-	APawn* BestTarget = nullptr;
-	float BestDistSq  = MAX_FLT;
-
-	for (AActor* Actor : Perceived)
+	
+	if (!Data.Controller)
 	{
-		ABlackoutPlayerCharacter* Player = Cast<ABlackoutPlayerCharacter>(Actor);
-		if (!Player) continue;
-
-		const float DistSq = FVector::DistSquared(
-			OwnerPawn->GetActorLocation(), Player->GetActorLocation());
-
-		if (DistSq < BestDistSq)
-		{
-			BestDistSq = DistSq;
-			BestTarget = Player;
-		}
+		Data.OutTarget = nullptr;
+		return;
 	}
-
-	Data.OutTarget = BestTarget;
+	
+	if (ABlackoutShrewdAIController* Controller = Cast<ABlackoutShrewdAIController>(Data.Controller))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Check2"));
+		Data.OutTarget = Controller->GetCurrentAggroTarget();
+	}
 }
