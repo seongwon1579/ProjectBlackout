@@ -4,6 +4,7 @@
 #include "BlackoutGameState.h"
 #include "BlackoutLog.h"
 #include "BlackoutMatchFlowSubsystem.h"
+#include "Data/BOCharacterRoster.h"
 #include "GameFramework/GameModeBase.h"
 #include "GameFramework/GameStateBase.h"
 #include  "Characters/BlackoutPlayerCharacter.h"
@@ -34,7 +35,8 @@ void ABlackoutLobbyGameMode::StartBattle()
 	}
 
 	const FString PackageName = BossStageMapPaths[StageIndex].GetLongPackageName();
-	BO_LOG_NET(Log, "StartBattle : stage %d ServerTravel -> %s", StageIndex, *PackageName);
+	BO_LOG_NET(Log, "StartBattle : stage %d ServerTravel -> %s (bUseSeamlessTravel=%d)",
+		StageIndex, *PackageName, bUseSeamlessTravel ? 1 : 0);
 	GetWorld()->ServerTravel(PackageName);
 
 }
@@ -45,26 +47,65 @@ void ABlackoutLobbyGameMode::OnAllPlayersReady()
 	StartBattle();
 }
 
+void ABlackoutLobbyGameMode::OnSeamlessArrival(APlayerController* PC)
+{
+	HandleLobbyArrival(PC);
+}
+
+void ABlackoutLobbyGameMode::BO_ForceStartBattle()
+{
+	BO_LOG_NET(Warning, "[테스트] BO_ForceStartBattle — 정원/Ready 무시 강제 ServerTravel");
+	StartBattle();
+}
+
 void ABlackoutLobbyGameMode::OnPlayerJoined(APlayerController* NewPlayer)
 {
-	
-	if (NewPlayer)
+	HandleLobbyArrival(NewPlayer);
+}
+
+
+
+void ABlackoutLobbyGameMode::HandleLobbyArrival(APlayerController* PC)
+{
+	if (!PC)
 	{
-		if (ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(NewPlayer->GetPawn()))
+		return;
+	}
+
+	if (ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(PC->GetPawn()))
+	{
+		PlayerCharacter->RestoreToFullState();
+	}
+
+	if (ConnectedPlayers.Num() == MaxPlayers)
+	{
+		if (ABlackoutGameState* GS = GetGameState<ABlackoutGameState>())
 		{
-			PlayerCharacter->RestoreToFullState();
+			if (GS->CurrentMatchState == EBlackoutMatchState::WaitingForPlayers)
+			{
+				TransitionTo(EBlackoutMatchState::ShelterPrep);
+			}
 		}
 	}
-	
-	
-	if (ConnectedPlayers.Num() ==  MaxPlayers)
+}
+
+UClass* ABlackoutLobbyGameMode::GetDefaultPawnClassForController_Implementation(
+	AController* InController)
+{
+	const ABlackoutGameState* GS = GetGameState<ABlackoutGameState>();
+	const UBOCharacterRoster* Roster = GS ? GS->CharacterRoster : nullptr;
+	if (Roster && InController)
 	{
-		ABlackoutGameState* GS =GetGameState<ABlackoutGameState>();
-		if (GS && GS->CurrentMatchState == EBlackoutMatchState::WaitingForPlayers)
+		if (const ABlackoutPlayerState* PS = InController->GetPlayerState<ABlackoutPlayerState>())
 		{
-			// UI 노출은 GameState OnRep(TryOpenLocalClassSelectUI)이 로컬 PC 마다 처리.
-			TransitionTo(EBlackoutMatchState::ShelterPrep);
+			if (PS->SelectedClassTag.IsValid())
+			{
+				if (TSubclassOf<APawn> SelectedClass = Roster->FindPawnClassByTag(PS->SelectedClassTag))
+				{
+					return SelectedClass.Get();
+				}
+			}
 		}
 	}
-	
+	return Super::GetDefaultPawnClassForController_Implementation(InController);
 }

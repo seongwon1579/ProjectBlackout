@@ -13,23 +13,26 @@
 namespace
 {
 	// 단일맵 런-페이즈 허용 전이표. 그 외 전이는 거부.
-	bool IsAllowedMatchTransition(EBlackoutMatchState From, EBlackoutMatchState To)
+	bool IsAllowedMatchTransition(EBlackoutMatchState From,
+	                              EBlackoutMatchState To)
 	{
 		switch (From)
 		{
 		case EBlackoutMatchState::WaitingForPlayers:
-			return To == EBlackoutMatchState::ShelterPrep;
+			return To == EBlackoutMatchState::ShelterPrep
+				|| To == EBlackoutMatchState::MidBossCombat // 보스맵 seamless 도착
+				|| To == EBlackoutMatchState::MainBossCombat; // 보스맵 seamless 도착
 		case EBlackoutMatchState::ShelterPrep:
 			return To == EBlackoutMatchState::MidBossCombat;
 		case EBlackoutMatchState::MidBossCombat:
-			return To == EBlackoutMatchState::ShelterMid       // Shrewd 처치
-				|| To == EBlackoutMatchState::ShelterPrep      // 전멸 회귀
-				|| To == EBlackoutMatchState::Ended;           // 이탈/타임아웃
+			return To == EBlackoutMatchState::ShelterMid // Shrewd 처치
+				|| To == EBlackoutMatchState::ShelterPrep // 전멸 회귀
+				|| To == EBlackoutMatchState::Ended; // 이탈/타임아웃
 		case EBlackoutMatchState::ShelterMid:
 			return To == EBlackoutMatchState::MainBossCombat;
 		case EBlackoutMatchState::MainBossCombat:
-			return To == EBlackoutMatchState::ShelterMid       // 전멸 회귀
-				|| To == EBlackoutMatchState::Ended;           // 승리/이탈/타임아웃
+			return To == EBlackoutMatchState::ShelterMid // 전멸 회귀
+				|| To == EBlackoutMatchState::Ended; // 승리/이탈/타임아웃
 		default:
 			return false;
 		}
@@ -38,21 +41,24 @@ namespace
 
 ABlackoutGameMode::ABlackoutGameMode()
 {
-	GameStateClass        = ABlackoutGameState::StaticClass();
-	PlayerStateClass      = ABlackoutPlayerState::StaticClass();
+	GameStateClass = ABlackoutGameState::StaticClass();
+	PlayerStateClass = ABlackoutPlayerState::StaticClass();
 	PlayerControllerClass = ABlackoutPlayerController::StaticClass();
 
 	// Seamless Travel: 맵 이동 시 PlayerController/PlayerState 유지 (커넥션 끊김 없이 상태 이관).
 	bUseSeamlessTravel = true;
 }
 
-void ABlackoutGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
+void ABlackoutGameMode::InitGame(const FString& MapName, const FString& Options,
+                                 FString& ErrorMessage)
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
 
 	// 매칭 API(Nest.js)가 데디 실행 시 ?SessionId=<UUID> 형태로 넘겨주는 식별자를 보관한다.
-	MatchmakingSessionId = UGameplayStatics::ParseOption(Options, TEXT("SessionId"));
-	BO_LOG_NET(Log, "InitGame: Map=%s SessionId=%s", *MapName, *MatchmakingSessionId);
+	MatchmakingSessionId = UGameplayStatics::ParseOption(
+		Options, TEXT("SessionId"));
+	BO_LOG_NET(Log, "InitGame: Map=%s SessionId=%s", *MapName,
+	           *MatchmakingSessionId);
 }
 
 void ABlackoutGameMode::PostLogin(APlayerController* NewPlayer)
@@ -72,9 +78,21 @@ void ABlackoutGameMode::Logout(AController* Exiting)
 	{
 		ConnectedPlayers.Remove(PC);
 	}
-	BO_LOG_NET(Log, "Player logged out: %s (remaining=%d)", *GetNameSafe(Exiting), ConnectedPlayers.Num());
+	BO_LOG_NET(Log, "Player logged out: %s (remaining=%d)",
+	           *GetNameSafe(Exiting), ConnectedPlayers.Num());
 
 	OnPlayerLeft(Exiting);
+}
+
+void ABlackoutGameMode::HandleSeamlessTravelPlayer(AController*& C)
+{
+	Super::HandleSeamlessTravelPlayer(C);
+	
+	if (APlayerController* PC =Cast<APlayerController>(C))
+	{
+		ConnectedPlayers.AddUnique(PC);
+		OnSeamlessArrival(PC);
+	}
 }
 
 void ABlackoutGameMode::HandlePartyWipe()
@@ -85,56 +103,62 @@ void ABlackoutGameMode::HandlePartyWipe()
 void ABlackoutGameMode::RespawnPlayerWithSelectedClass(
 	APlayerController* InController)
 {
-	
 	if (!InController)
 	{
 		return;
 	}
-	
+
 	const ABlackoutGameState* GS = GetGameState<ABlackoutGameState>();
-	const UBOCharacterRoster* CharacterRoster = GS? GS->CharacterRoster : nullptr;
-	
+	const UBOCharacterRoster* CharacterRoster = GS
+		                                            ? GS->CharacterRoster
+		                                            : nullptr;
+
 	if (!CharacterRoster)
 	{
 		return;
 	}
-	
-	ABlackoutPlayerState* PS = InController->GetPlayerState<ABlackoutPlayerState>();
+
+	ABlackoutPlayerState* PS = InController->GetPlayerState<
+		ABlackoutPlayerState>();
 	if (!PS || !PS->SelectedClassTag.IsValid())
 	{
 		return;
 	}
-	
-	TSubclassOf<APawn> NewClass = CharacterRoster->FindPawnClassByTag(PS->SelectedClassTag);
+
+	TSubclassOf<APawn> NewClass = CharacterRoster->FindPawnClassByTag(
+		PS->SelectedClassTag);
 	if (!NewClass)
 	{
 		return;
 	}
-	
+
 	FTransform SpawnTransform = FTransform::Identity;
 	if (APawn* OldPawn = InController->GetPawn())
 	{
 		SpawnTransform = OldPawn->GetActorTransform();
-		if (UBlackoutAbilitySystemComponent* BlackoutASC = PS->GetBlackoutAbilitySystemComponent())
+		if (UBlackoutAbilitySystemComponent* BlackoutASC = PS->
+			GetBlackoutAbilitySystemComponent())
 		{
-			BlackoutASC -> ClearAllAbilities();
+			BlackoutASC->ClearAllAbilities();
 		}
 		InController->UnPossess();
 		OldPawn->Destroy();
 	}
-	
+
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.Owner = InController;
-	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
-	APawn* NewPawn =GetWorld()->SpawnActor<APawn>(NewClass , SpawnTransform , SpawnParams);
-	
+	SpawnParams.SpawnCollisionHandlingOverride =
+		ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+	APawn* NewPawn = GetWorld()->SpawnActor<APawn>(
+		NewClass, SpawnTransform, SpawnParams);
+
 	if (!NewPawn)
 	{
 		return;
 	}
 	InController->Possess(NewPawn);
 	BO_LOG_NET(Log, "캐릭터 교체: %s -> %s",
-	*InController->GetName(), *GetNameSafe(NewClass.Get()));
+	           *InController->GetName(), *GetNameSafe(NewClass.Get()));
 }
 
 // Ready 집계 기본 구현. 정원 미달이거나 한 명이라도 bIsReady == false 면 false.
@@ -177,14 +201,16 @@ void ABlackoutGameMode::TransitionTo(EBlackoutMatchState NewState)
 	if (!IsAllowedMatchTransition(Current, NewState))
 	{
 		BO_LOG_NET(Warning, "거부된 매치 전이: %s -> %s",
-			*UEnum::GetValueAsString(Current), *UEnum::GetValueAsString(NewState));
+		           *UEnum::GetValueAsString(Current),
+		           *UEnum::GetValueAsString(NewState));
 		return;
 	}
 
-	GS->SetMatchState(NewState);  // 복제 + 전이 로그는 SetMatchState 가 처리
+	GS->SetMatchState(NewState); // 복제 + 전이 로그는 SetMatchState 가 처리
 
 	// 쉘터 진입 시 Ready 를 새로 시작한다 (게이트 상호작용으로 다시 커밋).
-	if (NewState == EBlackoutMatchState::ShelterPrep || NewState == EBlackoutMatchState::ShelterMid)
+	if (NewState == EBlackoutMatchState::ShelterPrep || NewState ==
+		EBlackoutMatchState::ShelterMid)
 	{
 		for (APlayerState* PS : GS->PlayerArray)
 		{

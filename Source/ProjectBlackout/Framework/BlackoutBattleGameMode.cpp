@@ -12,6 +12,7 @@
 #include "BlackoutDedicatedSessionSubsystem.h"
 #include "Kismet/GameplayStatics.h"
 #include  "Engine/GameInstance.h"
+#include "BlackoutMatchFlowSubsystem.h"
 
 namespace
 {
@@ -85,33 +86,8 @@ void ABlackoutBattleGameMode::OnPlayerJoined(APlayerController* NewPlayer)
 		PS->ApplyBattleTransitionPolicy(EBattleTransitionType::LobbyToBattle);
 	}
 
-	// 정원 충족 → 시작 쉘터(ShelterPrep) 진입 + 클래스선택 UI. 단일맵 직행(ServerTravel 없음).
-	if (ConnectedPlayers.Num() == MaxPlayers)
-	{
-		if (ABlackoutGameState* GS = GetGameState<ABlackoutGameState>())
-		{
-			if (GS->CurrentMatchState == EBlackoutMatchState::WaitingForPlayers)
-			{
-				// UI 노출은 GameState OnRep(TryOpenLocalClassSelectUI)이 로컬 PC 마다 처리.
-				TransitionTo(EBlackoutMatchState::ShelterPrep);
-
-				if (bAutoStartOnFull)
-				{
-					BO_LOG_NET(Warning,
-					           "[테스트] bAutoStartOnFull — 클래스선택/Ready 생략. 출시 빌드면 비활성 필요");
-					for (APlayerState* PS : GameState->PlayerArray)
-					{
-						if (ABlackoutPlayerState* BPS = Cast<
-							ABlackoutPlayerState>(PS))
-						{
-							BPS->bIsReady = true;
-						}
-					}
-					NotifyReadyChanged(); // 정상 Ready 경로로 합류
-				}
-			}
-		}
-	}
+	// 보스맵 전투 시작은 HandleSeamlessTravelPlayer → StartBossCombat 로 처리 (seamless).
+	// 구 ShelterPrep 전이 / bAutoStartOnFull(테스트) 는 단일맵 잔재라 제거됨.
 }
 
 void ABlackoutBattleGameMode::OnPlayerLeft(AController* Exiting)
@@ -119,6 +95,14 @@ void ABlackoutBattleGameMode::OnPlayerLeft(AController* Exiting)
 	if (ConnectedPlayers.Num() == 0)
 	{
 		EndMatch(EBlackoutMatchEndReason::AllPlayersLeft);
+	}
+}
+
+void ABlackoutBattleGameMode::OnSeamlessArrival(APlayerController* PC)
+{
+	if (ConnectedPlayers.Num() == MaxPlayers)
+	{
+		StartBossCombat();
 	}
 }
 
@@ -139,43 +123,30 @@ void ABlackoutBattleGameMode::Logout(AController* Exiting)
 	Super::Logout(Exiting);
 }
 
-// 전원 Ready 시 InCombat 전환 + 보스 활성화 훅. 실제 보스 활성 로직은 전투팀 합류 시 연결.
-void ABlackoutBattleGameMode::OnAllPlayersReady()
-{
-	ABlackoutGameState* GS = GetGameState<ABlackoutGameState>();
-	if (!GS)
-	{
-		return;
-	}
-
-	switch (GS->CurrentMatchState)
-	{
-	case EBlackoutMatchState::ShelterPrep:
-		TransitionTo(EBlackoutMatchState::MidBossCombat);
-		break;
-	case EBlackoutMatchState::ShelterMid:
-		TransitionTo(EBlackoutMatchState::MainBossCombat);
-		break;
-	default:
-		return; // 쉘터 페이즈가 아니면 무시
-	}
-
-	// 게이트 개폐와 보스 활성은 매치 상태 전이를 구독하는 측(게이트/보스)에서 처리한다.
-	BO_LOG_NET(Log, "전원 Ready — 보스 전투 전이 + 게이트 Open 대상");
-}
-
 
 void ABlackoutBattleGameMode::OnBossDefeated()
 {
-	ABlackoutGameState* GS = GetGameState<ABlackoutGameState>();
-	if (!GS || GS->CurrentMatchState != EBlackoutMatchState::MidBossCombat)
+	
+	UBlackoutMatchFlowSubsystem* Flow = GetGameInstance() ? GetGameInstance()->GetSubsystem<UBlackoutMatchFlowSubsystem>() : nullptr;
+	
+	if (!Flow)
 	{
+		BO_LOG_NET(Error, "OnBossDefeated: MatchFlowSubsystem 없음");
 		return;
 	}
-
-	TransitionTo(EBlackoutMatchState::ShelterMid);
-	// 중간 거점 쉘터 활성/게이트 잠금은 매치 상태 구독 측에서 처리된다.
-	BO_LOG_NET(Log, "중간 보스 처치 — 중간 거점 쉘터로 전이");
+	
+	if (Flow->GetCurrentBossType() == EBossType::Mid)
+	{
+		Flow->AdvanceStage();
+		BO_LOG_NET(Log, "중간보스 처치 — AdvanceStage + 로비 복귀");
+		TravelToLobby();
+	}
+	else
+	{
+		BO_LOG_NET(Log, "메인보스 처치 — 5초 후 타이틀 복귀");
+		EndMatch(EBlackoutMatchEndReason::BossDefeated);
+		GetWorldTimerManager().SetTimer(TitleTravelTimerHandle , this , &ABlackoutBattleGameMode::TravelToTitle ,5.0f , false);
+	}
 }
 
 void ABlackoutBattleGameMode::BO_SimBossDefeated()
@@ -269,6 +240,31 @@ void ABlackoutBattleGameMode::PreLogin(const FString& Options,
 		}
 	}
 }
+
+void ABlackoutBattleGameMode::TravelToLobby()
+{
+	if (bTravelInitiated)
+	{
+		BO_LOG_NET(Warning, "TravelToLobby 중복 호출 무시 — ServerTravel 진행 중");
+		return;
+	}
+	if (!LobbyMapPath.IsValid())
+	{
+		BO_LOG_NET(Error, "TravelToLobby 실패: LobbyMapPath 미설정 (BP_BlackoutBattleGameMode 확인)");
+		return;
+	}
+	bTravelInitiated = true;
+	if (ABlackoutGameState* GS = GetGameState<ABlackoutGameState>())
+	{
+		GS->SetMatchState(EBlackoutMatchState::Starting);
+	}
+	// TODO: 페이드(검=와이프 / 흰=클리어) 트리거 후 ServerTravel — feature/match-flow-fade
+	const FString PackageName = LobbyMapPath.GetLongPackageName();
+	BO_LOG_NET(Log, "TravelToLobby — ServerTravel -> %s", *PackageName);
+	GetWorld()->ServerTravel(PackageName);
+}
+
+
 
 void ABlackoutBattleGameMode::EndMatch(EBlackoutMatchEndReason Reason)
 {
@@ -605,29 +601,7 @@ void ABlackoutBattleGameMode::HandlePartyWipe()
 {
 	Super::HandlePartyWipe();
 
-	if (bTravelInitiated)
-	{
-		BO_LOG_NET(Warning, "HandlePartyWipe 중복 호출 무시 — ServerTravel 진행 중");
-		return;
-	}
-	
-	if (!LobbyMapPath.IsValid())
-	{
-		BO_LOG_NET(Error, "HandlePartyWipe 실패: LobbyMapPath 미설정 (BP_BlackoutBattleGameMode 에서 지정 필요)");
-		return;
-	}
-	
-	bTravelInitiated =true;
-	
-	if (ABlackoutGameState* GS = GetGameState<ABlackoutGameState>())
-	{
-		GS->SetMatchState(EBlackoutMatchState::Starting);
-	}
-	
-	// TODO: 페이트(검) 트리거 + 0.8s 대기후 ServerTravel - feature/match-flow-fade
-	const FString PackageName = LobbyMapPath.GetLongPackageName();
-	BO_LOG_NET(Log, "HandlePartyWipe — 입장 로비 ServerTravel -> %s", *PackageName);
-	GetWorld()->ServerTravel(PackageName);
+	TravelToLobby();
 }
 
 void ABlackoutBattleGameMode::StartSurrenderVote(ABlackoutPlayerController* Proposer)
@@ -804,6 +778,42 @@ void ABlackoutBattleGameMode::TimeoutSurrenderVote()
 {
 	BO_LOG_NET(Log, "항복 투표 기각: 제한 시간(30초) 초과");
 	HandleSurrenderFailed(true);
+}
+
+void ABlackoutBattleGameMode::StartBossCombat()
+{
+	const UBlackoutMatchFlowSubsystem* Flow = GetGameInstance() ? GetGameInstance() ->GetSubsystem<UBlackoutMatchFlowSubsystem>() : nullptr;
+	
+	if (!Flow)
+	{
+		BO_LOG_NET(Error, "StartBossCombat: MatchFlowSubsystem 없음");
+		return;
+	}
+	
+	const EBlackoutMatchState NewState = (Flow ->GetCurrentBossType()== EBossType::Mid) ? EBlackoutMatchState::MidBossCombat : EBlackoutMatchState::MainBossCombat;
+	
+	TransitionTo(NewState);
+	BO_LOG_NET(Log, "보스맵 전원 도착 — 전투 시작 (%s)", *UEnum::GetValueAsString(NewState));
+}
+
+void ABlackoutBattleGameMode::TravelToTitle()
+{
+	if (!TitleMapPath.IsValid())
+	{
+		BO_LOG_NET(Error, "TravelToTitle 실패: TitleMapPath 미설정 (BP_BlackoutBattleGameMode 확인)");
+		return;
+	}
+	
+	// TODO : 승리 연출 / 페이드 - feature/match-flow-fade
+	const FString URL = TitleMapPath.GetLongPackageName();
+	BO_LOG_NET(Log, "메인보스 클리어 — 전 클라 타이틀 ClientTravel -> %s", *URL);
+	for (const TObjectPtr<APlayerController>& PC : ConnectedPlayers)
+	{
+		if (PC)
+		{
+			PC ->ClientTravel(URL ,TRAVEL_Absolute);
+		}
+	}
 }
 
 void ABlackoutBattleGameMode::HandleSurrenderSuccess()

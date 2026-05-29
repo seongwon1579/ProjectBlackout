@@ -57,9 +57,6 @@ protected:
 	
 	virtual void OnPlayerLeft(AController* Exiting) override;
 
-	// 전원 Ready 시 현재 쉘터 페이즈 → 해당 보스 전투로 전이 + 게이트 Open.
-	virtual void OnAllPlayersReady() override;
-
 	// GameState 생성 직후 초기 상태를 WaitingForPlayers 로 세팅.
 	virtual void InitGameState() override;
 
@@ -73,14 +70,15 @@ protected:
 	
 	void TravelToLobby();
 	
+	// 메인보스 클리어후 복귀 타이틀 맵 
+	UPROPERTY(EditDefaultsOnly, Category="Blackout|Battle")
+	FSoftObjectPath TitleMapPath;
+	
 	// ServerTravel 중복
 	UPROPERTY(BlueprintReadOnly , Category="Blackout|Battle")
 	bool bTravelInitiated  = false;
-
-	// [테스트 전용] true 면 4인 충족 시 클래스선택/Ready UX 생략 즉시 전투 진입.
-	// 출시 빌드 기본 false — 활성 시 경고 로그로 silent ship 방지.
-	UPROPERTY(EditDefaultsOnly ,BlueprintReadOnly , Category = "Blackout|Battle|Demo")
-	bool bAutoStartOnFull = false;
+	
+	virtual void OnSeamlessArrival(APlayerController* PC) override;
 	
 public:
 	virtual void Logout(AController* Exiting) override;
@@ -104,6 +102,11 @@ private:
 	void ClearSurrenderVotes();
 	void SetAllPlayersSurrenderInputContextActive(bool bActive);
 	void TimeoutSurrenderVote();
+	
+	void StartBossCombat();
+	
+	void TravelToTitle();
+	FTimerHandle TitleTravelTimerHandle;
 
 	FTimerHandle SurrenderVoteTimerHandle;
 
