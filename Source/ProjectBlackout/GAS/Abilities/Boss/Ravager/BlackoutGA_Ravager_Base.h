@@ -6,6 +6,7 @@
 #include "GAS/Abilities/BlackoutGameplayAbility.h"
 #include "BlackoutGA_Ravager_Base.generated.h"
 
+class ABORavagerBoss;
 class ABlackoutBossCharacter;
 class UAnimMontage;
 
@@ -43,7 +44,7 @@ protected:
 	TObjectPtr<UBORavagerPatternData> CachedPatternData;
 	
 	UPROPERTY(Transient)
-	TObjectPtr<ABlackoutBossCharacter> CachedOwner;
+	TObjectPtr<ABORavagerBoss> CachedOwner;
 	
 	UPROPERTY(Transient)
 	TObjectPtr<UAnimMontage> SelectedMontage;

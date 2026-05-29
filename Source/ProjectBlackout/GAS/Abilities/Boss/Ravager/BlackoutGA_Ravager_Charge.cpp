@@ -3,8 +3,8 @@
 
 #include "GAS/Abilities/Boss/Ravager/BlackoutGA_Ravager_Charge.h"
 
-#include "BlackoutBossCharacter.h"
 #include "BlackoutGameplayTags.h"
+#include "BORavagerBoss.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Tasks/AbilityTask_TickerTask.h"

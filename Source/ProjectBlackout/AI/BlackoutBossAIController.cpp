@@ -68,3 +68,8 @@ void ABlackoutBossAIController::HandlePhaseChanged(EBOBossPhase NewPhase)
 		BTRunner->RunPhaseBT(NewPhase);
 	}
 }
+
+EBOBossPhase ABlackoutBossAIController::GetCurrentPhase() const
+{
+	return PhaseEvaluator ? PhaseEvaluator->GetCurrentPhase() : EBOBossPhase::None;
+}

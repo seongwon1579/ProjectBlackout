@@ -5,6 +5,12 @@
 #include "BOEnemySpawnerProjectile.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "Kismet/GameplayStatics.h"
+#include "AI/BlackoutBossAIController.h"
+#include "AbilitySystemComponent.h"
+#include "NavigationSystem.h"
+#include "BlackoutLog.h"
+#include "BORavagerBoss.h"
+#include "GameFramework/Character.h"
 
 void UBlackoutGA_Ravager_SummonMinion::SetupEventListeners()
 {
@@ -44,7 +50,11 @@ void UBlackoutGA_Ravager_SummonMinion::OnSpawnMinionNotify(FGameplayEventData Pa
 
 void UBlackoutGA_Ravager_SummonMinion::SetSpawnerProjectiles()
 {
-	if (!CanActivatePattern()) return;
+	if (!CanActivatePattern())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[SummonMinion] CanActivatePattern failed in SetSpawnerProjectiles."));
+		return;
+	}
 	
 	const FBossMinionSpawnSettings& Settings = CachedPatternData->MinionSettings;
 	
@@ -57,6 +67,19 @@ void UBlackoutGA_Ravager_SummonMinion::SetSpawnerProjectiles()
 	for (int32 i = 0; i < Count; i++)
 	{
 		ThrowSingleSpawnerProjectile(SpawnLocation, BaseRotation, i , Count);
+	}
+
+	// 보스 페이즈 판정 및 엘리트 미니언 즉시 스폰 (Phase 2 이상일 때)
+	if (ABlackoutBossAIController* BossAIC = Cast<ABlackoutBossAIController>(CachedOwner->GetController()))
+	{
+		if (BossAIC->GetCurrentPhase() >= EBOBossPhase::Phase2)
+		{
+			SpawnEliteMinionsDirectly();
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[SummonMinion] Failed to get BlackoutBossAIController from Owner controller."));
 	}
 }
 
@@ -113,5 +136,76 @@ void UBlackoutGA_Ravager_SummonMinion::ResolveSpawnLocation(FVector& OutLocation
 	{
 		OutLocation = CachedOwner->GetActorLocation() + FVector(0, 0, 100);
 		UE_LOG(LogTemp, Warning, TEXT("[%s] Socket '%s' not found"), *GetName(), *SocketName.ToString());
+	}
+}
+
+void UBlackoutGA_Ravager_SummonMinion::SpawnEliteMinionsDirectly()
+{
+	if (!CachedOwner || !CachedPatternData)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[SummonMinion] CachedOwner or CachedPatternData is null inside SpawnEliteMinionsDirectly!"));
+		return;
+	}
+
+	const FBossMinionSpawnSettings& Settings = CachedPatternData->MinionSettings;
+	if (!Settings.EliteMinionSpawnData.MinionClass)
+	{
+		BO_LOG_AI(Warning, "[SummonMinion] EliteMinionSpawnData.MinionClass is null. Please allocate it in the BORavagerPatternData asset.");
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		BO_LOG_AI(Warning, "[SummonMinion] World is null inside SpawnEliteMinionsDirectly.");
+		return;
+	}
+
+	const int32 EliteCount = Settings.EliteSpawnCount;
+	const float SpawnRadius = Settings.EliteSpawnRadius;
+	const FVector BossLocation = CachedOwner->GetActorLocation();
+
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Owner = CachedOwner;
+	SpawnParams.Instigator = CachedOwner;
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+
+	for (int32 i = 0; i < EliteCount; i++)
+	{
+		// 보스 몸체와 직접 겹치지 않도록 최소 200.f ~ 최대 SpawnRadius 사이에서 거리를 무작위 선정
+		const float RandomAngle = FMath::FRand() * 360.f;
+		const float RandomRadius = FMath::FRandRange(200.f, FMath::Max(200.f, SpawnRadius));
+
+		FVector SpawnLocation = BossLocation + FRotator(0.f, RandomAngle, 0.f).Vector() * RandomRadius;
+		SpawnLocation.Z = BossLocation.Z + 50.f; // 지면에 배치하기 위한 오프셋 적용
+
+		// NavMesh 투영을 통해 장애물 및 벽 내부에 끼는 것 방지
+		if (UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World))
+		{
+			FNavLocation ProjectedLocation;
+			if (NavSys->ProjectPointToNavigation(SpawnLocation, ProjectedLocation, FVector(200.f, 200.f, 200.f)))
+			{
+				SpawnLocation = ProjectedLocation.Location;
+				SpawnLocation.Z += 50.f; // 지면 위 스폰 유도
+			}
+		}
+
+		ACharacter* EliteMinion = World->SpawnActor<ACharacter>(
+			Settings.EliteMinionSpawnData.MinionClass,
+			SpawnLocation,
+			FRotator::ZeroRotator,
+			SpawnParams
+		);
+
+		if (EliteMinion)
+		{
+			EliteMinion->SpawnDefaultController();
+
+			BO_LOG_AI(Log, "Successfully spawned Elite Minion at %s", *SpawnLocation.ToString())
+		}
+		else
+		{
+			BO_LOG_AI(Error, "Failed to spawn Elite Minion of class %s at %s!", *Settings.EliteMinionSpawnData.MinionClass->GetName(), *SpawnLocation.ToString());
+		}
 	}
 }

@@ -25,6 +25,8 @@ protected:
 
 	void ResolveSpawnLocation(FVector& OutLocation) const;
 
+	void SpawnEliteMinionsDirectly();
+
 private:
 	UPROPERTY(Transient)
 	TObjectPtr<UAbilityTask_WaitGameplayEvent> WaitSpawnEvent;
