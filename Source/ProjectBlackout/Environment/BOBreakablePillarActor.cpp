@@ -563,7 +563,7 @@ void ABOBreakablePillarActor::PlayBreakDustEffect()
 	}
 	else
 	{
-		BO_LOG_CORE(Warning,
+		BO_LOG_CORE(Warning, 
 			"기둥 파괴 더스트 TriggerEffect 호출 실패: 함수가 없음 Actor=%s SpawnedEffect=%s TriedFunctions=%s,%s",
 			*GetName(),
 			*GetNameSafe(SpawnedDustEffect),
