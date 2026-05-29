@@ -32,16 +32,10 @@ void ABlackoutLobbyGameMode::StartBattle()
 	{
 		GS->SetMatchState(EBlackoutMatchState::Starting);
 	}
-	// 프리뷰 sublevel 정리 
-	FLatentActionInfo LatentInfo;
-	UGameplayStatics::UnloadStreamLevel(this , PreviewLevelName ,LatentInfo , false);
-	GetWorld() ->FlushLevelStreaming();
 	
-	const FString PackageName = BossStageMapPaths[StageIndex].GetLongPackageName();
-	BO_LOG_NET(Log, "StartBattle : stage %d ServerTravel -> %s (bUseSeamlessTravel=%d)",
-		StageIndex, *PackageName, bUseSeamlessTravel ? 1 : 0);
-	GetWorld()->ServerTravel(PackageName);
-
+	// 일반 이동 = 흰색 페이드 -> 대기후 travel
+	BroadcastScreenFadeOut(FLinearColor::White);
+	GetWorldTimerManager().SetTimer(FadeTravelTimerHandle ,this ,&ABlackoutLobbyGameMode::DoStartBattleTravel , FadeOutTravelDelay , false);
 }
 
 // 전원 Ready 성립 시 전투 맵으로 ServerTravel 트리거.
@@ -92,6 +86,18 @@ void ABlackoutLobbyGameMode::HandleLobbyArrival(APlayerController* PC)
 	}
 }
 
+void ABlackoutLobbyGameMode::DoStartBattleTravel()
+{
+	const UBlackoutMatchFlowSubsystem* FlowSubsystem = GetGameInstance() ? GetGameInstance()->GetSubsystem<UBlackoutMatchFlowSubsystem>() : nullptr;
+	const int32 StageIndex = FlowSubsystem ? FlowSubsystem->GetCurrentStageIndex() : 0;
+	if (!BossStageMapPaths.IsValidIndex(StageIndex)) { return; }
+
+
+	const FString PackageName = BossStageMapPaths[StageIndex].GetLongPackageName();
+	BO_LOG_NET(Log, "StartBattle: stage %d ServerTravel -> %s", StageIndex, *PackageName);
+	GetWorld()->ServerTravel(PackageName);
+}
+
 UClass* ABlackoutLobbyGameMode::GetDefaultPawnClassForController_Implementation(
 	AController* InController)
 {
@@ -111,13 +117,4 @@ UClass* ABlackoutLobbyGameMode::GetDefaultPawnClassForController_Implementation(
 		}
 	}
 	return Super::GetDefaultPawnClassForController_Implementation(InController);
-}
-
-void ABlackoutLobbyGameMode::BeginPlay()
-{
-	Super::BeginPlay();
-	
-	FLatentActionInfo LatentInfo;
-	UGameplayStatics::LoadStreamLevel(this, PreviewLevelName , true,false , LatentInfo);
-	
 }

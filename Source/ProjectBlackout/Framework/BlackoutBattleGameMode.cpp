@@ -106,6 +106,8 @@ void ABlackoutBattleGameMode::OnSeamlessArrival(APlayerController* PC)
 	}
 }
 
+
+
 void ABlackoutBattleGameMode::Logout(AController* Exiting)
 {
 	// Super::Logout 호출 시 PlayerArray에서 PS가 제거되고 폰이 정리될 수 있으므로,
@@ -139,7 +141,7 @@ void ABlackoutBattleGameMode::OnBossDefeated()
 	{
 		Flow->AdvanceStage();
 		BO_LOG_NET(Log, "중간보스 처치 — AdvanceStage + 로비 복귀");
-		TravelToLobby();
+		TravelToLobby(FLinearColor::White);
 	}
 	else
 	{
@@ -241,7 +243,7 @@ void ABlackoutBattleGameMode::PreLogin(const FString& Options,
 	}
 }
 
-void ABlackoutBattleGameMode::TravelToLobby()
+void ABlackoutBattleGameMode::TravelToLobby(FLinearColor FadeColor)
 {
 	if (bTravelInitiated)
 	{
@@ -258,10 +260,9 @@ void ABlackoutBattleGameMode::TravelToLobby()
 	{
 		GS->SetMatchState(EBlackoutMatchState::Starting);
 	}
-	// TODO: 페이드(검=와이프 / 흰=클리어) 트리거 후 ServerTravel — feature/match-flow-fade
-	const FString PackageName = LobbyMapPath.GetLongPackageName();
-	BO_LOG_NET(Log, "TravelToLobby — ServerTravel -> %s", *PackageName);
-	GetWorld()->ServerTravel(PackageName);
+	BroadcastScreenFadeOut(FadeColor);
+	GetWorldTimerManager().SetTimer(FadeTravelTimerHandle, this,
+		&ABlackoutBattleGameMode::DoTravelToLobby, FadeOutTravelDelay, false);
 }
 
 
@@ -595,12 +596,32 @@ void ABlackoutBattleGameMode::RefreshSpectatorsForDeadTarget(
 	}
 }
 
+void ABlackoutBattleGameMode::DoTravelToLobby()
+{
+	const FString PackageName = LobbyMapPath.GetLongPackageName();
+	BO_LOG_NET(Log, "TravelToLobby — ServerTravel -> %s", *PackageName);
+	GetWorld()->ServerTravel(PackageName);
+}
+
+void ABlackoutBattleGameMode::DoTravelToTitle()
+{
+	const FString URL = TitleMapPath.GetLongPackageName();
+	BO_LOG_NET(Log, "메인보스 클리어 — 전 클라 타이틀 ClientTravel -> %s", *URL);
+	for (const TObjectPtr<APlayerController>& PC : ConnectedPlayers)
+	{
+		if (PC)
+		{
+			PC ->ClientTravel(URL ,TRAVEL_Absolute);
+		}
+	}
+}
+
 // 파티 전멸 감지 시 호출. 체크포인트 텔레포트 + PartyWipeRestart 정책 + Ready 리셋 + InCombatReady 복귀.
 void ABlackoutBattleGameMode::HandlePartyWipe()
 {
 	Super::HandlePartyWipe();
 
-	TravelToLobby();
+	TravelToLobby(FLinearColor::Black);
 }
 
 void ABlackoutBattleGameMode::StartSurrenderVote(ABlackoutPlayerController* Proposer)
@@ -803,16 +824,9 @@ void ABlackoutBattleGameMode::TravelToTitle()
 		return;
 	}
 	
-	// TODO : 승리 연출 / 페이드 - feature/match-flow-fade
-	const FString URL = TitleMapPath.GetLongPackageName();
-	BO_LOG_NET(Log, "메인보스 클리어 — 전 클라 타이틀 ClientTravel -> %s", *URL);
-	for (const TObjectPtr<APlayerController>& PC : ConnectedPlayers)
-	{
-		if (PC)
-		{
-			PC ->ClientTravel(URL ,TRAVEL_Absolute);
-		}
-	}
+	BroadcastScreenFadeOut(FLinearColor::White);
+	GetWorldTimerManager().SetTimer(FadeTravelTimerHandle , this , &ABlackoutBattleGameMode::DoTravelToTitle , FadeOutTravelDelay , false);
+
 }
 
 void ABlackoutBattleGameMode::HandleSurrenderSuccess()

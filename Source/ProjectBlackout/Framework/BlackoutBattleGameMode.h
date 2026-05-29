@@ -68,7 +68,7 @@ protected:
 	UPROPERTY(EditDefaultsOnly , Category="Blackout|Battle")
 	FSoftObjectPath LobbyMapPath;
 	
-	void TravelToLobby();
+	void TravelToLobby(FLinearColor FadeColor);
 	
 	// 메인보스 클리어후 복귀 타이틀 맵 
 	UPROPERTY(EditDefaultsOnly, Category="Blackout|Battle")
@@ -79,6 +79,8 @@ protected:
 	bool bTravelInitiated  = false;
 	
 	virtual void OnSeamlessArrival(APlayerController* PC) override;
+
+	
 	
 public:
 	virtual void Logout(AController* Exiting) override;
@@ -122,4 +124,10 @@ private:
 	// 컨트롤러별 캐시로 동일 컨트롤러에 같은 클래스 반환 → 라운드로빈 카운터 한 번만 증가.
 	UPROPERTY()
 	TMap<TObjectPtr<AController>, TSubclassOf<APawn>> ControllerToClass;
+	
+	void DoTravelToLobby();
+	
+	void DoTravelToTitle();
+	
+	FTimerHandle FadeTravelTimerHandle;
 };

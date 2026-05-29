@@ -78,6 +78,25 @@ public:
 	/** ESC 또는 OnSelectionConfirmed 후 자동 호출. Widget 정리 + IMC 원복. */
 	UFUNCTION(BlueprintCallable,Category="Blackout|ClassSelect")
 	void CloseClassSelectUI();
+	
+	/** 레벨 전환 전 , 서버가 각 클라 화면을 페이드아웃 */
+	UFUNCTION(Client,Reliable , Category="Blackout|Controller|Transition")
+	void Client_StartScreenFadeOut(FLinearColor FadeColor);
+	
+private:
+	/** 페이드 지속시간 */
+	UPROPERTY(EditDefaultsOnly , Category="Blackout|Transition")
+	float ScreenFadeDuration = 1.2f;
+	
+	/** 페이드 아웃에 쓴 색 보관 -> 도착후 페이드 인에 재사용 */
+	FLinearColor LastFadeColor = FLinearColor::Black;
+	
+	/** 전환 페이드 진행 중 플래그, 도착시 페이드 인 여부 판정 */
+	bool bScreenFadePending = false;
+	
+	/** 도착 후 화면 복귀 */
+	void StartScreenFadeIn();
+	
 
 #if WITH_EDITOR || UE_BUILD_DEVELOPMENT
 public:
