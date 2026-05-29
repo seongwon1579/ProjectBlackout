@@ -40,3 +40,15 @@ void ABlackoutBossAIController::OnUnPossess()
 	Super::OnUnPossess();
 }
 
+void ABlackoutBossAIController::HandlePhaseChanged(EBOBossPhase NewPhase)
+{
+	if (BTRunner)
+	{
+		BTRunner->RunPhaseBT(NewPhase);
+	}
+}
+
+EBOBossPhase ABlackoutBossAIController::GetCurrentPhase() const
+{
+	return PhaseEvaluator ? PhaseEvaluator->GetCurrentPhase() : EBOBossPhase::None;
+}

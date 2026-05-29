@@ -45,7 +45,6 @@ enum class EBlackoutMatchState : uint8
 	WaitingForPlayers UMETA(DisplayName = "Waiting For Players"), // 데디 접속 대기 (4인 미만)
 	ShelterPrep       UMETA(DisplayName = "Shelter Prep"),        // 시작 쉘터: 클래스선택·Ready 대기
 	MidBossCombat     UMETA(DisplayName = "Mid-Boss Combat"),     // Shrewd 활성
-	ShelterMid        UMETA(DisplayName = "Shelter Mid"),         // 중간 거점: 휴식·재선택·Ready
 	MainBossCombat    UMETA(DisplayName = "Main-Boss Combat"),    // Ravager 활성
 };
 
@@ -56,4 +55,12 @@ enum class EBlackoutMatchEndReason:uint8
 	AllPlayersLeft UMETA(DisplayName = "All Players Left"),
 	Timeout UMETA(DisplayName = "Timeout"),
 	
+};
+
+// 보스 종류 , 매치 진행 스테이지와 OnBossDefeated 분기에 사용
+UENUM(BlueprintType)
+enum class EBossType : uint8
+{
+	Mid UMETA(DisplayName = "Mid Boss"),
+	Main UMETA(DisplayName = "Main Boss"),
 };

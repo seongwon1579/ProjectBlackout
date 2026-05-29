@@ -172,12 +172,7 @@ void ABlackoutShelterZone::ApplyShelterEffects(APawn* Pawn)
 	}
 
 	PS->ApplyBattleTransitionPolicy(EBattleTransitionType::CheckpointRest);
-
-	if (ABlackoutBattleGameMode* GM = GetWorld()->GetAuthGameMode<ABlackoutBattleGameMode>())
-	{
-		GM->HandleCheckpoint(this);
-	}
-
+	
 	BO_LOG_NET(Log, "ShelterZone Enter: %s @ %s", *GetNameSafe(PS), *GetName());
 }
 

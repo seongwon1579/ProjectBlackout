@@ -1,4 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+// Fill out your copyright notice in the Description page of Project Settings.
 
 
 #include "GA_Wraith_Teleport.h"
@@ -36,13 +36,6 @@ void UGA_Wraith_Teleport::ActivateAbility(
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
-
-	// 은신 Cue
-	FGameplayCueParameters StartCueParams;
-	StartCueParams.Location = Avatar->GetActorLocation();
-	ASC->ExecuteGameplayCue(
-		BlackoutGameplayTags::GameplayCue_Wraith_Teleport_Start,
-		StartCueParams);
 
 	// EQS 비동기 호출
 	FEnvQueryRequest Request(TeleportQuery, Avatar);
@@ -123,12 +116,7 @@ void UGA_Wraith_Teleport::OnVanishEvent(FGameplayEventData Payload)
 	SetTeleportVisualsHidden(true);
 	Avatar->SetActorLocation(CachedDestination , false , nullptr , ETeleportType::TeleportPhysics);
 	
-	if (UAbilitySystemComponent* SourceASC = GetAbilitySystemComponentFromActorInfo())
-	{
-		FGameplayCueParameters EndCueParams;
-		EndCueParams.Location = CachedDestination;
-		SourceASC->ExecuteGameplayCue(BlackoutGameplayTags::GameplayCue_Wraith_Teleport_End, EndCueParams);
-	}
+
 }
 
 void UGA_Wraith_Teleport::OnAppearEvent(FGameplayEventData Payload)

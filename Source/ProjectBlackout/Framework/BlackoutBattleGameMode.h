@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "BlackoutGameMode.h"
-#include "Interfaces/BlackoutArenaResettable.h"
+#include "UObject/SoftObjectPath.h"
 #include "BlackoutBattleGameMode.generated.h"
 
 enum class EBlackoutMatchEndReason : uint8;
@@ -23,11 +23,11 @@ public:
 
 	// 중간 보스 처치 시 보스 사망 로직에서 호출. 보스 구현 후 연결된다.
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Battle")
-	void OnMidBossDefeated();
+	void OnBossDefeated();
 
 	// [테스트 전용] 콘솔에서 중간 보스 처치 시뮬레이션. 보스/4인 없이 루프 검증용.
 	UFUNCTION(Exec)
-	void BO_SimMidBossDefeated();
+	void BO_SimBossDefeated();
 
 	// [테스트 전용] 콘솔에서 파티 전멸 시뮬레이션. 전투/사망 없이 Fast-Retry 회귀 검증용.
 	UFUNCTION(Exec)
@@ -38,25 +38,16 @@ public:
 
 	// 플레이어가 다운 타이머 만료로 완전 사망했을 때 호출. 생존자 0명 여부를 평가한다.
 	void NotifyPlayerFullyDead(ABlackoutPlayerCharacter* DeadPlayer);
-
-	// 화톳불 상호작용 시 외부에서 호출. CurrentCheckpointActor 갱신.
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Battle")
-	virtual void HandleCheckpoint(AActor* BonfireActor);
-
-	// 보스 아레나가 BeginPlay 등에서 자기 등록. 전멸/체크포인트 복귀 시 ResetArena 호출 대상.
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Battle")
-	void RegisterArena(TScriptInterface<IBlackoutArenaResettableInterface> Arena);
 	
 	// ClientTravel URL SessionId DedicatedSessionSubsystem에 위임
 	// 데디만 사용
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 	
 	/** 현재 PS-> SelectdClassTag 기준으로 Pawn 재스폰 + Possess. ShelterPrep 캐릭터 변경에서 사용 */
-	void RespawnPlayerWithSelectedClass(APlayerController* InController);
+	virtual void RespawnPlayerWithSelectedClass(APlayerController* InController) override;
 	
 	UPROPERTY(EditDefaultsOnly, Category="Blackout|Battle|Players")
 	TArray<TSubclassOf<APawn>> PlayerClassPool;
-
 	
 	virtual UClass* GetDefaultPawnClassForController_Implementation(AController* InController) override;
 
@@ -66,9 +57,6 @@ protected:
 	
 	virtual void OnPlayerLeft(AController* Exiting) override;
 
-	// 전원 Ready 시 현재 쉘터 페이즈 → 해당 보스 전투로 전이 + 게이트 Open.
-	virtual void OnAllPlayersReady() override;
-
 	// GameState 생성 직후 초기 상태를 WaitingForPlayers 로 세팅.
 	virtual void InitGameState() override;
 
@@ -76,18 +64,21 @@ protected:
 	virtual void PreLogin(const FString& Options, const FString& Address,
 		const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage) override;
 
-	// 마지막으로 활성화된 화톳불. 파티 전멸 시 이 액터 위치로 복귀.
-	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Battle")
-	TObjectPtr<AActor> CurrentCheckpointActor;
-
-	// 현재 진행 중인 보스 아레나. 전멸/체크포인트 복귀 시 결정적 리셋 대상 (없으면 null).
-	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Battle")
-	TScriptInterface<IBlackoutArenaResettableInterface> CurrentArena;
-
-	// [테스트 전용] true 면 4인 충족 시 클래스선택/Ready UX 생략 즉시 전투 진입.
-	// 출시 빌드 기본 false — 활성 시 경고 로그로 silent ship 방지.
-	UPROPERTY(EditDefaultsOnly ,BlueprintReadOnly , Category = "Blackout|Battle|Demo")
-	bool bAutoStartOnFull = false;
+	// 항복 가결 시 복귀할 로비 맵 경로 
+	UPROPERTY(EditDefaultsOnly , Category="Blackout|Battle")
+	FSoftObjectPath LobbyMapPath;
+	
+	void TravelToLobby();
+	
+	// 메인보스 클리어후 복귀 타이틀 맵 
+	UPROPERTY(EditDefaultsOnly, Category="Blackout|Battle")
+	FSoftObjectPath TitleMapPath;
+	
+	// ServerTravel 중복
+	UPROPERTY(BlueprintReadOnly , Category="Blackout|Battle")
+	bool bTravelInitiated  = false;
+	
+	virtual void OnSeamlessArrival(APlayerController* PC) override;
 	
 public:
 	virtual void Logout(AController* Exiting) override;
@@ -111,6 +102,11 @@ private:
 	void ClearSurrenderVotes();
 	void SetAllPlayersSurrenderInputContextActive(bool bActive);
 	void TimeoutSurrenderVote();
+	
+	void StartBossCombat();
+	
+	void TravelToTitle();
+	FTimerHandle TitleTravelTimerHandle;
 
 	FTimerHandle SurrenderVoteTimerHandle;
 
