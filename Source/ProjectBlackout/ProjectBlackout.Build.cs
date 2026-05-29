@@ -34,7 +34,8 @@ public class ProjectBlackout : ModuleRules
 			"WebSockets",
 			"DeveloperSettings",
 			// Plugin
-			"MotionWarping"
+			"MotionWarping",
+			"NavigationSystem"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] {"MoviePlayer" });
