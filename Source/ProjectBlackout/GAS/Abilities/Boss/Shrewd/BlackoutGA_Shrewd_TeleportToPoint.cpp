@@ -1,13 +1,29 @@
-#include "GAS/Abilities/Boss/Shrewd/GA_Shrewd_LoSTeleport.h"
+#include "GAS/Abilities/Boss/Shrewd/BlackoutGA_Shrewd_TeleportToPoint.h"
+#include "AbilitySystemComponent.h"
 
-UGA_Shrewd_LoSTeleport::UGA_Shrewd_LoSTeleport()
+#include "BOShrewdBoss.h"
+
+void UBlackoutGA_Shrewd_TeleportToPoint::StartResolveDestination()
 {
+	FVector OutLocation; 
+	FRotator OutRotation;
+	
+	bool bIsSuccess = ResolveTeleportDestination(OutLocation, OutRotation);
+	
+	CachedDestination = OutLocation;
+	CachedTeleportRotation = OutRotation;
+	
+	FinishPrepare (bIsSuccess);
 }
 
-void UGA_Shrewd_LoSTeleport::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+bool UBlackoutGA_Shrewd_TeleportToPoint::ResolveTeleportDestination(FVector& OutLocation, FRotator& OutRotation)
 {
-	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
-	
-	// TODO: UBlackboardKeyRegistry 참조하여 시야(LoS) 차단 시 점멸 후 근접 콤보 기믹 구현
-	EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
+	ABOShrewdBoss* Shrewd = Cast<ABOShrewdBoss>(GetAvatarActorFromActorInfo());
+	if (!Shrewd || !Shrewd->TelePortPtr)
+	{
+		return false;
+	}
+	OutLocation = Shrewd->TelePortPtr->GetActorLocation();
+	OutRotation = Shrewd->TelePortPtr->GetActorRotation();
+	return true;
 }
