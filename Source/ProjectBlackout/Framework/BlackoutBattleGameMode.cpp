@@ -347,7 +347,6 @@ void ABlackoutBattleGameMode::EvaluatePartyWipe()
 	const bool bSkipEvaluation =
 		MS == EBlackoutMatchState::WaitingForPlayers ||
 		MS == EBlackoutMatchState::ShelterPrep ||
-		MS == EBlackoutMatchState::ShelterMid ||
 		MS == EBlackoutMatchState::Ended;
 
 	if (bSkipEvaluation)

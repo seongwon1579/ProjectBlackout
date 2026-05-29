@@ -18,21 +18,12 @@ namespace
 	{
 		switch (From)
 		{
+		// TransitionTo 호출처는 로비(HandleLobbyArrival)와 보스맵(StartBossCombat)뿐 —
+		// 둘 다 WaitingForPlayers 출발. 클리어/와이프/타이틀은 SetMatchState raw 라 전이표 비대상.
 		case EBlackoutMatchState::WaitingForPlayers:
-			return To == EBlackoutMatchState::ShelterPrep
-				|| To == EBlackoutMatchState::MidBossCombat // 보스맵 seamless 도착
+			return To == EBlackoutMatchState::ShelterPrep    // 로비 ShelterPrep
+				|| To == EBlackoutMatchState::MidBossCombat   // 보스맵 seamless 도착
 				|| To == EBlackoutMatchState::MainBossCombat; // 보스맵 seamless 도착
-		case EBlackoutMatchState::ShelterPrep:
-			return To == EBlackoutMatchState::MidBossCombat;
-		case EBlackoutMatchState::MidBossCombat:
-			return To == EBlackoutMatchState::ShelterMid // Shrewd 처치
-				|| To == EBlackoutMatchState::ShelterPrep // 전멸 회귀
-				|| To == EBlackoutMatchState::Ended; // 이탈/타임아웃
-		case EBlackoutMatchState::ShelterMid:
-			return To == EBlackoutMatchState::MainBossCombat;
-		case EBlackoutMatchState::MainBossCombat:
-			return To == EBlackoutMatchState::ShelterMid // 전멸 회귀
-				|| To == EBlackoutMatchState::Ended; // 승리/이탈/타임아웃
 		default:
 			return false;
 		}
@@ -208,9 +199,8 @@ void ABlackoutGameMode::TransitionTo(EBlackoutMatchState NewState)
 
 	GS->SetMatchState(NewState); // 복제 + 전이 로그는 SetMatchState 가 처리
 
-	// 쉘터 진입 시 Ready 를 새로 시작한다 (게이트 상호작용으로 다시 커밋).
-	if (NewState == EBlackoutMatchState::ShelterPrep || NewState ==
-		EBlackoutMatchState::ShelterMid)
+	// 쉘터 진입 시 Ready 를 새로 시작한다 (비석 상호작용으로 다시 커밋).
+	if (NewState == EBlackoutMatchState::ShelterPrep)
 	{
 		for (APlayerState* PS : GS->PlayerArray)
 		{

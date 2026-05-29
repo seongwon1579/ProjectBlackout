@@ -860,11 +860,6 @@ void ABlackoutPlayerController::BO_SetMatchState(const FString& NewStateStr)
 		SelectedState = EBlackoutMatchState::MidBossCombat;
 		bIsValid = true;
 	}
-	else if (TargetState.Equals(TEXT("sheltermid")) || TargetState.Equals(TEXT("midprep")) || TargetState.Equals(TEXT("s2")))
-	{
-		SelectedState = EBlackoutMatchState::ShelterMid;
-		bIsValid = true;
-	}
 	else if (TargetState.Equals(TEXT("mainbosscombat")) || TargetState.Equals(TEXT("mainboss")) || TargetState.Equals(TEXT("main")) || TargetState.Equals(TEXT("b")))
 	{
 		SelectedState = EBlackoutMatchState::MainBossCombat;
