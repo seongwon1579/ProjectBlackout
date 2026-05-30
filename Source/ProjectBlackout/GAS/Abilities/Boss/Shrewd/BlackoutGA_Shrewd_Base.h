@@ -14,27 +14,30 @@ class PROJECTBLACKOUT_API UBlackoutGA_Shrewd_Base : public UBlackoutEnemyGamepla
 {
 	GENERATED_BODY()
 
+public:
+	UBlackoutGA_Shrewd_Base();
+
 protected:
 	UPROPERTY(EditAnywhere, Category = "Blackout")
 	TObjectPtr<UAnimMontage> Montage;
-	
+
 	virtual void ActivateAbility(
 		const FGameplayAbilitySpecHandle Handle,
 		const FGameplayAbilityActorInfo* ActorInfo,
 		const FGameplayAbilityActivationInfo ActivationInfo,
 		const FGameplayEventData* TriggerEventData) override;
-	
+
 	virtual void SetupEventListeners() {}
-	
-	virtual void PrepareAbility() {}
-	
+
+	virtual void PrepareAbility() { FinishPrepare(true); }
+
 	void FinishPrepare(bool bIsSuccess = true);
 
 	UFUNCTION()
 	void OnMontageEnded();
 
 	void PlayMontage();
-	
+
 	UPROPERTY(Transient)
-	TObjectPtr<AActor> CachedTarget;
+	TObjectPtr<APawn> CachedTarget;
 };
