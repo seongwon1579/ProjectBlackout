@@ -167,6 +167,8 @@ void ABOProjectile::ApplyProjectileNetState()
 	{
 		return;
 	}
+	
+	Movement->ProjectileGravityScale = ReplicatedNetState.GravityScale;
 
 	SetActorLocationAndRotation(
 		ReplicatedNetState.Location,

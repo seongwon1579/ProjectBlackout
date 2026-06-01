@@ -10,15 +10,12 @@
 #include "BlackoutWeaponCueLibrary.h"
 #include "Components/SphereComponent.h"
 #include "Engine/OverlapResult.h"
+#include "DrawDebugHelpers.h" 
 #include "GameFramework/ProjectileMovementComponent.h"
-
-ABOShrewdArrowExplosive::ABOShrewdArrowExplosive()
-{
-	Movement->ProjectileGravityScale = 1.f;
-}
 
 void ABOShrewdArrowExplosive::Launch(const FVector& Velocity)
 {
+	
 	if (!Movement) return;
 
 	if (Collision)
@@ -28,10 +25,10 @@ void ABOShrewdArrowExplosive::Launch(const FVector& Velocity)
 		if (!Firer) Firer = GetOwner();
 		if (Firer) Collision->IgnoreActorWhenMoving(Firer, true);
 	}
-	
+
 	Movement->Velocity = Velocity;
 	Movement->SetActive(true, true);
-
+	
 	if (HasAuthority())
 	{
 		SetNetDormancy(DORM_Awake);
@@ -41,6 +38,7 @@ void ABOShrewdArrowExplosive::Launch(const FVector& Velocity)
 		ReplicatedNetState.Location = GetActorLocation();
 		ReplicatedNetState.Direction = Velocity.GetSafeNormal();
 		ReplicatedNetState.Speed = Velocity.Size();
+		ReplicatedNetState.GravityScale = Movement->ProjectileGravityScale;
 		ApplyProjectileNetState();
 		ForceNetUpdate();
 	}
@@ -94,6 +92,23 @@ void ABOShrewdArrowExplosive::ApplyImpactDamage(const FHitResult& Hit)
 	if (!DamageSpec.IsValid()) return;
 
 	const FVector ExplosionLocation = Hit.ImpactPoint;
+	
+#if ENABLE_DRAW_DEBUG
+	if (bShowDebugExplosion)
+	{
+		DrawDebugSphere(
+			GetWorld(),
+			ExplosionLocation,
+			ExplosionRadius,
+			24,                
+			FColor::Red,
+			false,              
+			2.0f,               
+			0,                   
+			2.0f              
+		);
+	}
+#endif
 
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(ExplosiveOverlap), false, this);
 	Params.AddIgnoredActor(this);
