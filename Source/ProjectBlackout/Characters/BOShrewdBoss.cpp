@@ -10,7 +10,6 @@
 
 ABOShrewdBoss::ABOShrewdBoss()
 {
-
 }
 
 void ABOShrewdBoss::Multicast_DebugAggroTarget_Implementation(const FString& TargetName)
@@ -21,6 +20,32 @@ void ABOShrewdBoss::Multicast_DebugAggroTarget_Implementation(const FString& Tar
 			-1, 3.0f, FColor::Yellow,
 			FString::Printf(TEXT("Aggro Target: %s"), *TargetName));
 	}
+}
+
+bool ABOShrewdBoss::GetRandomTeleportTransform(FTransform& OutTransform)
+{
+	TArray<AActor*> ValidPoints;
+	for (const TObjectPtr<AActor>& Point : TeleportPoints)
+	{
+		if (IsValid(Point) && Point != LastTeleportPoint)
+		{
+			ValidPoints.Add(Point);
+		}
+	}
+
+	if (ValidPoints.Num() == 0)
+	{
+		if (!IsValid(LastTeleportPoint)) return false;
+		OutTransform = LastTeleportPoint->GetActorTransform();
+		return true;
+	}
+
+	const int32 Index = FMath::RandRange(0, ValidPoints.Num() - 1);
+	AActor* Selected = ValidPoints[Index];
+    
+	LastTeleportPoint = Selected;
+	OutTransform = Selected->GetActorTransform();
+	return true;
 }
 
 void ABOShrewdBoss::SetData()
