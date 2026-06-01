@@ -5,11 +5,22 @@
 
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 
+UBlackoutGA_Shrewd_Base::UBlackoutGA_Shrewd_Base()
+{
+	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::ServerOnly;
+}
+
 void UBlackoutGA_Shrewd_Base::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
                                               const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo,
                                               const FGameplayEventData* TriggerEventData)
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+	
+	if (TriggerEventData && TriggerEventData->Target)
+	{
+		const AActor* RawTarget = ToRawPtr(TriggerEventData->Target);
+		CachedTarget = Cast<APawn>(const_cast<AActor*>(RawTarget));
+	}
 	
 	PrepareAbility();
 }

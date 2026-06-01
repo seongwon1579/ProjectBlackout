@@ -218,6 +218,9 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Shrewd_Teleport_ToPoint, "Ability.Shrewd.Teleport.ToPoint");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Shrewd_Teleport_ByEQS, "Ability.Shrewd.Teleport.ByEQS");
 	
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Shrewd_Fire_Arrow_Straight, "Ability.Shrewd.Fire.Arrow.Straight");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Shrewd_Fire_Arrow_Explosive, "Ability.Shrewd.Fire.Arrow.Explosive");
+	
 	// ─── Wraith Abilities ──────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Wraith_FireTwinArrows, "Ability.Wraith.FireTwinArrows");
 	UE_DEFINE_GAMEPLAY_TAG(Cooldown_Wraith_FireTwinArrows, "Cooldown.Wraith.FireTwinArrows");
@@ -248,6 +251,8 @@ namespace BlackoutGameplayTags
 	
 	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_OnEnergyBurst, "Event.Enemy.Attack.OnEnergyBurst");
 	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_OffEnergyBurst, "Event.Enemy.Attack.OffEnergyBurst");
+	
+	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Shrewd_Attack_FireArrow, "Event.Enemy.Shrewd.Attack.FireArrow");
 	
 	// ─── Montage Events ───────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Event_Montage_ConsumableApply, "Event.Montage.ConsumableApply");
