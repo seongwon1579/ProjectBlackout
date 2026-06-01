@@ -28,6 +28,9 @@ public:
 
 	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard|Input")
 	FBlackboardKeySelector TargetKey;
+	
+	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard|Input")
+	FBlackboardKeySelector SelectedAbilityTagKey;
 
 	virtual FGameplayTag ResolveAbilityTag(UBehaviorTreeComponent& OwnerComp) const;
 
@@ -38,7 +41,7 @@ private:
 	void HandleAbilityEnded(UGameplayAbility* Ability);
 	void UnbindDelegate();
 
-	UPROPERTY(EditAnywhere, Category = "Blackout|Ability")
+	UPROPERTY(EditAnywhere, Category = "Blackout|Ability", meta = (Categories = "Ability"))
 	FGameplayTag AbilityTag;
 
 	UBehaviorTreeComponent* CachedOwnerComp = nullptr;

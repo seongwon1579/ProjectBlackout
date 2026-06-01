@@ -9,6 +9,9 @@ classDiagram
     class BlackoutGameplayTags {
         <<Native Tag Singleton>>
         +FGameplayTag State_Downed
+        +FGameplayTag State_Reviving
+        +FGameplayTag State_BeingRevived
+        +FGameplayTag State_Dead
         +FGameplayTag State_Invulnerable
         +FGameplayTag State_Locked
         +FGameplayTag Body_WeakSpot
@@ -67,4 +70,4 @@ classDiagram
 - `BlackoutGameplayTags`: `UGameplayTagsManager::AddNativeGameplayTag()`로 네이티브 태그 등록. 모듈 StartupModule에서 `AddNativeTags()` 호출.
 - 네이티브 태그는 `.ini` 의존 없이 C++ 심볼로 직접 참조 가능해 오타 컴파일 오류로 잡힘.
 - `LogBlackoutGAS`: GA `ActivateAbility`/`EndAbility` 진입·종료 로그 필수 기록.
-- `LogBlackoutPool`: `GetFromPool` miss(큐 비어 동적 스폰) 추적용.
+- `LogBlackoutPool`: `SpawnFromPool` miss(큐 비어 동적 스폰) 추적용.

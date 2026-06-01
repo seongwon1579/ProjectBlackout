@@ -41,6 +41,14 @@ protected:
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|HUD|Consumable")
 	bool bIsConsumableAvailable = false;
 
+	// 현재 매 틱마다 로컬로 감소하는 쿨다운 남은 시간 (초)
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|HUD|Consumable")
+	float CooldownRemaining = 0.0f;
+
+	// 총 쿨다운 지속시간 (초)
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|HUD|Consumable")
+	float CooldownDuration = 0.0f;
+
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|HUD|Consumable")
 	FBlackoutConsumableSlotData SlotData;
 
@@ -58,4 +66,10 @@ protected:
 
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Consumable Availability Changed"), Category = "Blackout|HUD|Consumable")
 	void ReceiveConsumableAvailabilityChanged(bool bNewIsAvailable);
+
+	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
+
+	/** 매 틱마다 감소하는 로컬 쿨다운 상태를 UMG 블루프린트(텍스트, 마스크 연출)에 통보하는 이벤트입니다. */
+	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Consumable Cooldown Updated"), Category = "Blackout|HUD|Consumable")
+	void ReceiveConsumableCooldownUpdated(float RemainingTime, float Duration);
 };

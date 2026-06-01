@@ -1,14 +1,28 @@
 #include "BlackoutBattleGameMode.h"
 #include "BlackoutPlayerState.h"
+#include "BlackoutPlayerController.h"
 #include "BlackoutGameState.h"
 #include "BlackoutLog.h"
+#include "Characters/BlackoutPlayerCharacter.h"
 #include "Core/BlackoutTypes.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/GameStateBase.h"
-
+#include "Data/BOCharacterRoster.h"
+#include "GAS/BlackoutAbilitySystemComponent.h"
 #include "BlackoutDedicatedSessionSubsystem.h"
 #include "Kismet/GameplayStatics.h"
 #include  "Engine/GameInstance.h"
+#include "BlackoutMatchFlowSubsystem.h"
+
+namespace
+{
+	bool IsActiveCombatState(EBlackoutMatchState MatchState)
+	{
+		return MatchState == EBlackoutMatchState::InCombat
+			|| MatchState == EBlackoutMatchState::MidBossCombat
+			|| MatchState == EBlackoutMatchState::MainBossCombat;
+	}
+}
 
 UClass* ABlackoutBattleGameMode::
 GetDefaultPawnClassForController_Implementation(AController* InController)
@@ -26,13 +40,34 @@ GetDefaultPawnClassForController_Implementation(AController* InController)
 		return Cached->Get();
 	}
 
+	// SelectedClassTag 우선
+	const ABlackoutGameState* GS = GetGameState<ABlackoutGameState>();
+	if (const UBOCharacterRoster* CharacterRoster = GS? GS->CharacterRoster : nullptr )
+	{
+		if (const ABlackoutPlayerState* PS = InController
+			                                     ? InController->GetPlayerState<
+				                                     ABlackoutPlayerState>()
+			                                     : nullptr)
+		{
+			if (PS->SelectedClassTag.IsValid())
+			{
+				if (TSubclassOf<APawn> SelectedClass = CharacterRoster->
+					FindPawnClassByTag(PS->SelectedClassTag))
+				{
+					ControllerToClass.Add(InController, SelectedClass);
+					return SelectedClass.Get();
+				}
+			}
+		}
+	}
+
 	const int32 ClassIndex = NextPlayerClassIndex % PlayerClassPool.Num();
 	const TSubclassOf<APawn> SelectedPawn = PlayerClassPool[ClassIndex];
 	ControllerToClass.Add(InController, SelectedPawn);
 	++NextPlayerClassIndex;
 
 	BO_LOG_NET(Log, "플레이어 #%d 클래스 분배 - %s",
-	NextPlayerClassIndex, *GetNameSafe(SelectedPawn.Get()));
+	           NextPlayerClassIndex, *GetNameSafe(SelectedPawn.Get()));
 
 	return SelectedPawn.Get();
 }
@@ -51,26 +86,8 @@ void ABlackoutBattleGameMode::OnPlayerJoined(APlayerController* NewPlayer)
 		PS->ApplyBattleTransitionPolicy(EBattleTransitionType::LobbyToBattle);
 	}
 
-	// InCombat/Ended 이후는 재접속으로 되돌리지 않음. InLobby/Starting 에서만 InCombatReady 진입 허용.
-	// ServerTravel 직후 Battle GameState 는 InLobby 로 새로 생성됨 — Lobby 의 Starting 값은 승계 안됨.
-	if (ConnectedPlayers.Num() == MaxPlayers)
-	{
-		if (ABlackoutGameState* GS = GetGameState<ABlackoutGameState>())
-		{
-			if (GS->CurrentMatchState == EBlackoutMatchState::InLobby ||
-				GS->CurrentMatchState == EBlackoutMatchState::Starting)
-			{
-				if (bAutoStartOnFull)
-				{
-					GS->SetMatchState(EBlackoutMatchState::InCombat);
-					BO_LOG_NET(Log, "정원 충족 - 자동 InCombat (시연 모드)");
-				}else
-				{
-				GS->SetMatchState(EBlackoutMatchState::InCombatReady);
-				}
-			}
-		}
-	}
+	// 보스맵 전투 시작은 HandleSeamlessTravelPlayer → StartBossCombat 로 처리 (seamless).
+	// 구 ShelterPrep 전이 / bAutoStartOnFull(테스트) 는 단일맵 잔재라 제거됨.
 }
 
 void ABlackoutBattleGameMode::OnPlayerLeft(AController* Exiting)
@@ -81,26 +98,69 @@ void ABlackoutBattleGameMode::OnPlayerLeft(AController* Exiting)
 	}
 }
 
-// 전원 Ready 시 InCombat 전환 + 보스 활성화 훅. 실제 보스 활성 로직은 전투팀 합류 시 연결.
-void ABlackoutBattleGameMode::OnAllPlayersReady()
+void ABlackoutBattleGameMode::OnSeamlessArrival(APlayerController* PC)
 {
-	if (ABlackoutGameState* GS = GetGameState<ABlackoutGameState>())
+	if (ConnectedPlayers.Num() == MaxPlayers)
 	{
-		GS->SetMatchState(EBlackoutMatchState::InCombat);
+		StartBossCombat();
 	}
-	BO_LOG_NET(Log, "전원 Ready — InCombat 진입. 보스 활성화 훅 호출 대상");
 }
 
-// 화톳불 상호작용 시 호출되어 현재 체크포인트 액터 갱신.
-void ABlackoutBattleGameMode::HandleCheckpoint(AActor* BonfireActor)
+
+
+void ABlackoutBattleGameMode::Logout(AController* Exiting)
 {
-	if (!BonfireActor)
+	// Super::Logout 호출 시 PlayerArray에서 PS가 제거되고 폰이 정리될 수 있으므로,
+	// 이탈자를 ViewTarget으로 보고 있는 관전자들을 먼저 재지정합니다.
+	if (const APlayerController* ExitingController = Cast<
+		APlayerController>(Exiting))
 	{
-		return;
+		if (ABlackoutPlayerCharacter* ExitingCharacter = Cast<
+			ABlackoutPlayerCharacter>(ExitingController->GetPawn()))
+		{
+			RefreshSpectatorsForDeadTarget(ExitingCharacter);
+		}
 	}
 
-	CurrentCheckpointActor = BonfireActor;
-	BO_LOG_NET(Log, "체크포인트 갱신: %s", *BonfireActor->GetName());
+	Super::Logout(Exiting);
+}
+
+
+void ABlackoutBattleGameMode::OnBossDefeated()
+{
+	
+	UBlackoutMatchFlowSubsystem* Flow = GetGameInstance() ? GetGameInstance()->GetSubsystem<UBlackoutMatchFlowSubsystem>() : nullptr;
+	
+	if (!Flow)
+	{
+		BO_LOG_NET(Error, "OnBossDefeated: MatchFlowSubsystem 없음");
+		return;
+	}
+	
+	if (Flow->GetCurrentBossType() == EBossType::Mid)
+	{
+		Flow->AdvanceStage();
+		BO_LOG_NET(Log, "중간보스 처치 — AdvanceStage + 로비 복귀");
+		TravelToLobby(FLinearColor::White);
+	}
+	else
+	{
+		BO_LOG_NET(Log, "메인보스 처치 — 5초 후 타이틀 복귀");
+		EndMatch(EBlackoutMatchEndReason::BossDefeated);
+		GetWorldTimerManager().SetTimer(TitleTravelTimerHandle , this , &ABlackoutBattleGameMode::TravelToTitle ,5.0f , false);
+	}
+}
+
+void ABlackoutBattleGameMode::BO_SimBossDefeated()
+{
+	BO_LOG_NET(Warning, "[테스트] BO_SimMidBossDefeated — 중간 보스 처치 시뮬레이션");
+	OnBossDefeated();
+}
+
+void ABlackoutBattleGameMode::BO_SimPartyWipe()
+{
+	BO_LOG_NET(Warning, "[테스트] BO_SimPartyWipe — 파티 전멸 시뮬레이션");
+	HandlePartyWipe();
 }
 
 void ABlackoutBattleGameMode::InitGame(const FString& MapName,
@@ -135,6 +195,77 @@ void ABlackoutBattleGameMode::InitGame(const FString& MapName,
 	DedicatedSessionSubsystem->SetSessionId(SessionId);
 	BO_LOG_NET(Log, "BattleGameMode InitGame -SessionId=%s 보관", *SessionId);
 }
+
+void ABlackoutBattleGameMode::RespawnPlayerWithSelectedClass(
+	APlayerController* InController)
+{
+	
+	// 캐시 무효화
+	if (InController)
+	{
+		ControllerToClass.Remove(InController);
+	}
+	
+	Super::RespawnPlayerWithSelectedClass(InController);
+}
+
+void ABlackoutBattleGameMode::InitGameState()
+{
+	Super::InitGameState();
+
+	if (ABlackoutGameState* GS = GetGameState<ABlackoutGameState>())
+	{
+		GS->SetMatchState(EBlackoutMatchState::WaitingForPlayers);
+		// 초기 상태(전이표 비대상)
+	}
+}
+
+void ABlackoutBattleGameMode::PreLogin(const FString& Options,
+                                       const FString& Address,
+                                       const FUniqueNetIdRepl& UniqueId,
+                                       FString& ErrorMessage)
+{
+	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
+	if (!ErrorMessage.IsEmpty())
+	{
+		return; // 상위에서 이미 거부
+	}
+
+	if (const ABlackoutGameState* GS = GetGameState<ABlackoutGameState>())
+	{
+		if (GS->CurrentMatchState != EBlackoutMatchState::WaitingForPlayers)
+		{
+			// ErrorMessage 가 비어있지 않으면 엔진이 접속을 거부한다.
+			ErrorMessage = TEXT("Match already in progress");
+			BO_LOG_NET(Warning, "PreLogin 거부 — 매치 진행 중 (state=%s)",
+			           *UEnum::GetValueAsString(GS->CurrentMatchState));
+		}
+	}
+}
+
+void ABlackoutBattleGameMode::TravelToLobby(FLinearColor FadeColor)
+{
+	if (bTravelInitiated)
+	{
+		BO_LOG_NET(Warning, "TravelToLobby 중복 호출 무시 — ServerTravel 진행 중");
+		return;
+	}
+	if (!LobbyMapPath.IsValid())
+	{
+		BO_LOG_NET(Error, "TravelToLobby 실패: LobbyMapPath 미설정 (BP_BlackoutBattleGameMode 확인)");
+		return;
+	}
+	bTravelInitiated = true;
+	if (ABlackoutGameState* GS = GetGameState<ABlackoutGameState>())
+	{
+		GS->SetMatchState(EBlackoutMatchState::Starting);
+	}
+	BroadcastScreenFadeOut(FadeColor);
+	GetWorldTimerManager().SetTimer(FadeTravelTimerHandle, this,
+		&ABlackoutBattleGameMode::DoTravelToLobby, FadeOutTravelDelay, false);
+}
+
+
 
 void ABlackoutBattleGameMode::EndMatch(EBlackoutMatchEndReason Reason)
 {
@@ -176,57 +307,599 @@ void ABlackoutBattleGameMode::EndMatch(EBlackoutMatchEndReason Reason)
 	}
 }
 
+void ABlackoutBattleGameMode::NotifyPlayerFullyDead(
+	ABlackoutPlayerCharacter* DeadPlayer)
+{
+	if (!DeadPlayer)
+	{
+		BO_LOG_NET(Warning, "완전 사망 알림 무시: DeadPlayer가 비어 있음");
+		return;
+	}
+
+	BO_LOG_NET(Log, "플레이어 완전 사망 감지: %s", *GetNameSafe(DeadPlayer));
+	RefreshSpectatorsForDeadTarget(DeadPlayer);
+
+	if (ABlackoutPlayerController* DeadPlayerController = Cast<
+		ABlackoutPlayerController>(DeadPlayer->GetController()))
+	{
+		AssignSpectateTargetForDeadPlayer(DeadPlayerController);
+	}
+	else
+	{
+		BO_LOG_NET(Warning, "관전 전환 실패: 사망 플레이어 컨트롤러를 찾을 수 없음 Player=%s",
+		           *GetNameSafe(DeadPlayer));
+	}
+
+	EvaluatePartyWipe();
+}
+
+void ABlackoutBattleGameMode::EvaluatePartyWipe()
+{
+	ABlackoutGameState* BlackoutGameState = GetGameState<ABlackoutGameState>();
+	if (!BlackoutGameState)
+	{
+		BO_LOG_NET(Error, "전멸 평가 실패: GameState가 비어 있음");
+		return;
+	}
+
+	// 비전투 페이즈(쉘터/대기/종료)에서는 평가하지 않음.
+	// 레거시 InCombat 값은 의도적으로 미포함 — 새 런-페이즈에서는 진입하지 않음.
+	const EBlackoutMatchState MS = BlackoutGameState->CurrentMatchState;
+	const bool bSkipEvaluation =
+		MS == EBlackoutMatchState::WaitingForPlayers ||
+		MS == EBlackoutMatchState::ShelterPrep ||
+		MS == EBlackoutMatchState::Ended;
+
+	if (bSkipEvaluation)
+	{
+		BO_LOG_NET(Verbose, "전멸 평가 스킵: 비전투 페이즈 State=%d",
+		           static_cast<int32>(MS));
+		return;
+	}
+
+	int32 AlivePlayers = 0;
+	for (APlayerState* PlayerStateBase : BlackoutGameState->PlayerArray)
+	{
+		ABlackoutPlayerState* BlackoutPlayerState = Cast<ABlackoutPlayerState>(
+			PlayerStateBase);
+		if (!BlackoutPlayerState)
+		{
+			continue;
+		}
+
+		APlayerController* PlayerController = BlackoutPlayerState->
+			GetPlayerController();
+		const ABlackoutPlayerCharacter* PlayerCharacter = PlayerController
+			? Cast<ABlackoutPlayerCharacter>(PlayerController->GetPawn())
+			: nullptr;
+
+		if (PlayerCharacter && !PlayerCharacter->IsDead())
+		{
+			++AlivePlayers;
+		}
+	}
+
+	BO_LOG_NET(Log, "전멸 평가: AlivePlayers=%d TotalPlayers=%d",
+	           AlivePlayers,
+	           BlackoutGameState->PlayerArray.Num());
+
+	if (AlivePlayers <= 0)
+	{
+		HandlePartyWipe();
+	}
+}
+
+ABlackoutPlayerCharacter* ABlackoutBattleGameMode::FindInitialSpectateTarget(
+	ABlackoutPlayerController* SpectatorController)
+{
+	ABlackoutGameState* BlackoutGameState = GetGameState<ABlackoutGameState>();
+	if (!BlackoutGameState)
+	{
+		BO_LOG_NET(Error, "관전 대상 탐색 실패: GameState가 비어 있음");
+		return nullptr;
+	}
+
+	const ABlackoutPlayerCharacter* SpectatorPawn = SpectatorController
+		                                                ? Cast<
+			                                                ABlackoutPlayerCharacter>(
+			                                                SpectatorController
+			                                                ->GetPawn())
+		                                                : nullptr;
+
+	for (APlayerState* PlayerStateBase : BlackoutGameState->PlayerArray)
+	{
+		const ABlackoutPlayerState* BlackoutPlayerState = Cast<
+			ABlackoutPlayerState>(PlayerStateBase);
+		if (!BlackoutPlayerState)
+		{
+			continue;
+		}
+
+		APlayerController* CandidateController = BlackoutPlayerState->
+			GetPlayerController();
+		ABlackoutPlayerCharacter* Candidate = CandidateController
+			                                      ? Cast<
+				                                      ABlackoutPlayerCharacter>(
+				                                      CandidateController->
+				                                      GetPawn())
+			                                      : nullptr;
+
+		if (!Candidate || Candidate == SpectatorPawn || Candidate->IsDead())
+		{
+			continue;
+		}
+
+		return Candidate;
+	}
+
+	return nullptr;
+}
+
+void ABlackoutBattleGameMode::AssignSpectateTargetForDeadPlayer(
+	ABlackoutPlayerController* SpectatorController)
+{
+	if (!SpectatorController)
+	{
+		BO_LOG_NET(Warning, "관전 대상 지정 실패: SpectatorController가 비어 있음");
+		return;
+	}
+
+	ABlackoutPlayerCharacter* SpectateTarget = FindInitialSpectateTarget(
+		SpectatorController);
+	if (!SpectateTarget)
+	{
+		// 살아있는 아군이 없으면 자기 시신을 ViewTarget으로 두어 0,0,0 카메라 점프를 막습니다.
+		if (APawn* OwnPawn = SpectatorController->GetPawn())
+		{
+			SpectatorController->EnterSpectatorMode();
+			SpectatorController->SetViewTargetWithBlend(OwnPawn, 0.35f);
+			SpectatorController->Client_SetSpectateTarget(OwnPawn, 0.35f);
+			BO_LOG_NET(Log, "관전 대상 폴백(자기 시신): Controller=%s",
+			           *GetNameSafe(SpectatorController));
+		}
+		else
+		{
+			BO_LOG_NET(Warning, "관전 대상 폴백 실패: Pawn이 비어 있음 Controller=%s",
+			           *GetNameSafe(SpectatorController));
+		}
+		return;
+	}
+
+	SpectatorController->EnterSpectatorMode();
+	SpectatorController->SetViewTargetWithBlend(SpectateTarget, 0.35f);
+	SpectatorController->Client_SetSpectateTarget(SpectateTarget, 0.35f);
+
+	BO_LOG_NET(Log,
+	           "관전 대상 지정: Spectator=%s Target=%s Downed=%s",
+	           *GetNameSafe(SpectatorController),
+	           *GetNameSafe(SpectateTarget),
+	           SpectateTarget->IsDowned() ? TEXT("true") : TEXT("false"));
+}
+
+void ABlackoutBattleGameMode::CycleSpectateTargetForSpectator(
+	ABlackoutPlayerController* SpectatorController, int32 Direction)
+{
+	if (!SpectatorController || !GameState)
+	{
+		return;
+	}
+
+	const ABlackoutPlayerCharacter* SpectatorPawn = Cast<
+		ABlackoutPlayerCharacter>(SpectatorController->GetPawn());
+	if (!SpectatorPawn || !SpectatorPawn->IsDead())
+	{
+		BO_LOG_NET(Verbose, "관전 대상 순환 무시: 사망 상태가 아닙니다. Controller=%s",
+		           *GetNameSafe(SpectatorController));
+		return;
+	}
+
+	// 후보 = 살아있는 다른 플레이어 캐릭터. 다운 상태도 후보에 포함합니다(설계 기준 살아있는 아군).
+	TArray<ABlackoutPlayerCharacter*> Candidates;
+	Candidates.Reserve(GameState->PlayerArray.Num());
+	for (APlayerState* PlayerStateBase : GameState->PlayerArray)
+	{
+		const ABlackoutPlayerState* BlackoutPlayerState = Cast<
+			ABlackoutPlayerState>(PlayerStateBase);
+		if (!BlackoutPlayerState)
+		{
+			continue;
+		}
+
+		APlayerController* CandidateController = BlackoutPlayerState->
+			GetPlayerController();
+		ABlackoutPlayerCharacter* Candidate = CandidateController
+			                                      ? Cast<
+				                                      ABlackoutPlayerCharacter>(
+				                                      CandidateController->
+				                                      GetPawn())
+			                                      : nullptr;
+		if (!Candidate || Candidate == SpectatorPawn || Candidate->IsDead())
+		{
+			continue;
+		}
+
+		Candidates.Add(Candidate);
+	}
+
+	if (Candidates.Num() == 0)
+	{
+		// 후보가 없으면 자기 시신으로 폴백해 카메라가 월드 원점으로 튀지 않게 합니다.
+		if (APawn* OwnPawn = SpectatorController->GetPawn())
+		{
+			SpectatorController->EnterSpectatorMode();
+			SpectatorController->SetViewTargetWithBlend(OwnPawn, 0.25f);
+			SpectatorController->Client_SetSpectateTarget(OwnPawn, 0.25f);
+		}
+		BO_LOG_NET(Log, "관전 대상 순환 실패(폴백 적용): 살아있는 아군이 없음 Controller=%s",
+		           *GetNameSafe(SpectatorController));
+		return;
+	}
+
+	const AActor* CurrentViewTarget = SpectatorController->GetViewTarget();
+	const int32 CurrentIndex = Candidates.IndexOfByPredicate(
+		[CurrentViewTarget](const ABlackoutPlayerCharacter* C)
+		{
+			return C == CurrentViewTarget;
+		});
+
+	const int32 Step = (Direction >= 0) ? 1 : -1;
+	const int32 NextIndex = (CurrentIndex == INDEX_NONE)
+		                        ? 0
+		                        : ((CurrentIndex + Step + Candidates.Num()) %
+			                        Candidates.Num());
+
+	ABlackoutPlayerCharacter* NextTarget = Candidates[NextIndex];
+	SpectatorController->EnterSpectatorMode();
+	SpectatorController->SetViewTargetWithBlend(NextTarget, 0.25f);
+	SpectatorController->Client_SetSpectateTarget(NextTarget, 0.25f);
+
+	BO_LOG_NET(Log,
+	           "관전 대상 순환: Spectator=%s Direction=%d Target=%s",
+	           *GetNameSafe(SpectatorController),
+	           Direction,
+	           *GetNameSafe(NextTarget));
+}
+
+void ABlackoutBattleGameMode::RefreshSpectatorsForDeadTarget(
+	ABlackoutPlayerCharacter* DeadTarget)
+{
+	if (!DeadTarget || !GameState)
+	{
+		return;
+	}
+
+	for (APlayerState* PlayerStateBase : GameState->PlayerArray)
+	{
+		const ABlackoutPlayerState* BlackoutPlayerState = Cast<
+			ABlackoutPlayerState>(PlayerStateBase);
+		if (!BlackoutPlayerState)
+		{
+			continue;
+		}
+
+		ABlackoutPlayerController* SpectatorController = Cast<
+			ABlackoutPlayerController>(
+			BlackoutPlayerState->GetPlayerController());
+		const ABlackoutPlayerCharacter* SpectatorPawn = SpectatorController
+			? Cast<ABlackoutPlayerCharacter>(SpectatorController->GetPawn())
+			: nullptr;
+
+		if (!SpectatorController || !SpectatorPawn || !SpectatorPawn->IsDead())
+		{
+			continue;
+		}
+
+		if (SpectatorController->GetViewTarget() == DeadTarget)
+		{
+			AssignSpectateTargetForDeadPlayer(SpectatorController);
+		}
+	}
+}
+
+void ABlackoutBattleGameMode::DoTravelToLobby()
+{
+	const FString PackageName = LobbyMapPath.GetLongPackageName();
+	BO_LOG_NET(Log, "TravelToLobby — ServerTravel -> %s", *PackageName);
+	GetWorld()->ServerTravel(PackageName);
+}
+
+void ABlackoutBattleGameMode::DoTravelToTitle()
+{
+	const FString URL = TitleMapPath.GetLongPackageName();
+	BO_LOG_NET(Log, "메인보스 클리어 — 전 클라 타이틀 ClientTravel -> %s", *URL);
+	for (const TObjectPtr<APlayerController>& PC : ConnectedPlayers)
+	{
+		if (PC)
+		{
+			PC ->ClientTravel(URL ,TRAVEL_Absolute);
+		}
+	}
+}
+
 // 파티 전멸 감지 시 호출. 체크포인트 텔레포트 + PartyWipeRestart 정책 + Ready 리셋 + InCombatReady 복귀.
 void ABlackoutBattleGameMode::HandlePartyWipe()
 {
 	Super::HandlePartyWipe();
 
+	TravelToLobby(FLinearColor::Black);
+}
+
+void ABlackoutBattleGameMode::StartSurrenderVote(ABlackoutPlayerController* Proposer)
+{
+	if (!Proposer || !GameState)
+	{
+		return;
+	}
+
+	ABlackoutGameState* GS = GetGameState<ABlackoutGameState>();
+	if (!GS)
+	{
+		return;
+	}
+
+	// 1. 쿨다운 검사
+	const float CurrentTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+	if (CurrentTime < GS->SurrenderVoteCooldownEndTime)
+	{
+		BO_LOG_NET(Warning, "항복 투표 발의 거부: 쿨다운 중입니다. (남은 시간: %.1fs)", GS->SurrenderVoteCooldownEndTime - CurrentTime);
+		return;
+	}
+
+	// 2. 매치 상태 검사 (전투 중이어야 함)
+	if (!IsActiveCombatState(GS->CurrentMatchState))
+	{
+		BO_LOG_NET(Warning, "항복 투표 발의 거부: 전투 중이 아닙니다. (State=%s)", *UEnum::GetValueAsString(GS->CurrentMatchState));
+		return;
+	}
+
+	// 3. 발의자 자격 검사 (쓰러졌거나 완전히 사망한 플레이어만 가능)
+	const ABlackoutPlayerCharacter* ProposerPawn = Cast<ABlackoutPlayerCharacter>(Proposer->GetPawn());
+	const bool bCanPropose = ProposerPawn && (ProposerPawn->IsDowned() || ProposerPawn->IsDead());
+	if (!bCanPropose)
+	{
+		BO_LOG_NET(Warning, "항복 투표 발의 거부: 생존자는 항복을 발의할 수 없습니다. (Proposer=%s)", *Proposer->GetName());
+		return;
+	}
+
+	// 4. 솔로 플레이어 예외 차단
+	if (GameState->PlayerArray.Num() <= 1)
+	{
+		BO_LOG_NET(Warning, "항복 투표 발의 거부: 1인 솔로 플레이 시에는 투표를 할 수 없습니다.");
+		return;
+	}
+
+	// 5. 이미 활성화된 투표가 있는 경우 무시
+	if (GS->bIsSurrenderVoteActive)
+	{
+		return;
+	}
+
+	BO_LOG_NET(Log, "항복 투표 발의 성공: 발의자=%s", *Proposer->GetName());
+
+	// 6. 상태 변수 초기화
+	GS->bIsSurrenderVoteActive = true;
+	GS->SurrenderVoteYesCount = 0;
+	GS->SurrenderVoteNoCount = 0;
+	GS->SurrenderVoteEndTimeSeconds = CurrentTime + 30.f;
+
+	for (APlayerState* PSBase : GameState->PlayerArray)
+	{
+		if (ABlackoutPlayerState* PS = Cast<ABlackoutPlayerState>(PSBase))
+		{
+			PS->bRequestedSurrender = false;
+			PS->bVotedAgainstSurrender = false;
+		}
+	}
+
+	// 7. 발의자 자동 찬성
+	if (ABlackoutPlayerState* ProposerPS = Proposer->GetPlayerState<ABlackoutPlayerState>())
+	{
+		ProposerPS->bRequestedSurrender = true;
+	}
+
+	// 8. 30초 타이머 예약
+	GetWorldTimerManager().ClearTimer(SurrenderVoteTimerHandle);
+	GetWorldTimerManager().SetTimer(
+		SurrenderVoteTimerHandle,
+		this,
+		&ABlackoutBattleGameMode::TimeoutSurrenderVote,
+		30.f,
+		false
+	);
+
+	// 9. 모든 플레이어에게 투표 IMC 푸시
+	SetAllPlayersSurrenderInputContextActive(true);
+
+	// 10. 투표 평가 실행
+	EvaluateSurrenderVote();
+}
+
+void ABlackoutBattleGameMode::CastSurrenderVote(ABlackoutPlayerController* Voter, bool bAgree)
+{
+	ABlackoutGameState* GS = GetGameState<ABlackoutGameState>();
+	if (!GS || !GS->bIsSurrenderVoteActive)
+	{
+		return;
+	}
+
+	ABlackoutPlayerState* VoterPS = Voter ? Voter->GetPlayerState<ABlackoutPlayerState>() : nullptr;
+	if (!VoterPS)
+	{
+		return;
+	}
+
+	VoterPS->bRequestedSurrender = bAgree;
+	VoterPS->bVotedAgainstSurrender = !bAgree;
+
+	BO_LOG_NET(Log, "투표 접수: %s -> %s", *Voter->GetName(), bAgree ? TEXT("찬성") : TEXT("반대"));
+
+	EvaluateSurrenderVote();
+}
+
+void ABlackoutBattleGameMode::EvaluateSurrenderVote()
+{
+	ABlackoutGameState* GS = GetGameState<ABlackoutGameState>();
+	if (!GS || !GS->bIsSurrenderVoteActive)
+	{
+		return;
+	}
+
+	const int32 TotalPlayerCount = GameState->PlayerArray.Num();
+	const int32 Required = FMath::Max(1, (TotalPlayerCount / 2) + 1);
+
+	int32 YesCount = 0;
+	int32 NoCount = 0;
+
+	for (APlayerState* PSBase : GameState->PlayerArray)
+	{
+		if (const ABlackoutPlayerState* PS = Cast<ABlackoutPlayerState>(PSBase))
+		{
+			if (PS->bRequestedSurrender)
+			{
+				++YesCount;
+			}
+			else if (PS->bVotedAgainstSurrender)
+			{
+				++NoCount;
+			}
+		}
+	}
+
+	GS->SurrenderVoteYesCount = YesCount;
+	GS->SurrenderVoteNoCount = NoCount;
+	GS->RequiredSurrenderVoteCount = Required;
+
+	BO_LOG_NET(Log, "항복 투표 평가: 찬성=%d, 반대=%d, 필요=%d, 접속인원=%d", YesCount, NoCount, Required, TotalPlayerCount);
+
+	// 가결 성공 조건
+	if (YesCount >= Required)
+	{
+		HandleSurrenderSuccess();
+		return;
+	}
+
+	// 조기 기각 조건 (반대표가 너무 많아 남은 미투표자가 전원 찬성해도 도달이 안 될 때)
+	if ((TotalPlayerCount - NoCount) < Required)
+	{
+		HandleSurrenderFailed(false);
+		return;
+	}
+
+	// 수치 변경을 델리게이트 브로드캐스트하여 동기화
+	GS->OnSurrenderVoteStateChanged.Broadcast(
+		GS->bIsSurrenderVoteActive,
+		YesCount,
+		NoCount,
+		GS->SurrenderVoteEndTimeSeconds
+	);
+}
+
+void ABlackoutBattleGameMode::TimeoutSurrenderVote()
+{
+	BO_LOG_NET(Log, "항복 투표 기각: 제한 시간(30초) 초과");
+	HandleSurrenderFailed(true);
+}
+
+void ABlackoutBattleGameMode::StartBossCombat()
+{
+	const UBlackoutMatchFlowSubsystem* Flow = GetGameInstance() ? GetGameInstance() ->GetSubsystem<UBlackoutMatchFlowSubsystem>() : nullptr;
+	
+	if (!Flow)
+	{
+		BO_LOG_NET(Error, "StartBossCombat: MatchFlowSubsystem 없음");
+		return;
+	}
+	
+	const EBlackoutMatchState NewState = (Flow ->GetCurrentBossType()== EBossType::Mid) ? EBlackoutMatchState::MidBossCombat : EBlackoutMatchState::MainBossCombat;
+	
+	TransitionTo(NewState);
+	BO_LOG_NET(Log, "보스맵 전원 도착 — 전투 시작 (%s)", *UEnum::GetValueAsString(NewState));
+}
+
+void ABlackoutBattleGameMode::TravelToTitle()
+{
+	if (!TitleMapPath.IsValid())
+	{
+		BO_LOG_NET(Error, "TravelToTitle 실패: TitleMapPath 미설정 (BP_BlackoutBattleGameMode 확인)");
+		return;
+	}
+	
+	BroadcastScreenFadeOut(FLinearColor::White);
+	GetWorldTimerManager().SetTimer(FadeTravelTimerHandle , this , &ABlackoutBattleGameMode::DoTravelToTitle , FadeOutTravelDelay , false);
+
+}
+
+void ABlackoutBattleGameMode::HandleSurrenderSuccess()
+{
+	BO_LOG_NET(Log, "항복 투표 가결 완료! 체크포인트로 퇴각합니다.");
+
+	GetWorldTimerManager().ClearTimer(SurrenderVoteTimerHandle);
+	SetAllPlayersSurrenderInputContextActive(false);
+
+	// 복귀 수행
+	HandlePartyWipe();
+
+	// 투표 데이터 정리
+	ClearSurrenderVotes();
+}
+
+void ABlackoutBattleGameMode::HandleSurrenderFailed(bool bIsTimeout)
+{
+	BO_LOG_NET(Log, "항복 투표 부결 및 기각 처리.");
+
+	GetWorldTimerManager().ClearTimer(SurrenderVoteTimerHandle);
+	SetAllPlayersSurrenderInputContextActive(false);
+
+	// 1분(60초) 발의 제한 쿨다운 설정
+	if (ABlackoutGameState* GS = GetGameState<ABlackoutGameState>())
+	{
+		const float CurrentTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+		GS->SurrenderVoteCooldownEndTime = CurrentTime + 60.f;
+	}
+
+	ClearSurrenderVotes();
+}
+
+void ABlackoutBattleGameMode::ClearSurrenderVotes()
+{
+	ABlackoutGameState* GS = GetGameState<ABlackoutGameState>();
+	if (!GS)
+	{
+		return;
+	}
+
+	GS->bIsSurrenderVoteActive = false;
+	GS->SurrenderVoteYesCount = 0;
+	GS->SurrenderVoteNoCount = 0;
+	GS->SurrenderVoteEndTimeSeconds = 0.f;
+
+	for (APlayerState* PSBase : GameState->PlayerArray)
+	{
+		if (ABlackoutPlayerState* PS = Cast<ABlackoutPlayerState>(PSBase))
+		{
+			PS->bRequestedSurrender = false;
+			PS->bVotedAgainstSurrender = false;
+		}
+	}
+
+	GS->OnSurrenderVoteStateChanged.Broadcast(false, 0, 0, 0.f);
+}
+
+void ABlackoutBattleGameMode::SetAllPlayersSurrenderInputContextActive(bool bActive)
+{
 	if (!GameState)
 	{
 		return;
 	}
 
-	const bool bHasCheckpoint = CurrentCheckpointActor != nullptr;
-	const FVector RespawnLocation = bHasCheckpoint
-		                                ? CurrentCheckpointActor->
-		                                GetActorLocation()
-		                                : FVector::ZeroVector;
-
-	for (APlayerState* PS : GameState->PlayerArray)
+	for (APlayerState* PSBase : GameState->PlayerArray)
 	{
-		ABlackoutPlayerState* BlackoutPS = Cast<ABlackoutPlayerState>(PS);
-		if (!BlackoutPS)
+		if (const ABlackoutPlayerState* PS = Cast<ABlackoutPlayerState>(PSBase))
 		{
-			continue;
-		}
-
-		BlackoutPS->bIsReady = false;
-		BlackoutPS->ApplyBattleTransitionPolicy(
-			EBattleTransitionType::PartyWipeRestart);
-
-		if (!bHasCheckpoint)
-		{
-			continue;
-		}
-
-		if (APlayerController* PC = BlackoutPS->GetPlayerController())
-		{
-			if (APawn* Pawn = PC->GetPawn())
+			if (ABlackoutPlayerController* PC = Cast<ABlackoutPlayerController>(PS->GetPlayerController()))
 			{
-				Pawn->SetActorLocation(RespawnLocation, false, nullptr,
-				                       ETeleportType::TeleportPhysics);
+				PC->Client_SetSurrenderInputContextActive(bActive);
 			}
 		}
 	}
-
-	if (ABlackoutGameState* GS = GetGameState<ABlackoutGameState>())
-	{
-		GS->SetMatchState(EBlackoutMatchState::InCombatReady);
-	}
-
-	const FString Location = bHasCheckpoint
-		                         ? CurrentCheckpointActor->GetName()
-		                         : TEXT("none");
-	BO_LOG_NET(Log, "파티 전멸 - 체크포인트 복귀 + Ready 재요청 (CurrentCheckpoint=%s)",
-	           *Location);
 }

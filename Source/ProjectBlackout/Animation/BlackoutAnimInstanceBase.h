@@ -53,6 +53,10 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Animation")
 	bool bIsDowned;
 
+	/** 사망 상태 여부 */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Animation")
+	bool bIsDead;
+
 	/** 행동 제약 상태 여부 (State.Locked 태그 기반) */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Animation")
 	bool bIsLocked;

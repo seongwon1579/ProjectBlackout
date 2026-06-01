@@ -10,6 +10,9 @@ class UInputMappingContext;
 class UInputAction;
 class UBlackoutAbilitySystemComponent;
 class UBlackoutCombatComponent;
+class AActor;
+class UBlackoutClassSelectWidget;
+class UBlackoutClassSelectWidgetController;
 
 UCLASS()
 class PROJECTBLACKOUT_API ABlackoutPlayerController : public APlayerController
@@ -42,7 +45,69 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Controller")
 	void EnterSpectatorMode();
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Controller")
+	void ExitSpectatorMode();
+
+	UFUNCTION(Client, Reliable, Category = "Blackout|Controller")
+	void Client_SetSpectateTarget(AActor* TargetActor, float BlendTime);
+
+	UFUNCTION(Client, Reliable, Category = "Blackout|Controller")
+	void Client_ReturnToOwnPawnView(float BlendTime);
+
+	/**
+	 * 사망한 관전 플레이어가 A/D 입력으로 관전 대상을 순환할 때 서버에 요청합니다.
+	 * 서버가 살아있는 아군 중 현재 대상의 이전/다음을 찾아 ViewTarget을 변경합니다.
+	 * @param Direction -1=이전, +1=다음.
+	 */
+	UFUNCTION(Server, Reliable, Category = "Blackout|Controller|Spectator")
+	void Server_CycleSpectateTarget(int32 Direction);
+
+	/** 쓰러지거나 완전 사망한 상태에서 항복 투표 개시 요청 */
+	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "Blackout|Controller|Surrender")
+	void Server_RequestSurrenderVote();
+
+	/** 개시된 항복 투표에 대해 찬성/반대 투표 행사 */
+	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "Blackout|Controller|Surrender")
+	void Server_CastSurrenderVote(bool bAgree);
+
+	/** 항복 투표 활성화 시 동적으로 찬성/반대 조작 IMC를 푸시/팝 하기 위한 클라이언트 RPC */
+	UFUNCTION(Client, Reliable, Category = "Blackout|Controller|Surrender")
+	void Client_SetSurrenderInputContextActive(bool bActive);
 	
+	/** ESC 또는 OnSelectionConfirmed 후 자동 호출. Widget 정리 + IMC 원복. */
+	UFUNCTION(BlueprintCallable,Category="Blackout|ClassSelect")
+	void CloseClassSelectUI();
+	
+	/** 레벨 전환 전 , 서버가 각 클라 화면을 페이드아웃 */
+	UFUNCTION(Client,Reliable , Category="Blackout|Controller|Transition")
+	void Client_StartScreenFadeOut(FLinearColor FadeColor);
+	
+private:
+	/** 페이드 지속시간 */
+	UPROPERTY(EditDefaultsOnly , Category="Blackout|Transition")
+	float ScreenFadeDuration = 1.2f;
+	
+	/** 페이드 아웃에 쓴 색 보관 -> 도착후 페이드 인에 재사용 */
+	FLinearColor LastFadeColor = FLinearColor::Black;
+	
+	/** 전환 페이드 진행 중 플래그, 도착시 페이드 인 여부 판정 */
+	bool bScreenFadePending = false;
+	
+	/** 도착 후 화면 복귀 */
+	void StartScreenFadeIn();
+	
+
+#if WITH_EDITOR || UE_BUILD_DEVELOPMENT
+public:
+	/** 디버그용 게임 진행 상태(MatchState) 강제 설정 콘솔 명령어 */
+	UFUNCTION(Exec, Category = "Blackout|Cheat")
+	void BO_SetMatchState(const FString& NewStateStr);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_SetMatchStateCheat(EBlackoutMatchState NewState);
+#endif
+
 #pragma region InputSetup
 protected:
 	virtual void OnPossess(APawn* InPawn) override;
@@ -54,6 +119,32 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input")
 	TObjectPtr<UInputMappingContext> MouseLookMappingContext;
+
+	/** 사망 후 관전 상태일 때만 활성화되는 입력 매핑 컨텍스트입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input|Spectator")
+	TObjectPtr<UInputMappingContext> SpectatorMappingContext;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input|Spectator")
+	TObjectPtr<UInputAction> SpectatePrevAction;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input|Spectator")
+	TObjectPtr<UInputAction> SpectateNextAction;
+
+	/** 항복 투표가 활성화되었을 때 로컬 플레이어에게 동적으로 밀어 넣는 입력 매핑 컨텍스트입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input|Surrender")
+	TObjectPtr<UInputMappingContext> SurrenderVoteMappingContext;
+
+	/** 항복 투표 발의(최초 요청)용 입력 액션 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input|Surrender")
+	TObjectPtr<UInputAction> RequestSurrenderAction;
+
+	/** 찬성 투표용 입력 액션 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input|Surrender")
+	TObjectPtr<UInputAction> VoteYesAction;
+
+	/** 반대 투표용 입력 액션 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input|Surrender")
+	TObjectPtr<UInputAction> VoteNoAction;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input")
 	TObjectPtr<UInputAction> FireAction;
@@ -87,6 +178,40 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input")
 	TObjectPtr<UInputAction> UseRelicAction;
+	
+	/** 캐릭터 선택 UI 활성 시에만 사용하는 입력 컨텍스트 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input|ClassSelect")
+	TObjectPtr<UInputMappingContext> ClassSelectMappingContext;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|ClassSelect")
+	TObjectPtr<UInputAction> ClassSelectNextAction;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|ClassSelect")
+	TObjectPtr<UInputAction> ClassSelectPrevAction;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input|ClassSelect")
+	TObjectPtr<UInputAction> ClassSelectConfirmAction;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input|ClassSelect")
+	TObjectPtr<UInputAction> ClassSelectCancelAction;
+	
+	/** UMG 위젯 클래스 WBP_ClassSelect */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly,Category="Blackout|ClassSelect")
+	TSubclassOf<UBlackoutClassSelectWidget> ClassSelectWidgetClass;
+	
+	UPROPERTY(Transient)
+	TObjectPtr<UBlackoutClassSelectWidget> ClassSelectWidget;
+	
+	UPROPERTY(Transient)
+	TObjectPtr<UBlackoutClassSelectWidgetController> ClassSelectController;
+
+	void OnClassSelectNextPressed();
+	void OnClassSelectPrevPressed();
+	void OnClassSelectConfirmPressed();
+	void OnClassSelectCancelPressed();
+
+	UFUNCTION()
+	void HandleClassSelectionConfirmed();
 
 	void OnFirePressed();
 	void OnFireReleased();
@@ -106,6 +231,14 @@ protected:
 	void OnUseConsumable2Released();
 	void OnUseRelicPressed();
 	void OnUseRelicReleased();
+	void OnSpectatePrevPressed();
+	void OnSpectateNextPressed();
+	void OnVoteYesPressed();
+	void OnVoteNoPressed();
+	void OnRequestSurrenderPressed();
+
+	/** 관전 진입/이탈 시 SpectatorMappingContext를 푸시/팝합니다. */
+	void SetSpectatorInputContextActive(bool bActive);
 	
 	bool IsHitReactInputBlocked() const;
 

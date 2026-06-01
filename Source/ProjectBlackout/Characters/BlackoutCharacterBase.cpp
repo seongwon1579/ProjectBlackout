@@ -9,6 +9,7 @@
 #include "Framework/BlackoutPlayerController.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "GAS/Attributes/BlackoutBaseAttributeSet.h"
+#include "GAS/Effects/ExecCalc_CombatReward.h"
 #include "GameFramework/Controller.h"
 #include "GameFramework/Pawn.h"
 #include "Net/UnrealNetwork.h"
@@ -86,6 +87,48 @@ namespace
 		return nullptr;
 	}
 
+	const AActor* ResolveDamageSourceActor(const FGameplayEffectSpecHandle& SpecHandle)
+	{
+		if (!SpecHandle.IsValid() || !SpecHandle.Data.IsValid())
+		{
+			return nullptr;
+		}
+
+		const FGameplayEffectContextHandle& EffectContext = SpecHandle.Data->GetContext();
+		TArray<const AActor*, TInlineAllocator<4>> SourceCandidates;
+		SourceCandidates.Add(EffectContext.GetEffectCauser());
+		SourceCandidates.Add(EffectContext.GetInstigator());
+		SourceCandidates.Add(EffectContext.GetOriginalInstigator());
+
+		if (const UObject* SourceObject = EffectContext.GetSourceObject())
+		{
+			if (const AActor* SourceActor = Cast<AActor>(SourceObject))
+			{
+				SourceCandidates.Add(SourceActor);
+			}
+		}
+
+		for (const AActor* SourceCandidate : SourceCandidates)
+		{
+			if (IsValid(SourceCandidate))
+			{
+				return SourceCandidate;
+			}
+		}
+
+		return nullptr;
+	}
+
+	FVector ResolveDamageSourceWorldLocation(const FGameplayEffectSpecHandle& SpecHandle, const AActor* FallbackTargetActor)
+	{
+		if (const AActor* DamageSourceActor = ResolveDamageSourceActor(SpecHandle))
+		{
+			return DamageSourceActor->GetActorLocation();
+		}
+
+		return FallbackTargetActor ? FallbackTargetActor->GetActorLocation() : FVector::ZeroVector;
+	}
+
 	FVector ResolveDamageNumberWorldLocation(const ABlackoutCharacterBase* TargetCharacter, FName BoneName)
 	{
 		if (!TargetCharacter)
@@ -141,7 +184,10 @@ ABlackoutCharacterBase::ABlackoutCharacterBase(const FObjectInitializer& ObjectI
 	PrimaryActorTick.bCanEverTick = false;
 	bReplicates = true;
 
-	GetCapsuleComponent()->SetCollisionResponseToChannel(BlackoutCollisionChannels::WeaponTrace, ECR_Block);
+	// 캡슐 콜리전은 무기 판정용으로 쓰지 않는다.
+	GetCapsuleComponent()->SetCollisionResponseToChannel(BlackoutCollisionChannels::WeaponTrace, ECR_Ignore);
+	
+	// 메시 내의 Physics Asset을 무기 판정용으로 사용한다.
 	GetMesh()->SetCollisionResponseToChannel(BlackoutCollisionChannels::WeaponTrace, ECR_Block);
 }
 
@@ -149,20 +195,31 @@ void ABlackoutCharacterBase::BeginPlay()
 {
 	Super::BeginPlay();
 
-	GetCapsuleComponent()->SetCollisionResponseToChannel(BlackoutCollisionChannels::WeaponTrace, ECR_Block);
+	// 혹시 모르니 BeginPlay에서 한번 더 덮어씌운다.
+	GetCapsuleComponent()->SetCollisionResponseToChannel(BlackoutCollisionChannels::WeaponTrace, ECR_Ignore);
 	GetMesh()->SetCollisionResponseToChannel(BlackoutCollisionChannels::WeaponTrace, ECR_Block);
+
+	BindDownedStateTagEvent();
 }
 
 void ABlackoutCharacterBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(ABlackoutCharacterBase, bIsDowned);
+	DOREPLIFETIME(ABlackoutCharacterBase, bIsDead);
+	DOREPLIFETIME(ABlackoutCharacterBase, bReplicatedDownedStateTag);
 }
 
 UAbilitySystemComponent* ABlackoutCharacterBase::GetAbilitySystemComponent() const
 {
 	return AbilitySystemComponent;
+}
+
+bool ABlackoutCharacterBase::IsDowned() const
+{
+	return AbilitySystemComponent
+		? AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Downed)
+		: bCachedIsDowned;
 }
 
 FGameplayTag ABlackoutCharacterBase::GetHitPartTag(FName BoneName) const
@@ -194,6 +251,13 @@ bool ABlackoutCharacterBase::ApplyIncomingDamageSpec(const FGameplayEffectSpecHa
 
 	const float HealthBefore =
 		AbilitySystemComponent->GetNumericAttribute(UBlackoutBaseAttributeSet::GetHealthAttribute());
+	const FGameplayTag HitPartTag = GetHitPartTag(BoneName);
+
+	// 약점 치명타 처치 보상은 실제 사망 확정 직후 같은 Spec으로 판정되므로, 데미지 적용 전에 태그를 보강합니다.
+	if (IsCriticalDamageSpec(SpecHandle, HitPartTag))
+	{
+		SpecHandle.Data->AddDynamicAssetTag(BlackoutGameplayTags::Kill_WeakSpot);
+	}
 
 	AbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
 
@@ -205,7 +269,7 @@ bool ABlackoutCharacterBase::ApplyIncomingDamageSpec(const FGameplayEffectSpecHa
 	{
 		if (ABlackoutPlayerController* SourcePlayerController = ResolveDamageNumberOwner(SpecHandle))
 		{
-			const bool bIsCritical = IsCriticalDamageSpec(SpecHandle, GetHitPartTag(BoneName));
+			const bool bIsCritical = IsCriticalDamageSpec(SpecHandle, HitPartTag);
 			const FVector DamageNumberWorldLocation = ResolveDamageNumberWorldLocation(this, BoneName);
 
 			// 실제 적용된 데미지만 서버에서 계산해 사격한 클라 HUD로 전달합니다.
@@ -224,13 +288,16 @@ bool ABlackoutCharacterBase::ApplyIncomingDamageSpec(const FGameplayEffectSpecHa
 			return true;
 		}
 
+		// 치명 피해 확정 직후, State.Dead 부여와 풀 반환 사이드 이펙트가 실행되기 전에 보상 GE를 먼저 적용합니다.
+		UExecCalc_CombatReward::ApplyConfiguredRewardEffect(SpecHandle, AbilitySystemComponent);
 		OnDeath();
 		return true;
 	}
 
 	if (HealthAfter < HealthBefore)
 	{
-		OnHitReact();
+		const FVector DamageSourceLocation = ResolveDamageSourceWorldLocation(SpecHandle, this);
+		OnHitReact(AppliedDamage, DamageSourceLocation);
 		return true;
 	}
 
@@ -249,13 +316,18 @@ void ABlackoutCharacterBase::OnDeath()
 		return;
 	}
 
-	bIsDead = true;
-	bIsDowned = false;
+	const bool bWasDowned = IsDowned();
+	SetDeadStateActive(true);
+	SetDownedStateActive(false);
 
 	if (AbilitySystemComponent)
 	{
 		AbilitySystemComponent->CancelHealthRegenOverTime();
-		AbilitySystemComponent->RemoveLooseGameplayTag(BlackoutGameplayTags::State_Downed);
+	}
+
+	if (bWasDowned)
+	{
+		RefreshDownedPresentationCache();
 	}
 
 	BO_LOG_CORE(Log, "OnDeath: %s", *GetName());
@@ -263,17 +335,16 @@ void ABlackoutCharacterBase::OnDeath()
 
 void ABlackoutCharacterBase::OnDowned()
 {
-	if (bIsDead || bIsDowned)
+	if (bIsDead || IsDowned())
 	{
 		return;
 	}
 
-	bIsDowned = true;
+	SetDownedStateActive(true);
 
 	if (AbilitySystemComponent)
 	{
 		AbilitySystemComponent->CancelHealthRegenOverTime();
-		AbilitySystemComponent->AddLooseGameplayTag(BlackoutGameplayTags::State_Downed);
 	}
 
 	BO_LOG_CORE(Log, "OnDowned: %s", *GetName());
@@ -284,24 +355,219 @@ bool ABlackoutCharacterBase::CanEnterDownedState() const
 	return false;
 }
 
-void ABlackoutCharacterBase::OnHitReact()
+void ABlackoutCharacterBase::OnHitReact(float AppliedDamage, const FVector& DamageSourceLocation)
 {
+	(void)AppliedDamage;
+	(void)DamageSourceLocation;
 }
 
 void ABlackoutCharacterBase::OnStun()
 {
 }
 
-void ABlackoutCharacterBase::OnRep_DownedState()
+void ABlackoutCharacterBase::HandleDownedStateChanged(bool bWasDowned, bool bIsDowned)
 {
-	BO_LOG_CORE(Log,
-		"OnRep_DownedState: %s Downed=%s",
-		*GetNameSafe(this),
-		bIsDowned ? TEXT("true") : TEXT("false"));
-
-	HandleDownedStateChanged();
 }
 
-void ABlackoutCharacterBase::HandleDownedStateChanged()
+void ABlackoutCharacterBase::BindDownedStateTagEvent()
 {
+	if (!AbilitySystemComponent)
+	{
+		return;
+	}
+
+	if (BoundDownedTagAbilitySystemComponent.Get() == AbilitySystemComponent && DownedTagChangedHandle.IsValid())
+	{
+		ApplyReplicatedDownedStateTag();
+		ApplyReplicatedDeadStateTag();
+		RefreshDownedPresentationCache();
+		return;
+	}
+
+	if (UAbilitySystemComponent* PreviousAbilitySystemComponent = BoundDownedTagAbilitySystemComponent.Get())
+	{
+		if (DownedTagChangedHandle.IsValid())
+		{
+			PreviousAbilitySystemComponent
+				->RegisterGameplayTagEvent(BlackoutGameplayTags::State_Downed, EGameplayTagEventType::NewOrRemoved)
+				.Remove(DownedTagChangedHandle);
+		}
+	}
+
+	DownedTagChangedHandle = AbilitySystemComponent
+		->RegisterGameplayTagEvent(BlackoutGameplayTags::State_Downed, EGameplayTagEventType::NewOrRemoved)
+		.AddUObject(this, &ABlackoutCharacterBase::HandleDownedTagChanged);
+	BoundDownedTagAbilitySystemComponent = AbilitySystemComponent;
+
+	ApplyReplicatedDownedStateTag();
+	ApplyReplicatedDeadStateTag();
+	RefreshDownedPresentationCache();
+}
+
+void ABlackoutCharacterBase::SetDownedStateActive(bool bNewDowned)
+{
+	if (HasAuthority())
+	{
+		bReplicatedDownedStateTag = bNewDowned;
+	}
+
+	if (!AbilitySystemComponent)
+	{
+		SetDownedPresentationCache(bNewDowned);
+		return;
+	}
+
+	if (bNewDowned)
+	{
+		if (!AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Downed))
+		{
+			AbilitySystemComponent->AddLooseGameplayTag(BlackoutGameplayTags::State_Downed);
+		}
+	}
+	else
+	{
+		AbilitySystemComponent->RemoveLooseGameplayTag(BlackoutGameplayTags::State_Downed);
+	}
+
+	RefreshDownedPresentationCache();
+}
+
+void ABlackoutCharacterBase::SetDeadStateActive(bool bNewDead)
+{
+	if (HasAuthority())
+	{
+		bIsDead = bNewDead;
+
+		// 서버 측에서도 즉시 캡슐 충돌 설정을 변경하여 플레이어 및 에네미 사망 시 동기화를 일치시킵니다.
+		if (UCapsuleComponent* CapsuleComp = GetCapsuleComponent())
+		{
+			CapsuleComp->SetCollisionResponseToChannel(ECC_Pawn, bNewDead ? ECR_Ignore : ECR_Block);
+			CapsuleComp->SetCollisionResponseToChannel(ECC_Camera, bNewDead ? ECR_Ignore : ECR_Block);
+		}
+	}
+
+	if (!AbilitySystemComponent)
+	{
+		return;
+	}
+
+	if (bNewDead)
+	{
+		if (!AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Dead))
+		{
+			AbilitySystemComponent->AddLooseGameplayTag(BlackoutGameplayTags::State_Dead);
+		}
+	}
+	else
+	{
+		AbilitySystemComponent->RemoveLooseGameplayTag(BlackoutGameplayTags::State_Dead);
+	}
+}
+
+void ABlackoutCharacterBase::ApplyReplicatedDownedStateTag()
+{
+	if (HasAuthority() || !AbilitySystemComponent)
+	{
+		return;
+	}
+
+	if (bReplicatedDownedStateTag)
+	{
+		if (!AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Downed))
+		{
+			AbilitySystemComponent->AddLooseGameplayTag(BlackoutGameplayTags::State_Downed);
+		}
+	}
+	else
+	{
+		AbilitySystemComponent->RemoveLooseGameplayTag(BlackoutGameplayTags::State_Downed);
+	}
+}
+
+void ABlackoutCharacterBase::ApplyReplicatedDeadStateTag()
+{
+	if (HasAuthority() || !AbilitySystemComponent)
+	{
+		return;
+	}
+
+	if (bIsDead)
+	{
+		if (!AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Dead))
+		{
+			AbilitySystemComponent->AddLooseGameplayTag(BlackoutGameplayTags::State_Dead);
+		}
+	}
+	else
+	{
+		AbilitySystemComponent->RemoveLooseGameplayTag(BlackoutGameplayTags::State_Dead);
+	}
+}
+
+void ABlackoutCharacterBase::RefreshDownedPresentationCache()
+{
+	SetDownedPresentationCache(IsDowned());
+}
+
+void ABlackoutCharacterBase::HandleDownedTagChanged(const FGameplayTag CallbackTag, int32 NewCount)
+{
+	SetDownedPresentationCache(NewCount > 0);
+}
+
+void ABlackoutCharacterBase::SetDownedPresentationCache(bool bNewDowned)
+{
+	if (bCachedIsDowned == bNewDowned)
+	{
+		return;
+	}
+
+	const bool bWasDowned = bCachedIsDowned;
+	bCachedIsDowned = bNewDowned;
+
+	BO_LOG_CORE(Log,
+		"Downed state changed: %s Downed=%s",
+		*GetNameSafe(this),
+		bCachedIsDowned ? TEXT("true") : TEXT("false"));
+
+	BroadcastDownedStateChanged();
+	HandleDownedStateChanged(bWasDowned, bCachedIsDowned);
+}
+
+void ABlackoutCharacterBase::OnRep_DownedStateTagBridge()
+{
+	if (!AbilitySystemComponent)
+	{
+		SetDownedPresentationCache(bReplicatedDownedStateTag);
+		return;
+	}
+
+	ApplyReplicatedDownedStateTag();
+	RefreshDownedPresentationCache();
+}
+
+void ABlackoutCharacterBase::OnRep_DeadStateTagBridge()
+{
+	ApplyReplicatedDeadStateTag();
+
+	if (UCapsuleComponent* CapsuleComp = GetCapsuleComponent())
+	{
+		if (bIsDead)
+		{
+			// 클라이언트 측 사망 복제 수신 시 폰 채널과의 충돌 반응을 무시로 전환하여 플레이어 캐릭터들이 통과할 수 있게 합니다.
+			CapsuleComp->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
+			CapsuleComp->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
+		}
+		else
+		{
+			// 부활 복제 수신 시 캡슐의 Pawn 충돌 반응을 다시 블록으로 원상복구합니다.
+			CapsuleComp->SetCollisionResponseToChannel(ECC_Pawn, ECR_Block);
+			CapsuleComp->SetCollisionResponseToChannel(ECC_Camera, ECR_Block);
+		}
+	}
+}
+
+void ABlackoutCharacterBase::BroadcastDownedStateChanged()
+{
+	OnDownedStateChanged.Broadcast(bCachedIsDowned);
+	OnDownedStateChangedNative.Broadcast(this, bCachedIsDowned);
 }

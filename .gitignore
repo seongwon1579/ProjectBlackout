@@ -1,6 +1,9 @@
 # Visual Studio 2015 user specific files
 .vs/
 
+# Rider 개인 설정 (사용자별)
+*.DotSettings.user
+
 # Compiled Object files
 *.slo
 *.lo

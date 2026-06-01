@@ -57,6 +57,7 @@ FHitResult ABOFirearm::Fire(const FVector& Direction, const FGameplayEffectSpecH
 
 			FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(BOFirearm_Fire), false, GetOwner());
 			QueryParams.AddIgnoredActor(this);
+			QueryParams.bReturnPhysicalMaterial = true;
 
 			World->LineTraceSingleByChannel(HitResult, TraceStart, TraceEnd, BlackoutCollisionChannels::WeaponTrace, QueryParams);
 			AActor* HitActor = HitResult.GetActor();
@@ -163,7 +164,7 @@ ABOProjectile* ABOFirearm::SpawnProjectile(const FVector& Direction, const FGame
 
 	Projectile->SetOwner(GetOwner());
 	Projectile->SetInstigator(Cast<APawn>(GetOwner()));
-	Projectile->InitFromSpec(DamageSpecHandle, GetSplashRadius());
+	Projectile->InitFromSpec(DamageSpecHandle, GetSplashRadius(), GetWeaponCueSet());
 	Projectile->Launch(SafeDirection);
 
 	return Projectile;

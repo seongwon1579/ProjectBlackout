@@ -27,6 +27,9 @@ public:
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
+	// Seamless Travel 시 새 PlayerState 로 보존 대상(SelectedClassTag) 복사.
+	virtual void CopyProperties(APlayerState* NewPlayerState) override;
+
 	UBlackoutAbilitySystemComponent* GetBlackoutAbilitySystemComponent() const { return AbilitySystemComponent; }
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|PlayerState")
@@ -46,6 +49,15 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|PlayerState|Consumables")
 	bool ConsumeConsumable(FGameplayTag ConsumableTag, int32 Amount = 1);
 
+	UFUNCTION(BlueprintPure, Category = "Blackout|PlayerState|State")
+	bool IsDowned() const;
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|PlayerState|State")
+	bool IsReviving() const;
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|PlayerState|State")
+	bool IsBeingRevived() const;
+
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Blackout|PlayerState")
 	FGameplayTag SelectedClassTag;
 
@@ -58,6 +70,12 @@ public:
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Blackout|PlayerState")
 	bool bIsReady = false;
 
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_SurrenderVoteState, Category = "Blackout|PlayerState")
+	bool bRequestedSurrender = false;
+
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_SurrenderVoteState, Category = "Blackout|PlayerState")
+	bool bVotedAgainstSurrender = false;
+
 	UPROPERTY(BlueprintAssignable, Category = "Blackout|PlayerState|Consumables")
 	FBlackoutConsumableCountsChangedSignature OnConsumableCountsChanged;
 
@@ -68,7 +86,12 @@ protected:
 	UFUNCTION()
 	void OnRep_GulSerumCount();
 
+	UFUNCTION()
+	void OnRep_SurrenderVoteState();
+
 	void BroadcastConsumableCounts();
+
+	bool HasStateTag(FGameplayTag StateTag) const;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|GAS")
 	TObjectPtr<UBlackoutAbilitySystemComponent> AbilitySystemComponent;
@@ -81,5 +104,8 @@ protected:
 
 	UPROPERTY()
 	TObjectPtr<const UBlackoutAmmoAttributeSet> AmmoAttributeSet;
+	
+private:
+	void RestoreAtCheckpoint();
 
 };

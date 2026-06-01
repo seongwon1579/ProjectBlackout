@@ -1,0 +1,43 @@
+// Fill out your copyright notice in the Description page of Project Settings.
+
+#pragma once
+
+#include "CoreMinimal.h"
+#include "GAS/Abilities/BlackoutEnemyGameplayAbility.h"
+#include "BlackoutGA_Shrewd_Base.generated.h"
+
+/**
+ * 
+ */
+UCLASS()
+class PROJECTBLACKOUT_API UBlackoutGA_Shrewd_Base : public UBlackoutEnemyGameplayAbility
+{
+	GENERATED_BODY()
+
+public:
+	UBlackoutGA_Shrewd_Base();
+
+protected:
+	UPROPERTY(EditAnywhere, Category = "Blackout")
+	TObjectPtr<UAnimMontage> Montage;
+
+	virtual void ActivateAbility(
+		const FGameplayAbilitySpecHandle Handle,
+		const FGameplayAbilityActorInfo* ActorInfo,
+		const FGameplayAbilityActivationInfo ActivationInfo,
+		const FGameplayEventData* TriggerEventData) override;
+
+	virtual void SetupEventListeners() {}
+
+	virtual void PrepareAbility() { FinishPrepare(true); }
+
+	void FinishPrepare(bool bIsSuccess = true);
+
+	UFUNCTION()
+	void OnMontageEnded();
+
+	void PlayMontage();
+
+	UPROPERTY(Transient)
+	TObjectPtr<APawn> CachedTarget;
+};

@@ -41,9 +41,11 @@ void UBlackoutGA_Sprint::ActivateAbility(const FGameplayAbilitySpecHandle Handle
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
-
+	const UBlackoutAbilitySystemComponent* BlackoutASC = Cast<UBlackoutAbilitySystemComponent>(AbilitySystemComponent);
+	const bool bSkipStaminaCheck = BlackoutASC && BlackoutASC->ShouldSkipCostInShelter();
+	
 	const float CurrentStamina = AbilitySystemComponent->GetNumericAttribute(UBlackoutPlayerAttributeSet::GetStaminaAttribute());
-	if (CurrentStamina < MinActivationStamina || !CommitAbility(Handle, ActorInfo, ActivationInfo))
+	if ((!bSkipStaminaCheck && CurrentStamina < MinActivationStamina ) || !CommitAbility(Handle, ActorInfo, ActivationInfo))
 	{
 		BO_LOG_GAS(Warning, "GA_Sprint failed: 스태미나 부족 또는 CommitAbility 실패 (CurrentStamina=%.2f)", CurrentStamina);
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
@@ -107,11 +109,39 @@ void UBlackoutGA_Sprint::EndAbility(const FGameplayAbilitySpecHandle Handle, con
 
 void UBlackoutGA_Sprint::HandleSprintTick()
 {
-	if (!IsActive() || !ConsumeSprintStamina())
+	if (!IsActive())
 	{
 		BO_LOG_GAS(Log, "GA_Sprint finishing: 비활성 상태이거나 스태미나가 부족함");
 		K2_EndAbility();
+		return;
 	}
+
+	if (!ShouldDrainSprintStamina())
+	{
+		return;
+	}
+
+	if (!ConsumeSprintStamina())
+	{
+		BO_LOG_GAS(Log, "GA_Sprint finishing: 스태미나가 부족함");
+		K2_EndAbility();
+	}
+}
+
+bool UBlackoutGA_Sprint::ShouldDrainSprintStamina() const
+{
+	const ABlackoutPlayerCharacter* PlayerCharacter =
+		CurrentActorInfo ? Cast<ABlackoutPlayerCharacter>(CurrentActorInfo->AvatarActor.Get()) : nullptr;
+	const UBlackoutPlayerMovementComponent* MovementComponent =
+		PlayerCharacter ? Cast<UBlackoutPlayerMovementComponent>(PlayerCharacter->GetCharacterMovement()) : nullptr;
+	if (!MovementComponent)
+	{
+		return true;
+	}
+
+	const bool bHasMovementInput = MovementComponent->GetCurrentAcceleration().SizeSquared2D() > 1.0f;
+	const bool bIsActuallyMoving = MovementComponent->Velocity.SizeSquared2D() > 1.0f;
+	return bHasMovementInput || bIsActuallyMoving;
 }
 
 void UBlackoutGA_Sprint::ApplySprintSpeed(const FGameplayAbilityActorInfo* ActorInfo)
@@ -124,6 +154,8 @@ void UBlackoutGA_Sprint::ApplySprintSpeed(const FGameplayAbilityActorInfo* Actor
 		return;
 	}
 
+	// 어빌리티(GA_Sprint)에 설정된 스프린트 배율 값을 무브먼트 컴포넌트에 주입합니다.
+	MovementComponent->SetSprintSpeedMultiplier(SprintSpeedMultiplier);
 	MovementComponent->SetSprintRequested(true);
 }
 
@@ -146,6 +178,10 @@ bool UBlackoutGA_Sprint::ConsumeSprintStamina() const
 	}
 
 	const UBlackoutAbilitySystemComponent* BlackoutAbilitySystemComponent = Cast<UBlackoutAbilitySystemComponent>(AbilitySystemComponent);
+	if (BlackoutAbilitySystemComponent && BlackoutAbilitySystemComponent->ShouldSkipCostInShelter())
+	{
+		return true;
+	}
 	const float StaminaCostMultiplier = BlackoutAbilitySystemComponent ? BlackoutAbilitySystemComponent->GetStaminaCostMultiplier() : 1.0f;
 	const float ModifiedStaminaDrain = StaminaDrainPerTick * StaminaCostMultiplier;
 

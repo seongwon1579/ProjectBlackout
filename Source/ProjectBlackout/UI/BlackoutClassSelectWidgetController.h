@@ -1,0 +1,79 @@
+﻿// Fill out your copyright notice in the Description page of Project Settings.
+
+#pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/Object.h"
+#include "Templates/SubclassOf.h"
+#include "UI/BlackoutClassSelectTypes.h"
+#include "BlackoutClassSelectWidgetController.generated.h"
+
+class APlayerController;
+class UBOCharacterRoster;
+class ABOFirearm;
+class ABlackoutCharacterPreviewManager;
+class UTextureRenderTarget2D;
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(
+FBlackoutClassSelectionChangedSignature,
+const FBlackoutClassSelectDisplayData&, DisplayData
+);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FBlackoutClassSelectionConfirmedSignature);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(
+FBlackoutPreviewRenderTargetReadySignature,
+UTextureRenderTarget2D*, RenderTarget
+);
+
+
+/**
+ * 캐릭터 선택 UI 컨트롤러
+ *  A/D → 인덱스 ±1 + Display broadcast (로컬). F → Server_SelectClass + UI 닫기 broadcast
+ */
+UCLASS(BlueprintType)
+class PROJECTBLACKOUT_API UBlackoutClassSelectWidgetController : public UObject
+{
+	GENERATED_BODY()
+	
+public:
+	UFUNCTION(BlueprintCallable, Category="Blackout|ClassSelect")
+	bool Initialize(APlayerController* InPlayerController , const UBOCharacterRoster* InRoster);
+	
+	/** 현재 인덱스의 Display 를 다시 broadcast. Widget 초기 표시 시 호출 */
+	UFUNCTION(BlueprintCallable, Category="Blackout|ClassSelect")
+	void BroadcastCurrentSelection();
+	
+	UFUNCTION(BlueprintCallable, Category="Blackout|ClassSelect")
+	void NavigateNext(); 
+	
+	UFUNCTION(BlueprintCallable, Category="Blackout|ClassSelect")
+	void NavigatePrevious();
+	
+	/** F 확정 , PC->Server_SelectClass 호출 , OnSelectionConfirmed broadcast */
+	UFUNCTION(BlueprintCallable, Category="Blackout|ClassSelect")
+	void ConfirmSelection();
+	
+	UPROPERTY(BlueprintAssignable, Category="Blackout|ClassSelect")
+	FBlackoutClassSelectionChangedSignature OnSelectionChanged;
+	
+	UPROPERTY(BlueprintAssignable, Category="Blackout|ClassSelect")
+	FBlackoutClassSelectionConfirmedSignature OnSelectionConfirmed;
+
+	/** Manager 의 client-local RT 가 준비되면 한 번 broadcast. Widget 이 Image_Portrait 에 SetBrushFromTexture */
+	UPROPERTY(BlueprintAssignable, Category="Blackout|Preview")
+	FBlackoutPreviewRenderTargetReadySignature OnPreviewRenderTargetReady;
+
+	virtual void BeginDestroy() override;
+	
+private:
+	FBlackoutClassSelectDisplayData BuildDisplayData(int32 Index) const;
+	FBlackoutFirearmStat LookupFirearmStat(TSubclassOf<ABOFirearm> WeaponClass) const;
+	
+	/** SubLevel 안 Manager 찾기 , 현재 인덱스 캐릭터 Pawn 갱신 첫 호출 시 GetAllActorsOfClass 로 lookup, 이후 캐싱 활용 */
+	void UpdatePreviewPawn();
+	
+	TWeakObjectPtr<APlayerController> PlayerController;
+	TWeakObjectPtr<const UBOCharacterRoster> Roster;
+	TWeakObjectPtr<class ABlackoutCharacterPreviewManager> PreviewManager;
+	int32 CurrentIndex = 0;
+	bool bRenderTargetBroadcast = false;
+};

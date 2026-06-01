@@ -1,11 +1,13 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Data/BlackoutWeaponStat.h"
 #include "GameFramework/Actor.h"
 #include "GameplayEffectTypes.h"
 #include "Interfaces/BlackoutPoolable.h"
 #include "BOProjectile.generated.h"
 
+class UAbilitySystemComponent;
 class UProjectileMovementComponent;
 class USphereComponent;
 
@@ -43,6 +45,7 @@ public:
 	virtual void OnReturnToPool_Implementation() override;
 
 	virtual void InitFromSpec(const FGameplayEffectSpecHandle& InDamageSpec, float Radius);
+	virtual void InitFromSpec(const FGameplayEffectSpecHandle& InDamageSpec, float Radius, const FBlackoutWeaponCueSet& InCueSet);
 	virtual void Launch(const FVector& Direction);
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
@@ -68,6 +71,8 @@ protected:
 
 	void ApplyProjectileNetState();
 	void ApplyActiveState(bool bIsActive);
+	void ExecuteImpactCue(const FHitResult& Hit) const;
+	UAbilitySystemComponent* GetCueAbilitySystemComponent() const;
 	void ReturnToPool();
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Combat")
@@ -85,4 +90,5 @@ protected:
 	uint32 LastAppliedStateId = 0;
 
 	FGameplayEffectSpecHandle DamageSpec;
+	FBlackoutWeaponCueSet CueSet;
 };

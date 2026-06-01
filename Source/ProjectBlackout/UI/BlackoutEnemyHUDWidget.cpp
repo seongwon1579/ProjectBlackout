@@ -22,7 +22,7 @@ void UBlackoutEnemyHUDWidget::SetWidgetController(UBlackoutEnemyHUDWidgetControl
 
 void UBlackoutEnemyHUDWidget::OnEnemyActivated(const FText& EnemyName)
 {
-	EnemyNameText->SetText(FText::FromString(TEXT("Ravager")));
+	EnemyNameText->SetText(EnemyName);
 	SetVisibility(ESlateVisibility::Visible);
 }
 

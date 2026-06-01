@@ -43,11 +43,20 @@ public:
 private:
 	// HTTP 응답 콜백
 	void OnFinishResponse(FHttpRequestPtr Request, FHttpResponsePtr Response , bool bSucceeded);
-	
+
 	// 데디 시작시 매칭 서버에 등록
 	void RegisterToMatchmakingServer();
 	void OnRegisterResponse(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bSucceeded);
-	
+
+	// Heartbeat — 30초 주기로 POST /servers/:id/heartbeat. 매칭서버가 데디 liveness 감지.
+	// Register 응답으로 ServerId 받은 직후 타이머 시작.
+	void StartHeartbeatLoop();
+	void StopHeartbeatLoop();
+	void SendHeartbeat();
+	void OnHeartbeatResponse(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bSucceeded);
+
+	FTimerHandle HeartbeatTimerHandle;
+
 	FString CurrentSessionId;
 	FString ServerId; // /server/register 응답
 };

@@ -7,6 +7,45 @@ void UBlackoutValueBarWidget::NativePreConstruct()
 	ApplyValue(InitialCurrentValue, InitialMaxValue, true);
 }
 
+void UBlackoutValueBarWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
+{
+	Super::NativeTick(MyGeometry, InDeltaTime);
+
+	if (bUseInterpolation && bHasInitializedTargets)
+	{
+		const float NewCurrentValue = FMath::FInterpTo(CurrentValue, TargetCurrentValue, InDeltaTime, InterpolationSpeed);
+		const float NewMaxValue = FMath::FInterpTo(MaxValue, TargetMaxValue, InDeltaTime, InterpolationSpeed);
+
+		const float NewNormalizedValue = NewMaxValue > 0.0f
+			? FMath::Clamp(NewCurrentValue / NewMaxValue, 0.0f, 1.0f)
+			: 0.0f;
+		const bool bNewIsDepleted = NewNormalizedValue <= KINDA_SMALL_NUMBER;
+
+		const bool bValueChanged = !FMath::IsNearlyEqual(CurrentValue, NewCurrentValue)
+			|| !FMath::IsNearlyEqual(MaxValue, NewMaxValue)
+			|| !FMath::IsNearlyEqual(NormalizedValue, NewNormalizedValue);
+		const bool bDepletedChanged = bIsDepleted != bNewIsDepleted;
+
+		if (bValueChanged || bDepletedChanged)
+		{
+			CurrentValue = NewCurrentValue;
+			MaxValue = NewMaxValue;
+			NormalizedValue = NewNormalizedValue;
+			bIsDepleted = bNewIsDepleted;
+
+			if (bValueChanged)
+			{
+				ReceiveValueChanged(CurrentValue, MaxValue, NormalizedValue);
+			}
+
+			if (bDepletedChanged)
+			{
+				ReceiveDepletedChanged(bIsDepleted);
+			}
+		}
+	}
+}
+
 void UBlackoutValueBarWidget::SetValue(float NewCurrentValue, float NewMaxValue)
 {
 	ApplyValue(NewCurrentValue, NewMaxValue, false);
@@ -28,29 +67,51 @@ void UBlackoutValueBarWidget::ApplyValue(float NewCurrentValue, float NewMaxValu
 	const float SanitizedCurrentValue = SanitizedMaxValue > 0.0f
 		? FMath::Clamp(NewCurrentValue, 0.0f, SanitizedMaxValue)
 		: 0.0f;
-	const float NewNormalizedValue = SanitizedMaxValue > 0.0f
-		? FMath::Clamp(SanitizedCurrentValue / SanitizedMaxValue, 0.0f, 1.0f)
-		: 0.0f;
-	const bool bNewIsDepleted = NewNormalizedValue <= KINDA_SMALL_NUMBER;
 
-	const bool bValueChanged = bForceBroadcast
-		|| !FMath::IsNearlyEqual(CurrentValue, SanitizedCurrentValue)
-		|| !FMath::IsNearlyEqual(MaxValue, SanitizedMaxValue)
-		|| !FMath::IsNearlyEqual(NormalizedValue, NewNormalizedValue);
-	const bool bDepletedChanged = bForceBroadcast || bIsDepleted != bNewIsDepleted;
+	TargetCurrentValue = SanitizedCurrentValue;
+	TargetMaxValue = SanitizedMaxValue;
 
-	CurrentValue = SanitizedCurrentValue;
-	MaxValue = SanitizedMaxValue;
-	NormalizedValue = NewNormalizedValue;
-	bIsDepleted = bNewIsDepleted;
-
-	if (bValueChanged)
+	if (bForceBroadcast || !bUseInterpolation)
 	{
-		ReceiveValueChanged(CurrentValue, MaxValue, NormalizedValue);
+		CurrentValue = TargetCurrentValue;
+		MaxValue = TargetMaxValue;
+
+		const float NewNormalizedValue = MaxValue > 0.0f
+			? FMath::Clamp(CurrentValue / MaxValue, 0.0f, 1.0f)
+			: 0.0f;
+		const bool bNewIsDepleted = NewNormalizedValue <= KINDA_SMALL_NUMBER;
+
+		const bool bValueChanged = bForceBroadcast
+			|| !FMath::IsNearlyEqual(NormalizedValue, NewNormalizedValue);
+		const bool bDepletedChanged = bForceBroadcast || bIsDepleted != bNewIsDepleted;
+
+		NormalizedValue = NewNormalizedValue;
+		bIsDepleted = bNewIsDepleted;
+
+		if (bValueChanged)
+		{
+			ReceiveValueChanged(CurrentValue, MaxValue, NormalizedValue);
+		}
+
+		if (bDepletedChanged)
+		{
+			ReceiveDepletedChanged(bIsDepleted);
+		}
+
+		bHasInitializedTargets = true;
 	}
-
-	if (bDepletedChanged)
+	else
 	{
-		ReceiveDepletedChanged(bIsDepleted);
+		if (!bHasInitializedTargets)
+		{
+			CurrentValue = TargetCurrentValue;
+			MaxValue = TargetMaxValue;
+			NormalizedValue = MaxValue > 0.0f ? FMath::Clamp(CurrentValue / MaxValue, 0.0f, 1.0f) : 0.0f;
+			bIsDepleted = NormalizedValue <= KINDA_SMALL_NUMBER;
+
+			ReceiveValueChanged(CurrentValue, MaxValue, NormalizedValue);
+			ReceiveDepletedChanged(bIsDepleted);
+			bHasInitializedTargets = true;
+		}
 	}
 }

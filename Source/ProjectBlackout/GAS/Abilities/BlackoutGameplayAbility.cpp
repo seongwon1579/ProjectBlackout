@@ -1,4 +1,5 @@
 #include "BlackoutGameplayAbility.h"
+#include "GameplayTags/BlackoutGameplayTags.h"
 
 UBlackoutGameplayAbility::UBlackoutGameplayAbility()
 {
@@ -6,4 +7,7 @@ UBlackoutGameplayAbility::UBlackoutGameplayAbility()
 	ReplicationPolicy = EGameplayAbilityReplicationPolicy::ReplicateNo;
 	InstancingPolicy  = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::LocalPredicted;
+
+	// 완전 사망 상태에서는 플레이어/AI 공통으로 새 어빌리티 시작을 막습니다.
+	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Dead);
 }

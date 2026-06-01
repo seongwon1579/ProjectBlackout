@@ -82,7 +82,40 @@ void UBlackoutPlayerAnimInstance::UpdateAimOffset(float DeltaSeconds)
 	UpdateAimTarget();
 
 	const FVector AimOrigin = CombatComponent->GetMuzzleTransform().GetLocation();
-	const FRotator AimRotation = UKismetMathLibrary::FindLookAtRotation(AimOrigin, AimTargetLocation);
+	FVector SafeAimTarget = AimTargetLocation;
+
+	// 뷰 방향 벡터 조회
+	FVector ViewLocation = FVector::ZeroVector;
+	FRotator ViewRotation = FRotator::ZeroRotator;
+	GetAimTraceViewPoint(ViewLocation, ViewRotation);
+	const FVector ViewDir = ViewRotation.Vector();
+
+	// 부호화 투영 거리(내적) 계산: 총구가 타겟을 뚫고 들어가면 음수(-)가 되어 항상 폴백 처리 보장
+	const float ProjectedDistance = FVector::DotProduct(AimTargetLocation - AimOrigin, ViewDir);
+
+	// Alpha 계산: ProjectedDistance가 Threshold 이하(음수 포함)이면 1.0(완전 폴백), Threshold + BlendRange 이상이면 0.0(완전 기본)
+	float BlendAlpha = 0.f;
+	if (ProjectedDistance <= SafeAimDistanceThreshold)
+	{
+		BlendAlpha = 1.0f;
+	}
+	else if (ProjectedDistance >= SafeAimDistanceThreshold + SafeAimBlendRange)
+	{
+		BlendAlpha = 0.0f;
+	}
+	else if (SafeAimBlendRange > 0.f)
+	{
+		BlendAlpha = 1.0f - ((ProjectedDistance - SafeAimDistanceThreshold) / SafeAimBlendRange);
+	}
+
+	if (BlendAlpha > 0.f)
+	{
+		const FVector FallbackTarget = ViewLocation + ViewDir * FallbackAimTargetDistance;
+		// 기본 타겟과 폴백 타겟을 직접적인 벡터 수학식(A + (B - A) * t)으로 LERP 보간하여 100% 컴파일 안전성을 보장합니다.
+		SafeAimTarget = AimTargetLocation + (FallbackTarget - AimTargetLocation) * BlendAlpha;
+	}
+
+	const FRotator AimRotation = UKismetMathLibrary::FindLookAtRotation(AimOrigin, SafeAimTarget);
 	const FRotator ActorRotation = PlayerCharacter->GetActorRotation();
 	const FRotator Delta = UKismetMathLibrary::NormalizedDeltaRotator(AimRotation, ActorRotation);
 	const float TargetYaw = FMath::Clamp(Delta.Yaw, -180.f, 180.f);

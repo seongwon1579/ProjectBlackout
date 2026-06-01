@@ -1,5 +1,7 @@
 #include "GAS/Tasks/AbilityTask_BossMeleeHitbox.h"
 #include "Abilities/GameplayAbility.h"
+#include "Components/BoxComponent.h"
+#include "Components/CapsuleComponent.h"
 
 #include "Components/PrimitiveComponent.h"
 #include "Components/SphereComponent.h"
@@ -79,6 +81,29 @@ void UAbilityTask_BossMeleeHitbox::TickTask(float DeltaTime)
 			2.f
 		);
 	}
+	
+	if (!HitboxComp) return;
+
+	const FVector Loc = HitboxComp->GetComponentLocation();
+	const FQuat Rot = HitboxComp->GetComponentQuat();
+	const float Lifetime = 2.f; 
+
+	if (USphereComponent* Sphere = Cast<USphereComponent>(HitboxComp))
+	{
+		DrawDebugSphere(GetWorld(), Loc, Sphere->GetScaledSphereRadius(),
+			16, FColor::Green, false, Lifetime, 0, 1.5f);
+	}
+	else if (UBoxComponent* Box = Cast<UBoxComponent>(HitboxComp))
+	{
+		DrawDebugBox(GetWorld(), Loc, Box->GetScaledBoxExtent(), Rot,
+			FColor::Green, false, Lifetime, 0, 1.5f);
+	}
+	else if (UCapsuleComponent* Cap = Cast<UCapsuleComponent>(HitboxComp))
+	{
+		DrawDebugCapsule(GetWorld(), Loc,
+			Cap->GetScaledCapsuleHalfHeight(), Cap->GetScaledCapsuleRadius(),
+			Rot, FColor::Green, false, Lifetime, 0, 1.5f);
+	}
 }
 
 void UAbilityTask_BossMeleeHitbox::OnHitboxBeginOverlap(
@@ -90,6 +115,9 @@ void UAbilityTask_BossMeleeHitbox::OnHitboxBeginOverlap(
 	const FHitResult& HitResult)
 {
 	if (!OtherActor) return;
+	
+	AActor* SelfActor = Ability ? Ability->GetAvatarActorFromActorInfo() : nullptr;
+	if (OtherActor == SelfActor) return;
 
 	for (const TWeakObjectPtr<AActor>& Already : HitActors)
 	{

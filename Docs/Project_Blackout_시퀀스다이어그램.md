@@ -32,12 +32,16 @@ sequenceDiagram
     Server-->>Attacker: Client_ShowDamageNumber (데미지 텍스트)
 
     alt Target HP <= 0
-        Server->>Server: ExecCalc_CombatReward 판정
-        Note over Server: Kill.Melee / Kill.MultiTarget.Count>=3 / Kill.WeakSpot
+        Server->>TargetASC: 치명 피해 확정 후 OnDeath 전 GE_CombatReward 적용
+        TargetASC->>Server: BP ExecCalc_CombatReward 판정
+        Note over Server: Kill.Melee / Kill.MultiTarget.Count3 / Kill.WeakSpot
 
-        Server->>Pool: GetFromPool(탄약 박스)
-        Server->>Pool: GetFromPool(소모품)
-        Pool-->>Server: 드롭 아이템 스폰
+        Server->>Server: 주무기 탄약 / 보조무기 탄약 / 소모품 중 1개 랜덤 선택
+        Server->>Server: 일반 적 사망 위치 주변 후보점 → 바닥 트레이스 보정
+        Server->>Pool: SpawnFromPool(ABlackoutDropItem, 바닥 보정 위치)
+        Server->>Server: PickupMesh bounds 기준 최종 바닥 스냅
+        Pool-->>Server: 드롭 아이템 월드 스폰
+        Note over Attacker,Pool: 플레이어가 [E] 상호작용 시 실제 탄약/소모품 지급
 
         Server->>Target: OnReturnToPool() (래그돌 N초 후)
     end
@@ -79,9 +83,10 @@ sequenceDiagram
     else GE_BleedOut 타이머 만료 (타이머 우선)
         Server->>Server: GA_Revive 강제 캔슬
         Server->>Downed: 완전 사망
+        Server->>Server: 관전 후보 탐색 (!IsDead, 다운 포함)
         Server->>Downed: NAME_Spectating 전환
-        Server->>Downed: SetViewTargetWithBlend(아군)
-        Note over Downed: 관전 모드 + 재시작 투표 UI
+        Server->>Downed: SetViewTargetWithBlend(아군 또는 다운 아군)
+        Note over Downed: 관전 모드 + 대상 변경 입력 + 항복 투표 UI
     end
 ```
 
@@ -115,34 +120,57 @@ sequenceDiagram
 
 ---
 
-### 4. 관전 중 과반수 재시작 투표
+### 4. 관전 대상 변경 입력
 
 ```mermaid
 sequenceDiagram
-    actor Spec1 as 관전자1
-    actor Spec2 as 관전자2
-    actor Alive as 생존자
+    actor Spec as 관전자
+    participant PC as PlayerController
     participant Server as BattleGameMode (서버)
+    participant GS as GameState
+    actor Target as 새 관전 대상
 
-    Spec1->>Server: Server_VoteRestart()
-    Server->>Server: VoteCount++ (현재 1/2 필요)
+    Spec->>PC: Next / Previous 입력
+    PC->>Server: Server_RequestSpectateNext/Previous()
+    Server->>GS: PlayerArray 기준 후보 재계산
 
-    Spec2->>Server: Server_VoteRestart()
-    Server->>Server: VoteCount++ (2/2 → 과반수 달성)
+    alt 후보 있음 (!IsDead, 다운 포함)
+        Server-->>PC: Client_SetSpectateTarget(Target)
+        PC->>Target: SetViewTargetWithBlend(Target)
+    else 후보 없음
+        Note over PC,Server: 현재 ViewTarget 유지
+    end
+```
 
-    Server->>Server: Server_RestartAtCheckpoint() 경로 재사용
-    Note over Server: 전멸 복귀와 동일 흐름
+---
 
-    Server-->>Spec1: 활성 폰으로 복구
-    Server-->>Spec2: 활성 폰으로 복구
-    Server-->>Alive: 화톳불로 텔레포트
+### 5. 항복 투표 → 체크포인트 복귀
+
+```mermaid
+sequenceDiagram
+    actor P1 as Player1
+    actor P2 as Player2
+    actor P3 as Player3
+    participant Server as BattleGameMode (서버)
+    participant GS as GameState
+
+    P1->>Server: Server_RequestSurrenderVote()
+    Server->>GS: VoteCount=1 / Required=3 복제
+
+    P2->>Server: Server_RequestSurrenderVote()
+    Server->>GS: VoteCount=2 / Required=3 복제
+
+    P3->>Server: Server_RequestSurrenderVote()
+    Server->>GS: VoteCount=3 / Required=3 복제
+    Server->>Server: HandlePartyWipe() 경로 재사용
+    Note over Server: 관전 상태 종료 + 각자 Pawn 시점 복구 + 화톳불 텔레포트
 ```
 
 ---
 
 ## 🧠 전투 서브시스템
 
-### 5. 보스 어그로 시스템 타겟 전환
+### 6. 보스 어그로 시스템 타겟 전환
 
 ```mermaid
 sequenceDiagram
@@ -170,7 +198,7 @@ sequenceDiagram
 
 ---
 
-### 6. 슈루드 씨앗 기믹 (SeedDrop + 무적)
+### 7. 슈루드 씨앗 기믹 (SeedDrop + 무적)
 
 ```mermaid
 sequenceDiagram
@@ -182,7 +210,7 @@ sequenceDiagram
     Shrewd->>Shrewd: State.Invulnerable 태그 부여
 
     loop 10-12개 씨앗
-        Shrewd->>Pool: GetFromPool(ASeedPod)
+        Shrewd->>Pool: SpawnFromPool(ASeedPod)
         Pool-->>Shrewd: 씨앗 포드 액터
         Shrewd->>Shrewd: 방사형 위치 계산 후 스폰
     end
@@ -203,7 +231,7 @@ sequenceDiagram
 
 ---
 
-### 7. 기둥 파괴 동기화 (Chaos Destruction)
+### 8. 기둥 파괴 동기화 (Chaos Destruction)
 
 ```mermaid
 sequenceDiagram
@@ -235,14 +263,16 @@ sequenceDiagram
 
 ## 🗺️ 게임 플로우
 
-### 8. 로비 → 캐릭터 선택 → 전투 맵 진입
+### 9. 매치메이킹 → 단일 배틀맵 직행 → 시작 쉘터 (집결·선택·Ready)
 
 ```mermaid
 sequenceDiagram
     actor P1 as Player1
     actor Others as Player2-4
-    participant Server as LobbyGameMode (서버)
+    participant Server as BattleGameMode (서버)
     participant PS as PlayerState
+
+    Note over P1,Others: 매칭 완료 → 데디(단일 배틀맵) 직접 접속, 시작 쉘터 스폰
 
     Server->>P1: Client_OpenClassSelectUI (RPC)
     Server->>Others: Client_OpenClassSelectUI (RPC)
@@ -251,33 +281,32 @@ sequenceDiagram
     Server->>PS: SelectedClassTag = Assault
     PS-->>Others: OnRep_SelectedClassTag (UI 갱신)
 
-    Note over P1: 화톳불 상호작용으로 재선택 가능
+    Note over P1: 시작 쉘터 화톳불 상호작용으로 재선택 가능
     P1->>Server: Server_RequestReopenClassSelect
     Server->>P1: Client_OpenClassSelectUI
 
-    Note over P1,Others: 전원 포털 상호작용
+    Note over P1,Others: 시작 쉘터에서 전원 Ready
 
-    P1->>Server: Interact(Portal)
-    Others->>Server: Interact(Portal)
+    P1->>Server: Server_SetReady
+    Others->>Server: Server_SetReady
     Server->>Server: AllPlayersReady() == true
 
     Server->>PS: ApplyBattleTransitionPolicy()
     Note over PS: 탄약/유물 완전 초기화, 소모품 최소 1 보정
 
-    Server->>Server: ServerTravel("/Maps/Battle_MidBoss")
-    Server-->>P1: 맵 전환
-    Server-->>Others: 맵 전환
+    Server->>Server: OnAllPlayersReady() → 중간 보스 구역 게이트 언락
+    Note over Server: 맵 전환 없음 (단일 맵 내 구역 개방)
 ```
 
 ---
 
-### 9. 슈루드 → 메인 보스 전환 (StreamLevel)
+### 10. 중간 보스 → 메인 보스 전환 (단일 맵, 구역 게이트)
 
 ```mermaid
 sequenceDiagram
     actor Players as 플레이어 전원
     participant Server as BattleGameMode (서버)
-    participant PS as PlayerState
+    participant Arena as IArenaResettable
     participant GS as GameState
 
     Note over Server: 슈루드 HP == 0
@@ -285,24 +314,22 @@ sequenceDiagram
     Server->>Server: OnMidBossDefeated() 델리게이트
     Server->>GS: bMidBossDefeated = true (Replicated)
 
-    Server->>Server: LoadStreamLevel("Level_MainBoss")
-    Server->>Server: 메인 보스 구역 게이트 언락
-
+    Server->>Server: 메인 보스 구역 게이트 언락 (단일 맵, 스트리밍/트래블 없음)
     Server->>Server: CurrentCheckpointTag = Checkpoint.MainBoss
-    Note over Server: 장비/어트리뷰트 지속 (레벨 트래블 없음)
+    Note over Server: 같은 월드 → 장비/어트리뷰트 자연 지속
 
-    Players->>Players: 화톳불 #2로 이동
-    Players->>Server: 포털 상호작용
+    Players->>Players: 중간 거점 쉘터(화톳불 #2) 휴식·병과 재선택
+    Players->>Server: Ready (게이트 통과)
 
-    Server->>PS: ApplyBattleTransitionPolicy()
-    Note over PS: 탄약/유물 완전 초기화, 소모품 보정
+    Server->>Server: ApplyBattleTransitionPolicy()
+    Note over Server: 탄약/유물 초기화, 소모품 보정
 
-    Note over Players: 메인 보스전 시작
+    Note over Players,Arena: 메인 보스전 시작 — 전멸 시 CurrentArena->Reset()
 ```
 
 ---
 
-### 10. 메인 보스 클리어 → 승리 → 메인 메뉴
+### 11. 메인 보스 클리어 → 승리 → 메인 메뉴
 
 ```mermaid
 sequenceDiagram
@@ -329,7 +356,7 @@ sequenceDiagram
 
 ## 🌐 매칭/서버 인프라
 
-### 11. 매치메이킹 → 게임 시작 전체 흐름
+### 12. 매치메이킹 → 게임 시작 전체 흐름
 
 ```mermaid
 sequenceDiagram
@@ -381,7 +408,7 @@ sequenceDiagram
 
 ---
 
-### 12. 매치메이킹 타임아웃 + 좀비 키 정리
+### 13. 매치메이킹 타임아웃 + 좀비 키 정리
 
 ```mermaid
 sequenceDiagram
@@ -408,7 +435,7 @@ sequenceDiagram
 
 ---
 
-### 13. 데디케이트 서버 ↔ API 서버 통신
+### 14. 데디케이트 서버 ↔ API 서버 통신
 
 ```mermaid
 sequenceDiagram

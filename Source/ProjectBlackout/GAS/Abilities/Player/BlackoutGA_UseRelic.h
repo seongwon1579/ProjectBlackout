@@ -46,11 +46,20 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Relic")
 	TSubclassOf<UGameplayEffect> RelicHealEffect;
 
+	/** 유물 효과가 실제 적용되는 순간 실행할 일회성 GCN 태그입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Relic|Cue")
+	FGameplayTag RelicUseCueTag;
+
+	/** 유물 GCN을 부착할 오른손 소켓 이름입니다. 기본값은 현재 무기 장착 소켓과 동일합니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Relic|Cue")
+	FName RelicUseCueSocketName = TEXT("WeaponSocket");
+
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Relic Used"), Category = "Blackout|Relic")
 	void ReceiveRelicUsed(float EffectiveHealAmount, int32 RemainingRelicCharges);
 
 private:
 	void ApplyRelicEffect();
+	void ExecuteRelicUseCue();
 
 	UFUNCTION()
 	void OnRelicApplyEventReceived(FGameplayEventData Payload);

@@ -9,6 +9,7 @@
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 #include "GAS/Tasks/AbilityTask_BossMeleeSweep.h"
 #include "Interfaces/BlackoutDamageable.h"
+#include "Components/MeshComponent.h"
 
 UGA_Wraith_BowShove::UGA_Wraith_BowShove()
 {

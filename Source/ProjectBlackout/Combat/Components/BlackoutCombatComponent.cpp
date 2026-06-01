@@ -8,6 +8,7 @@
 #include "Combat/Weapons/BOFirearm.h"
 #include "Combat/Weapons/BOMeleeWeapon.h"
 #include "Combat/Weapons/BOWeaponBase.h"
+#include "Combat/BlackoutWeaponCueLibrary.h"
 #include "Data/BOCharacterData.h"
 #include "Engine/World.h"
 #include "GAS/Attributes/BlackoutAmmoAttributeSet.h"
@@ -584,7 +585,15 @@ void UBlackoutCombatComponent::BeginMeleeAttackWindow(const FGameplayEffectSpecH
 
 	// 공격창 활성화
 	bMeleeAttackWindowActive = true;
-	
+
+	// 휘두르기(Swing) GCN 실행 (서버 권한 경로)
+	IAbilitySystemInterface* AbilitySystemInterface = Cast<IAbilitySystemInterface>(GetOwner());
+	if (UAbilitySystemComponent* ASC = AbilitySystemInterface ? AbilitySystemInterface->GetAbilitySystemComponent() : nullptr)
+	{
+		const FVector SwingLocation = MeleeWeapon->GetActorLocation();
+		const FVector SwingDirection = GetOwner()->GetActorForwardVector();
+		UBlackoutWeaponCueLibrary::ExecuteFireCue(ASC, MeleeWeapon->GetWeaponCueSet(), MeleeWeapon, SwingLocation, SwingDirection);
+	}
 }
 
 void UBlackoutCombatComponent::UpdateMeleeAttackWindow()
@@ -635,22 +644,36 @@ void UBlackoutCombatComponent::UpdateMeleeAttackWindow()
 
 			// 히트박스 컴포넌트 경유 데미지 전달
 			HitboxComponent->ReceiveDamageSpec(ActiveMeleeDamageSpecHandle);
+
+			// 피격(Impact) GCN 실행
+			IAbilitySystemInterface* AbilitySystemInterface = Cast<IAbilitySystemInterface>(GetOwner());
+			if (UAbilitySystemComponent* ASC = AbilitySystemInterface ? AbilitySystemInterface->GetAbilitySystemComponent() : nullptr)
+			{
+				UBlackoutWeaponCueLibrary::ExecuteImpactCue(ASC, MeleeWeapon->GetWeaponCueSet(), MeleeWeapon, HitResult);
+			}
 			continue;
 		}
 
-		// 히트박스가 아닌 일반 액터인 경우
+		// 히트박스가 아닌 일반 액터(벽 등의 배경 오브젝트 포함)인 경우
 		if (!HitActor || ProcessedMeleeHitActors.Contains(HitActor))
 		{
 			continue;
 		}
 
+		// 같은 공격창 안에서 동일 액터 중복 피격 방지
+		ProcessedMeleeHitActors.Add(HitActor);
+
 		if (IBlackoutDamageable* Damageable = Cast<IBlackoutDamageable>(HitActor))
 		{
-			// 같은 공격창 안에서 동일 액터 중복 피해 방지
-			ProcessedMeleeHitActors.Add(HitActor);
-
-			// 본 정보가 있으면 함께 전달
+			// 본 정보가 있으면 함께 전달하여 데미지 처리
 			Damageable->ReceiveDamageFromHitbox(ActiveMeleeDamageSpecHandle, HitResult.BoneName);
+		}
+
+		// 데미지 가능 여부와 무관하게 피격(Impact) GCN 실행 (벽, 지형 피격 효과 포함)
+		IAbilitySystemInterface* AbilitySystemInterface = Cast<IAbilitySystemInterface>(GetOwner());
+		if (UAbilitySystemComponent* ASC = AbilitySystemInterface ? AbilitySystemInterface->GetAbilitySystemComponent() : nullptr)
+		{
+			UBlackoutWeaponCueLibrary::ExecuteImpactCue(ASC, MeleeWeapon->GetWeaponCueSet(), MeleeWeapon, HitResult);
 		}
 	}
 	
@@ -666,6 +689,32 @@ void UBlackoutCombatComponent::EndMeleeAttackWindow()
 	ProcessedMeleeHitComponents.Reset();
 	ProcessedMeleeHitActors.Reset();
 	
+}
+
+void UBlackoutCombatComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	
+	// 서버에서 정리 , 클라이언트 무기는 replication으로 destroy
+	if (GetOwner() && GetOwner()->HasAuthority())
+	{
+		if (PrimaryWeapon)
+		{
+			PrimaryWeapon->Destroy();
+			PrimaryWeapon=nullptr;
+		}
+		if (SecondaryWeapon)
+		{
+			SecondaryWeapon->Destroy();
+			SecondaryWeapon=nullptr;
+		}
+		if (MeleeWeapon)
+		{
+			MeleeWeapon->Destroy();
+			MeleeWeapon= nullptr;
+		}
+	}
+	
+	Super::EndPlay(EndPlayReason);
 }
 
 ABOWeaponBase* UBlackoutCombatComponent::SpawnWeaponActor(TSubclassOf<ABOWeaponBase> WeaponClass)

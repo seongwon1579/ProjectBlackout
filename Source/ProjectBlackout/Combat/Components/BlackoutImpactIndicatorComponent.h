@@ -28,32 +28,32 @@ class PROJECTBLACKOUT_API UBlackoutImpactIndicatorComponent : public UActorCompo
 public:
 	UBlackoutImpactIndicatorComponent();
 
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat|ImpactIndicator")
 	void Initialize(UBlackoutCombatComponent* InCombatComponent);
 
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat|ImpactIndicator")
 	bool GetImpactIndicatorData(FBlackoutImpactIndicatorData& OutIndicatorData) const;
 
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat|ImpactIndicator")
 	bool GetAimTargetHitResult(FHitResult& OutHitResult, FVector& OutTraceEnd) const;
 
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat|ImpactIndicator")
 	FVector GetAimTargetPoint() const;
 
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat|ImpactIndicator")
 	bool GetTrueImpactPoint(FHitResult& OutHitResult, FVector& OutImpactPoint, FVector& OutTraceEnd) const;
 
 protected:
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat", meta = (ClampMin = 100.0f))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat|ImpactIndicator", meta = (ClampMin = 100.0f))
 	float MaxTraceDistance = 10000.0f;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat", meta = (ClampMin = 0.1f))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat|ImpactIndicator", meta = (ClampMin = 0.1f))
 	float ProjectilePredictionTime = 5.0f;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat", meta = (ClampMin = 1.0f))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat|ImpactIndicator", meta = (ClampMin = 1.0f))
 	float ProjectilePredictionSimFrequency = 20.0f;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat", meta = (ClampMin = 0.0f))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat|ImpactIndicator", meta = (ClampMin = 0.0f))
 	float ProjectilePredictionRadiusFallback = 5.0f;
 
 private:

@@ -1,4 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+// Fill out your copyright notice in the Description page of Project Settings.
 
 
 #include "GA_Wraith_Teleport.h"
@@ -6,6 +6,8 @@
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "AbilitySystemComponent.h"
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
+#include "Components/PrimitiveComponent.h"
+#include "Components/WidgetComponent.h"
 #include "EnvironmentQuery/EnvQueryManager.h"
 
 
@@ -34,16 +36,6 @@ void UGA_Wraith_Teleport::ActivateAbility(
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
-
-	// 무적 (서버 -> 클라 동기화)
-	ASC->AddLooseGameplayTag(BlackoutGameplayTags::State_Invulnerable);
-
-	// 은신 Cue
-	FGameplayCueParameters StartCueParams;
-	StartCueParams.Location = Avatar->GetActorLocation();
-	ASC->ExecuteGameplayCue(
-		BlackoutGameplayTags::GameplayCue_Wraith_Teleport_Start,
-		StartCueParams);
 
 	// EQS 비동기 호출
 	FEnvQueryRequest Request(TeleportQuery, Avatar);
@@ -114,34 +106,29 @@ void UGA_Wraith_Teleport::OnVanishEvent(FGameplayEventData Payload)
 	{
 		return;
 	}
-	
-	Avatar->SetActorHiddenInGame(true);
+
+	// 무적 부여 (사라지는 순간부터)
+	if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
+	{
+		ASC->AddLooseGameplayTag(BlackoutGameplayTags::State_Invulnerable);
+	}
+
+	SetTeleportVisualsHidden(true);
 	Avatar->SetActorLocation(CachedDestination , false , nullptr , ETeleportType::TeleportPhysics);
 	
-	if (UAbilitySystemComponent* SourceASC = GetAbilitySystemComponentFromActorInfo())
-	{
-		FGameplayCueParameters EndCueParams;
-		EndCueParams.Location = CachedDestination;
-		SourceASC->ExecuteGameplayCue(BlackoutGameplayTags::GameplayCue_Wraith_Teleport_End, EndCueParams);
-	}
+
 }
 
 void UGA_Wraith_Teleport::OnAppearEvent(FGameplayEventData Payload)
 {
-	if (AActor* Avatar = GetAvatarActorFromActorInfo())
-	{
-		Avatar->SetActorHiddenInGame(false);
-	}
+	SetTeleportVisualsHidden(false);
+	RemoveInvulnerableTag();
 }
 
 
 void UGA_Wraith_Teleport::OnMontageEnded()
 {
-	
-	if (AActor* Avatar = GetAvatarActorFromActorInfo())
-	{
-		Avatar->SetActorHiddenInGame(false);
-	}
+	SetTeleportVisualsHidden(false);
 	RemoveInvulnerableTag();
 	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo,true,false);
 }
@@ -152,5 +139,48 @@ void UGA_Wraith_Teleport::RemoveInvulnerableTag()
 	if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
 	{
 		ASC->RemoveLooseGameplayTag(BlackoutGameplayTags::State_Invulnerable);
+	}
+}
+
+void UGA_Wraith_Teleport::SetTeleportVisualsHidden(bool bHidden)
+{
+	AActor* Avatar = GetAvatarActorFromActorInfo();
+	if (!Avatar)
+	{
+		return;
+	}
+
+	if (bHidden)
+	{
+		PreviousTeleportHiddenStates.Reset();
+	}
+
+	TArray<UPrimitiveComponent*> PrimitiveComponents;
+	Avatar->GetComponents<UPrimitiveComponent>(PrimitiveComponents);
+	for (UPrimitiveComponent* PrimitiveComponent : PrimitiveComponents)
+	{
+		if (!PrimitiveComponent || PrimitiveComponent->IsA<UWidgetComponent>())
+		{
+			continue;
+		}
+
+		if (bHidden)
+		{
+			const TWeakObjectPtr<UPrimitiveComponent> ComponentKey(PrimitiveComponent);
+			PreviousTeleportHiddenStates.Add(ComponentKey, PrimitiveComponent->bHiddenInGame);
+			PrimitiveComponent->SetHiddenInGame(true, false);
+			continue;
+		}
+
+		const TWeakObjectPtr<UPrimitiveComponent> ComponentKey(PrimitiveComponent);
+		if (const bool* PreviousHiddenState = PreviousTeleportHiddenStates.Find(ComponentKey))
+		{
+			PrimitiveComponent->SetHiddenInGame(*PreviousHiddenState, false);
+		}
+	}
+
+	if (!bHidden)
+	{
+		PreviousTeleportHiddenStates.Reset();
 	}
 }

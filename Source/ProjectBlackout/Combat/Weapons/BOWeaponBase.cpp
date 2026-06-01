@@ -44,6 +44,26 @@ float ABOWeaponBase::GetBaseDamage() const
 	return CachedStats.BaseDamage;
 }
 
+FBlackoutWeaponCueSet ABOWeaponBase::GetWeaponCueSet() const
+{
+	return CachedStats.CueSet;
+}
+
+FGameplayTag ABOWeaponBase::GetFireCueTag() const
+{
+	return CachedStats.CueSet.FireCueTag;
+}
+
+FGameplayTag ABOWeaponBase::GetTrailCueTag() const
+{
+	return CachedStats.CueSet.TrailCueTag;
+}
+
+FGameplayTag ABOWeaponBase::ResolveImpactCueTag(FGameplayTag SurfaceTag) const
+{
+	return CachedStats.CueSet.ResolveImpactCue(SurfaceTag);
+}
+
 int32 ABOWeaponBase::GetCrosshairType() const
 {
 	return FMath::Clamp(CachedStats.CrosshairType, 0, 5);

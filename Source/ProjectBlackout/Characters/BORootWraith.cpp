@@ -9,7 +9,7 @@ ABORootWraith::ABORootWraith()
 	bUseControllerRotationPitch =true;
 	
 	UCharacterMovementComponent* MovementComponent = GetCharacterMovement();
-	MovementComponent->DefaultLandMovementMode =MOVE_Flying;
+	MovementComponent->DefaultLandMovementMode = MOVE_Flying;
 	MovementComponent->MaxFlySpeed = DefaultFlySpeed;
 	MovementComponent->BrakingDecelerationFlying = 1024.0f;
 }

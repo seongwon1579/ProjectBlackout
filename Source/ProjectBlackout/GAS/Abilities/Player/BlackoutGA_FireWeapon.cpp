@@ -1,9 +1,12 @@
 #include "GAS/Abilities/Player/BlackoutGA_FireWeapon.h"
 
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
+#include "AbilitySystemGlobals.h"
 #include "AbilitySystemComponent.h"
 #include "Animation/AnimMontage.h"
+#include "Animation/BlackoutPlayerAnimInstance.h"
 #include "Characters/BlackoutPlayerCharacter.h"
+#include "Combat/BlackoutWeaponCueLibrary.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
 #include "Combat/Components/BlackoutHitboxComponent.h"
 #include "Combat/Components/BlackoutImpactIndicatorComponent.h"
@@ -14,6 +17,7 @@
 #include "Core/BlackoutLog.h"
 #include "DrawDebugHelpers.h"
 #include "Interfaces/BlackoutDamageable.h"
+#include "GameplayCueManager.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "GAS/Attributes/BlackoutAmmoAttributeSet.h"
 #include "TimerManager.h"
@@ -72,11 +76,13 @@ namespace
 
 		bool bCanShowDamageNumber = false;
 		bool bIsCritical = false;
+		float PredictedDisplayDamageAmount = PredictedDamageAmount;
 
 		if (UBlackoutHitboxComponent* HitboxComponent = Cast<UBlackoutHitboxComponent>(PredictedHitResult.GetComponent()))
 		{
 			bCanShowDamageNumber = HitboxComponent->GetOwner() && Cast<IBlackoutDamageable>(HitboxComponent->GetOwner());
 			bIsCritical = HitboxComponent->GetPartTag().MatchesTagExact(BlackoutGameplayTags::Body_WeakSpot);
+			PredictedDisplayDamageAmount *= HitboxComponent->GetDamageMultiplier();
 		}
 		else if (AActor* HitActor = PredictedHitResult.GetActor())
 		{
@@ -100,7 +106,7 @@ namespace
 		}
 
 		return BlackoutHUD->ShowDamageNumberAtWorldLocation(
-			PredictedDamageAmount,
+			PredictedDisplayDamageAmount,
 			PredictedHitResult.ImpactPoint,
 			bIsCritical);
 	}
@@ -135,6 +141,227 @@ namespace
 
 		TryShowPredictedDamageNumber(PlayerCharacter, PredictedHitResult, PredictedDamageAmount);
 	}
+
+	void BuildPredictedCueHitResult(
+		UWorld* World,
+		const FVector& TraceStart,
+		const FVector& TraceEnd,
+		const AActor* IgnoredOwner,
+		const AActor* IgnoredWeapon,
+		FHitResult& OutHitResult)
+	{
+		OutHitResult = FHitResult();
+		OutHitResult.TraceStart = TraceStart;
+		OutHitResult.TraceEnd = TraceEnd;
+
+		if (!World)
+		{
+			return;
+		}
+
+		FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(BlackoutGA_FireWeapon_PredictedCue), false, IgnoredOwner);
+		QueryParams.bReturnPhysicalMaterial = true;
+		if (IgnoredWeapon)
+		{
+			QueryParams.AddIgnoredActor(IgnoredWeapon);
+		}
+
+		World->LineTraceSingleByChannel(
+			OutHitResult,
+			TraceStart,
+			TraceEnd,
+			BlackoutCollisionChannels::WeaponTrace,
+			QueryParams);
+
+		OutHitResult.TraceStart = TraceStart;
+		OutHitResult.TraceEnd = TraceEnd;
+	}
+
+	void ExecuteLocalWeaponCue(AActor* CueTarget, const FGameplayTag& CueTag, const FGameplayCueParameters& CueParameters)
+	{
+		if (!CueTarget || !CueTag.IsValid())
+		{
+			return;
+		}
+
+		if (UGameplayCueManager* CueManager = UAbilitySystemGlobals::Get().GetGameplayCueManager())
+		{
+			CueManager->HandleGameplayCue(CueTarget, CueTag, EGameplayCueEvent::Executed, CueParameters);
+			return;
+		}
+
+		BO_LOG_GAS(Error, "ExecuteLocalWeaponCue failed: GameplayCueManager가 유효하지 않음 (Cue=%s)", *CueTag.ToString());
+	}
+
+	void ExecuteLocalTrailCue(
+		ABlackoutPlayerCharacter* CueTarget,
+		const FBlackoutWeaponCueSet& CueSet,
+		AActor* SourceActor,
+		const FVector& MuzzleLocation,
+		const FHitResult& HitResult,
+		const FVector& TraceEnd)
+	{
+		ExecuteLocalWeaponCue(
+			CueTarget,
+			CueSet.TrailCueTag,
+			UBlackoutWeaponCueLibrary::BuildTrailCueParameters(SourceActor, MuzzleLocation, HitResult, TraceEnd));
+	}
+
+	void ExecuteLocalImpactCue(
+		ABlackoutPlayerCharacter* CueTarget,
+		const FBlackoutWeaponCueSet& CueSet,
+		AActor* SourceActor,
+		const FHitResult& HitResult)
+	{
+		if (!HitResult.bBlockingHit)
+		{
+			return;
+		}
+
+		const FGameplayTag SurfaceTag = UBlackoutWeaponCueLibrary::ResolveSurfaceTag(HitResult);
+		const FGameplayTag ImpactCueTag = UBlackoutWeaponCueLibrary::ResolveImpactCueTag(CueSet, SurfaceTag);
+		ExecuteLocalWeaponCue(CueTarget, ImpactCueTag, UBlackoutWeaponCueLibrary::BuildImpactCueParameters(SourceActor, HitResult));
+	}
+
+	void AddTrailCueEntry(
+		TArray<FBlackoutWeaponGameplayCueEntry>& CueEntries,
+		const FBlackoutWeaponCueSet& CueSet,
+		AActor* SourceActor,
+		const FVector& MuzzleLocation,
+		const FHitResult& HitResult,
+		const FVector& TraceEnd)
+	{
+		if (!CueSet.TrailCueTag.IsValid())
+		{
+			return;
+		}
+
+		FBlackoutWeaponGameplayCueEntry CueEntry;
+		CueEntry.CueTag = CueSet.TrailCueTag;
+		CueEntry.CueParameters = UBlackoutWeaponCueLibrary::BuildTrailCueParameters(SourceActor, MuzzleLocation, HitResult, TraceEnd);
+		CueEntries.Add(CueEntry);
+	}
+
+	void AddImpactCueEntry(
+		TArray<FBlackoutWeaponGameplayCueEntry>& CueEntries,
+		const FBlackoutWeaponCueSet& CueSet,
+		AActor* SourceActor,
+		const FHitResult& HitResult)
+	{
+		if (!HitResult.bBlockingHit)
+		{
+			return;
+		}
+
+		const FGameplayTag SurfaceTag = UBlackoutWeaponCueLibrary::ResolveSurfaceTag(HitResult);
+		const FGameplayTag ImpactCueTag = UBlackoutWeaponCueLibrary::ResolveImpactCueTag(CueSet, SurfaceTag);
+		if (!ImpactCueTag.IsValid())
+		{
+			return;
+		}
+
+		FBlackoutWeaponGameplayCueEntry CueEntry;
+		CueEntry.CueTag = ImpactCueTag;
+		CueEntry.CueParameters = UBlackoutWeaponCueLibrary::BuildImpactCueParameters(SourceActor, HitResult);
+		CueEntries.Add(CueEntry);
+	}
+
+	void ExecutePredictedWeaponCues(
+		UAbilitySystemComponent* AbilitySystemComponent,
+		ABlackoutPlayerCharacter* PlayerCharacter,
+		ABOFirearm* EquippedFirearm,
+		const FVector& MuzzleLocation,
+		const FVector& FireDirection,
+		const float FallbackTraceDistance)
+	{
+		if (!AbilitySystemComponent || !PlayerCharacter || !PlayerCharacter->IsLocallyControlled() || PlayerCharacter->HasAuthority() || !EquippedFirearm)
+		{
+			return;
+		}
+
+		const FBlackoutWeaponCueSet WeaponCueSet = EquippedFirearm->GetWeaponCueSet();
+		UBlackoutWeaponCueLibrary::ExecuteFireCue(AbilitySystemComponent, WeaponCueSet, EquippedFirearm, MuzzleLocation, FireDirection);
+
+		UWorld* World = PlayerCharacter->GetWorld();
+		const AActor* IgnoredOwner = EquippedFirearm->GetOwner();
+
+		if (const ABOShotgunFirearm* ShotgunFirearm = Cast<ABOShotgunFirearm>(EquippedFirearm))
+		{
+			const TArray<FVector> PelletDirections = ShotgunFirearm->BuildPelletDirections(FireDirection);
+			const float PelletTraceDistance = ShotgunFirearm->GetPelletTraceDistance();
+
+			for (const FVector& PelletDirection : PelletDirections)
+			{
+				const FVector PelletTraceEnd = MuzzleLocation + PelletDirection.GetSafeNormal() * PelletTraceDistance;
+				FHitResult PredictedHitResult;
+				BuildPredictedCueHitResult(World, MuzzleLocation, PelletTraceEnd, IgnoredOwner, EquippedFirearm, PredictedHitResult);
+
+				// 산탄은 같은 Cue 태그를 한 프레임에 여러 번 실행하므로 ASC의 중복 실행 병합을 우회합니다.
+				ExecuteLocalTrailCue(PlayerCharacter, WeaponCueSet, EquippedFirearm, MuzzleLocation, PredictedHitResult, PelletTraceEnd);
+				ExecuteLocalImpactCue(PlayerCharacter, WeaponCueSet, EquippedFirearm, PredictedHitResult);
+			}
+
+			return;
+		}
+
+		const FVector TraceEnd = MuzzleLocation + FireDirection.GetSafeNormal() * FallbackTraceDistance;
+		FHitResult PredictedHitResult;
+		if (EquippedFirearm->UsesHitscan())
+		{
+			BuildPredictedCueHitResult(World, MuzzleLocation, TraceEnd, IgnoredOwner, EquippedFirearm, PredictedHitResult);
+		}
+		else
+		{
+			PredictedHitResult.TraceStart = MuzzleLocation;
+			PredictedHitResult.TraceEnd = TraceEnd;
+		}
+
+		ExecuteLocalTrailCue(PlayerCharacter, WeaponCueSet, EquippedFirearm, MuzzleLocation, PredictedHitResult, TraceEnd);
+		ExecuteLocalImpactCue(PlayerCharacter, WeaponCueSet, EquippedFirearm, PredictedHitResult);
+	}
+
+	void MulticastTrailCueToRemoteProxies(
+		ABlackoutPlayerCharacter* CueOwner,
+		const FBlackoutWeaponCueSet& CueSet,
+		AActor* SourceActor,
+		const FVector& MuzzleLocation,
+		const FHitResult& HitResult,
+		const FVector& TraceEnd)
+	{
+		if (!CueOwner || !CueSet.TrailCueTag.IsValid())
+		{
+			return;
+		}
+
+		CueOwner->Multicast_ExecuteWeaponGameplayCue(
+			CueSet.TrailCueTag,
+			UBlackoutWeaponCueLibrary::BuildTrailCueParameters(SourceActor, MuzzleLocation, HitResult, TraceEnd),
+			true);
+	}
+
+	void MulticastImpactCueToRemoteProxies(
+		ABlackoutPlayerCharacter* CueOwner,
+		const FBlackoutWeaponCueSet& CueSet,
+		AActor* SourceActor,
+		const FHitResult& HitResult)
+	{
+		if (!CueOwner || !HitResult.bBlockingHit)
+		{
+			return;
+		}
+
+		const FGameplayTag SurfaceTag = UBlackoutWeaponCueLibrary::ResolveSurfaceTag(HitResult);
+		const FGameplayTag ImpactCueTag = UBlackoutWeaponCueLibrary::ResolveImpactCueTag(CueSet, SurfaceTag);
+		if (!ImpactCueTag.IsValid())
+		{
+			return;
+		}
+
+		CueOwner->Multicast_ExecuteWeaponGameplayCue(
+			ImpactCueTag,
+			UBlackoutWeaponCueLibrary::BuildImpactCueParameters(SourceActor, HitResult),
+			true);
+	}
 }
 
 UBlackoutGA_FireWeapon::UBlackoutGA_FireWeapon()
@@ -142,16 +369,18 @@ UBlackoutGA_FireWeapon::UBlackoutGA_FireWeapon()
 	InputID = EBlackoutAbilityInputID::Fire;
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::LocalPredicted;
+
+	CancelAbilitiesWithTag.AddTag(BlackoutGameplayTags::Ability_Player_Dodge);
+	CancelAbilitiesWithTag.AddTag(BlackoutGameplayTags::Ability_Player_Melee);
+
 	ActivationRequiredTags.AddTag(BlackoutGameplayTags::State_Aiming);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Sprinting);
 	ActivationBlockedTags.AddTag(BlackoutGameplayTags::State_Reloading);
-	
-	// TODO: LobbyTag.InfiniteAmmo 분기로 탄약 소모 체크 생략 로직 추가 (TDD §7.1)
 }
 
 void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
-	BO_LOG_GAS(Log, "GA_FireWeapon activate requested");
+	BO_LOG_GAS(Verbose, "GA_FireWeapon activate requested");
 
 	ABlackoutPlayerCharacter* PlayerCharacter = ActorInfo ? Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()) : nullptr;
 	UBlackoutCombatComponent* CombatComponent = PlayerCharacter ? PlayerCharacter->GetCombatComponent() : nullptr;
@@ -177,7 +406,7 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 		const float CurrentTimeSeconds = ActorInfo && ActorInfo->AvatarActor.IsValid() && ActorInfo->AvatarActor->GetWorld()
 			? ActorInfo->AvatarActor->GetWorld()->GetTimeSeconds()
 			: -1.0f;
-		BO_LOG_GAS(Log,
+		BO_LOG_GAS(Verbose,
 			"GA_FireWeapon skipped by fire-rate gate: Character=%s Weapon=%s Current=%.3f Next=%.3f",
 			*GetNameSafe(PlayerCharacter),
 			*GetNameSafe(EquippedFirearm),
@@ -197,7 +426,6 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 	// 1. 탄약 소모 확인 및 적용
 	if (!ApplyAmmoCost())
 	{
-		BO_LOG_GAS(Warning, "GA_FireWeapon failed: 탄약 부족");
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
@@ -207,7 +435,7 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 		ReserveNextFireTime(EquippedFirearm, ActorInfo);
 	}
 
-	BO_LOG_GAS(Log, "GA_FireWeapon activated: Character=%s, Weapon=%s", *GetNameSafe(ActorInfo ? ActorInfo->AvatarActor.Get() : nullptr), *GetNameSafe(EquippedFirearm));
+	BO_LOG_GAS(Verbose, "GA_FireWeapon activated: Character=%s, Weapon=%s", *GetNameSafe(ActorInfo ? ActorInfo->AvatarActor.Get() : nullptr), *GetNameSafe(EquippedFirearm));
 
 	CachedFireMontage = PlayerCharacter ? PlayerCharacter->GetFireMontageForTag(FireAnimTag) : nullptr;
 	const bool bShouldWaitForFireMontageCompletion =
@@ -238,7 +466,54 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 	PlayFireMontage();
 
 	const FVector MuzzleLocation = CombatComponent->GetMuzzleTransform().GetLocation();
-	const FVector AimTarget = ImpactIndicatorComponent->GetAimTargetPoint();
+	FVector AimTarget = ImpactIndicatorComponent->GetAimTargetPoint();
+
+	// 사격 판정(LineTrace) 궤적을 애니메이션 방향과 동기화
+	float Threshold = 10.f;
+	float BlendRange = 15.f;
+	float FallbackDist = 100.f;
+
+	if (UBlackoutPlayerAnimInstance* AnimInstance = Cast<UBlackoutPlayerAnimInstance>(PlayerCharacter->GetMesh()->GetAnimInstance()))
+	{
+		Threshold = AnimInstance->GetSafeAimDistanceThreshold();
+		BlendRange = AnimInstance->GetSafeAimBlendRange();
+		FallbackDist = AnimInstance->GetFallbackAimTargetDistance();
+	}
+
+	// 뷰 방향 벡터 조회
+	FVector ViewLocation = FVector::ZeroVector;
+	FRotator ViewRotation = FRotator::ZeroRotator;
+	APlayerController* PlayerController = Cast<APlayerController>(PlayerCharacter->GetController());
+	if (PlayerController)
+	{
+		PlayerController->GetPlayerViewPoint(ViewLocation, ViewRotation);
+	}
+	const FVector ViewDir = ViewRotation.Vector();
+
+	// 부호화 투영 거리(내적) 계산
+	const float ProjectedDistance = FVector::DotProduct(AimTarget - MuzzleLocation, ViewDir);
+
+	// Alpha 계산: ProjectedDistance가 Threshold 이하(음수 포함)이면 1.0(완전 폴백), Threshold + BlendRange 이상이면 0.0(완전 기본)
+	float BlendAlpha = 0.f;
+	if (ProjectedDistance <= Threshold)
+	{
+		BlendAlpha = 1.0f;
+	}
+	else if (ProjectedDistance >= Threshold + BlendRange)
+	{
+		BlendAlpha = 0.0f;
+	}
+	else if (BlendRange > 0.f)
+	{
+		BlendAlpha = 1.0f - ((ProjectedDistance - Threshold) / BlendRange);
+	}
+
+	if (BlendAlpha > 0.f && !ViewDir.IsNearlyZero())
+	{
+		const FVector FallbackTarget = ViewLocation + ViewDir * FallbackDist;
+		AimTarget = AimTarget + (FallbackTarget - AimTarget) * BlendAlpha;
+	}
+
 	const FVector BaseFireDirection = (AimTarget - MuzzleLocation).GetSafeNormal();
 	const FVector FireDirection = CombatComponent->GetSpreadDeviatedDirection(BaseFireDirection);
 
@@ -322,6 +597,15 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 		}
 	}
 
+	// 예측 클라이언트는 발사 입력 직후 로컬 GCN을 실행하고, 서버 복제본은 예측키로 중복 재생을 억제합니다.
+	ExecutePredictedWeaponCues(
+		GetAbilitySystemComponentFromActorInfo(),
+		PlayerCharacter,
+		EquippedFirearm,
+		MuzzleLocation,
+		FireDirection,
+		ParallaxMaxDistance);
+
 	// 로컬 예측은 체감용 연출만 담당하고, 실제 월드 판정은 서버에서만 수행합니다.
 	if (PlayerCharacter->HasAuthority())
 	{
@@ -334,7 +618,7 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 				: AbilitySystemComponent->GetNumericAttribute(UBlackoutAmmoAttributeSet::GetPrimaryClipAmmoAttribute());
 		}
 
-		BO_LOG_GAS(Log,
+		BO_LOG_GAS(Verbose,
 			"GA_FireWeapon authoritative shot: Character=%s Weapon=%s ClipAmmo=%.0f Time=%.3f Automatic=%s Shotgun=%s",
 			*GetNameSafe(PlayerCharacter),
 			*GetNameSafe(EquippedFirearm),
@@ -346,18 +630,65 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 		if (ABOShotgunFirearm* ShotgunFirearm = Cast<ABOShotgunFirearm>(EquippedFirearm))
 		{
 			const FGameplayEffectSpecHandle PelletDamageSpecHandle = BuildPelletDamageSpec(ShotgunFirearm);
-			ShotgunFirearm->FireShotgun(FireDirection, PelletDamageSpecHandle);
+			const FBlackoutWeaponCueSet WeaponCueSet = ShotgunFirearm->GetWeaponCueSet();
+			UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo();
+			UBlackoutWeaponCueLibrary::ExecuteFireCue(AbilitySystemComponent, WeaponCueSet, ShotgunFirearm, MuzzleLocation, FireDirection);
+
+			const TArray<FBlackoutShotgunPelletHit> PelletHits = ShotgunFirearm->FireShotgun(FireDirection, PelletDamageSpecHandle);
+			TArray<FBlackoutWeaponGameplayCueEntry> ShotgunCueEntries;
+			ShotgunCueEntries.Reserve(PelletHits.Num() * 2);
+
+			for (const FBlackoutShotgunPelletHit& PelletHit : PelletHits)
+			{
+				const FVector PelletTraceEnd = PelletHit.HitResult.TraceEnd.IsNearlyZero()
+					? MuzzleLocation + FireDirection.GetSafeNormal() * ShotgunFirearm->GetPelletTraceDistance()
+					: FVector(PelletHit.HitResult.TraceEnd);
+
+				AddTrailCueEntry(ShotgunCueEntries, WeaponCueSet, ShotgunFirearm, MuzzleLocation, PelletHit.HitResult, PelletTraceEnd);
+				AddImpactCueEntry(ShotgunCueEntries, WeaponCueSet, ShotgunFirearm, PelletHit.HitResult);
+			}
+
+			if (!ShotgunCueEntries.IsEmpty())
+			{
+				PlayerCharacter->Multicast_ExecuteWeaponGameplayCueBatch(ShotgunCueEntries, true);
+			}
 		}
 		else
 		{
 			const FGameplayEffectSpecHandle DamageSpecHandle = BuildDamageSpec(EquippedFirearm);
-			EquippedFirearm->Fire(FireDirection, DamageSpecHandle);
-		}
+			const FBlackoutWeaponCueSet WeaponCueSet = EquippedFirearm->GetWeaponCueSet();
+			UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo();
+			UBlackoutWeaponCueLibrary::ExecuteFireCue(AbilitySystemComponent, WeaponCueSet, EquippedFirearm, MuzzleLocation, FireDirection);
 
-		// 실제 월드에 영향을 주는 큐는 서버에서만 실행합니다.
-		if (UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo())
-		{
-			AbilitySystemComponent->ExecuteGameplayCue(BlackoutGameplayTags::GameplayCue_Weapon_Fire);
+			const FHitResult ShotHitResult = EquippedFirearm->Fire(FireDirection, DamageSpecHandle);
+			const FVector TraceEnd = ShotHitResult.TraceEnd.IsNearlyZero()
+				? MuzzleLocation + FireDirection.GetSafeNormal() * ParallaxMaxDistance
+				: FVector(ShotHitResult.TraceEnd);
+
+			if (EquippedFirearm->UsesHitscan())
+			{
+				MulticastTrailCueToRemoteProxies(
+					PlayerCharacter,
+					WeaponCueSet,
+					EquippedFirearm,
+					MuzzleLocation,
+					ShotHitResult,
+					TraceEnd);
+				MulticastImpactCueToRemoteProxies(PlayerCharacter, WeaponCueSet, EquippedFirearm, ShotHitResult);
+			}
+			else
+			{
+				FHitResult ProjectileTrailHit;
+				ProjectileTrailHit.TraceStart = MuzzleLocation;
+				ProjectileTrailHit.TraceEnd = TraceEnd;
+				MulticastTrailCueToRemoteProxies(
+					PlayerCharacter,
+					WeaponCueSet,
+					EquippedFirearm,
+					MuzzleLocation,
+					ProjectileTrailHit,
+					TraceEnd);
+			}
 		}
 	}
 	else
@@ -433,7 +764,7 @@ void UBlackoutGA_FireWeapon::EndAbility(const FGameplayAbilitySpecHandle Handle,
 
 	CachedFireMontage = nullptr;
 	bWeaponFireAnimationTriggered = false;
-	BO_LOG_GAS(Log, "GA_FireWeapon ended: Cancelled=%s", bWasCancelled ? TEXT("true") : TEXT("false"));
+	BO_LOG_GAS(Verbose, "GA_FireWeapon ended: Cancelled=%s", bWasCancelled ? TEXT("true") : TEXT("false"));
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
 
@@ -513,7 +844,8 @@ bool UBlackoutGA_FireWeapon::ApplyAmmoCost()
 	const FGameplayTag WeaponSlotTag = CombatComponent->GetEquippedWeaponSlotTag();
 	const float PrimaryClipAmmoBefore = AbilitySystemComponent->GetNumericAttribute(UBlackoutAmmoAttributeSet::GetPrimaryClipAmmoAttribute());
 	const float SecondaryClipAmmoBefore = AbilitySystemComponent->GetNumericAttribute(UBlackoutAmmoAttributeSet::GetSecondaryClipAmmoAttribute());
-	BO_LOG_GAS(Log,
+
+	BO_LOG_GAS(Verbose,
 		"ApplyAmmoCost before: Character=%s Slot=%s Primary=%.0f Secondary=%.0f Local=%s Authority=%s",
 		*GetNameSafe(PlayerCharacter),
 		*WeaponSlotTag.ToString(),
@@ -527,7 +859,7 @@ bool UBlackoutGA_FireWeapon::ApplyAmmoCost()
 		const float SecondaryClipAmmo = SecondaryClipAmmoBefore;
 		if (SecondaryClipAmmo < 1.0f)
 		{
-			BO_LOG_GAS(Warning,
+			BO_LOG_GAS(Verbose,
 				"ApplyAmmoCost failed: 보조 무기 탄약 부족 Character=%s Secondary=%.0f",
 				*GetNameSafe(PlayerCharacter),
 				SecondaryClipAmmo);
@@ -535,7 +867,7 @@ bool UBlackoutGA_FireWeapon::ApplyAmmoCost()
 		}
 
 		AbilitySystemComponent->ApplyModToAttribute(UBlackoutAmmoAttributeSet::GetSecondaryClipAmmoAttribute(), EGameplayModOp::Additive, -1.0f);
-		BO_LOG_GAS(Log,
+		BO_LOG_GAS(Verbose,
 			"ApplyAmmoCost after: Character=%s Slot=%s Primary=%.0f Secondary=%.0f",
 			*GetNameSafe(PlayerCharacter),
 			*WeaponSlotTag.ToString(),
@@ -547,7 +879,7 @@ bool UBlackoutGA_FireWeapon::ApplyAmmoCost()
 	const float PrimaryClipAmmo = PrimaryClipAmmoBefore;
 	if (PrimaryClipAmmo < 1.0f)
 	{
-		BO_LOG_GAS(Warning,
+		BO_LOG_GAS(Verbose,
 			"ApplyAmmoCost failed: 주 무기 탄약 부족 Character=%s Primary=%.0f",
 			*GetNameSafe(PlayerCharacter),
 			PrimaryClipAmmo);
@@ -555,7 +887,7 @@ bool UBlackoutGA_FireWeapon::ApplyAmmoCost()
 	}
 
 	AbilitySystemComponent->ApplyModToAttribute(UBlackoutAmmoAttributeSet::GetPrimaryClipAmmoAttribute(), EGameplayModOp::Additive, -1.0f);
-	BO_LOG_GAS(Log,
+	BO_LOG_GAS(Verbose,
 		"ApplyAmmoCost after: Character=%s Slot=%s Primary=%.0f Secondary=%.0f",
 		*GetNameSafe(PlayerCharacter),
 		*WeaponSlotTag.ToString(),
@@ -633,7 +965,7 @@ void UBlackoutGA_FireWeapon::PlayFireMontage()
 		PlayerCharacter->Multicast_PlayFireMontage(FireMontage, 1.f, false);
 	}
 
-	BO_LOG_GAS(Log,
+	BO_LOG_GAS(Verbose,
 		"PlayFireMontage: Character=%s Weapon=%s Montage=%s",
 		*GetNameSafe(PlayerCharacter),
 		*GetNameSafe(EquippedFirearm),
@@ -669,7 +1001,7 @@ void UBlackoutGA_FireWeapon::OnWeaponFireStartEventReceived(FGameplayEventData P
 		EquippedFirearm->Multicast_PlayWeaponFireAnimation();
 	}
 
-	BO_LOG_GAS(Log,
+	BO_LOG_GAS(Verbose,
 		"GA_FireWeapon fire event received: Character=%s Weapon=%s EventTag=%s",
 		*GetNameSafe(PlayerCharacter),
 		*GetNameSafe(EquippedFirearm),
@@ -695,6 +1027,6 @@ void UBlackoutGA_FireWeapon::OnFireMontageCompleted()
 			*GetNameSafe(CachedFireMontage));
 	}
 
-	BO_LOG_GAS(Log, "GA_FireWeapon montage completed");
+	BO_LOG_GAS(Verbose, "GA_FireWeapon montage completed");
 	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
 }

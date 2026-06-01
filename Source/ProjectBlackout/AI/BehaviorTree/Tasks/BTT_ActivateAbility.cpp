@@ -103,5 +103,16 @@ FString UBTT_ActivateAbility::GetStaticDescription() const
 
 FGameplayTag UBTT_ActivateAbility::ResolveAbilityTag(UBehaviorTreeComponent& OwnerComp) const
 {
-	return AbilityTag;
+	if (AbilityTag.IsValid())
+	{
+		return AbilityTag;
+	}
+	
+	UBlackboardComponent* BB = OwnerComp.GetBlackboardComponent();
+	if (!BB) return FGameplayTag();
+
+	const FName TagName = BB->GetValueAsName(SelectedAbilityTagKey.SelectedKeyName);
+	if (TagName.IsNone()) return FGameplayTag();
+
+	return FGameplayTag::RequestGameplayTag(TagName, false); 
 }

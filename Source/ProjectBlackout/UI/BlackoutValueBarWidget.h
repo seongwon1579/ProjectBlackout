@@ -10,8 +10,6 @@ class PROJECTBLACKOUT_API UBlackoutValueBarWidget : public UUserWidget
 	GENERATED_BODY()
 
 public:
-	virtual void NativePreConstruct() override;
-
 	UFUNCTION(BlueprintCallable, Category = "Blackout|HUD|ValueBar")
 	void SetValue(float NewCurrentValue, float NewMaxValue);
 
@@ -20,6 +18,12 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|HUD|ValueBar")
 	void SetMaxValue(float NewMaxValue);
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|HUD|ValueBar")
+	void SetUseInterpolation(bool bInUseInterpolation) { bUseInterpolation = bInUseInterpolation; }
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|HUD|ValueBar")
+	void SetInterpolationSpeed(float InSpeed) { InterpolationSpeed = InSpeed; }
 
 	UFUNCTION(BlueprintPure, Category = "Blackout|HUD|ValueBar")
 	float GetCurrentValue() const { return CurrentValue; }
@@ -34,11 +38,20 @@ public:
 	bool IsDepleted() const { return bIsDepleted; }
 
 protected:
+	virtual void NativePreConstruct() override;
+	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
+	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD|ValueBar", meta = (ClampMin = "0.0"))
 	float InitialCurrentValue = 1.0f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD|ValueBar", meta = (ClampMin = "0.0"))
 	float InitialMaxValue = 1.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blackout|HUD|ValueBar")
+	bool bUseInterpolation = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blackout|HUD|ValueBar", meta = (EditCondition = "bUseInterpolation"))
+	float InterpolationSpeed = 15.0f;
 
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|HUD|ValueBar")
 	float CurrentValue = 0.0f;
@@ -60,4 +73,8 @@ protected:
 
 private:
 	void ApplyValue(float NewCurrentValue, float NewMaxValue, bool bForceBroadcast);
+
+	float TargetCurrentValue = 0.0f;
+	float TargetMaxValue = 0.0f;
+	bool bHasInitializedTargets = false;
 };

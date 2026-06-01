@@ -30,6 +30,17 @@ public:
 	/** 지속 효과가 외부 상태 변화로 취소되었을 때 소모품 로컬 쿨다운을 초기화합니다. */
 	void ResetConsumableCooldown();
 
+	/** 현재 남은 쿨다운 시간(초)을 반환합니다. */
+	UFUNCTION(BlueprintPure, Category = "Blackout|Consumable")
+	float GetCooldownRemainingTime() const;
+
+	/** 이 소모품의 총 쿨다운 시간(초)을 반환합니다. */
+	UFUNCTION(BlueprintPure, Category = "Blackout|Consumable")
+	float GetCooldownDuration() const;
+
+	/** 소모품 쿨다운을 작동시킵니다. 외부(ASC 클라이언트 RPC 등)에서도 호출이 가능하도록 오픈합니다. */
+	void StartConsumableCooldown(const UBOConsumableData* UsedConsumableData);
+
 protected:
 	/** SourceObject가 비어 있을 때 사용할 폴백 소모품 데이터입니다. BP GA에서 직접 지정할 수 있습니다. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Consumable")
@@ -47,6 +58,14 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Consumable", meta = (ClampMin = 0.0, ClampMax = 1.0))
 	float ConsumableSpeedMultiplier = 0.5f;
 
+	/** 소모품 효과가 실제 적용되는 순간 실행할 일회성 GCN 태그입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Consumable|Cue")
+	FGameplayTag ConsumableUseCueTag;
+
+	/** 소모 GCN을 부착할 오른손 소켓 이름입니다. 기본값은 현재 무기 장착 소켓과 동일합니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Consumable|Cue")
+	FName ConsumableUseCueSocketName = TEXT("WeaponSocket");
+
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Consumable")
 	const UBOConsumableData* ResolveConsumableData();
 
@@ -55,7 +74,6 @@ protected:
 	void ApplyConfiguredGameplayEffect(const UBOConsumableData* UsedConsumableData);
 	float GetEffectMagnitudeOrDefault(const UBOConsumableData* UsedConsumableData, FGameplayTag MagnitudeTag, float DefaultValue) const;
 	bool IsConsumableCooldownReady(const UBOConsumableData* UsedConsumableData) const;
-	void StartConsumableCooldown(const UBOConsumableData* UsedConsumableData);
 
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Consumable Used"), Category = "Blackout|Consumable")
 	void ReceiveConsumableUsed(const UBOConsumableData* UsedConsumableData);
@@ -65,6 +83,7 @@ protected:
 private:
 	const UBOConsumableData* ResolveConsumableDataFromSpec(FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo) const;
 	void ConsumeAndApplyEffect();
+	void ExecuteConsumableUseCue(const UBOConsumableData* UsedConsumableData);
 
 	UFUNCTION()
 	void OnConsumableApplyEventReceived(FGameplayEventData Payload);

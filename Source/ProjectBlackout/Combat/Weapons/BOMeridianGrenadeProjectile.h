@@ -31,6 +31,7 @@ public:
 	virtual void OnSpawnFromPool_Implementation() override;
 	virtual void OnReturnToPool_Implementation() override;
 	virtual void InitFromSpec(const FGameplayEffectSpecHandle& InDamageSpec, float Radius) override;
+	virtual void InitFromSpec(const FGameplayEffectSpecHandle& InDamageSpec, float Radius, const FBlackoutWeaponCueSet& InCueSet) override;
 	virtual void Launch(const FVector& Direction) override;
 	virtual float GetImpactFuseArmDistance() const override { return ArmDistance; }
 

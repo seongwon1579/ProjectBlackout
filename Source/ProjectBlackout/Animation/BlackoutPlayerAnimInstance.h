@@ -21,6 +21,10 @@ public:
 	virtual void NativeInitializeAnimation() override;
 	virtual void NativeUpdateAnimation(float DeltaSeconds) override;
 
+	FORCEINLINE float GetSafeAimDistanceThreshold() const { return SafeAimDistanceThreshold; }
+	FORCEINLINE float GetSafeAimBlendRange() const { return SafeAimBlendRange; }
+	FORCEINLINE float GetFallbackAimTargetDistance() const { return FallbackAimTargetDistance; }
+
 protected:
 	/** 에임 오프셋 값을 갱신합니다. */
 	void UpdateAimOffset(float DeltaSeconds);
@@ -98,6 +102,18 @@ protected:
 	/** 카메라 중앙에서 에임 목표를 찾는 최대 거리 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Animation")
 	float AimTraceDistance = 10000.f;
+
+	/** 에임 오프셋 안정을 위한 최소 안전 거리 (총구와 타겟 간의 거리, cm 단위) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blackout|Animation", meta = (ClampMin = "0.0"))
+	float SafeAimDistanceThreshold = 50.f;
+
+	/** 기본 조준과 폴백 조준 간의 채터링을 방지하기 위한 LERP 완충 구간 크기 (cm 단위) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blackout|Animation", meta = (ClampMin = "0.0"))
+	float SafeAimBlendRange = 50.f;
+
+	/** 총구와 타겟이 너무 가깝거나 관통 시 대체하여 지정할 폴백 타겟 거리 (cm 단위) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blackout|Animation", meta = (ClampMin = "0.0"))
+	float FallbackAimTargetDistance = 150.f;
 
 	/** 현재 에임 오프셋이 바라볼 월드 위치 */
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Animation")

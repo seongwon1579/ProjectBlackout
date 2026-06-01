@@ -9,6 +9,7 @@
 class ABOFirearm;
 class ABOMeleeWeapon;
 class UBOConsumableData;
+class APawn;
 
 /**
  * 플레이어 병과(Assault / Demolition / Sniper)별 초기 스탯 및 어빌리티 데이터.
@@ -23,6 +24,10 @@ public:
 	/** 이 데이터 에셋이 대응하는 병과 태그 (e.g. Character.Class.Assault) */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Class")
 	FGameplayTag ClassTag;
+	
+	/** GetDefaultPawnClassForController 에서 사용할 Pawn Class */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Class")
+	TSubclassOf<APawn> PawnClass;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Stats")
 	float BaseMaxHealth = 100.f;
@@ -33,6 +38,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Stats")
 	float BaseMovementSpeed = 600.f;
 
+	/** 조준 시의 이동 속도 (기본값: 420.f) */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Stats")
+	float AimMovementSpeed = 420.f;
+
+	/** 다운 상태(기어다니기)에서의 이동 속도 (기본값: 150.f) */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Stats")
+	float DownedMovementSpeed = 150.f;
+
 	/** 전투 맵 진입 시 지급되는 블러드 루트 기본 소지량 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Consumables", meta = (ClampMin = 0))
 	int32 InitialBloodRoot = 1;
@@ -40,7 +53,11 @@ public:
 	/** 전투 맵 진입 시 지급되는 굴 혈청 기본 소지량 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Consumables", meta = (ClampMin = 0))
 	int32 InitialGulSerum = 1;
-
+	
+	/** 캐릭터 선택 UI 등에 표시할 이름 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly , Category="Blackout|UI")
+	FText DisplayName;
+	
 	/** 캐릭터 선택 UI에 표시할 초상화 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|UI")
 	TSoftObjectPtr<UTexture2D> PortraitIcon;

@@ -9,6 +9,7 @@ class UAnimMontage;
 class ABlackoutPlayerCharacter;
 class UAbilityTask_PlayMontageAndWait;
 class UAbilityTask_WaitInputPress;
+class UAbilityTask_WaitGameplayEvent;
 class UBODodgeData;
 
 /**
@@ -74,12 +75,20 @@ private:
 	UFUNCTION()
 	void OnDodgeMontageBlendOut();
 
-	void StartMontageTask();
+	bool StartMontageTask();
 
 	void StartChainInputTask();
 
 	UFUNCTION()
 	void OnChainInputPressed(float TimeWaited);
+
+	void StartCancelableEventTask();
+
+	UFUNCTION()
+	void OnAbilityCancelableEventReceived(FGameplayEventData Payload);
+
+	/** 캔슬 윈도우 활성화 기간 동안 프레임단위로 무브먼트(WASD) 입력 유무를 검사합니다. */
+	void CheckCancelInput();
 
 	/**
 	 * 서버에서 입력을 평가하여 윈도우/그레이스/buffer 매칭을 수행합니다.
@@ -120,6 +129,7 @@ private:
 	 * TODO(stamina-cost): TDD §4.1 v2 에서는 GE Cost 로 처리하도록 명시.
 	 * 현재는 v1 의 `ApplyModToAttribute` 경로를 유지하고, 후속 PR 에서 GE 기반으로 교체합니다.
 	 */
+	bool CanPayStaminaCost() const;
 	bool ConsumeStamina() const;
 
 	FVector CalculateDodgeDirection(const FGameplayAbilityActorInfo* ActorInfo, bool& bOutIsBackstep, bool bPreferControlForwardWhenNoInput = false, const FBlackoutAbilityInputSyncPayload* InputPayload = nullptr) const;
@@ -133,11 +143,15 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<UAbilityTask_WaitInputPress> ChainInputTask;
 
+	UPROPERTY(Transient)
+	TObjectPtr<UAbilityTask_WaitGameplayEvent> CancelableEventTask;
+
 	// DodgeEndTimerHandle 는 v2 에서 제거. PlayMontageAndWait 의 OnCompleted/OnInterrupted 콜백이 GA 종료를 담당합니다.
 	FTimerHandle ChainWindowOpenTimerHandle;
 	FTimerHandle ChainWindowCloseTimerHandle;
 	FTimerHandle ChainGraceCloseTimerHandle;
 	FTimerHandle ChainInputBufferTimerHandle;
+	FTimerHandle CancelInputCheckTimerHandle;
 
 	FBlackoutAbilityInputSyncPayload QueuedChainInputPayload;
 	float CurrentDodgeStartedServerTime = 0.f;
@@ -149,5 +163,6 @@ private:
 	bool bChainGraceWindowOpen = false;
 	bool bChainInputQueued = false;
 	bool bHasQueuedChainInputPayload = false;
+	bool bCancelWindowOpen = false;
 	uint16 LastProcessedChainInputSequenceId = 0;
 };

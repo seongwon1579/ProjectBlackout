@@ -1,9 +1,10 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Characters/BlackoutEnemyCharacter.h"
+#include "Characters/BlackoutMinionCharacter.h"
 #include "BORootHollow.generated.h"
 
+class UMotionWarpingComponent;
 class UStateTree;
 
 /**
@@ -11,7 +12,7 @@ class UStateTree;
  * 순수 StateTree를 이용해 추격·돌진 행동을 수행.
  */
 UCLASS()
-class PROJECTBLACKOUT_API ABORootHollow : public ABlackoutEnemyCharacter
+class PROJECTBLACKOUT_API ABORootHollow : public ABlackoutMinionCharacter
 {
 	GENERATED_BODY()
 
@@ -20,10 +21,11 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Minion")
 	void PerformCharge();
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|MotionWarping")
+	TObjectPtr<UMotionWarpingComponent> MotionWarpingComponent;
 
 protected:
-	virtual void OnDeath() override;
-
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|AI")
 	TObjectPtr<UStateTree> ST_RootHollow;
 };

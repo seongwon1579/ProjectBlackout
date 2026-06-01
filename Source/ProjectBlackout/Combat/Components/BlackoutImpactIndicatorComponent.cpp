@@ -4,6 +4,12 @@
 #include "AbilitySystemGlobals.h"
 #include "BlackoutLog.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
+#include "Combat/Components/BlackoutImpactIndicatorComponent.h"
+
+#include "AbilitySystemComponent.h"
+#include "AbilitySystemGlobals.h"
+#include "BlackoutLog.h"
+#include "Combat/Components/BlackoutCombatComponent.h"
 #include "Combat/Weapons/BOFirearm.h"
 #include "Combat/Weapons/BOProjectile.h"
 #include "Components/PrimitiveComponent.h"
@@ -16,6 +22,9 @@
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/GameplayStaticsTypes.h"
+#include "GameFramework/Character.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Animation/BlackoutPlayerAnimInstance.h"
 
 namespace
 {
@@ -512,6 +521,7 @@ bool UBlackoutImpactIndicatorComponent::PerformWeaponTrace(const FVector& TraceS
 	}
 
 	FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(BlackoutImpactIndicator_WeaponTrace), false, GetOwner());
+	QueryParams.bReturnPhysicalMaterial = true;
 	if (IgnoredActor)
 	{
 		QueryParams.AddIgnoredActor(IgnoredActor);
@@ -594,7 +604,64 @@ FVector UBlackoutImpactIndicatorComponent::ResolveFireDirection(const ABOFirearm
 		return FVector::ZeroVector;
 	}
 
-	FVector FireDirection = (GetAimTargetPoint() - Firearm->GetMuzzleTransform().GetLocation()).GetSafeNormal();
+	const FVector MuzzleLocation = Firearm->GetMuzzleTransform().GetLocation();
+	FVector AimTarget = GetAimTargetPoint();
+
+	// 애니메이션 인스턴스의 안전 LERP 파라미터를 동적 쿼리하여 사격 마커 정렬
+	float Threshold = 10.f;
+	float BlendRange = 15.f;
+	float FallbackDist = 100.f;
+
+	if (const APawn* OwnerPawn = Cast<APawn>(GetOwner()))
+	{
+		if (const ACharacter* Character = Cast<ACharacter>(OwnerPawn))
+		{
+			if (const UBlackoutPlayerAnimInstance* AnimInstance = Cast<UBlackoutPlayerAnimInstance>(Character->GetMesh()->GetAnimInstance()))
+			{
+				Threshold = AnimInstance->GetSafeAimDistanceThreshold();
+				BlendRange = AnimInstance->GetSafeAimBlendRange();
+				FallbackDist = AnimInstance->GetFallbackAimTargetDistance();
+			}
+		}
+	}
+
+	// 뷰 방향 벡터 조회
+	FVector ViewLocation = FVector::ZeroVector;
+	FRotator ViewRotation = FRotator::ZeroRotator;
+	if (const APawn* OwnerPawn = Cast<APawn>(GetOwner()))
+	{
+		if (const AController* OwnerController = OwnerPawn->GetController())
+		{
+			OwnerController->GetPlayerViewPoint(ViewLocation, ViewRotation);
+		}
+	}
+	const FVector ViewDir = ViewRotation.Vector();
+
+	// 부호화 투영 거리(내적) 계산
+	const float ProjectedDistance = FVector::DotProduct(AimTarget - MuzzleLocation, ViewDir);
+
+	// Alpha 계산: ProjectedDistance가 Threshold 이하(음수 포함)이면 1.0(완전 폴백), Threshold + BlendRange 이상이면 0.0(완전 기본)
+	float BlendAlpha = 0.f;
+	if (ProjectedDistance <= Threshold)
+	{
+		BlendAlpha = 1.0f;
+	}
+	else if (ProjectedDistance >= Threshold + BlendRange)
+	{
+		BlendAlpha = 0.0f;
+	}
+	else if (BlendRange > 0.f)
+	{
+		BlendAlpha = 1.0f - ((ProjectedDistance - Threshold) / BlendRange);
+	}
+
+	if (BlendAlpha > 0.f && !ViewDir.IsNearlyZero())
+	{
+		const FVector FallbackTarget = ViewLocation + ViewDir * FallbackDist;
+		AimTarget = AimTarget + (FallbackTarget - AimTarget) * BlendAlpha;
+	}
+
+	FVector FireDirection = (AimTarget - MuzzleLocation).GetSafeNormal();
 	if (FireDirection.IsNearlyZero())
 	{
 		if (const AActor* OwnerActor = GetOwner())

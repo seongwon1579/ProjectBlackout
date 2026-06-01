@@ -16,6 +16,7 @@ classDiagram
     UUserWidget <|-- UW_WeaponDisplay
     UUserWidget <|-- UBlackoutConsumableSlotsWidget
     UUserWidget <|-- UBlackoutConsumableSlotWidget
+    UUserWidget <|-- UBlackoutDownedStateWidget
     UObject <|-- UBlackoutHUDWidgetController
     UPrimaryDataAsset <|-- UBOConsumableData
 
@@ -40,10 +41,12 @@ classDiagram
         -UW_AmmoDisplay* AmmoDisplayWidget
         -UW_WeaponDisplay* WeaponDisplayWidget
         -UBlackoutConsumableSlotsWidget* ConsumableSlotsWidget
+        -UBlackoutDownedStateWidget* DownedStateWidget
         +SetWidgetController(UBlackoutHUDWidgetController*) void
         +NativeOnInitialized() void
         +NativeTick(FGeometry, float) void
         +NativePaint(...) int32
+        -ApplyHUDMode(EBlackoutHUDMode) void
         #ReceiveAimingChanged(bool bIsAiming, int32 CrosshairType) void
         -UpdateImpactIndicator(FBlackoutImpactIndicatorData) void
         -PaintProjectileTrajectory(FPaintContext, TArray~FBlackoutTrajectoryPointData~) void
@@ -63,6 +66,9 @@ classDiagram
         +BindCallbacksToDependencies() void
         +BroadcastInitialValues() void
         +GetImpactIndicatorData(FBlackoutImpactIndicatorData&) bool
+        +OnHUDModeChanged(EBlackoutHUDMode)
+        +OnDownedTimerChanged(float Remaining, float Duration)
+        +OnReviveTimerChanged(float Remaining, float Duration)
         -ProjectTrajectoryPoints(TArray~FBlackoutTrajectoryPointData~&) void
         +OnAimingChanged(bool bIsAiming, int32 CrosshairType)
         +OnConsumableSlotsChanged(FBlackoutConsumableSlotData BloodRootData, FBlackoutConsumableSlotData GulSerumData)
@@ -140,20 +146,28 @@ classDiagram
 
     class UBlackoutConsumableSlotWidget {
         -FBlackoutConsumableSlotData SlotData
+        -float CooldownRemaining
+        -float CooldownDuration
+        -bool bIsConsumableAvailable
         -UImage* IconImage
         -UTextBlock* CountText
         +SetConsumableSlotData(FBlackoutConsumableSlotData) void
+        +SetConsumableCount(int32) void
+        +SetConsumableIcon(UTexture2D*) void
+        +NativeTick(FGeometry, float) void
+        #ReceiveConsumableCooldownUpdated(float RemainingTime, float Duration) void
     }
 
     class FBlackoutConsumableSlotData {
         <<Struct>>
-        +FGameplayTag ConsumableTag
+        +UBOConsumableData* ConsumableData
         +UTexture2D* Icon
-        +FText DisplayName
-        +int32 Count
+        +FGameplayTag ConsumableTag
+        +int32 CurrentCount
         +int32 MaxCount
-        +float Cooldown
-        +bool bIsAvailable
+        +float CooldownRemaining
+        +float CooldownDuration
+        +bool bIsValid
     }
 
     class UBOConsumableData {
@@ -167,6 +181,18 @@ classDiagram
         +TSubclassOf~UGameplayAbility~ UseAbility
         +TSubclassOf~UGameplayEffect~ GameplayEffect
         +TMap~FGameplayTag, float~ EffectMagnitudes
+    }
+
+    class UBlackoutGA_UseConsumable {
+        -float ConsumableCooldownEndTime
+        +GetCooldownRemainingTime() float
+        +GetCooldownDuration() float
+        +ResetConsumableCooldown() void
+    }
+
+    class UBlackoutAbilitySystemComponent {
+        +GetConsumableCooldownInfo(FGameplayTag, float&, float&) bool
+        +ResetConsumableCooldownForTag(FGameplayTag) void
     }
 
     class ABlackoutPlayerController {
@@ -235,6 +261,7 @@ classDiagram
     UBlackoutHUDWidget o-- UW_AmmoDisplay
     UBlackoutHUDWidget o-- UW_WeaponDisplay
     UBlackoutHUDWidget o-- UBlackoutConsumableSlotsWidget
+    UBlackoutHUDWidget o-- UBlackoutDownedStateWidget
     UBlackoutConsumableSlotsWidget o-- UBlackoutConsumableSlotWidget
 
     UBlackoutHUDWidget --> UBlackoutHUDWidgetController : receives display events
@@ -249,6 +276,8 @@ classDiagram
     UBlackoutHUDWidgetController --> UBlackoutAmmoAttributeSet : reads Ammo
     UBlackoutHUDWidgetController --> ABOWeaponBase : reads display data
     UBlackoutHUDWidgetController --> UBOConsumableData : reads icon/tuning
+    UBlackoutHUDWidgetController --> UBlackoutAbilitySystemComponent : queries cooldown info
+    UBlackoutAbilitySystemComponent --> UBlackoutGA_UseConsumable : queries cooldown
     UBlackoutHUDWidgetController --> FBlackoutConsumableSlotData : builds display data
     UBlackoutConsumableSlotWidget --> FBlackoutConsumableSlotData : renders
 ```
@@ -295,6 +324,7 @@ sequenceDiagram
 - **탄약 표시 전환**: 현재 슬롯이 주무기면 Primary 어트리뷰트, 보조무기면 Secondary 어트리뷰트를 표시합니다. 근접무기처럼 탄약이 없으면 `UW_AmmoDisplay`를 숨기거나 비활성화합니다.
 - **소모품 표시**: 현재 소지 수량은 `ABlackoutPlayerState`의 Replicated 프로퍼티가 소유하고, 아이콘·최대 수량·쿨다운은 `UBOConsumableData`에서 조회합니다. 회복량·지속시간 같은 효과 수치는 `EffectMagnitudes`의 GameplayTag 키로 조회합니다.
 - **소모품 슬롯 데이터**: `UBlackoutHUDWidgetController`는 `PlayerState` 수량과 `UBOConsumableData` 정적 데이터를 합쳐 `FBlackoutConsumableSlotData`를 만들고, `UBlackoutConsumableSlotsWidget`은 이를 하위 슬롯에 전달합니다. 슬롯 위젯은 ASC/DataAsset을 직접 조회하지 않습니다.
+- **다운 상태 HUD 모드**: 로컬 플레이어가 `State.Downed`에 진입하면 `UBlackoutHUDWidget`은 팀원 상태창과 보스 체력바를 제외한 기본 전투 HUD를 숨기고 `UBlackoutDownedStateWidget`의 사망 타이머 프로그래스 바를 표시합니다. `State.BeingRevived`가 적용되면 서버 사망 타이머를 일시정지한 상태에서 사망 타이머 대신 부활 프로그래스 바를 표시하고, 부활 취소 시 남은 사망 타이머 표시로 돌아갑니다. 부활 성공 시 기본 HUD로 복귀합니다. `State.Dead`가 적용되면 기본 HUD를 복구하지 않고 관전 HUD로 전환합니다.
 - **Tick 예외**: `UBlackoutHUDWidget`은 착탄 인디케이터 위치/색상과 유탄 궤적 표시 갱신을 위해 Tick에서 `UBlackoutImpactIndicatorComponent`의 결과를 조회할 수 있습니다. 실제 라인트레이스/투사체 예측 계산은 전투 전용 컴포넌트가 입력 키 변경 시에만 수행하며, 다른 HUD 요소는 Tick을 사용하지 않습니다.
 - **유탄 궤적 렌더링**: `UBlackoutImpactIndicatorComponent`는 첫 blocking hit까지의 월드 궤적 포인트를 전달하고, `UBlackoutHUDWidgetController`가 각 포인트의 `ScreenPosition`을 채웁니다. `UBlackoutHUDWidget`은 캐시된 화면 좌표를 `NativePaint`에서 선 또는 점선으로 그립니다.
 - **궤적 상태 표현**: `FBlackoutTrajectoryPointData::VisualState`로 정상 구간, 신관 미활성 구간, 시야 가림 구간을 구분해 HUD가 색상과 투명도를 선택합니다. 기존 True Hit 끝점 인디케이터는 유지합니다.

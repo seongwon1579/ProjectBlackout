@@ -27,6 +27,10 @@ struct PROJECTBLACKOUT_API FBlackoutComboSectionDef
 	/** 섹션 시작 후 콤보 입력 윈도우가 닫히는 시각(초). WindowOpen 이후여야 합니다. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Combat", meta = (ClampMin = 0.0))
 	float WindowCloseAtSeconds = 0.f;
+
+	/** 해당 콤보 단계에서 적용할 데미지 배율. 기본값 1.0 (100%) */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Combat", meta = (ClampMin = 0.0))
+	float DamageMultiplier = 1.f;
 };
 
 /**

@@ -10,6 +10,7 @@ class UAnimMontage;
 class UGameplayEffect;
 class UAbilityTask_PlayMontageAndWait;
 class UAbilityTask_WaitInputPress;
+class UAbilityTask_WaitGameplayEvent;
 class UBOMeleeComboData;
 
 /**
@@ -89,6 +90,14 @@ private:
 	UFUNCTION()
 	void OnComboInputPressed(float TimeWaited);
 
+	void StartCancelableEventTask();
+
+	UFUNCTION()
+	void OnAbilityCancelableEventReceived(FGameplayEventData Payload);
+
+	/** 캔슬 윈도우 활성화 기간 동안 프레임단위로 무브먼트(WASD) 입력 유무를 검사합니다. */
+	void CheckCancelInput();
+
 	/**
 	 * 서버에서 입력을 평가하여 콤보 진행/버퍼/grace 매칭을 수행합니다.
 	 * 클라이언트는 입력 복제만 담당하고, 섹션 전환은 RepAnimMontageInfo 로 따라갑니다.
@@ -143,10 +152,14 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<UAbilityTask_WaitInputPress> ComboInputTask;
 
+	UPROPERTY(Transient)
+	TObjectPtr<UAbilityTask_WaitGameplayEvent> CancelableEventTask;
+
 	FTimerHandle ComboWindowOpenTimerHandle;
 	FTimerHandle ComboWindowCloseTimerHandle;
 	FTimerHandle ComboGraceCloseTimerHandle;
 	FTimerHandle ComboInputBufferTimerHandle;
+	FTimerHandle CancelInputCheckTimerHandle;
 
 	FBlackoutAbilityInputSyncPayload QueuedComboInputPayload;
 	float CurrentSectionEnteredServerTime = 0.f;
@@ -158,5 +171,6 @@ private:
 	bool bComboGraceWindowOpen = false;
 	bool bComboInputQueued = false;
 	bool bHasQueuedComboInputPayload = false;
+	bool bCancelWindowOpen = false;
 	uint16 LastProcessedComboInputSequenceId = 0;
 };

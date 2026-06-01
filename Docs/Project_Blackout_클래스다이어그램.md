@@ -81,13 +81,14 @@ classDiagram
     }
 
     class ABlackoutBattleGameMode {
-        -FGameplayTag CurrentCheckpointTag
+        -AActor* CurrentCheckpointActor
         +OnMidBossDefeated() void
-        +OnMainBossDefeated() void
-        +Server_RestartAtCheckpoint() void
-        +Server_VoteRestart() void
-        -RespawnFieldMinions(FGameplayTag) void
-        -LoadStreamLevel(FName) void
+        +NotifyPlayerFullyDead(ABlackoutPlayerCharacter*) void
+        +HandlePartyWipe() void
+        +RegisterSurrenderVote(ABlackoutPlayerController*) void
+        -EvaluatePartyWipe() void
+        -FindNextSpectateTarget(ABlackoutPlayerController*, int32) ABlackoutPlayerCharacter*
+        -EvaluateSurrenderVote() void
     }
 ```
 
@@ -322,9 +323,16 @@ classDiagram
     }
 
     class ExecCalc_CombatReward {
-        +Kill.Melee → 탄약+소모품
-        +Kill.MultiTarget.Count >= 3 → 탄약+소모품
-        +Kill.WeakSpot → 탄약+소모품
+        +DropItemClass (BP 기본값)
+        +Kill.Melee → 드롭 후보 1개 랜덤
+        +Kill.MultiTarget.Count3 → 드롭 후보 1개 랜덤
+        +Kill.WeakSpot → 드롭 후보 1개 랜덤
+        +SpawnFromPool(ABlackoutDropItem)
+    }
+
+    class GE_CombatReward {
+        +Instant
+        +BP ExecCalc_CombatReward 실행
     }
 
     class ABOShotgunFirearm {
@@ -341,7 +349,108 @@ classDiagram
     UBlackoutAbilitySystemComponent ..> FBlackoutAbilityInputSyncPayload : 기록 / 검증
     UBlackoutGA_UseConsumable <|-- UBlackoutGA_UseBloodRoot
     UBlackoutGA_UseConsumable <|-- UBlackoutGA_UseGulSerum
-    ExecCalc_DamageCalc --> ExecCalc_CombatReward : 사망 시
+    ABlackoutCharacterBase --> GE_CombatReward : 서버 사망 확정 후
+    GE_CombatReward --> ExecCalc_CombatReward : Execution
+```
+
+---
+
+### 6.1 플레이어 다운 / 완전 사망
+
+> 상세 설계는 [Foundation/09_Player_Downed_Death.md](Foundation/09_Player_Downed_Death.md)를 기준으로 합니다. 루트 문서는 전체 의존 개요만 유지합니다.
+
+```mermaid
+classDiagram
+    direction LR
+
+    class ABlackoutCharacterBase {
+        +IsDead() bool
+        +IsDowned() bool
+        #OnDowned() void
+        #OnDeath() void
+    }
+
+    class ABlackoutPlayerCharacter {
+        +TryBeginReviveInteraction(ABlackoutPlayerCharacter*) bool
+        +EndReviveInteraction(ABlackoutPlayerCharacter*) void
+        +Server_ReviveFromDowned(float) void
+        -StartDownedDeathTimer() void
+        -HandleDownedDeathTimerExpired() void
+    }
+
+    class UBlackoutGA_Revive {
+        +ActivateAbility(...) void
+        -HandleReviveTick() void
+        -FinishRevive() void
+        -CancelRevive() void
+    }
+
+    class ABlackoutBattleGameMode {
+        +NotifyPlayerFullyDead(ABlackoutPlayerCharacter*) void
+        -EvaluatePartyWipe() void
+        +HandlePartyWipe() void
+    }
+
+    class BlackoutGameplayTags {
+        +State_Downed
+        +State_Reviving
+        +State_BeingRevived
+        +State_Dead
+    }
+
+    ABlackoutCharacterBase <|-- ABlackoutPlayerCharacter
+    ABlackoutPlayerCharacter --> UBlackoutGA_Revive : revive target
+    ABlackoutPlayerCharacter --> BlackoutGameplayTags : state tags
+    ABlackoutPlayerCharacter --> ABlackoutBattleGameMode : full death notification
+    ABlackoutBattleGameMode --> ABlackoutBattleGameMode : party wipe evaluation
+```
+
+---
+
+### 6.2 플레이어 관전 / 항복 투표
+
+> 상세 설계는 [Foundation/10_Player_Spectator_Surrender.md](Foundation/10_Player_Spectator_Surrender.md)를 기준으로 합니다. 관전 대상에는 완전 사망하지 않은 다운 상태 파티원도 포함합니다.
+
+```mermaid
+classDiagram
+    direction LR
+
+    class ABlackoutPlayerController {
+        +EnterSpectatorMode() void
+        +ExitSpectatorMode() void
+        +Server_RequestSpectateNext() void
+        +Server_RequestSpectatePrevious() void
+        +Server_RequestSurrenderVote() void
+        +Client_SetSpectateTarget(AActor*) void
+    }
+
+    class ABlackoutBattleGameMode {
+        +RegisterSurrenderVote(ABlackoutPlayerController*) void
+        +CancelSurrenderVote(ABlackoutPlayerController*) void
+        -FindInitialSpectateTarget(ABlackoutPlayerController*) ABlackoutPlayerCharacter*
+        -FindNextSpectateTarget(ABlackoutPlayerController*, int32) ABlackoutPlayerCharacter*
+        -EvaluateSurrenderVote() void
+        +HandlePartyWipe() void
+    }
+
+    class ABlackoutGameState {
+        +int32 SurrenderVoteCount
+        +int32 RequiredSurrenderVoteCount
+    }
+
+    class ABlackoutPlayerState {
+        +bool bRequestedSurrender
+    }
+
+    class ABlackoutPlayerCharacter {
+        +IsDead() bool
+        +IsDowned() bool
+    }
+
+    ABlackoutPlayerController --> ABlackoutBattleGameMode : spectate / vote RPC
+    ABlackoutBattleGameMode --> ABlackoutPlayerCharacter : spectatable if !IsDead
+    ABlackoutBattleGameMode --> ABlackoutGameState : vote count replication
+    ABlackoutBattleGameMode --> ABlackoutPlayerState : voter state
 ```
 
 ---
@@ -356,9 +465,9 @@ classDiagram
 
     class UBlackoutPoolSubsystem {
         -TMap PoolMap
-        +GetFromPool(UClass*) AActor*
+        +SpawnFromPool(UClass*) AActor*
         +ReturnToPool(AActor*) void
-        +PreWarm(UClass*, int32 Count) void
+        +WarmUp(UClass*, int32 Count) void
     }
 
     class IBlackoutPoolableInterface {

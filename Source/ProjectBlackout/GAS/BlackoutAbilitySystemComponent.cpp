@@ -15,6 +15,24 @@
 #include "GAS/Attributes/BlackoutPlayerAttributeSet.h"
 #include "Net/UnrealNetwork.h"
 
+namespace
+{
+	FPredictionKey GetActiveAbilityActivationPredictionKey(const FGameplayAbilitySpec& AbilitySpec)
+	{
+		// UE 5.5 이후 Spec의 ActivationInfo는 NonInstanced GA 전용 deprecated 경로입니다.
+		const TArray<UGameplayAbility*> AbilityInstances = AbilitySpec.GetAbilityInstances();
+		for (int32 InstanceIndex = AbilityInstances.Num() - 1; InstanceIndex >= 0; --InstanceIndex)
+		{
+			if (const UGameplayAbility* AbilityInstance = AbilityInstances[InstanceIndex])
+			{
+				return AbilityInstance->GetCurrentActivationInfo().GetActivationPredictionKey();
+			}
+		}
+
+		return FPredictionKey();
+	}
+}
+
 void UBlackoutAbilitySystemComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
@@ -139,13 +157,7 @@ void UBlackoutAbilitySystemComponent::HandleAbilityInputPressed(EBlackoutAbility
 		{
 			// 활성 GA의 prediction key 추출.
 			// 콤보/체인 재입력은 새 ScopedPredictionWindow 를 만들지 않고 기존 activation key 를 재사용합니다.
-			const FGameplayAbilityActivationInfo* ActivationInfo = &AbilitySpec.ActivationInfo;
-			const TArray<UGameplayAbility*> AbilityInstances = AbilitySpec.GetAbilityInstances();
-			if (AbilityInstances.Num() > 0 && AbilityInstances.Last())
-			{
-				ActivationInfo = &AbilityInstances.Last()->GetCurrentActivationInfoRef();
-			}
-			const FPredictionKey ActivationKey = ActivationInfo->GetActivationPredictionKey();
+			const FPredictionKey ActivationKey = GetActiveAbilityActivationPredictionKey(AbilitySpec);
 
 			// 로컬: 자신의 GA 인스턴스에 InputPressed 를 전달하고 로컬 WaitInputPress 를 발화.
 			AbilitySpecInputPressed(AbilitySpec);
@@ -208,17 +220,12 @@ void UBlackoutAbilitySystemComponent::HandleAbilityInputReleased(EBlackoutAbilit
 
 			AbilitySpecInputReleased(AbilitySpec);
 
-			const FGameplayAbilityActivationInfo* ActivationInfo = &AbilitySpec.ActivationInfo;
-			const TArray<UGameplayAbility*> AbilityInstances = AbilitySpec.GetAbilityInstances();
-			if (AbilityInstances.Num() > 0 && AbilityInstances.Last())
-			{
-				ActivationInfo = &AbilityInstances.Last()->GetCurrentActivationInfoRef();
-			}
+			const FPredictionKey ActivationKey = GetActiveAbilityActivationPredictionKey(AbilitySpec);
 
 			InvokeReplicatedEvent(
 				EAbilityGenericReplicatedEvent::InputReleased,
 				AbilitySpec.Handle,
-				ActivationInfo->GetActivationPredictionKey());
+				ActivationKey);
 		}
 	}
 }
@@ -356,13 +363,7 @@ void UBlackoutAbilitySystemComponent::NotifyActiveAbilityInputPressedFromPayload
 			continue;
 		}
 
-		const FGameplayAbilityActivationInfo* ActivationInfo = &AbilitySpec.ActivationInfo;
-		const TArray<UGameplayAbility*> AbilityInstances = AbilitySpec.GetAbilityInstances();
-		if (AbilityInstances.Num() > 0 && AbilityInstances.Last())
-		{
-			ActivationInfo = &AbilityInstances.Last()->GetCurrentActivationInfoRef();
-		}
-		const FPredictionKey ActivationKey = ActivationInfo->GetActivationPredictionKey();
+		const FPredictionKey ActivationKey = GetActiveAbilityActivationPredictionKey(AbilitySpec);
 
 		// ServerSetReplicatedEvent 가 타이밍 문제로 WaitInputPress 를 깨우지 못하는 경우를 위한 안전망입니다.
 		AbilitySpec.InputPressed = true;
@@ -548,6 +549,34 @@ void UBlackoutAbilitySystemComponent::CancelHealthRegenOverTime()
 	BO_LOG_GAS(Log, "지속 체력 회복 취소: Owner=%s", *GetNameSafe(GetOwner()));
 }
 
+void UBlackoutAbilitySystemComponent::Client_StartConsumableCooldown_Implementation(FGameplayTag ConsumableTag, float CooldownDuration)
+{
+	if (!ConsumableTag.IsValid())
+	{
+		return;
+	}
+
+	ABILITYLIST_SCOPE_LOCK();
+
+	for (FGameplayAbilitySpec& AbilitySpec : ActivatableAbilities.Items)
+	{
+		const UBOConsumableData* ConsumableData = Cast<UBOConsumableData>(AbilitySpec.SourceObject.Get());
+		if (!ConsumableData || !ConsumableData->ConsumableTag.MatchesTagExact(ConsumableTag))
+		{
+			continue;
+		}
+
+		for (UGameplayAbility* AbilityInstance : AbilitySpec.GetAbilityInstances())
+		{
+			if (UBlackoutGA_UseConsumable* ConsumableAbility = Cast<UBlackoutGA_UseConsumable>(AbilityInstance))
+			{
+				// 서버로부터 쿨다운 돌입 명령을 받아 클라이언트 측에서도 해당 소모품 어빌리티의 로컬 쿨다운을 돌립니다.
+				ConsumableAbility->StartConsumableCooldown(ConsumableData);
+			}
+		}
+	}
+}
+
 void UBlackoutAbilitySystemComponent::Client_ResetConsumableCooldown_Implementation(FGameplayTag ConsumableTag)
 {
 	ResetConsumableCooldownForTag(ConsumableTag);
@@ -674,6 +703,41 @@ void UBlackoutAbilitySystemComponent::StopHealthRegen()
 	ActiveHealthRegenSourceTag = FGameplayTag();
 }
 
+bool UBlackoutAbilitySystemComponent::GetConsumableCooldownInfo(FGameplayTag ConsumableTag, float& OutRemainingTime, float& OutDuration) const
+{
+	OutRemainingTime = 0.0f;
+	OutDuration = 0.0f;
+
+	if (!ConsumableTag.IsValid())
+	{
+		return false;
+	}
+
+	// const 멤버 함수 내에서 어빌리티 리스트 락을 획득하기 위해 const_cast를 활용합니다.
+	FScopedAbilityListLock Lock(*const_cast<UBlackoutAbilitySystemComponent*>(this));
+
+	for (const FGameplayAbilitySpec& AbilitySpec : ActivatableAbilities.Items)
+	{
+		const UBOConsumableData* ConsumableData = Cast<UBOConsumableData>(AbilitySpec.SourceObject.Get());
+		if (!ConsumableData || !ConsumableData->ConsumableTag.MatchesTagExact(ConsumableTag))
+		{
+			continue;
+		}
+
+		for (const UGameplayAbility* AbilityInstance : AbilitySpec.GetAbilityInstances())
+		{
+			if (const UBlackoutGA_UseConsumable* ConsumableAbility = Cast<UBlackoutGA_UseConsumable>(AbilityInstance))
+			{
+				OutRemainingTime = ConsumableAbility->GetCooldownRemainingTime();
+				OutDuration = ConsumableAbility->GetCooldownDuration();
+				return OutRemainingTime > 0.0f;
+			}
+		}
+	}
+
+	return false;
+}
+
 void UBlackoutAbilitySystemComponent::ResetConsumableCooldownForTag(FGameplayTag ConsumableTag)
 {
 	if (!ConsumableTag.IsValid())
@@ -701,6 +765,14 @@ void UBlackoutAbilitySystemComponent::ResetConsumableCooldownForTag(FGameplayTag
 	}
 }
 
+void UBlackoutAbilitySystemComponent::NotifyConsumableCooldownChanged(FGameplayTag ConsumableTag)
+{
+	if (ConsumableTag.IsValid())
+	{
+		OnConsumableCooldownChanged.Broadcast(ConsumableTag);
+	}
+}
+
 bool UBlackoutAbilitySystemComponent::CanRecoverStamina() const
 {
 	if (!IsOwnerActorAuthoritative() || !StaminaRegenEffectClass)
@@ -716,4 +788,17 @@ bool UBlackoutAbilitySystemComponent::CanRecoverStamina() const
 	const float CurrentStamina = GetNumericAttribute(UBlackoutPlayerAttributeSet::GetStaminaAttribute());
 	const float MaxStamina = GetNumericAttribute(UBlackoutPlayerAttributeSet::GetMaxStaminaAttribute());
 	return MaxStamina > 0.0f && CurrentStamina < MaxStamina;
+}
+
+bool UBlackoutAbilitySystemComponent::ShouldSkipCostInShelter() const
+{
+	return HasMatchingGameplayTag(BlackoutGameplayTags::State_InShelter);
+}
+
+void UBlackoutAbilitySystemComponent::Server_RemoveLooseGameplayTag_Implementation(FGameplayTag TagToRemove)
+{
+	if (HasMatchingGameplayTag(TagToRemove))
+	{
+		RemoveLooseGameplayTag(TagToRemove);
+	}
 }

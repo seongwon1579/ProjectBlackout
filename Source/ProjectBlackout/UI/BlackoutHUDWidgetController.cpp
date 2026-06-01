@@ -6,16 +6,41 @@
 #include "Combat/Components/BlackoutImpactIndicatorComponent.h"
 #include "Combat/Weapons/BOFirearm.h"
 #include "Combat/Weapons/BOWeaponBase.h"
+#include "GAS/BlackoutAbilitySystemComponent.h"
 #include "Core/BlackoutLog.h"
 #include "Data/BOCharacterData.h"
 #include "Data/BOConsumableData.h"
+#include "EngineUtils.h"
 #include "Framework/BlackoutPlayerController.h"
 #include "Framework/BlackoutPlayerState.h"
+#include "Framework/BlackoutGameState.h"
+#include "GAS/Abilities/Player/BlackoutGA_Revive.h"
 #include "GAS/Attributes/BlackoutAmmoAttributeSet.h"
 #include "GAS/Attributes/BlackoutBaseAttributeSet.h"
 #include "GAS/Attributes/BlackoutPlayerAttributeSet.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
+#include "Interfaces/BlackoutInteractable.h"
 #include "Blueprint/WidgetLayoutLibrary.h"
+
+namespace
+{
+	const FText RevivePromptText = FText::FromString(TEXT("부활"));
+	const FText MissingRelicText = FText::FromString(TEXT("유물이 없습니다"));
+	const FText ReviveBusyText = FText::FromString(TEXT("부활중입니다"));
+	const FText ReviveInProgressText = FText::FromString(TEXT("소생 중..."));
+
+	FVector GetRevivePromptWorldLocation(const ABlackoutPlayerCharacter* TargetCharacter)
+	{
+		if (!TargetCharacter)
+		{
+			return FVector::ZeroVector;
+		}
+
+		// 머리 위보다 약간 높은 지점에 프롬프트를 고정해 다운된 아군 위치를 쉽게 읽도록 합니다.
+		return TargetCharacter->GetActorLocation() +
+			FVector(0.0f, 0.0f, TargetCharacter->GetSimpleCollisionHalfHeight());
+	}
+}
 
 bool UBlackoutHUDWidgetController::Initialize(APlayerController* InPlayerController)
 {
@@ -67,6 +92,69 @@ void UBlackoutHUDWidgetController::BindCallbacksToDependencies()
 		bAttributeCallbacksBound = true;
 	}
 
+	if (ASC && BoundStateTagAbilitySystemComponent.Get() != ASC)
+	{
+		// 이전 ASC에 남아있던 State 태그 콜백을 정리합니다.
+		if (UAbilitySystemComponent* PreviousASC = BoundStateTagAbilitySystemComponent.Get())
+		{
+			if (DownedTagChangedHandle.IsValid())
+			{
+				PreviousASC->RegisterGameplayTagEvent(
+					BlackoutGameplayTags::State_Downed,
+					EGameplayTagEventType::NewOrRemoved).Remove(DownedTagChangedHandle);
+			}
+			if (BeingRevivedTagChangedHandle.IsValid())
+			{
+				PreviousASC->RegisterGameplayTagEvent(
+					BlackoutGameplayTags::State_BeingRevived,
+					EGameplayTagEventType::NewOrRemoved).Remove(BeingRevivedTagChangedHandle);
+			}
+			if (DeadTagChangedHandle.IsValid())
+			{
+				PreviousASC->RegisterGameplayTagEvent(
+					BlackoutGameplayTags::State_Dead,
+					EGameplayTagEventType::NewOrRemoved).Remove(DeadTagChangedHandle);
+			}
+		}
+
+		DownedTagChangedHandle = ASC->RegisterGameplayTagEvent(
+			BlackoutGameplayTags::State_Downed,
+			EGameplayTagEventType::NewOrRemoved)
+			.AddUObject(this, &UBlackoutHUDWidgetController::HandleDownedRelatedTagChanged);
+
+		BeingRevivedTagChangedHandle = ASC->RegisterGameplayTagEvent(
+			BlackoutGameplayTags::State_BeingRevived,
+			EGameplayTagEventType::NewOrRemoved)
+			.AddUObject(this, &UBlackoutHUDWidgetController::HandleDownedRelatedTagChanged);
+
+		DeadTagChangedHandle = ASC->RegisterGameplayTagEvent(
+			BlackoutGameplayTags::State_Dead,
+			EGameplayTagEventType::NewOrRemoved)
+			.AddUObject(this, &UBlackoutHUDWidgetController::HandleDownedRelatedTagChanged);
+
+		BoundStateTagAbilitySystemComponent = ASC;
+	}
+
+	if (ASC && BoundCooldownAbilitySystemComponent.Get() != ASC)
+	{
+		// 이전 ASC에 맺어두었던 쿨다운 변경 델리게이트를 안전하게 해제합니다.
+		if (UBlackoutAbilitySystemComponent* PreviousBlackoutASC = Cast<UBlackoutAbilitySystemComponent>(BoundCooldownAbilitySystemComponent.Get()))
+		{
+			if (ConsumableCooldownChangedHandle.IsValid())
+			{
+				PreviousBlackoutASC->OnConsumableCooldownChanged.Remove(ConsumableCooldownChangedHandle);
+			}
+		}
+
+		// 새 ASC의 쿨다운 변경 델리게이트를 구독합니다.
+		if (UBlackoutAbilitySystemComponent* BlackoutASC = Cast<UBlackoutAbilitySystemComponent>(ASC))
+		{
+			ConsumableCooldownChangedHandle = BlackoutASC->OnConsumableCooldownChanged.AddUObject(
+				this, &UBlackoutHUDWidgetController::HandleConsumableCooldownChanged);
+			BoundCooldownAbilitySystemComponent = ASC;
+		}
+	}
+
 	if (ABlackoutPlayerState* BlackoutPlayerState = PlayerState.Get())
 	{
 		if (BoundPlayerState.Get() != BlackoutPlayerState)
@@ -104,6 +192,14 @@ void UBlackoutHUDWidgetController::BindCallbacksToDependencies()
 	{
 		BO_LOG_CORE(Warning, "HUD 무기 바인딩 보류: CombatComponent가 유효하지 않습니다.");
 	}
+
+	if (UWorld* World = GetWorld())
+	{
+		if (ABlackoutGameState* GS = World->GetGameState<ABlackoutGameState>())
+		{
+			GS->OnSurrenderVoteStateChanged.AddUniqueDynamic(this, &UBlackoutHUDWidgetController::HandleSurrenderVoteStateChanged);
+		}
+	}
 }
 
 void UBlackoutHUDWidgetController::BroadcastInitialValues()
@@ -116,6 +212,24 @@ void UBlackoutHUDWidgetController::BroadcastInitialValues()
 	BroadcastWeaponAmmoDisplay(false);
 	BroadcastRelicCharges();
 	BroadcastConsumables();
+
+	// HUD 모드와 다운 상태 데이터의 초기값을 브로드캐스트해 첫 프레임에 위젯 가시성이 결정되도록 합니다.
+	CurrentHUDMode = EvaluateHUDMode();
+	OnHUDModeChanged.Broadcast(CurrentHUDMode);
+	OnDownedStateHUDDataChanged.Broadcast(BuildDownedStateHUDData(CurrentHUDMode));
+
+	if (UWorld* World = GetWorld())
+	{
+		if (const ABlackoutGameState* GS = World->GetGameState<ABlackoutGameState>())
+		{
+			OnSurrenderVoteStateChanged.Broadcast(
+				GS->bIsSurrenderVoteActive,
+				GS->SurrenderVoteYesCount,
+				GS->SurrenderVoteNoCount,
+				GS->SurrenderVoteEndTimeSeconds
+			);
+		}
+	}
 }
 
 bool UBlackoutHUDWidgetController::GetImpactIndicatorData(FBlackoutImpactIndicatorData& OutIndicatorData) const
@@ -151,6 +265,119 @@ bool UBlackoutHUDWidgetController::GetImpactIndicatorData(FBlackoutImpactIndicat
 	// 전투 컴포넌트는 월드 좌표만 만들고, 화면 좌표 변환은 HUD 계층에서 처리합니다.
 	ProjectTrajectoryPoints(OutIndicatorData.TrajectoryPoints);
 
+	return true;
+}
+
+bool UBlackoutHUDWidgetController::GetInteractionPromptData(FBlackoutInteractionPromptData& OutPromptData) const
+{
+	OutPromptData = FBlackoutInteractionPromptData();
+
+	const ABlackoutPlayerController* BlackoutPlayerController = PlayerController.Get();
+	const ABlackoutPlayerCharacter* LocalPlayerCharacter =
+		BlackoutPlayerController ? Cast<ABlackoutPlayerCharacter>(BlackoutPlayerController->GetPawn()) : nullptr;
+	if (!BlackoutPlayerController || !BlackoutPlayerController->IsLocalController() || !LocalPlayerCharacter)
+	{
+		return false;
+	}
+
+	if (LocalPlayerCharacter->IsDead() || LocalPlayerCharacter->IsDowned())
+	{
+		return false;
+	}
+
+	if (const UBlackoutGA_Revive* ActiveReviveAbility = UBlackoutGA_Revive::GetActiveReviveAbilityFromActor(LocalPlayerCharacter))
+	{
+		if (ABlackoutPlayerCharacter* ActiveReviveTarget = ActiveReviveAbility->GetReviveTarget())
+		{
+			const FVector PromptWorldLocation = GetRevivePromptWorldLocation(ActiveReviveTarget);
+			FVector2D PromptScreenPosition = FVector2D::ZeroVector;
+			if (!UWidgetLayoutLibrary::ProjectWorldLocationToWidgetPosition(
+				BlackoutPlayerController,
+				PromptWorldLocation,
+				PromptScreenPosition,
+				true))
+			{
+				return false;
+			}
+
+			OutPromptData.bIsVisible = true;
+			OutPromptData.bShowProgress = true;
+			OutPromptData.ProgressNormalized = ActiveReviveAbility->GetReviveProgressNormalized();
+			OutPromptData.WorldLocation = PromptWorldLocation;
+			OutPromptData.ScreenPosition = PromptScreenPosition;
+			OutPromptData.State = EBlackoutInteractionPromptState::InProgress;
+			OutPromptData.PromptText = FText::GetEmpty();
+			OutPromptData.StatusText = ReviveInProgressText;
+			return true;
+		}
+	}
+
+	const float ReviveRange = UBlackoutGA_Revive::GetReviveRangeForActor(LocalPlayerCharacter);
+	ABlackoutPlayerCharacter* NearbyDownedPlayer = FindNearbyDownedPlayer(LocalPlayerCharacter, ReviveRange);
+	if (!NearbyDownedPlayer)
+	{
+		if (AActor* FocusedInteractableActor = LocalPlayerCharacter->GetFocusedInteractableActor())
+		{
+			const FVector PromptWorldLocation = LocalPlayerCharacter->GetFocusedInteractablePromptWorldLocation();
+			FVector2D PromptScreenPosition = FVector2D::ZeroVector;
+			if (!UWidgetLayoutLibrary::ProjectWorldLocationToWidgetPosition(
+				BlackoutPlayerController,
+				PromptWorldLocation,
+				PromptScreenPosition,
+				true))
+			{
+				return false;
+			}
+
+			OutPromptData.bIsVisible = true;
+			OutPromptData.WorldLocation = PromptWorldLocation;
+			OutPromptData.ScreenPosition = PromptScreenPosition;
+			OutPromptData.State = EBlackoutInteractionPromptState::Available;
+			OutPromptData.PromptText = FocusedInteractableActor->GetClass()->ImplementsInterface(UBlackoutInteractable::StaticClass())
+				? IBlackoutInteractable::Execute_GetInteractionPrompt(FocusedInteractableActor)
+				: FText::GetEmpty();
+			return true;
+		}
+
+		return false;
+	}
+
+	const FVector PromptWorldLocation = GetRevivePromptWorldLocation(NearbyDownedPlayer);
+	FVector2D PromptScreenPosition = FVector2D::ZeroVector;
+	if (!UWidgetLayoutLibrary::ProjectWorldLocationToWidgetPosition(
+		BlackoutPlayerController,
+		PromptWorldLocation,
+		PromptScreenPosition,
+		true))
+	{
+		return false;
+	}
+
+	OutPromptData.bIsVisible = true;
+	OutPromptData.WorldLocation = PromptWorldLocation;
+	OutPromptData.ScreenPosition = PromptScreenPosition;
+	OutPromptData.PromptText = RevivePromptText;
+
+	if (NearbyDownedPlayer->IsBeingRevived())
+	{
+		OutPromptData.State = EBlackoutInteractionPromptState::Busy;
+		OutPromptData.bIsStatusError = true;
+		OutPromptData.StatusText = ReviveBusyText;
+		return true;
+	}
+
+	const int32 CurrentRelicCharges = FMath::Max(
+		0,
+		FMath::RoundToInt(GetAttributeValue(UBlackoutPlayerAttributeSet::GetRelicChargesAttribute())));
+	if (CurrentRelicCharges <= 0)
+	{
+		OutPromptData.State = EBlackoutInteractionPromptState::MissingRequirement;
+		OutPromptData.bIsStatusError = true;
+		OutPromptData.StatusText = MissingRelicText;
+		return true;
+	}
+
+	OutPromptData.State = EBlackoutInteractionPromptState::Available;
 	return true;
 }
 
@@ -419,7 +646,53 @@ FBlackoutConsumableSlotData UBlackoutHUDWidgetController::MakeConsumableSlotData
 	SlotData.MaxCount = ConsumableData->MaxCount;
 	SlotData.Icon = ConsumableData->Icon.LoadSynchronous();
 
+	// ASC가 유효할 경우 소모품 어빌리티의 실시간 쿨다운 정보(남은 시간, 총 지속 시간)를 쿼리하여 반영합니다.
+	if (UBlackoutAbilitySystemComponent* BlackoutASC = Cast<UBlackoutAbilitySystemComponent>(AbilitySystemComponent.Get()))
+	{
+		float Remaining = 0.0f;
+		float Duration = 0.0f;
+		BlackoutASC->GetConsumableCooldownInfo(ConsumableData->ConsumableTag, Remaining, Duration);
+		SlotData.CooldownRemaining = Remaining;
+		SlotData.CooldownDuration = Duration;
+	}
+
 	return SlotData;
+}
+
+ABlackoutPlayerCharacter* UBlackoutHUDWidgetController::FindNearbyDownedPlayer(
+	const ABlackoutPlayerCharacter* LocalPlayerCharacter,
+	float ReviveRange) const
+{
+	if (!LocalPlayerCharacter || !LocalPlayerCharacter->GetWorld())
+	{
+		return nullptr;
+	}
+
+	const float MaxRangeSquared = FMath::Square(FMath::Max(0.0f, ReviveRange));
+	ABlackoutPlayerCharacter* BestTarget = nullptr;
+	float BestDistanceSquared = TNumericLimits<float>::Max();
+
+	for (TActorIterator<ABlackoutPlayerCharacter> It(LocalPlayerCharacter->GetWorld()); It; ++It)
+	{
+		ABlackoutPlayerCharacter* Candidate = *It;
+		if (!Candidate || Candidate == LocalPlayerCharacter || Candidate->IsDead() || !Candidate->IsDowned())
+		{
+			continue;
+		}
+
+		const float DistanceSquared = FVector::DistSquared(
+			LocalPlayerCharacter->GetActorLocation(),
+			Candidate->GetActorLocation());
+		if (DistanceSquared > MaxRangeSquared || DistanceSquared >= BestDistanceSquared)
+		{
+			continue;
+		}
+
+		BestDistanceSquared = DistanceSquared;
+		BestTarget = Candidate;
+	}
+
+	return BestTarget;
 }
 
 float UBlackoutHUDWidgetController::GetAttributeValue(const FGameplayAttribute& Attribute) const
@@ -518,4 +791,156 @@ void UBlackoutHUDWidgetController::HandleConsumablesChanged(int32 BloodRootCount
 {
 	OnConsumablesChanged.Broadcast(BloodRootCount, GulSerumCount);
 	BroadcastConsumableSlots(BloodRootCount, GulSerumCount);
+}
+
+void UBlackoutHUDWidgetController::HandleConsumableCooldownChanged(FGameplayTag ConsumableTag)
+{
+	// 쿨다운 상태가 변했을 때(시작 또는 리셋) 소모품 슬롯 데이터를 다시 빌드하여 UI 위젯으로 브로드캐스트합니다.
+	BroadcastConsumables();
+}
+
+bool UBlackoutHUDWidgetController::GetDownedStateHUDData(FBlackoutDownedStateHUDData& OutHUDData) const
+{
+	OutHUDData = BuildDownedStateHUDData(CurrentHUDMode);
+	return OutHUDData.bIsVisible;
+}
+
+bool UBlackoutHUDWidgetController::GetSpectatorTargetName(FText& OutTargetName) const
+{
+	OutTargetName = FText::GetEmpty();
+
+	if (CurrentHUDMode != EBlackoutHUDMode::Spectator)
+	{
+		return false;
+	}
+
+	const ABlackoutPlayerController* BlackoutPlayerController = PlayerController.Get();
+	if (!BlackoutPlayerController)
+	{
+		return false;
+	}
+
+	// ViewTarget의 PlayerState 닉네임을 가져옵니다. 본인 시점이거나 PS가 없으면 표시할 이름이 없습니다.
+	const AActor* CurrentViewTarget = BlackoutPlayerController->GetViewTarget();
+	const APawn* ViewTargetPawn = Cast<APawn>(CurrentViewTarget);
+	if (!ViewTargetPawn || ViewTargetPawn == BlackoutPlayerController->GetPawn())
+	{
+		return false;
+	}
+
+	if (const APlayerState* TargetPlayerState = ViewTargetPawn->GetPlayerState())
+	{
+		OutTargetName = FText::FromString(TargetPlayerState->GetPlayerName());
+		return !OutTargetName.IsEmpty();
+	}
+
+	return false;
+}
+
+void UBlackoutHUDWidgetController::HandleDownedRelatedTagChanged(const FGameplayTag CallbackTag, int32 NewCount)
+{
+	// 태그 콜백은 NewCount만 알려주므로 현재 ASC 태그 컨테이너 전체를 다시 평가합니다.
+	RefreshHUDMode();
+}
+
+void UBlackoutHUDWidgetController::RefreshHUDMode()
+{
+	const EBlackoutHUDMode NewMode = EvaluateHUDMode();
+	const FBlackoutDownedStateHUDData NewData = BuildDownedStateHUDData(NewMode);
+
+	if (NewMode != CurrentHUDMode)
+	{
+		CurrentHUDMode = NewMode;
+		OnHUDModeChanged.Broadcast(CurrentHUDMode);
+	}
+
+	// 모드가 그대로여도 데이터는 변화할 수 있으므로 항상 브로드캐스트합니다(StatusText/시간 등).
+	OnDownedStateHUDDataChanged.Broadcast(NewData);
+}
+
+EBlackoutHUDMode UBlackoutHUDWidgetController::EvaluateHUDMode() const
+{
+	const UAbilitySystemComponent* ASC = AbilitySystemComponent.Get();
+	if (!ASC)
+	{
+		return EBlackoutHUDMode::Combat;
+	}
+
+	if (ASC->HasMatchingGameplayTag(BlackoutGameplayTags::State_Dead))
+	{
+		return EBlackoutHUDMode::Spectator;
+	}
+
+	if (ASC->HasMatchingGameplayTag(BlackoutGameplayTags::State_Downed))
+	{
+		return ASC->HasMatchingGameplayTag(BlackoutGameplayTags::State_BeingRevived)
+			? EBlackoutHUDMode::DownedReviveTimer
+			: EBlackoutHUDMode::DownedDeathTimer;
+	}
+
+	return EBlackoutHUDMode::Combat;
+}
+
+FBlackoutDownedStateHUDData UBlackoutHUDWidgetController::BuildDownedStateHUDData(EBlackoutHUDMode InHUDMode) const
+{
+	FBlackoutDownedStateHUDData HUDData;
+	HUDData.HUDMode = InHUDMode;
+
+	const ABlackoutPlayerController* BlackoutPlayerController = PlayerController.Get();
+	const ABlackoutPlayerCharacter* LocalPlayerCharacter =
+		BlackoutPlayerController ? Cast<ABlackoutPlayerCharacter>(BlackoutPlayerController->GetPawn()) : nullptr;
+
+	switch (InHUDMode)
+	{
+	case EBlackoutHUDMode::DownedDeathTimer:
+	{
+		if (!LocalPlayerCharacter)
+		{
+			break;
+		}
+
+		const float Total = FMath::Max(KINDA_SMALL_NUMBER, LocalPlayerCharacter->GetDownedDeathDuration());
+		const float Remaining = FMath::Clamp(LocalPlayerCharacter->GetDownedDeathRemainingTime(), 0.0f, Total);
+
+		HUDData.TotalDuration = Total;
+		HUDData.RemainingTime = Remaining;
+		// 사망 타이머는 남은 시간이 줄어들수록 게이지가 차오르는 카운트다운 형태로 표시합니다.
+		HUDData.ProgressNormalized = FMath::Clamp(1.0f - (Remaining / Total), 0.0f, 1.0f);
+		HUDData.bIsVisible = true;
+		break;
+	}
+	case EBlackoutHUDMode::DownedReviveTimer:
+	{
+		if (!LocalPlayerCharacter)
+		{
+			break;
+		}
+
+		const float ReviveTotal = FMath::Max(KINDA_SMALL_NUMBER, LocalPlayerCharacter->GetReviveDuration());
+		const float ReviveRemaining = FMath::Clamp(LocalPlayerCharacter->GetReviveRemainingTime(), 0.0f, ReviveTotal);
+
+		HUDData.TotalDuration = ReviveTotal;
+		HUDData.RemainingTime = ReviveRemaining;
+		// 위젯이 SetPercent 시 (1 - ProgressNormalized)를 적용하므로,
+		// 부활 진행 바가 0→1로 차오르도록 보조 값(= 남은 비율)을 전달합니다.
+		HUDData.ProgressNormalized = FMath::Clamp(ReviveRemaining / ReviveTotal, 0.0f, 1.0f);
+		HUDData.bIsVisible = true;
+		break;
+	}
+	case EBlackoutHUDMode::Spectator:
+		// 관전 HUD 상세는 후속 문서에서 정의되므로 여기서는 다운 위젯을 노출하지 않습니다.
+		HUDData.bIsVisible = false;
+		break;
+	case EBlackoutHUDMode::Combat:
+	default:
+		HUDData.bIsVisible = false;
+		break;
+	}
+
+	return HUDData;
+}
+
+void UBlackoutHUDWidgetController::HandleSurrenderVoteStateChanged(bool bIsActive, int32 YesCount, int32 NoCount, float EndTimeSeconds)
+{
+	OnSurrenderVoteStateChanged.Broadcast(bIsActive, YesCount, NoCount, EndTimeSeconds);
 }

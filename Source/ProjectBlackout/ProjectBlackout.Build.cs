@@ -15,6 +15,7 @@ public class ProjectBlackout : ModuleRules
 			"InputCore",
 			"EnhancedInput",
 			"AIModule",
+			"NavigationSystem",
 			"StateTreeModule",
 			"GameplayStateTreeModule",
 			"UMG",
@@ -26,6 +27,7 @@ public class ProjectBlackout : ModuleRules
 			"GameplayTags",
 			"GameplayTasks",
 			"Niagara",
+			"PhysicsCore",
 			// Networking (Matchmaking System)
 			"HTTP",
 			"Json",
@@ -33,7 +35,8 @@ public class ProjectBlackout : ModuleRules
 			"WebSockets",
 			"DeveloperSettings",
 			// Plugin
-			"MotionWarping"
+			"MotionWarping",
+			"NavigationSystem"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] {"MoviePlayer" });

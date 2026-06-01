@@ -1,97 +1,139 @@
 #include "Characters/BORavagerBoss.h"
 
 #include "AbilitySystemComponent.h"
-#include "AbilitySystemGlobals.h"
-#include "GameplayAbilitySpec.h"
-#include "AI/BOAggroComponent.h"
-#include "Components/SphereComponent.h"
+#include "AIController.h"
+#include "BlackoutAbilitySystemComponent.h"
+#include "BlackoutBaseAttributeSet.h"
+#include "BlackoutBossAIController.h"
+#include "BlackoutRavagerAIController.h"
+#include "BrainComponent.h"
+#include "GameplayEffectExtension.h"
+#include "Animation/UBlackoutRavagerAnimInstance.h"
+#include "GameFramework/PlayerState.h"
 
-ABORavagerBoss::ABORavagerBoss()
+
+UBORavagerPatternData* ABORavagerBoss::GetPatternData(FGameplayTag AbilityTag) const
 {
-	PrimaryActorTick.bCanEverTick = true;
-	AnimPlayRateMultiplier = 1.0f;
-	SummonedMinionCount = 0;
-
-	AggroComp = CreateDefaultSubobject<UBOAggroComponent>(TEXT("AggroComp"));
-	
-	// Hit_Target = CreateDefaultSubobject<USphereComponent>("TargetTest");
-	// Hit_Target->SetupAttachment(GetMesh(), TEXT("소켓이름"));
-	// Hit_Target->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	// Hit_Target->SetGenerateOverlapEvents(false);
+	const TObjectPtr<UBORavagerPatternData>* Found = BossPatternData.Find(AbilityTag);
+	return Found ? Found->Get() : nullptr;
 }
 
-APawn* ABORavagerBoss::GetHighestAggroTarget() const
+void ABORavagerBoss::OnDeath()
 {
-	//return AggroComp ? AggroComp->GetHighestAggroTarget() : nullptr;
-	if (UWorld* World = GetWorld())
+	Super::OnDeath();
+	
+	if (UAbilitySystemComponent* ASC = GetAbilitySystemComponent())
 	{
-		if (APlayerController* PC = World->GetFirstPlayerController())
+		ASC->CancelAllAbilities();
+	}
+	
+	if (AAIController* AIC = Cast<AAIController>(GetController()))
+	{
+		if (UBrainComponent* Brain = AIC->GetBrainComponent())
 		{
-			return PC->GetPawn();
+			Brain->StopLogic("Dead");
 		}
 	}
-	return nullptr;
-}
-
-void ABORavagerBoss::AddThreat(APawn* Source, float Amount)
-{
-	if (AggroComp) AggroComp->AddThreat(Source, Amount);
-}
-
-void ABORavagerBoss::EnterPhaseA()
-{
-	if (HasAuthority())
-	{
-		OnPhaseChanged(EBossPhase::PhaseA);
-	}
-}
-
-void ABORavagerBoss::EnterPhaseB()
-{
-	if (HasAuthority())
-	{
-		OnPhaseChanged(EBossPhase::PhaseB);
-	}
-}
-
-void ABORavagerBoss::EnterPhaseC()
-{
-	if (HasAuthority())
-	{
-		AnimPlayRateMultiplier = 1.3f; // TDD §6 참조, Phase C 배속 증가
-		OnPhaseChanged(EBossPhase::PhaseC);
-	}
-}
-
-void ABORavagerBoss::SpawnMinionWave(int32 InPhaseIdx)
-{
-	if (HasAuthority())
-	{
-		// TODO: UBlackoutPoolSubsystem을 통해 미니언 스폰 로직 구현
-	}
-}
-
-void ABORavagerBoss::OnPhaseChanged(EBossPhase NewPhase)
-{
-	Super::OnPhaseChanged(NewPhase);
-
-	// TODO: 페이즈별 초기화 (예: Phase B 진입 시 Enrage 이펙트 등)
-}
-
-void ABORavagerBoss::BeginPlay()
-{
-	Super::BeginPlay();
 	
-	if (!HasAuthority()) return;
+	if (UUBlackoutRavagerAnimInstance* Anim = Cast<UUBlackoutRavagerAnimInstance>(
+		GetMesh()->GetAnimInstance()))
+	{
+		Anim->OnDeath();
+	}
+}
 
-	UAbilitySystemComponent* ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(this);
+void ABORavagerBoss::SetData()
+{
+	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
 	if (!ASC) return;
-
-	for (const TSubclassOf<UGameplayAbility>& AbilityClass : GrantedAbilities)
+	
+	if (HasAuthority())
 	{
-		if (AbilityClass)
+		for (const auto& [Tag, Data] : BossPatternData)
 		{
-			ASC->GiveAbility(FGameplayAbilitySpec(AbilityClass, 1));
+			if (!Data || !Data->GrantedAbility) continue;
+			ASC->GiveAbility(FGameplayAbilitySpec(Data->GrantedAbility, 1));
 		}
 	}
+	
+	if (AbilitySystemComponent)
+	{
+		AbilitySystemComponent->InitAbilityActorInfo(this, this);
+
+		if (BaseAttributeSet && BossStatData)
+		{
+			AbilitySystemComponent->SetNumericAttributeBase(
+				UBlackoutBaseAttributeSet::GetMaxHealthAttribute(),
+				BossStatData->MaxHealth);
+			AbilitySystemComponent->SetNumericAttributeBase(
+				UBlackoutBaseAttributeSet::GetHealthAttribute(),
+				BossStatData->MaxHealth);
+		}
+	}
+}
+
+void ABORavagerBoss::OnDamageReceived(const FOnAttributeChangeData& Data)
+{
+	const float DamageDealt = Data.OldValue - Data.NewValue;
+	if (DamageDealt <= 0.f || !Data.GEModData) return;
+	
+	ABlackoutRavagerAIController* AIC = Cast<ABlackoutRavagerAIController>(GetController());
+	if (!AIC) return;
+	
+	AActor* SourceActor = Data.GEModData->EffectSpec.GetContext().GetInstigator();
+	if (APawn* InstigatorPawn = ResolveInstigatorPawn(SourceActor))
+	{
+		if (InstigatorPawn != this)
+		{
+			AIC->RecordDamage(InstigatorPawn, DamageDealt);
+		}
+	}
+	
+	if (UAbilitySystemComponent* ASC = GetAbilitySystemComponent())
+	{
+		const float MaxHP = ASC->GetNumericAttribute(UBlackoutBaseAttributeSet::GetMaxHealthAttribute());
+		if (MaxHP > 0.f)
+		{
+			const float CurrentHP = Data.NewValue;
+			const float HealthRatio = CurrentHP / MaxHP;
+	
+			const EBOBossPhase TargetPhase = DetermineTargetPhase(HealthRatio);
+			AIC->RequestPhaseChange(TargetPhase);
+		}
+	}
+}
+
+FText ABORavagerBoss::GetBossDisplayName() const
+{
+	if (BossStatData->IsValid())
+	{
+		return BossStatData->Name;
+	}
+	return FText::FromString(TEXT("Ravager"));
+}
+
+EBOBossPhase ABORavagerBoss::DetermineTargetPhase(float HealthRatio)
+{
+	if (HealthRatio <= 0.3f)
+	{
+		return EBOBossPhase::Phase3;
+	}
+	
+	if (HealthRatio <= 0.6f)
+	{
+		return EBOBossPhase::Phase2;
+	}
+	
+	return EBOBossPhase::Phase1;
+}
+
+APawn* ABORavagerBoss::ResolveInstigatorPawn(AActor* SourceActor) const
+{
+	if (!SourceActor) return nullptr;
+
+	if (APawn* Pawn = Cast<APawn>(SourceActor)) return Pawn;
+	if (AController* C = Cast<AController>(SourceActor)) return C->GetPawn();
+	if (APlayerState* PS = Cast<APlayerState>(SourceActor)) return PS->GetPawn();
+
+	return nullptr;
 }

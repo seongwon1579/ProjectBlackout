@@ -4,6 +4,10 @@
 #include "GameFramework/GameModeBase.h"
 #include "BlackoutGameMode.generated.h"
 
+enum class EBlackoutMatchState : uint8;
+class APlayerController;
+
+
 UCLASS(Abstract)
 class PROJECTBLACKOUT_API ABlackoutGameMode : public AGameModeBase
 {
@@ -16,6 +20,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|GameMode")
 	virtual void HandlePartyWipe();
+	
+	UFUNCTION(BlueprintCallable , Category="Blackout|GameMode")
+	virtual void RespawnPlayerWithSelectedClass(APlayerController* InController);
 
 	// 정원 충족 + 전원 bIsReady == true 조건 검사. Lobby / Battle 공용.
 	UFUNCTION(BlueprintCallable, Category = "Blackout|GameMode")
@@ -30,13 +37,21 @@ protected:
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 
 	virtual void Logout(AController* Exiting) override;
+	
+	virtual void HandleSeamlessTravelPlayer(AController*& C) override;
+	
 
 	// 자식 GameMode(Lobby/Battle)가 공통 집계 뒤 확장 로직을 붙이는 훅.
 	virtual void OnPlayerJoined(APlayerController* NewPlayer) {}
 	virtual void OnPlayerLeft(AController* Exiting) {}
-
+	
+	// seamless 도착 시 공통 집계 뒤 자식이 붙는 훅
+	virtual  void OnSeamlessArrival(APlayerController* PC) {};
 	// 전원 Ready 성립 시 자식 GameMode 가 override 하여 액션을 정의하는 훅 (Lobby: StartBattle / Battle: 보스 활성).
 	virtual void OnAllPlayersReady() {}
+
+	// 매치 상태 전이 단일 권위. 허용된 전이만 GameState 에 반영하고 거부 시 경고 로그를 남긴다.
+	virtual void TransitionTo(EBlackoutMatchState NewState);
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|GameMode")
 	int32 MaxPlayers = 4;
@@ -48,4 +63,11 @@ protected:
 	// 현재 접속 중인 플레이어 컨트롤러. 서버 전용이므로 리플리케이션 대상 아님.
 	UPROPERTY(BlueprintReadOnly, Category = "Blackout|GameMode")
 	TArray<TObjectPtr<APlayerController>> ConnectedPlayers;
+	
+	// 레벨 전환 직전, 접속 중 전 클라에 화면 페이드아웃 브로드캐스트
+	void BroadcastScreenFadeOut(FLinearColor FadeColor);
+	
+	// 페이드아웃 후 실제 travel 까지 서버대기 
+	UPROPERTY(EditDefaultsOnly, Category="Blackout|Transition")
+	float FadeOutTravelDelay = 1.5f;
 };

@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Data/BlackoutWeaponStat.h"
+#include "GameplayTagContainer.h"
 #include "BOWeaponBase.generated.h"
 
 class USkeletalMeshComponent;
@@ -28,6 +29,18 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	float GetBaseDamage() const;
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|Cue")
+	FBlackoutWeaponCueSet GetWeaponCueSet() const;
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|Cue")
+	FGameplayTag GetFireCueTag() const;
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|Cue")
+	FGameplayTag GetTrailCueTag() const;
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|Cue")
+	FGameplayTag ResolveImpactCueTag(FGameplayTag SurfaceTag) const;
 
 	UFUNCTION(BlueprintPure, Category = "Blackout|Combat")
 	FName GetEquippedSocketName() const;
