@@ -17,6 +17,7 @@ class PROJECTBLACKOUT_API UBlackoutGA_Shrewd_FireArrowBase : public UBlackoutGA_
 	
 protected:
 	virtual void SetupEventListeners() override;
+	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
 
 	UFUNCTION()
 	void OnFireShotEvent(FGameplayEventData Payload);
