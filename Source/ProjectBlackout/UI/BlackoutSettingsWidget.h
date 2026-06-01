@@ -32,6 +32,7 @@ protected:
 	virtual TSharedRef<SWidget> RebuildWidget() override;
 	virtual void NativeConstruct() override;
 	virtual void NativeDestruct() override;
+	virtual FReply NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
 
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UComboBoxString> UpscalerComboBox;
@@ -73,15 +74,22 @@ protected:
 	TObjectPtr<UButton> ApplyButton;
 
 	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UButton> ResetButton;
+
+	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UButton> CloseButton;
 
 private:
 	void BuildFallbackWidgetTree();
+	void ResolveOptionalBindings();
 	void PopulateStaticOptions();
 	void BindControlEvents();
 	void UpdateControlState();
 	void UpdateValueTexts();
 	void ApplyPendingSettings();
+	void ResetPendingSettingsToDefaults();
+	void SyncControlsFromPendingSettings();
+	void CloseSettingsWidget();
 
 	static FString GetUpscalerOptionLabel(EBlackoutUpscalerMode InMode);
 	static FString GetDLSSModeOptionLabel(EBlackoutDLSSQualityMode InMode);
@@ -114,6 +122,9 @@ private:
 
 	UFUNCTION()
 	void HandleApplyClicked();
+
+	UFUNCTION()
+	void HandleResetClicked();
 
 	UFUNCTION()
 	void HandleCloseClicked();
