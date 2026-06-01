@@ -22,6 +22,10 @@ struct PROJECTBLACKOUT_API FBlackoutAimOffsetBlendSettings
 	/** 총구 기준과 눈 위치 기준 사이의 전환 알파 보간 속도입니다. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blackout|Animation", meta = (ClampMin = "0.0"))
 	float BlendInterpSpeed = 12.f;
+
+	/** 눈 위치 기준으로 전환될수록 에임 오프셋에 더해지는 각도 보정값입니다. X=Yaw, Y=Pitch */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blackout|Animation")
+	FVector2D AimOffsetAngleOffset = FVector2D::ZeroVector;
 };
 
 namespace BlackoutAimOffsetMath

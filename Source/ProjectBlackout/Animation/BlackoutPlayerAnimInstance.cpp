@@ -134,6 +134,10 @@ void UBlackoutPlayerAnimInstance::UpdateAimOffset(float DeltaSeconds)
 		TargetPitch = ViewPitch;
 	}
 
+	const FVector2D ScaledAimOffsetAngleOffset = AimOffsetBlendSettings.AimOffsetAngleOffset * CurrentAimOffsetViewBlendAlpha;
+	TargetYaw = FMath::Clamp(FRotator::NormalizeAxis(TargetYaw + ScaledAimOffsetAngleOffset.X), -180.f, 180.f);
+	TargetPitch = FMath::Clamp(FRotator::NormalizeAxis(TargetPitch + ScaledAimOffsetAngleOffset.Y), -90.f, 90.f);
+
 	AO_Yaw = FMath::FInterpTo(AO_Yaw, TargetYaw, DeltaSeconds, AO_InterpSpeed);
 	AO_Pitch = FMath::FInterpTo(AO_Pitch, TargetPitch, DeltaSeconds, AO_InterpSpeed);
 

@@ -48,6 +48,7 @@ classDiagram
         +float MuzzleFullDistance
         +float EyeFullDistance
         +float BlendInterpSpeed
+        +FVector2D AimOffsetAngleOffset
     }
 
     class BlackoutAimOffsetMath {
@@ -146,7 +147,7 @@ classDiagram
 |---|---|
 | `UBlackoutCombatComponent` | 입력, 조준 상태, 장착 무기, 총구 Transform 제공 |
 | `UBlackoutImpactIndicatorComponent` | 카메라 조준 대상, 실제 착탄 위치, 대상 불일치, 히트스캔/투사체 예측 계산, 유탄 궤적 월드 포인트 캐싱 |
-| `FBlackoutAimOffsetBlendSettings` | 총구 기준/눈 위치 기준 조준 전환 거리와 보간 속도를 단일 설정으로 제공 |
+| `FBlackoutAimOffsetBlendSettings` | 총구 기준/눈 위치 기준 조준 전환 거리, 보간 속도, 에임 오프셋 각도 보정값을 단일 설정으로 제공 |
 | `BlackoutAimOffsetMath` | 에임 오프셋, True Hit, 실제 발사가 공유하는 근거리 전환 알파와 방향 보간 계산 |
 | `ABOFirearm` | 히트스캔 여부와 투사체 예측에 필요한 무기/발사체 파라미터 제공 |
 | `UBlackoutHUDWidgetController` | 로컬 플레이어의 인디케이터 데이터와 궤적 포인트를 HUD 좌표계로 전달 |
