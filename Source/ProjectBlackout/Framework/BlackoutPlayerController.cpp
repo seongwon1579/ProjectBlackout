@@ -842,10 +842,9 @@ void ABlackoutPlayerController::StartScreenFadeIn()
 	PlayerCameraManager->StartCameraFade(1.0f, 0.0f , ScreenFadeDuration , LastFadeColor , false , false);
 }
 
-#if WITH_EDITOR || UE_BUILD_DEVELOPMENT
-
 void ABlackoutPlayerController::BO_SetMatchState(const FString& NewStateStr)
 {
+#if WITH_EDITOR || UE_BUILD_DEVELOPMENT
 	FString TargetState = NewStateStr.ToLower().TrimStartAndEnd();
 	EBlackoutMatchState SelectedState = EBlackoutMatchState::WaitingForPlayers;
 	bool bIsValid = false;
@@ -904,20 +903,29 @@ void ABlackoutPlayerController::BO_SetMatchState(const FString& NewStateStr)
 	{
 		BO_LOG_CORE(Warning, TEXT("알 수 없는 매치 상태 치트 문자열입니다: %s"), *NewStateStr);
 	}
+#else
+	BO_LOG_CORE(Warning, TEXT("개발 빌드가 아닌 환경에서는 매치 상태 치트 명령을 사용할 수 없습니다: %s"), *NewStateStr);
+#endif
 }
 
 void ABlackoutPlayerController::Server_SetMatchStateCheat_Implementation(EBlackoutMatchState NewState)
 {
+#if WITH_EDITOR || UE_BUILD_DEVELOPMENT
 	if (ABlackoutGameState* GS = GetWorld() ? GetWorld()->GetGameState<ABlackoutGameState>() : nullptr)
 	{
 		GS->SetMatchState(NewState);
 		BO_LOG_NET(Log, TEXT("치트 명령어로 매치 상태를 강제 전환했습니다: %s"), *UEnum::GetValueAsString(NewState));
 	}
+#else
+	BO_LOG_NET(Warning, TEXT("개발 빌드가 아닌 환경에서 매치 상태 치트 RPC가 차단되었습니다: %s"), *UEnum::GetValueAsString(NewState));
+#endif
 }
 
 bool ABlackoutPlayerController::Server_SetMatchStateCheat_Validate(EBlackoutMatchState NewState)
 {
+#if WITH_EDITOR || UE_BUILD_DEVELOPMENT
 	return true;
+#else
+	return false;
+#endif
 }
-#endif 
-
