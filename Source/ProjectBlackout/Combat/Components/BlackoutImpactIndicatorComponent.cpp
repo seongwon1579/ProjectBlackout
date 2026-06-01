@@ -13,6 +13,7 @@
 #include "Combat/Weapons/BOFirearm.h"
 #include "Combat/Weapons/BOProjectile.h"
 #include "Components/PrimitiveComponent.h"
+#include "Core/BlackoutAimOffsetTypes.h"
 #include "Core/BlackoutCollisionChannels.h"
 #include "EngineUtils.h"
 #include "Engine/World.h"
@@ -612,8 +613,7 @@ FVector UBlackoutImpactIndicatorComponent::ResolveFireDirection(const ABOFirearm
 	float Threshold = 10.f;
 	float BlendRange = 15.f;
 	float FallbackDist = 100.f;
-	float MuzzleFullDistance = 500.f;
-	float ViewFullDistance = 200.f;
+	FBlackoutAimOffsetBlendSettings AimOffsetBlendSettings;
 
 	if (const APawn* OwnerPawn = Cast<APawn>(GetOwner()))
 	{
@@ -624,8 +624,7 @@ FVector UBlackoutImpactIndicatorComponent::ResolveFireDirection(const ABOFirearm
 				Threshold = AnimInstance->GetSafeAimDistanceThreshold();
 				BlendRange = AnimInstance->GetSafeAimBlendRange();
 				FallbackDist = AnimInstance->GetFallbackAimTargetDistance();
-				MuzzleFullDistance = AnimInstance->GetAimOffsetMuzzleFullDistance();
-				ViewFullDistance = AnimInstance->GetAimOffsetViewFullDistance();
+				AimOffsetBlendSettings = AnimInstance->GetAimOffsetBlendSettings();
 			}
 		}
 	}
@@ -667,29 +666,10 @@ FVector UBlackoutImpactIndicatorComponent::ResolveFireDirection(const ABOFirearm
 		AimTarget = AimTarget + (FallbackTarget - AimTarget) * BlendAlpha;
 	}
 
-	const float ViewDistance = FMath::Min(ViewFullDistance, MuzzleFullDistance);
-	const float MuzzleDistance = FMath::Max(ViewFullDistance, MuzzleFullDistance);
-	const float ViewBlendRange = MuzzleDistance - ViewDistance;
-
-	float ViewDirectionAlpha = 0.f;
-	if (ProjectedDistance <= ViewDistance)
-	{
-		ViewDirectionAlpha = 1.f;
-	}
-	else if (ProjectedDistance >= MuzzleDistance)
-	{
-		ViewDirectionAlpha = 0.f;
-	}
-	else if (ViewBlendRange > KINDA_SMALL_NUMBER)
-	{
-		ViewDirectionAlpha = 1.f - ((ProjectedDistance - ViewDistance) / ViewBlendRange);
-	}
-
-	ViewDirectionAlpha = FMath::Clamp(ViewDirectionAlpha, 0.f, 1.f);
-	ViewDirectionAlpha = ViewDirectionAlpha * ViewDirectionAlpha * (3.f - 2.f * ViewDirectionAlpha);
+	const float EyeDirectionAlpha = BlackoutAimOffsetMath::CalculateEyeBlendAlpha(ProjectedDistance, AimOffsetBlendSettings);
 
 	FVector FireDirection = (AimTarget - MuzzleLocation).GetSafeNormal();
-	if (ViewDirectionAlpha > 0.f && !ViewDir.IsNearlyZero())
+	if (EyeDirectionAlpha > 0.f && !ViewDir.IsNearlyZero())
 	{
 		FVector EyeTargetDirection = ViewDir.GetSafeNormal();
 		if (OwnerPawn)
@@ -703,10 +683,7 @@ FVector UBlackoutImpactIndicatorComponent::ResolveFireDirection(const ABOFirearm
 			}
 		}
 
-		const FVector BlendedFireDirection = FireDirection + (EyeTargetDirection - FireDirection) * ViewDirectionAlpha;
-		FireDirection = BlendedFireDirection.IsNearlyZero()
-			? (ViewDirectionAlpha >= 0.5f ? EyeTargetDirection : FireDirection)
-			: BlendedFireDirection.GetSafeNormal();
+		FireDirection = BlackoutAimOffsetMath::BlendDirection(FireDirection, EyeTargetDirection, EyeDirectionAlpha);
 	}
 
 	if (FireDirection.IsNearlyZero())

@@ -98,30 +98,12 @@ void UBlackoutPlayerAnimInstance::UpdateAimOffset(float DeltaSeconds)
 	// 부호화 투영 거리(내적)로 근거리 파랄랙스가 커지는 구간을 판정합니다.
 	const float ProjectedDistance = FVector::DotProduct(AimTargetLocation - AimOrigin, ViewDir);
 
-	const float ViewFullDistance = FMath::Min(AimOffsetViewFullDistance, AimOffsetMuzzleFullDistance);
-	const float MuzzleFullDistance = FMath::Max(AimOffsetViewFullDistance, AimOffsetMuzzleFullDistance);
-	const float BlendDistanceRange = MuzzleFullDistance - ViewFullDistance;
-
-	float TargetViewBlendAlpha = 0.f;
-	if (ProjectedDistance <= ViewFullDistance)
-	{
-		TargetViewBlendAlpha = 1.f;
-	}
-	else if (ProjectedDistance >= MuzzleFullDistance)
-	{
-		TargetViewBlendAlpha = 0.f;
-	}
-	else if (BlendDistanceRange > KINDA_SMALL_NUMBER)
-	{
-		TargetViewBlendAlpha = 1.f - ((ProjectedDistance - ViewFullDistance) / BlendDistanceRange);
-	}
-
-	TargetViewBlendAlpha = FMath::Clamp(TargetViewBlendAlpha, 0.f, 1.f);
-	TargetViewBlendAlpha = TargetViewBlendAlpha * TargetViewBlendAlpha * (3.f - 2.f * TargetViewBlendAlpha);
-
-	CurrentAimOffsetViewBlendAlpha = AimOffsetViewBlendInterpSpeed > 0.f
-		? FMath::FInterpTo(CurrentAimOffsetViewBlendAlpha, TargetViewBlendAlpha, DeltaSeconds, AimOffsetViewBlendInterpSpeed)
-		: TargetViewBlendAlpha;
+	const float TargetViewBlendAlpha = BlackoutAimOffsetMath::CalculateEyeBlendAlpha(ProjectedDistance, AimOffsetBlendSettings);
+	CurrentAimOffsetViewBlendAlpha = BlackoutAimOffsetMath::InterpEyeBlendAlpha(
+		CurrentAimOffsetViewBlendAlpha,
+		TargetViewBlendAlpha,
+		DeltaSeconds,
+		AimOffsetBlendSettings);
 
 	const FRotator MuzzleAimRotation = UKismetMathLibrary::FindLookAtRotation(AimOrigin, AimTargetLocation);
 	FRotator ViewTargetAimRotation = ViewRotation;
@@ -141,8 +123,8 @@ void UBlackoutPlayerAnimInstance::UpdateAimOffset(float DeltaSeconds)
 	const float ViewYaw = FMath::Clamp(ViewDelta.Yaw, -180.f, 180.f);
 	const float ViewPitch = FMath::Clamp(ViewDelta.Pitch, -90.f, 90.f);
 
-	float TargetYaw = MuzzleYaw + FMath::FindDeltaAngleDegrees(MuzzleYaw, ViewYaw) * CurrentAimOffsetViewBlendAlpha;
-	float TargetPitch = MuzzlePitch + FMath::FindDeltaAngleDegrees(MuzzlePitch, ViewPitch) * CurrentAimOffsetViewBlendAlpha;
+	float TargetYaw = BlackoutAimOffsetMath::BlendAngleDegrees(MuzzleYaw, ViewYaw, CurrentAimOffsetViewBlendAlpha);
+	float TargetPitch = BlackoutAimOffsetMath::BlendAngleDegrees(MuzzlePitch, ViewPitch, CurrentAimOffsetViewBlendAlpha);
 	TargetYaw = FMath::Clamp(FRotator::NormalizeAxis(TargetYaw), -180.f, 180.f);
 	TargetPitch = FMath::Clamp(FRotator::NormalizeAxis(TargetPitch), -90.f, 90.f);
 
