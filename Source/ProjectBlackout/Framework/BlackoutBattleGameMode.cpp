@@ -13,6 +13,8 @@
 #include "Kismet/GameplayStatics.h"
 #include  "Engine/GameInstance.h"
 #include "BlackoutMatchFlowSubsystem.h"
+#include "Characters/BlackoutBossCharacter.h"
+#include "EngineUtils.h"
 
 namespace
 {
@@ -814,6 +816,15 @@ void ABlackoutBattleGameMode::StartBossCombat()
 	
 	TransitionTo(NewState);
 	BO_LOG_NET(Log, "보스맵 전원 도착 — 전투 시작 (%s)", *UEnum::GetValueAsString(NewState));
+
+	// 레벨 배치 보스의 사망 델리게이트에 핸들러 바인딩 (단일 보스 가정)
+	for (TActorIterator<ABlackoutBossCharacter> It(GetWorld()); It; ++It)
+	{
+		if (ABlackoutBossCharacter* Boss = *It)
+		{
+			Boss->OnDefeated.AddUObject(this, &ABlackoutBattleGameMode::OnBossDefeated);
+		}
+	}
 }
 
 void ABlackoutBattleGameMode::TravelToTitle()

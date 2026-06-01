@@ -53,3 +53,12 @@ void ABlackoutBossCharacter::TryBindToHUD()
 		GetWorld()->GetTimerManager().SetTimerForNextTick(this, &ABlackoutBossCharacter::TryBindToHUD);
 	}
 }
+
+void ABlackoutBossCharacter::OnDeath()
+{
+	Super::OnDeath();
+	if (HasAuthority())
+	{
+		OnDefeated.Broadcast();
+	}
+}
