@@ -24,6 +24,8 @@ public:
 	FORCEINLINE float GetSafeAimDistanceThreshold() const { return SafeAimDistanceThreshold; }
 	FORCEINLINE float GetSafeAimBlendRange() const { return SafeAimBlendRange; }
 	FORCEINLINE float GetFallbackAimTargetDistance() const { return FallbackAimTargetDistance; }
+	FORCEINLINE float GetAimOffsetMuzzleFullDistance() const { return AimOffsetMuzzleFullDistance; }
+	FORCEINLINE float GetAimOffsetViewFullDistance() const { return AimOffsetViewFullDistance; }
 
 protected:
 	/** 에임 오프셋 값을 갱신합니다. */
@@ -115,6 +117,18 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blackout|Animation", meta = (ClampMin = "0.0"))
 	float FallbackAimTargetDistance = 150.f;
 
+	/** 이 거리 이상에서는 총구 기준 에임 오프셋을 완전히 사용합니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blackout|Animation", meta = (ClampMin = "0.0"))
+	float AimOffsetMuzzleFullDistance = 500.f;
+
+	/** 이 거리 이하에서는 ViewRotation 기준 에임 오프셋을 완전히 사용합니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blackout|Animation", meta = (ClampMin = "0.0"))
+	float AimOffsetViewFullDistance = 200.f;
+
+	/** 총구 기준과 ViewRotation 기준 에임 오프셋 간 전환 알파 보간 속도 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blackout|Animation", meta = (ClampMin = "0.0"))
+	float AimOffsetViewBlendInterpSpeed = 12.f;
+
 	/** 현재 에임 오프셋이 바라볼 월드 위치 */
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Animation")
 	FVector AimTargetLocation = FVector::ZeroVector;
@@ -134,4 +148,8 @@ protected:
 	/** 마지막으로 서버에 송신한 에임 오프셋 값 */
 	UPROPERTY(Transient)
 	FVector2D LastReplicatedAimOffset = FVector2D::ZeroVector;
+
+	/** 근거리에서 ViewRotation 기준 에임 오프셋으로 전환되는 현재 알파 */
+	UPROPERTY(Transient)
+	float CurrentAimOffsetViewBlendAlpha = 0.f;
 };
