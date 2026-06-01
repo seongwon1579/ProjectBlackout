@@ -13,6 +13,8 @@
 class UBOBossData;
 class UMotionWarpingComponent;
 
+DECLARE_MULTICAST_DELEGATE(FBlackoutBossDefeatedSignature);
+
 UCLASS(Abstract)
 class PROJECTBLACKOUT_API ABlackoutBossCharacter : public ABlackoutEnemyCharacter
 {
@@ -24,9 +26,14 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|MotionWarping")
 	TObjectPtr<UMotionWarpingComponent> MotionWarpingComponent;
 
+	/** 서버에서 보스 사망 시 1회 발행. GameMode가 바인딩해 매치 분기 처리. */
+	FBlackoutBossDefeatedSignature OnDefeated;
+
 protected:
 	virtual void BeginPlay() override;
-	
+
+	virtual void OnDeath() override;
+
 	virtual void SetData() {}
 
 	virtual void OnDamageReceived(const FOnAttributeChangeData& Data) {}
