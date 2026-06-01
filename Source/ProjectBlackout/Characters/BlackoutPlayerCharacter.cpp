@@ -8,6 +8,7 @@
 #include "EngineUtils.h"
 #include "Engine/World.h"
 #include "Framework/BlackoutBattleGameMode.h"
+#include "Framework/BlackoutGraphicsUserSettings.h"
 #include "Framework/BlackoutPlayerState.h"
 #include "AbilitySystemInterface.h"
 #include "GAS/Abilities/Player/BlackoutGA_Revive.h"
@@ -2314,8 +2315,14 @@ void ABlackoutPlayerCharacter::DoLook(float Yaw, float Pitch)
 
 	if (GetController() != nullptr)
 	{
-		AddControllerYawInput(Yaw);
-		AddControllerPitchInput(Pitch);
+		const UBlackoutGraphicsUserSettings* GraphicsUserSettings = Cast<UBlackoutGraphicsUserSettings>(
+			UGameUserSettings::GetGameUserSettings());
+		const float AppliedMouseSensitivity = GraphicsUserSettings
+			? GraphicsUserSettings->GetMouseSensitivity()
+			: 1.0f;
+
+		AddControllerYawInput(Yaw * AppliedMouseSensitivity);
+		AddControllerPitchInput(Pitch * AppliedMouseSensitivity);
 	}
 }
 

@@ -5,6 +5,7 @@
 
 #include "BlackoutLoginWidget.h"
 #include "BlackoutMatchmakingWidget.h"
+#include "BlackoutSettingsWidget.h"
 #include "Framework/BlackoutMatchmakingSubsystem.h"
 
 #include  "Components/Button.h"
@@ -77,6 +78,12 @@ void UBlackoutMainMenuWidget::NativeDestruct()
 			this, & UBlackoutMainMenuWidget::HandleMatchmakingWidgetExited);
 		ActiveMatchmakingWidget = nullptr;
 	}
+	if (ActiveSettingsWidget)
+	{
+		ActiveSettingsWidget->OnSettingsClosed.RemoveDynamic(
+			this, &UBlackoutMainMenuWidget::HandleSettingsClosed);
+		ActiveSettingsWidget = nullptr;
+	}
 	Super::NativeDestruct();
 }
 
@@ -129,13 +136,45 @@ void UBlackoutMainMenuWidget::HandleStartMatchmakingClicked()
 
 void UBlackoutMainMenuWidget::HandleOptionsClicked()
 {
-	// TODO: Settings 위젯 (후순위 안할수도)
+	if (ActiveSettingsWidget)
+	{
+		return;
+	}
+
+	TSubclassOf<UBlackoutSettingsWidget> ResolvedSettingsClass = SettingsWidgetClass;
+	if (!ResolvedSettingsClass)
+	{
+		ResolvedSettingsClass = UBlackoutSettingsWidget::StaticClass();
+	}
+
+	ActiveSettingsWidget = CreateWidget<UBlackoutSettingsWidget>(
+		GetOwningPlayer(), ResolvedSettingsClass);
+	if (!ActiveSettingsWidget)
+	{
+		return;
+	}
+
+	ActiveSettingsWidget->OnSettingsClosed.AddDynamic(
+		this, &UBlackoutMainMenuWidget::HandleSettingsClosed);
+	ActiveSettingsWidget->AddToViewport(120);
 }
 
 void UBlackoutMainMenuWidget::HandleQuitClicked()
 {
 	UKismetSystemLibrary::QuitGame(this, GetOwningPlayer(),
 	                               EQuitPreference::Quit, false);
+}
+
+void UBlackoutMainMenuWidget::HandleSettingsClosed()
+{
+	if (!ActiveSettingsWidget)
+	{
+		return;
+	}
+
+	ActiveSettingsWidget->OnSettingsClosed.RemoveDynamic(
+		this, &UBlackoutMainMenuWidget::HandleSettingsClosed);
+	ActiveSettingsWidget = nullptr;
 }
 
 void UBlackoutMainMenuWidget::HandleLoginAttemptFinished(bool bSuccess,

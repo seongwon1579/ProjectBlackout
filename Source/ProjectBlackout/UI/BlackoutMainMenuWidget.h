@@ -10,6 +10,7 @@ class UButton;
 class UTextBlock;
 class UBlackoutLoginWidget;
 class UBlackoutMatchmakingWidget;
+class UBlackoutSettingsWidget;
 
 /**
  *  메인메뉴 위젯 
@@ -33,6 +34,9 @@ public:
 	
 	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="Blackout|MainMenu")
 	TSubclassOf<UBlackoutMatchmakingWidget> MatchmakingWidgetClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blackout|MainMenu")
+	TSubclassOf<UBlackoutSettingsWidget> SettingsWidgetClass;
 	
 protected:
 	virtual void NativeConstruct() override;
@@ -71,6 +75,9 @@ private:
 	
 	UFUNCTION()
 	void HandleQuitClicked();
+
+	UFUNCTION()
+	void HandleSettingsClosed();
 	
 	UFUNCTION()
 	void HandleLoginAttemptFinished(bool bSuccess , const FString& PlayerName);
@@ -89,4 +96,7 @@ private:
 	
 	UPROPERTY()
 	TObjectPtr<UBlackoutMatchmakingWidget> ActiveMatchmakingWidget;
+
+	UPROPERTY()
+	TObjectPtr<UBlackoutSettingsWidget> ActiveSettingsWidget;
 };
