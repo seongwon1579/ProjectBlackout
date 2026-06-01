@@ -19,7 +19,6 @@ void FBSTEval_ShrewdAggroTarget::Tick(FStateTreeExecutionContext& Context, const
 	
 	if (ABlackoutShrewdAIController* Controller = Cast<ABlackoutShrewdAIController>(Data.Controller))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Check2"));
 		Data.OutTarget = Controller->GetCurrentAggroTarget();
 	}
 }
