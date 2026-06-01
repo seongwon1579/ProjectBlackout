@@ -98,7 +98,6 @@ private:
 	void StartScreenFadeIn();
 	
 
-#if WITH_EDITOR || UE_BUILD_DEVELOPMENT
 public:
 	/** 디버그용 게임 진행 상태(MatchState) 강제 설정 콘솔 명령어 */
 	UFUNCTION(Exec, Category = "Blackout|Cheat")
@@ -106,7 +105,6 @@ public:
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_SetMatchStateCheat(EBlackoutMatchState NewState);
-#endif
 
 #pragma region InputSetup
 protected:
