@@ -130,6 +130,8 @@ void ABlackoutBattleGameMode::Logout(AController* Exiting)
 
 void ABlackoutBattleGameMode::OnBossDefeated()
 {
+	BO_LOG_NET(Log, "OnBossDefeated 진입 (중복 시 델리게이트/바인딩 다중 발화 의심)");
+
 	
 	UBlackoutMatchFlowSubsystem* Flow = GetGameInstance() ? GetGameInstance()->GetSubsystem<UBlackoutMatchFlowSubsystem>() : nullptr;
 	
@@ -616,6 +618,20 @@ void ABlackoutBattleGameMode::DoTravelToTitle()
 			PC ->ClientTravel(URL ,TRAVEL_Absolute);
 		}
 	}
+
+	// 다음 매치를 위해 매치 진행 인덱스 초기화
+	if (UBlackoutMatchFlowSubsystem* Flow = GetGameInstance() ? GetGameInstance()->GetSubsystem<UBlackoutMatchFlowSubsystem>() : nullptr)
+	{
+		Flow->ResetStages();
+	}
+
+	// 서버 idle 복귀 → heartbeat mapName 갱신, 매칭 시스템 재가용 표시
+	if (LobbyMapPath.IsValid())
+	{
+		const FString LobbyPackage = LobbyMapPath.GetLongPackageName();
+		BO_LOG_NET(Log, "서버 idle 복귀 — ServerTravel -> %s", *LobbyPackage);
+		GetWorld()->ServerTravel(LobbyPackage);
+	}
 }
 
 // 파티 전멸 감지 시 호출. 체크포인트 텔레포트 + PartyWipeRestart 정책 + Ready 리셋 + InCombatReady 복귀.
@@ -804,6 +820,8 @@ void ABlackoutBattleGameMode::TimeoutSurrenderVote()
 
 void ABlackoutBattleGameMode::StartBossCombat()
 {
+	BO_LOG_NET(Log, "StartBossCombat 진입 (보스 델리게이트 바인딩 — 중복 호출 시 누적 의심)");
+
 	const UBlackoutMatchFlowSubsystem* Flow = GetGameInstance() ? GetGameInstance() ->GetSubsystem<UBlackoutMatchFlowSubsystem>() : nullptr;
 	
 	if (!Flow)
