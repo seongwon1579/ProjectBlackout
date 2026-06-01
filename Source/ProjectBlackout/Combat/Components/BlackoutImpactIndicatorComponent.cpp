@@ -13,6 +13,7 @@
 #include "Combat/Weapons/BOFirearm.h"
 #include "Combat/Weapons/BOProjectile.h"
 #include "Components/PrimitiveComponent.h"
+#include "Core/BlackoutAimOffsetTypes.h"
 #include "Core/BlackoutCollisionChannels.h"
 #include "EngineUtils.h"
 #include "Engine/World.h"
@@ -606,11 +607,13 @@ FVector UBlackoutImpactIndicatorComponent::ResolveFireDirection(const ABOFirearm
 
 	const FVector MuzzleLocation = Firearm->GetMuzzleTransform().GetLocation();
 	FVector AimTarget = GetAimTargetPoint();
+	const FVector CameraAimTarget = AimTarget;
 
 	// 애니메이션 인스턴스의 안전 LERP 파라미터를 동적 쿼리하여 사격 마커 정렬
 	float Threshold = 10.f;
 	float BlendRange = 15.f;
 	float FallbackDist = 100.f;
+	FBlackoutAimOffsetBlendSettings AimOffsetBlendSettings;
 
 	if (const APawn* OwnerPawn = Cast<APawn>(GetOwner()))
 	{
@@ -621,6 +624,7 @@ FVector UBlackoutImpactIndicatorComponent::ResolveFireDirection(const ABOFirearm
 				Threshold = AnimInstance->GetSafeAimDistanceThreshold();
 				BlendRange = AnimInstance->GetSafeAimBlendRange();
 				FallbackDist = AnimInstance->GetFallbackAimTargetDistance();
+				AimOffsetBlendSettings = AnimInstance->GetAimOffsetBlendSettings();
 			}
 		}
 	}
@@ -628,7 +632,8 @@ FVector UBlackoutImpactIndicatorComponent::ResolveFireDirection(const ABOFirearm
 	// 뷰 방향 벡터 조회
 	FVector ViewLocation = FVector::ZeroVector;
 	FRotator ViewRotation = FRotator::ZeroRotator;
-	if (const APawn* OwnerPawn = Cast<APawn>(GetOwner()))
+	const APawn* OwnerPawn = Cast<APawn>(GetOwner());
+	if (OwnerPawn)
 	{
 		if (const AController* OwnerController = OwnerPawn->GetController())
 		{
@@ -661,7 +666,26 @@ FVector UBlackoutImpactIndicatorComponent::ResolveFireDirection(const ABOFirearm
 		AimTarget = AimTarget + (FallbackTarget - AimTarget) * BlendAlpha;
 	}
 
+	const float EyeDirectionAlpha = BlackoutAimOffsetMath::CalculateEyeBlendAlpha(ProjectedDistance, AimOffsetBlendSettings);
+
 	FVector FireDirection = (AimTarget - MuzzleLocation).GetSafeNormal();
+	if (EyeDirectionAlpha > 0.f && !ViewDir.IsNearlyZero())
+	{
+		FVector EyeTargetDirection = ViewDir.GetSafeNormal();
+		if (OwnerPawn)
+		{
+			const FVector EyeLocation = OwnerPawn->GetPawnViewLocation();
+			const FVector EyeToTarget = CameraAimTarget - EyeLocation;
+			if (!EyeToTarget.IsNearlyZero())
+			{
+				// 근거리에서는 카메라 방향 자체가 아니라 눈 위치에서 카메라 타겟을 바라보는 방향으로 탄도를 맞춥니다.
+				EyeTargetDirection = EyeToTarget.GetSafeNormal();
+			}
+		}
+
+		FireDirection = BlackoutAimOffsetMath::BlendDirection(FireDirection, EyeTargetDirection, EyeDirectionAlpha);
+	}
+
 	if (FireDirection.IsNearlyZero())
 	{
 		if (const AActor* OwnerActor = GetOwner())

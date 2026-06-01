@@ -560,6 +560,31 @@ classDiagram
         -PerformWeaponTrace(FVector Start, FVector End, AActor* IgnoredActor, FHitResult&) bool
     }
 
+    class UBlackoutPlayerAnimInstance {
+        <<AnimInstance>>
+        -FBlackoutAimOffsetBlendSettings AimOffsetBlendSettings
+        +GetAimOffsetBlendSettings() FBlackoutAimOffsetBlendSettings
+    }
+
+    class UBlackoutGA_FireWeapon {
+        <<GameplayAbility>>
+        -BuildFireDirection() FVector
+    }
+
+    class FBlackoutAimOffsetBlendSettings {
+        <<Struct>>
+        +float MuzzleFullDistance
+        +float EyeFullDistance
+        +float BlendInterpSpeed
+        +FVector2D AimOffsetAngleOffset
+    }
+
+    class BlackoutAimOffsetMath {
+        <<Namespace>>
+        +CalculateEyeBlendAlpha(float ProjectedDistance, FBlackoutAimOffsetBlendSettings) float
+        +BlendDirection(FVector MuzzleDirection, FVector EyeTargetDirection, float Alpha) FVector
+    }
+
     class FBlackoutImpactIndicatorUpdateKey {
         <<Struct>>
         +bool bIsAiming
@@ -607,8 +632,15 @@ classDiagram
 
     ABlackoutPlayerCharacter --> UBlackoutCombatComponent : has
     ABlackoutPlayerCharacter --> UBlackoutImpactIndicatorComponent : has
+    ABlackoutPlayerCharacter --> UBlackoutPlayerAnimInstance : animation state
     UBlackoutImpactIndicatorComponent --> UBlackoutCombatComponent : reads combat state
     UBlackoutImpactIndicatorComponent --> ABOFirearm : reads weapon/projectile data
+    UBlackoutImpactIndicatorComponent --> FBlackoutAimOffsetBlendSettings : reads aim blend tuning
+    UBlackoutImpactIndicatorComponent --> BlackoutAimOffsetMath : blends true hit direction
+    UBlackoutGA_FireWeapon --> FBlackoutAimOffsetBlendSettings : reads aim blend tuning
+    UBlackoutGA_FireWeapon --> BlackoutAimOffsetMath : blends fire direction
+    UBlackoutPlayerAnimInstance o-- FBlackoutAimOffsetBlendSettings : owns
+    UBlackoutPlayerAnimInstance --> BlackoutAimOffsetMath : blends aim offset
     UBlackoutImpactIndicatorComponent --> FBlackoutImpactIndicatorUpdateKey : caches update key
     UBlackoutImpactIndicatorComponent --> FBlackoutTrajectoryPointData : fills projectile path
     UBlackoutImpactIndicatorComponent --> FBlackoutImpactIndicatorData : fills

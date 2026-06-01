@@ -13,6 +13,7 @@
 #include "Combat/Weapons/BOFirearm.h"
 #include "Combat/Weapons/BOShotgunFirearm.h"
 #include "Combat/Weapons/BOWeaponDebugUtils.h"
+#include "Core/BlackoutAimOffsetTypes.h"
 #include "Core/BlackoutCollisionChannels.h"
 #include "Core/BlackoutLog.h"
 #include "DrawDebugHelpers.h"
@@ -467,17 +468,20 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 
 	const FVector MuzzleLocation = CombatComponent->GetMuzzleTransform().GetLocation();
 	FVector AimTarget = ImpactIndicatorComponent->GetAimTargetPoint();
+	const FVector CameraAimTarget = AimTarget;
 
 	// 사격 판정(LineTrace) 궤적을 애니메이션 방향과 동기화
 	float Threshold = 10.f;
 	float BlendRange = 15.f;
 	float FallbackDist = 100.f;
+	FBlackoutAimOffsetBlendSettings AimOffsetBlendSettings;
 
 	if (UBlackoutPlayerAnimInstance* AnimInstance = Cast<UBlackoutPlayerAnimInstance>(PlayerCharacter->GetMesh()->GetAnimInstance()))
 	{
 		Threshold = AnimInstance->GetSafeAimDistanceThreshold();
 		BlendRange = AnimInstance->GetSafeAimBlendRange();
 		FallbackDist = AnimInstance->GetFallbackAimTargetDistance();
+		AimOffsetBlendSettings = AnimInstance->GetAimOffsetBlendSettings();
 	}
 
 	// 뷰 방향 벡터 조회
@@ -514,7 +518,23 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 		AimTarget = AimTarget + (FallbackTarget - AimTarget) * BlendAlpha;
 	}
 
-	const FVector BaseFireDirection = (AimTarget - MuzzleLocation).GetSafeNormal();
+	const float EyeDirectionAlpha = BlackoutAimOffsetMath::CalculateEyeBlendAlpha(ProjectedDistance, AimOffsetBlendSettings);
+
+	FVector BaseFireDirection = (AimTarget - MuzzleLocation).GetSafeNormal();
+	if (EyeDirectionAlpha > 0.f && !ViewDir.IsNearlyZero())
+	{
+		FVector EyeTargetDirection = ViewDir.GetSafeNormal();
+		const FVector EyeLocation = PlayerCharacter->GetPawnViewLocation();
+		const FVector EyeToTarget = CameraAimTarget - EyeLocation;
+		if (!EyeToTarget.IsNearlyZero())
+		{
+			// 근거리에서는 카메라 방향 자체가 아니라 눈 위치에서 카메라 타겟을 바라보는 방향으로 탄도를 맞춥니다.
+			EyeTargetDirection = EyeToTarget.GetSafeNormal();
+		}
+
+		BaseFireDirection = BlackoutAimOffsetMath::BlendDirection(BaseFireDirection, EyeTargetDirection, EyeDirectionAlpha);
+	}
+
 	const FVector FireDirection = CombatComponent->GetSpreadDeviatedDirection(BaseFireDirection);
 
 	// 로컬 예측 디버그는 실제 판정을 복제하지 않고 현재 클라가 기대하는 발사선을 즉시 시각화합니다.
