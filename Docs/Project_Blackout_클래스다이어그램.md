@@ -576,6 +576,7 @@ classDiagram
         +float MuzzleFullDistance
         +float EyeFullDistance
         +float BlendInterpSpeed
+        +FVector2D AimOffsetAngleOffset
     }
 
     class BlackoutAimOffsetMath {
