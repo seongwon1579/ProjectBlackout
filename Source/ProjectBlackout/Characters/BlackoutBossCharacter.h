@@ -41,4 +41,8 @@ protected:
 	virtual FText GetBossDisplayName() const { return FText::FromString(TEXT("")); }
 	
 	void TryBindToHUD();
+
+private:
+	/** OnDefeated broadcast 단일 발화 가드 — 죽음 후 추가 damage/재호출에도 1회만 브로드캐스트. */
+	bool bDefeatedBroadcastSent = false;
 };

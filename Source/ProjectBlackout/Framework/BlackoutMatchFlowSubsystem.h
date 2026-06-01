@@ -22,7 +22,10 @@ public:
 	
 	// 보스 클리어 시 다음 스테이지로
 	void AdvanceStage(){++CurrentStageIndex;}
-	
+
+	// 매치 종료(메인보스 클리어) 후 다음 매치를 위해 진행 인덱스 초기화
+	void ResetStages(){CurrentStageIndex = 0;}
+
 	EBossType GetCurrentBossType() const;
 	
 private:
