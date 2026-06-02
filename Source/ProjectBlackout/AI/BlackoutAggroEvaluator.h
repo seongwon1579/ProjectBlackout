@@ -98,4 +98,16 @@ private:
 	FGameplayTag TargetChangeTag;
 	FDelegateHandle PostLoginHandle;
 	FDelegateHandle TargetChangeTagChangedHandle;
+	
+	UPROPERTY()
+	TWeakObjectPtr<APawn> CurrentTarget;
+	
+	TWeakObjectPtr<UAbilitySystemComponent> CurrentTargetASC;
+	FDelegateHandle TargetDownTagHandle;
+	FGameplayTag DownTag;
+	
+	void WatchTargetDownState(APawn* Target);
+	void UnWatchTargetDownState();
+	void OnTargetDownTagChanged(const FGameplayTag Tag, int32 NewCount);
+	bool IsTargetDowned(APawn* Target) const;
 };
