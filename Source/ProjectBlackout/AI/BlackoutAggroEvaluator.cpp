@@ -114,7 +114,7 @@ APawn* UBlackoutAggroEvaluator::CalculateBestTarget(APawn* ExcludeTarget) const
 		APawn* Target = PC->GetPawn();
 		if (!IsValid(Target)) continue;
 		
-		if (IsTargetDowned(Target)) continue;
+		if (IsTargetInvalid(Target)) continue;
 
 		// 최대사거리를 벗어난 Target은 제외
 		const float DistSQ = FVector::DistSquared(Target->GetActorLocation(), Owner->GetActorLocation());
@@ -226,7 +226,7 @@ void UBlackoutAggroEvaluator::OnTargetDownTagChanged(const FGameplayTag Tag, int
 	}
 }
 
-bool UBlackoutAggroEvaluator::IsTargetDowned(APawn* Target) const
+bool UBlackoutAggroEvaluator::IsTargetInvalid(APawn* Target) const
 {
 	IAbilitySystemInterface* ASI = Cast<IAbilitySystemInterface>(Target);
 	if (!ASI) return false;
@@ -234,7 +234,8 @@ bool UBlackoutAggroEvaluator::IsTargetDowned(APawn* Target) const
 	UAbilitySystemComponent* ASC = ASI->GetAbilitySystemComponent();
 	if (!ASC) return false;
 	
-	return ASC->HasMatchingGameplayTag(BlackoutGameplayTags::State_Downed);
+	return ASC->HasMatchingGameplayTag(BlackoutGameplayTags::State_Downed)
+		|| ASC->HasMatchingGameplayTag(BlackoutGameplayTags::State_Dead);
 }
 
 float UBlackoutAggroEvaluator::CalculateAggroScore(APawn* Target) const

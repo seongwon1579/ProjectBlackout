@@ -109,5 +109,5 @@ private:
 	void WatchTargetDownState(APawn* Target);
 	void UnWatchTargetDownState();
 	void OnTargetDownTagChanged(const FGameplayTag Tag, int32 NewCount);
-	bool IsTargetDowned(APawn* Target) const;
+	bool IsTargetInvalid(APawn* Target) const;
 };
