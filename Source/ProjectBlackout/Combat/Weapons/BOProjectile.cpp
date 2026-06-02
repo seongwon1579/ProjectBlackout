@@ -125,6 +125,7 @@ void ABOProjectile::Launch(const FVector& Direction)
 		ReplicatedNetState.Location = GetActorLocation();
 		ReplicatedNetState.Direction = Direction.GetSafeNormal();
 		ReplicatedNetState.Speed = Movement->InitialSpeed;
+		ReplicatedNetState.GravityScale = Movement->ProjectileGravityScale;
 		ApplyProjectileNetState();
 		ForceNetUpdate();
 	}
