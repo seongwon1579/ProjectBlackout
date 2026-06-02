@@ -32,7 +32,9 @@ classDiagram
         -USpringArmComponent* SpringArm
         -UBlackoutCombatComponent* CombatComp
         -UBlackoutImpactIndicatorComponent* ImpactIndicatorComp
+        -UInputAction* ToggleFlashlightAction
         +PossessedBy(AController*) void
+        +ToggleFlashlight() void
     }
 
     class ABlackoutEnemyCharacter {
@@ -622,12 +624,17 @@ classDiagram
     }
 
     class ABOFirearm {
+        -USpotLightComponent* FlashlightComponent
+        -bool bIsFlashlightOn
         +UsesHitscan() bool
         +GetProjectileClass() TSubclassOf~ABOProjectile~
         +GetProjectileLaunchSpeed() float
         +GetProjectileGravityScale() float
         +GetProjectileCollisionRadius() float
         +GetProjectileImpactFuseArmDistance() float
+        +ToggleFlashlight() void
+        +Server_SetFlashlightState(bool) void
+        +OnRep_FlashlightOn() void
     }
 
     ABlackoutPlayerCharacter --> UBlackoutCombatComponent : has
