@@ -5,6 +5,7 @@
 #include "BOShrewdBoss.generated.h"
 
 class UUBOShrewdData;
+class UBlackoutAggroComponent;
 
 UCLASS()
 class PROJECTBLACKOUT_API ABOShrewdBoss : public ABlackoutBossCharacter
@@ -32,6 +33,9 @@ protected:
 	
 	UPROPERTY(EditAnywhere, Category = "Blackout")
 	TObjectPtr<UUBOShrewdData> ShrewdData;
+	
+	UPROPERTY(VisibleAnywhere , Category = "Blackout")
+	TObjectPtr<UBlackoutAggroComponent> AggroComponent;
 	
 	virtual void SetData() override;
 
