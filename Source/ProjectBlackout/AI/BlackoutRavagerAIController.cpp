@@ -20,9 +20,20 @@ EBOBossPhase ABlackoutRavagerAIController::GetCurrentPhase() const
 	return PhaseEvaluator ? PhaseEvaluator->GetCurrentPhase() : EBOBossPhase::None;
 }
 
-void ABlackoutRavagerAIController::OnPossess(APawn* InPawn)
+void ABlackoutRavagerAIController::OnUnPossess()
 {
-	Super::OnPossess(InPawn);
+	if (PhaseEvaluator)   PhaseEvaluator->Deinitialize();
+	if (BTRunner)         BTRunner->StopBT();
+    
+	BTRunner = nullptr;
+	PhaseEvaluator = nullptr;
+
+	Super::OnUnPossess();
+}
+
+void ABlackoutRavagerAIController::PreInitialize(APawn* InPawn)
+{
+	Super::PreInitialize(InPawn);
 	
 	if (!CachedASC) return;
 	
@@ -34,17 +45,6 @@ void ABlackoutRavagerAIController::OnPossess(APawn* InPawn)
 	PhaseEvaluator = NewObject<UBlackoutPhaseEvaluator>(this);
 	PhaseEvaluator->OnBossPhaseChanged.AddUObject(this, &ABlackoutRavagerAIController::HandlePhaseChanged);
 	PhaseEvaluator->Initialize(this, CachedASC);
-}
-
-void ABlackoutRavagerAIController::OnUnPossess()
-{
-	if (PhaseEvaluator)   PhaseEvaluator->Deinitialize();
-	if (BTRunner)         BTRunner->StopBT();
-    
-	BTRunner = nullptr;
-	PhaseEvaluator = nullptr;
-
-	Super::OnUnPossess();
 }
 
 void ABlackoutRavagerAIController::HandleAggroTargetChanged(APawn* NewTarget)

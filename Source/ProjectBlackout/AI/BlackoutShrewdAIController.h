@@ -15,16 +15,9 @@ class PROJECTBLACKOUT_API ABlackoutShrewdAIController : public ABlackoutBossAICo
 	GENERATED_BODY()
 
 public:
-	
 	APawn* GetCurrentAggroTarget() const { return CurrentAggroTarget; }
 	
 protected:
-	
 	APawn* CurrentAggroTarget;
-	
-	virtual void OnPossess(APawn* InPawn) override;
-	virtual void OnUnPossess() override;
-	
 	virtual void HandleAggroTargetChanged(APawn* NewTarget) override;
-	
 };
