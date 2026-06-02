@@ -34,10 +34,13 @@ class FStreamlineRHI;
  * Inspired by the Streamline SDK interposer, adapted for Unreal Engine types.
  */
 
+// 일부 팀원에게서 발생하는 빌드 오류로 인해 임의로 주석처리하고 빌드했습니다.
+// DXGI 1.7를 발견했을 때 임의로 빌드를 중단시키는 코드인데, 문제는 아직 DXGI 1.7은 나오지 않은 물건이라 여기서 오류가 발생하면 안된다는 거...
+/*
 #if __has_include(<dxgi1_7.h>)
 #error "New DXGI, who dis? If DXGI 1.7 adds IDXGISwapChain5, extend "FStreamlineDXGISwapChainProxy" to implement this interface and then adjust this code to watch out for the next DGXI header"
 #endif
-
+*/
 
 class DECLSPEC_UUID("0f9f6ae5-097d-4b49-a019-1ee4efab8f69") STREAMLINEDXGIRHI_API FStreamlineDXGISwapChainProxy : public IDXGISwapChain4
 {
