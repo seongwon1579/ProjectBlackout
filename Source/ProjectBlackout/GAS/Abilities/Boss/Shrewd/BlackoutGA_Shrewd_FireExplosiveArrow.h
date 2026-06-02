@@ -20,4 +20,7 @@ protected:
 	// 직선 속도 폴백
 	UPROPERTY(EditDefaultsOnly, Category = "Abilities|Projectile|Parabolic")
 	float FallbackStraightSpeed = 3000.f;
+	
+	UPROPERTY(EditAnywhere, Category = "Abilities|Projectile|Parabolic", meta=(ClampMin="0.1"))
+	float SpeedMultiplier = 1.3f;
 };

@@ -17,10 +17,19 @@ public:
 	UFUNCTION(NetMulticast, Unreliable)
 	void Multicast_DebugAggroTarget(const FString& TargetName);
 	
-	UPROPERTY(EditAnywhere, Category = "Blackout")
-	TObjectPtr<AActor> TelePortPtr;
+	UFUNCTION(BlueprintImplementableEvent, Category = "Blackout")
+	void SetBowVisible(bool bVisible);
+	
+	bool GetRandomTeleportTransform(FTransform& OutTransform);
 		
 protected:
+	
+	UPROPERTY(EditAnywhere, Category = "Blackout")
+	TArray<TObjectPtr<AActor>> TeleportPoints;
+	
+	UPROPERTY()
+	TObjectPtr<AActor> LastTeleportPoint;
+	
 	UPROPERTY(EditAnywhere, Category = "Blackout")
 	TObjectPtr<UUBOShrewdData> ShrewdData;
 	
