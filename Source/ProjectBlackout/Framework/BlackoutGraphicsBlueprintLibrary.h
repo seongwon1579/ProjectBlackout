@@ -25,4 +25,7 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Blackout|Graphics")
 	static bool IsReflexRuntimeAvailable();
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|Graphics")
+	static bool IsFrameGenerationRuntimeAvailable();
 };

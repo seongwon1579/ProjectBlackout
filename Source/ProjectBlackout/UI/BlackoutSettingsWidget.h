@@ -41,6 +41,9 @@ protected:
 	TObjectPtr<UComboBoxString> DLSSModeComboBox;
 
 	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UComboBoxString> FrameGenerationComboBox;
+
+	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UComboBoxString> ReflexComboBox;
 
 	UPROPERTY(meta = (BindWidgetOptional))
@@ -93,10 +96,12 @@ private:
 
 	static FString GetUpscalerOptionLabel(EBlackoutUpscalerMode InMode);
 	static FString GetDLSSModeOptionLabel(EBlackoutDLSSQualityMode InMode);
+	static FString GetFrameGenerationOptionLabel(EBlackoutFrameGenerationMode InMode);
 	static FString GetReflexModeOptionLabel(EBlackoutReflexMode InMode);
 
 	static bool TryParseUpscalerMode(const FString& InOption, EBlackoutUpscalerMode& OutMode);
 	static bool TryParseDLSSMode(const FString& InOption, EBlackoutDLSSQualityMode& OutMode);
+	static bool TryParseFrameGenerationMode(const FString& InOption, EBlackoutFrameGenerationMode& OutMode);
 	static bool TryParseReflexMode(const FString& InOption, EBlackoutReflexMode& OutMode);
 
 	UFUNCTION()
@@ -104,6 +109,9 @@ private:
 
 	UFUNCTION()
 	void HandleDLSSModeSelectionChanged(FString SelectedItem, ESelectInfo::Type SelectionType);
+
+	UFUNCTION()
+	void HandleFrameGenerationSelectionChanged(FString SelectedItem, ESelectInfo::Type SelectionType);
 
 	UFUNCTION()
 	void HandleReflexModeSelectionChanged(FString SelectedItem, ESelectInfo::Type SelectionType);
@@ -132,6 +140,7 @@ private:
 	bool bOptionsPopulated = false;
 	EBlackoutUpscalerMode PendingUpscalerMode = EBlackoutUpscalerMode::TSR;
 	EBlackoutDLSSQualityMode PendingDLSSMode = EBlackoutDLSSQualityMode::Quality;
+	EBlackoutFrameGenerationMode PendingFrameGenerationMode = EBlackoutFrameGenerationMode::Disabled;
 	EBlackoutReflexMode PendingReflexMode = EBlackoutReflexMode::Enabled;
 	float PendingMasterVolume = 1.0f;
 	float PendingMusicVolume = 1.0f;
