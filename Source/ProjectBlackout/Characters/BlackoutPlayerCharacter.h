@@ -18,6 +18,7 @@ class UInputAction;
 class UAnimMontage;
 class ABlackoutPlayerCharacter;
 class AActor;
+class USpotLightComponent;
 
 struct FInputActionValue;
 
@@ -384,6 +385,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input")
 	TObjectPtr<UInputAction> MouseLookAction;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input")
+	TObjectPtr<UInputAction> ToggleFlashlightAction;
+
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
 
@@ -488,6 +492,8 @@ protected:
 
 	UFUNCTION()
 	void OnRep_ReviveInteractionActive();
+
+	void ToggleFlashlight();
 
 	void BroadcastReviveInteractionStateChanged();
 	void UpdateFocusedInteractable(float DeltaSeconds);

@@ -19,11 +19,12 @@ void UBlackoutGA_Shrewd_TeleportToPoint::StartResolveDestination()
 bool UBlackoutGA_Shrewd_TeleportToPoint::ResolveTeleportDestination(FVector& OutLocation, FRotator& OutRotation)
 {
 	ABOShrewdBoss* Shrewd = Cast<ABOShrewdBoss>(GetAvatarActorFromActorInfo());
-	if (!Shrewd || !Shrewd->TelePortPtr)
-	{
-		return false;
-	}
-	OutLocation = Shrewd->TelePortPtr->GetActorLocation();
-	OutRotation = Shrewd->TelePortPtr->GetActorRotation();
+	if (!Shrewd) return false;
+
+	FTransform Transform;
+	if (!Shrewd->GetRandomTeleportTransform(Transform)) return false;
+
+	OutLocation = Transform.GetLocation();
+	OutRotation = Transform.Rotator();
 	return true;
 }

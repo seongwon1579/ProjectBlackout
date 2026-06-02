@@ -9,6 +9,7 @@
 class UNiagaraComponent;
 class ABOProjectile;
 class UAnimationAsset;
+class USpotLightComponent;
 
 UCLASS()
 class PROJECTBLACKOUT_API ABOFirearm : public ABOWeaponBase
@@ -17,6 +18,14 @@ class PROJECTBLACKOUT_API ABOFirearm : public ABOWeaponBase
 	
 public:
 	ABOFirearm();
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Light")
+	void ToggleFlashlight();
+
+	UFUNCTION(Server, Reliable)
+	void Server_SetFlashlightState(bool bNewState);
+
+	virtual void OnEquipStateChanged(bool bEquipped) override;
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	FHitResult Fire(const FVector& Direction, const FGameplayEffectSpecHandle& DamageSpecHandle);
@@ -139,7 +148,21 @@ public:
 	void Multicast_StopWeaponReloadAnimation();
 
 protected:
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
+	UFUNCTION()
+	void OnRep_FlashlightOn();
+
 	void ApplyFirearmStats(const FBlackoutFirearmStat& FirearmStats);
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Light")
+	TObjectPtr<USpotLightComponent> FlashlightComponent;
+
+	UPROPERTY(Transient, ReplicatedUsing = OnRep_FlashlightOn)
+	bool bIsFlashlightOn = true;
+
+	UPROPERTY(Transient)
+	bool bIsEquipped = false;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Combat")
 	TObjectPtr<UNiagaraComponent> MuzzleFlash;

@@ -27,14 +27,18 @@ classDiagram
         +GetCrosshairType() int32
         +GetBaseDamage() float
         +AttachToOwner(FName Socket) void
+        +OnEquipStateChanged(bool bEquipped) void
     }
 
     class ABOFirearm {
         -UNiagaraComponent* MuzzleFlash
+        -USpotLightComponent* FlashlightComponent
         -FName MuzzleSocket
         -TSubclassOf~ABOProjectile~ ProjectileClass
         -bool bUseHitscan
         -FBlackoutFirearmStat CachedFirearmStats
+        -bool bIsFlashlightOn
+        -bool bIsEquipped
         +Fire(const FVector& Direction, const FGameplayEffectSpecHandle& DamageSpec) FHitResult
         +SpawnProjectile(const FVector& Direction, const FGameplayEffectSpecHandle& DamageSpec) ABOProjectile*
         +GetMuzzleTransform() FTransform
@@ -58,6 +62,9 @@ classDiagram
         +GetHorizontalRecoilRange() float
         +GetMaxRecoilPitchDegrees() float
         +GetRecoilRecoveryFraction() float
+        +ToggleFlashlight() void
+        +Server_SetFlashlightState(bool) void
+        +OnEquipStateChanged(bool bEquipped) void
     }
 
     class ABOShotgunFirearm {

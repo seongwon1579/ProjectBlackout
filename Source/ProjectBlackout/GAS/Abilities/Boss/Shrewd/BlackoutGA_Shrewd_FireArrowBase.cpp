@@ -6,6 +6,7 @@
 #include "BlackoutGameplayTags.h"
 #include "BlackoutPoolSubsystem.h"
 #include "BOProjectile.h"
+#include "BOShrewdBoss.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "GameFramework/Character.h"
 
@@ -25,16 +26,33 @@ void UBlackoutGA_Shrewd_FireArrowBase::SetupEventListeners()
 	}
 }
 
+void UBlackoutGA_Shrewd_FireArrowBase::EndAbility(const FGameplayAbilitySpecHandle Handle,
+	const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo,
+	bool bReplicateEndAbility, bool bWasCancelled)
+{
+	
+	if (ABOShrewdBoss* Boss = Cast<ABOShrewdBoss>(GetAvatarActorFromActorInfo()))
+	{
+		Boss->SetBowVisible(true);
+	}
+	
+	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+}
+
 void UBlackoutGA_Shrewd_FireArrowBase::OnFireShotEvent(FGameplayEventData Payload)
 {
 	ACharacter* Avatar = Cast<ACharacter>(GetAvatarActorFromActorInfo());
 	if (!Avatar || !ArrowProjectileClass) return;
+	
+	if (ABOShrewdBoss* Boss = Cast<ABOShrewdBoss>(GetAvatarActorFromActorInfo()))
+	{
+		Boss->SetBowVisible(false);
+	}
 
 	UWorld* World = GetWorld();
 	AActor* Target = CachedTarget;
 	if (!World || !Target) return;
 	
-	// TODO: 활에 충돌이 나서 바로 사라지는 이슈
 	FVector SpawnLocation = Avatar->GetActorLocation();
 	FRotator SpawnRotation = Avatar->GetActorRotation();
 	 if (USkeletalMeshComponent* Mesh = Avatar->GetMesh())
@@ -62,6 +80,9 @@ void UBlackoutGA_Shrewd_FireArrowBase::OnFireShotEvent(FGameplayEventData Payloa
 		Pool->SpawnFromPool(ArrowProjectileClass, SpawnTransform));
 	
 	if (!Arrow) return;
+
+	Arrow->SetOwner(Avatar);
+	Arrow->SetInstigator(Avatar);
 	
 	if (DamageEffectClass)
 	{

@@ -19,6 +19,4 @@ protected:
 	virtual void LaunchProjectile(ABOProjectile* Arrow, const FVector& SpawnLocation,
 	                              const FVector& TargetLocation) override;
 	
-	UPROPERTY(EditDefaultsOnly, Category = "Blackout")
-	float StraightSpeed = 3000.f;
 };

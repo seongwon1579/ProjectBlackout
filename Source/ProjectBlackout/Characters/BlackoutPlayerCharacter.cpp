@@ -31,6 +31,7 @@
 #include "Items/BlackoutDropItem.h"
 #include "Components/SphereComponent.h"
 #include "Components/WidgetComponent.h"
+#include "Combat/Weapons/BOFirearm.h"
 
 ABlackoutPlayerCharacter::ABlackoutPlayerCharacter(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer.SetDefaultSubobjectClass<UBlackoutPlayerMovementComponent>(ACharacter::CharacterMovementComponentName))
@@ -132,6 +133,11 @@ void ABlackoutPlayerCharacter::SetupPlayerInputComponent(UInputComponent* Player
 	if (MouseLookAction)
 	{
 		EnhancedInputComponent->BindAction(MouseLookAction, ETriggerEvent::Triggered, this, &ABlackoutPlayerCharacter::Look);
+	}
+
+	if (ToggleFlashlightAction)
+	{
+		EnhancedInputComponent->BindAction(ToggleFlashlightAction, ETriggerEvent::Started, this, &ABlackoutPlayerCharacter::ToggleFlashlight);
 	}
 }
 void ABlackoutPlayerCharacter::PossessedBy(AController* NewController)
@@ -2323,6 +2329,22 @@ void ABlackoutPlayerCharacter::DoLook(float Yaw, float Pitch)
 
 		AddControllerYawInput(Yaw * AppliedMouseSensitivity);
 		AddControllerPitchInput(Pitch * AppliedMouseSensitivity);
+	}
+}
+
+void ABlackoutPlayerCharacter::ToggleFlashlight()
+{
+	if (IsDead() || IsDowned())
+	{
+		return;
+	}
+
+	if (CombatComponent)
+	{
+		if (ABOFirearm* EquippedFirearm = CombatComponent->GetEquippedFirearm())
+		{
+			EquippedFirearm->ToggleFlashlight();
+		}
 	}
 }
 

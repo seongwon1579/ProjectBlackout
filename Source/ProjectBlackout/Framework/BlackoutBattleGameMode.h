@@ -64,10 +64,14 @@ protected:
 	virtual void PreLogin(const FString& Options, const FString& Address,
 		const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage) override;
 
-	// 항복 가결 시 복귀할 로비 맵 경로 
+	// 항복 가결 시 복귀할 로비 맵 경로
 	UPROPERTY(EditDefaultsOnly , Category="Blackout|Battle")
 	FSoftObjectPath LobbyMapPath;
-	
+
+	// 중간보스 사망 → 페이드 시작까지 대기(초). 사망 애님 자연스럽게 보이도록.
+	UPROPERTY(EditDefaultsOnly, Category="Blackout|Battle")
+	float MidBossDeathDelay = 2.0f;
+
 	void TravelToLobby(FLinearColor FadeColor);
 	
 	// 메인보스 클리어후 복귀 타이틀 맵 
@@ -109,6 +113,9 @@ private:
 	
 	void TravelToTitle();
 	FTimerHandle TitleTravelTimerHandle;
+
+	void DoMidBossTravelToLobby();
+	FTimerHandle MidBossDeathDelayHandle;
 
 	FTimerHandle SurrenderVoteTimerHandle;
 
