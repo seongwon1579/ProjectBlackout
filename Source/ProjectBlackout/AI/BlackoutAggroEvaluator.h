@@ -12,6 +12,7 @@
  */
 class AAIController;
 class UAbilitySystemComponent;
+class AGameModeBase;
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnAggroTargetChanged, APawn* /*NewTarget*/);
 
@@ -23,10 +24,7 @@ class PROJECTBLACKOUT_API UBlackoutAggroEvaluator : public UObject
 public:
 	FOnAggroTargetChanged OnAggroTargetChanged;
 	
-	UBlackoutAggroEvaluator();
-
 	virtual UWorld* GetWorld() const override;
-
 	void Initialize(AAIController* InAIController, UAbilitySystemComponent* InASC);
 	void Deinitialize();
 	void RecordDamage(APawn* Source, float Amount);
@@ -81,12 +79,23 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Blackout|Aggro", meta =(ClampMin = "0.0"))
 	float MaxAggroRange = 10000.f;
-
-	FGameplayTag TargetChangeTag;
-	FDelegateHandle TargetChangeTagChangedHandle;
-
-	float CalculateAggroScore(APawn* Target) const;
+	
+	UFUNCTION()
+	void OnPlayerPawnChanged(APawn* OldPawn, APawn* NewPawn);
 	void OnAggroTargetChangeTagChanged(const FGameplayTag Tag, int32 NewCount);
-	void UpdateTarget();
+	void OnPostLogin(AGameModeBase* GameMode, APlayerController* NewPC);
+	
 	APawn* CalculateBestTarget(APawn* ExcludeTarget = nullptr) const;
+	float CalculateAggroScore(APawn* Target) const;
+	
+	void UpdateTarget();
+	
+	void RegisterTagEvents();
+	void UnregisterTagEvents();
+	void RegisterPlayerEvents();
+	void UnregisterPlayerEvents();
+	
+	FGameplayTag TargetChangeTag;
+	FDelegateHandle PostLoginHandle;
+	FDelegateHandle TargetChangeTagChangedHandle;
 };

@@ -75,6 +75,27 @@ namespace
 		}
 	}
 #endif
+
+#if BLACKOUT_WITH_STREAMLINE_DLSSG
+	EStreamlineDLSSGMode ToStreamlineDLSSGMode(const EBlackoutFrameGenerationMode InMode)
+	{
+		switch (InMode)
+		{
+		case EBlackoutFrameGenerationMode::On2X:
+			return EStreamlineDLSSGMode::On2X;
+
+		case EBlackoutFrameGenerationMode::On3X:
+			return EStreamlineDLSSGMode::On3X;
+
+		case EBlackoutFrameGenerationMode::On4X:
+			return EStreamlineDLSSGMode::On4X;
+
+		case EBlackoutFrameGenerationMode::Disabled:
+		default:
+			return EStreamlineDLSSGMode::Off;
+		}
+	}
+#endif
 }
 
 void UBlackoutGraphicsUserSettings::SetToDefaults()
@@ -207,6 +228,25 @@ bool UBlackoutGraphicsUserSettings::IsFrameGenerationRuntimeAvailable()
 #endif
 }
 
+bool UBlackoutGraphicsUserSettings::IsFrameGenerationModeRuntimeAvailable(const EBlackoutFrameGenerationMode InFrameGenerationMode)
+{
+#if BLACKOUT_WITH_STREAMLINE_DLSSG
+	if (InFrameGenerationMode == EBlackoutFrameGenerationMode::Disabled)
+	{
+		return true;
+	}
+
+	if (!UStreamlineLibraryDLSSG::IsDLSSGSupported())
+	{
+		return false;
+	}
+
+	return UStreamlineLibraryDLSSG::IsDLSSGModeSupported(ToStreamlineDLSSGMode(InFrameGenerationMode));
+#else
+	return InFrameGenerationMode == EBlackoutFrameGenerationMode::Disabled;
+#endif
+}
+
 void UBlackoutGraphicsUserSettings::ApplyUpscalerSettings()
 {
 	const bool bUseDLSS = UpscalerMode != EBlackoutUpscalerMode::TSR;
@@ -277,10 +317,13 @@ void UBlackoutGraphicsUserSettings::ApplyFrameGenerationSettings()
 		return;
 	}
 
-	const EStreamlineDLSSGMode TargetMode = UStreamlineLibraryDLSSG::GetDefaultDLSSGMode();
+	const EStreamlineDLSSGMode TargetMode = ToStreamlineDLSSGMode(FrameGenerationMode);
 	if (TargetMode == EStreamlineDLSSGMode::Off || !UStreamlineLibraryDLSSG::IsDLSSGModeSupported(TargetMode))
 	{
-		BO_LOG_CORE(Warning, "현재 하드웨어에서 지원되는 기본 DLSS Frame Generation 모드를 찾지 못해 적용을 건너뜁니다.");
+		BO_LOG_CORE(
+			Warning,
+			"요청한 DLSS Frame Generation 모드가 지원되지 않아 적용을 건너뜁니다. RequestedMode=%d",
+			static_cast<int32>(TargetMode));
 		FrameGenerationMode = EBlackoutFrameGenerationMode::Disabled;
 		UStreamlineLibraryDLSSG::SetDLSSGMode(EStreamlineDLSSGMode::Off);
 		return;
@@ -288,7 +331,7 @@ void UBlackoutGraphicsUserSettings::ApplyFrameGenerationSettings()
 
 	UStreamlineLibraryDLSSG::SetDLSSGMode(TargetMode);
 #else
-	if (FrameGenerationMode == EBlackoutFrameGenerationMode::Enabled)
+	if (FrameGenerationMode != EBlackoutFrameGenerationMode::Disabled)
 	{
 		BO_LOG_CORE(Warning, "현재 빌드 대상에서는 NVIDIA DLSS Frame Generation 플러그인을 사용할 수 없습니다.");
 		FrameGenerationMode = EBlackoutFrameGenerationMode::Disabled;

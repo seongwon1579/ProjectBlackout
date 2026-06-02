@@ -24,6 +24,8 @@ protected:
 	virtual void OnPossess  (APawn* InPawn) override;
 	virtual void OnUnPossess()              override;
 	
+	virtual void PreInitialize(APawn* InPawn);
+	
 	UPROPERTY(Transient)
 	TObjectPtr<UAbilitySystemComponent> CachedASC;
 
