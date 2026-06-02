@@ -32,7 +32,14 @@ classDiagram
         -USpringArmComponent* SpringArm
         -UBlackoutCombatComponent* CombatComp
         -UBlackoutImpactIndicatorComponent* ImpactIndicatorComp
+        -USpotLightComponent* FlashlightComponent
+        -UInputAction* ToggleFlashlightAction
+        -FName FlashlightAttachSocketName
+        -bool bIsFlashlightOn
         +PossessedBy(AController*) void
+        +ToggleFlashlight() void
+        +Server_SetFlashlightState(bool) void
+        +OnRep_FlashlightOn() void
     }
 
     class ABlackoutEnemyCharacter {

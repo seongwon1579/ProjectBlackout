@@ -18,6 +18,7 @@ class UInputAction;
 class UAnimMontage;
 class ABlackoutPlayerCharacter;
 class AActor;
+class USpotLightComponent;
 
 struct FInputActionValue;
 
@@ -279,6 +280,12 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Components")
 	TObjectPtr<UBlackoutImpactIndicatorComponent> ImpactIndicatorComponent;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Light")
+	TObjectPtr<USpotLightComponent> FlashlightComponent;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Light")
+	FName FlashlightAttachSocketName = TEXT("head");
+
 	/** 원격 클라이언트에서 플레이어 에임 오프셋을 재생하기 위한 복제 값입니다. */
 	UPROPERTY(Transient, Replicated, BlueprintReadOnly, Category = "Blackout|Animation")
 	FVector2D ReplicatedAimOffset = FVector2D::ZeroVector;
@@ -384,6 +391,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input")
 	TObjectPtr<UInputAction> MouseLookAction;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input")
+	TObjectPtr<UInputAction> ToggleFlashlightAction;
+
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
 
@@ -472,6 +482,9 @@ protected:
 	UPROPERTY(Transient, Replicated)
 	bool bDownedDeathTimerPaused = false;
 
+	UPROPERTY(Transient, ReplicatedUsing = OnRep_FlashlightOn)
+	bool bIsFlashlightOn = false;
+
 	/** 부활 시도가 시작된 서버 월드 시간(초)입니다. 시도 중이 아니면 0. */
 	UPROPERTY(Transient, Replicated)
 	float ReviveServerStartTimeSeconds = 0.0f;
@@ -488,6 +501,14 @@ protected:
 
 	UFUNCTION()
 	void OnRep_ReviveInteractionActive();
+
+	UFUNCTION()
+	void OnRep_FlashlightOn();
+
+	void ToggleFlashlight();
+
+	UFUNCTION(Server, Reliable)
+	void Server_SetFlashlightState(bool bNewState);
 
 	void BroadcastReviveInteractionStateChanged();
 	void UpdateFocusedInteractable(float DeltaSeconds);
