@@ -30,3 +30,8 @@ bool UBlackoutGraphicsBlueprintLibrary::IsFrameGenerationRuntimeAvailable()
 {
 	return UBlackoutGraphicsUserSettings::IsFrameGenerationRuntimeAvailable();
 }
+
+bool UBlackoutGraphicsBlueprintLibrary::IsFrameGenerationModeRuntimeAvailable(const EBlackoutFrameGenerationMode InFrameGenerationMode)
+{
+	return UBlackoutGraphicsUserSettings::IsFrameGenerationModeRuntimeAvailable(InFrameGenerationMode);
+}

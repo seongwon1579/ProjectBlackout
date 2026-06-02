@@ -28,4 +28,7 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Blackout|Graphics")
 	static bool IsFrameGenerationRuntimeAvailable();
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|Graphics")
+	static bool IsFrameGenerationModeRuntimeAvailable(EBlackoutFrameGenerationMode InFrameGenerationMode);
 };
