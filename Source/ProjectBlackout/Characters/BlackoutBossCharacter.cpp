@@ -57,8 +57,9 @@ void ABlackoutBossCharacter::TryBindToHUD()
 void ABlackoutBossCharacter::OnDeath()
 {
 	Super::OnDeath();
-	if (HasAuthority())
+	if (HasAuthority() && !bDefeatedBroadcastSent)
 	{
+		bDefeatedBroadcastSent = true;
 		OnDefeated.Broadcast();
 	}
 }
