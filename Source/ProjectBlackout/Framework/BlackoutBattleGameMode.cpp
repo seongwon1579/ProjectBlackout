@@ -144,8 +144,9 @@ void ABlackoutBattleGameMode::OnBossDefeated()
 	if (Flow->GetCurrentBossType() == EBossType::Mid)
 	{
 		Flow->AdvanceStage();
-		BO_LOG_NET(Log, "중간보스 처치 — AdvanceStage + 로비 복귀");
-		TravelToLobby(FLinearColor::White);
+		BO_LOG_NET(Log, "중간보스 처치 — 사망 연출 %.1fs 후 로비 복귀", MidBossDeathDelay);
+		GetWorldTimerManager().SetTimer(MidBossDeathDelayHandle, this,
+			&ABlackoutBattleGameMode::DoMidBossTravelToLobby, MidBossDeathDelay, false);
 	}
 	else
 	{
@@ -605,6 +606,11 @@ void ABlackoutBattleGameMode::DoTravelToLobby()
 	const FString PackageName = LobbyMapPath.GetLongPackageName();
 	BO_LOG_NET(Log, "TravelToLobby — ServerTravel -> %s", *PackageName);
 	GetWorld()->ServerTravel(PackageName);
+}
+
+void ABlackoutBattleGameMode::DoMidBossTravelToLobby()
+{
+	TravelToLobby(FLinearColor::White);
 }
 
 void ABlackoutBattleGameMode::DoTravelToTitle()
