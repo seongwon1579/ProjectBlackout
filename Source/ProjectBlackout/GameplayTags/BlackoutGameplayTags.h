@@ -240,6 +240,9 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Wraith_Teleport_Vanish);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Wraith_Teleport_Appear);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Wraith_BowShove);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Ravager_Gorenado);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Ravager_EnergyBurst);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Ravager_Shockwave_Launch);
 	
 	// ─── Attack Events ────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Enemy_Attack_OnCollision);
