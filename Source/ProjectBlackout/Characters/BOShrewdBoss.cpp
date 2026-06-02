@@ -2,14 +2,24 @@
 
 #include "BlackoutAbilitySystemComponent.h"
 #include "BlackoutBaseAttributeSet.h"
-#include "BlackoutBossAIController.h"
 #include "GameplayEffectExtension.h"
 #include "UBOShrewdData.h"
 #include "GameFramework/PlayerState.h"
-#include "Net/UnrealNetwork.h"
+#include "AI/BlackoutAggroComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 
 ABOShrewdBoss::ABOShrewdBoss()
 {
+	AggroComponent = CreateDefaultSubobject<UBlackoutAggroComponent>(TEXT("AggroComponent"));
+	
+	if (UCharacterMovementComponent* Move = GetCharacterMovement())
+	{
+		Move->DefaultLandMovementMode = MOVE_Flying;
+		Move->GravityScale =0.0f;
+		Move-> MaxFlySpeed = 300.0f;
+		Move->MaxAcceleration = 2048.0f;
+		Move->BrakingDecelerationFlying = 2048.0f;
+	}
 }
 
 void ABOShrewdBoss::Multicast_DebugAggroTarget_Implementation(const FString& TargetName)
@@ -73,15 +83,17 @@ void ABOShrewdBoss::OnDamageReceived(const FOnAttributeChangeData& Data)
 	const float DamageDealt = Data.OldValue - Data.NewValue;
 	if (DamageDealt <= 0.f || !Data.GEModData) return;
 	
-	ABlackoutBossAIController* AIC = Cast<ABlackoutBossAIController>(GetController());
-	if (!AIC) return;
+	if (!AggroComponent)
+	{
+		return;
+	}
 	
 	AActor* SourceActor = Data.GEModData->EffectSpec.GetContext().GetInstigator();
 	if (APawn* InstigatorPawn = ResolveInstigatorPawn(SourceActor))
 	{
 		if (InstigatorPawn != this)
 		{
-			AIC->RecordDamage(InstigatorPawn, DamageDealt);
+			AggroComponent ->RecordDamage(InstigatorPawn, DamageDealt);
 		}
 	}
 }

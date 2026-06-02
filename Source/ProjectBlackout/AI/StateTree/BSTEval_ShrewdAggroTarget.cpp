@@ -1,7 +1,8 @@
 #include "AI/StateTree/BSTEval_ShrewdAggroTarget.h"
 #include "StateTreeExecutionContext.h"
 #include "AIController.h"
-#include "BlackoutShrewdAIController.h"
+#include "GameFramework/Pawn.h"
+#include "AI/BlackoutAggroComponent.h"
 
 
 
@@ -11,14 +12,20 @@ void FBSTEval_ShrewdAggroTarget::Tick(FStateTreeExecutionContext& Context, const
 	
 	FInstanceDataType& Data = Context.GetInstanceData(*this);
 	
+	Data.OutTarget =nullptr;
+	
 	if (!Data.Controller)
 	{
-		Data.OutTarget = nullptr;
 		return;
 	}
 	
-	if (ABlackoutShrewdAIController* Controller = Cast<ABlackoutShrewdAIController>(Data.Controller))
+	APawn* Pawn = Data.Controller->GetPawn();
+	if (!Pawn)
 	{
-		Data.OutTarget = Controller->GetCurrentAggroTarget();
+		return;
+	}
+	if (UBlackoutAggroComponent* Aggro = Pawn->FindComponentByClass<UBlackoutAggroComponent>())
+	{
+		Data.OutTarget = Aggro->GetCurrentTarget();
 	}
 }

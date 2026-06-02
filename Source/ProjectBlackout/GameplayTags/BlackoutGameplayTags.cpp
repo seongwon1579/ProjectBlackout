@@ -237,6 +237,9 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(Event_Wraith_Teleport_Vanish, "Event.Wraith.Teleport.Vanish");
 	UE_DEFINE_GAMEPLAY_TAG(Event_Wraith_Teleport_Appear , "Event.Wraith.Teleport.Appear");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Wraith_BowShove, "GameplayCue.Wraith.BowShove");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Ravager_Gorenado, "GameplayCue.Ravager.Gorenado");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Ravager_EnergyBurst, "GameplayCue.Ravager.EnergyBurst");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Ravager_Shockwave_Launch, "GameplayCue.Ravager.Shockwave.Launch");
 	
 	// ─── Attack Events ────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_OnCollision, "Event.Enemy.Attack.OnCollision");

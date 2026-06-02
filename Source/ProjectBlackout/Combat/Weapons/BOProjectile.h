@@ -32,7 +32,7 @@ struct FBOProjectileNetState
 	float Speed = 0.0f;
 	
 	UPROPERTY()
-	float GravityScale = 0.f;  
+	float GravityScale = 1.0f;  
 };
 
 UCLASS()
