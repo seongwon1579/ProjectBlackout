@@ -98,6 +98,11 @@ void UBlackoutSettingsWidget::NativeDestruct()
 		DLSSModeComboBox->OnSelectionChanged.RemoveDynamic(this, &UBlackoutSettingsWidget::HandleDLSSModeSelectionChanged);
 	}
 
+	if (FrameGenerationComboBox)
+	{
+		FrameGenerationComboBox->OnSelectionChanged.RemoveDynamic(this, &UBlackoutSettingsWidget::HandleFrameGenerationSelectionChanged);
+	}
+
 	if (ReflexComboBox)
 	{
 		ReflexComboBox->OnSelectionChanged.RemoveDynamic(this, &UBlackoutSettingsWidget::HandleReflexModeSelectionChanged);
@@ -167,6 +172,7 @@ void UBlackoutSettingsWidget::RefreshFromCurrentSettings()
 
 	PendingUpscalerMode = GraphicsSettings->GetUpscalerMode();
 	PendingDLSSMode = GraphicsSettings->GetDLSSQualityMode();
+	PendingFrameGenerationMode = GraphicsSettings->GetFrameGenerationMode();
 	PendingReflexMode = GraphicsSettings->GetReflexModeOption();
 	PendingMasterVolume = GraphicsSettings->GetMasterVolume();
 	PendingMusicVolume = GraphicsSettings->GetMusicVolume();
@@ -188,6 +194,11 @@ void UBlackoutSettingsWidget::SyncControlsFromPendingSettings()
 	if (DLSSModeComboBox)
 	{
 		DLSSModeComboBox->SetSelectedOption(GetDLSSModeOptionLabel(PendingDLSSMode));
+	}
+
+	if (FrameGenerationComboBox)
+	{
+		FrameGenerationComboBox->SetSelectedOption(GetFrameGenerationOptionLabel(PendingFrameGenerationMode));
 	}
 
 	if (ReflexComboBox)
@@ -242,7 +253,7 @@ void UBlackoutSettingsWidget::BuildFallbackWidgetTree()
 	UTextBlock* DescriptionText = CreateTextBlock(
 		WidgetTree,
 		TEXT("SettingsDescriptionText"),
-		NSLOCTEXT("BlackoutSettings", "Description", "DLSS, 사운드, 마우스 감도를 한 번에 조정합니다."));
+		NSLOCTEXT("BlackoutSettings", "Description", "DLSS, 프레임 생성, 사운드, 마우스 감도를 한 번에 조정합니다."));
 	DescriptionText->SetAutoWrapText(true);
 	if (UVerticalBoxSlot* DescriptionSlot = ContentBox->AddChildToVerticalBox(DescriptionText))
 	{
@@ -285,6 +296,19 @@ void UBlackoutSettingsWidget::BuildFallbackWidgetTree()
 		NSLOCTEXT("BlackoutSettings", "DLSSModeLabel", "DLSS 모드"));
 	DLSSModeComboBox = WidgetTree->ConstructWidget<UComboBoxString>(UComboBoxString::StaticClass(), TEXT("DLSSModeComboBox"));
 	if (UHorizontalBoxSlot* ComboSlot = DLSSRow->AddChildToHorizontalBox(DLSSModeComboBox))
+	{
+		ComboSlot->SetHorizontalAlignment(HAlign_Fill);
+		ComboSlot->SetVerticalAlignment(VAlign_Center);
+		ComboSlot->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
+	}
+
+	UHorizontalBox* FrameGenerationRow = CreateLabeledRow(
+		WidgetTree,
+		ContentBox,
+		TEXT("FrameGenerationRow"),
+		NSLOCTEXT("BlackoutSettings", "FrameGenerationLabel", "프레임 생성"));
+	FrameGenerationComboBox = WidgetTree->ConstructWidget<UComboBoxString>(UComboBoxString::StaticClass(), TEXT("FrameGenerationComboBox"));
+	if (UHorizontalBoxSlot* ComboSlot = FrameGenerationRow->AddChildToHorizontalBox(FrameGenerationComboBox))
 	{
 		ComboSlot->SetHorizontalAlignment(HAlign_Fill);
 		ComboSlot->SetVerticalAlignment(VAlign_Center);
@@ -392,6 +416,7 @@ void UBlackoutSettingsWidget::ResolveOptionalBindings()
 	// WBP에서 Is Variable 체크가 빠졌더라도 이름이 일치하면 위젯을 찾아 연결합니다.
 	ResolveNamedWidget(WidgetTree, UpscalerComboBox, TEXT("UpscalerComboBox"));
 	ResolveNamedWidget(WidgetTree, DLSSModeComboBox, TEXT("DLSSModeComboBox"));
+	ResolveNamedWidget(WidgetTree, FrameGenerationComboBox, TEXT("FrameGenerationComboBox"));
 	ResolveNamedWidget(WidgetTree, ReflexComboBox, TEXT("ReflexComboBox"));
 	ResolveNamedWidget(WidgetTree, MasterVolumeSlider, TEXT("MasterVolumeSlider"));
 	ResolveNamedWidget(WidgetTree, MusicVolumeSlider, TEXT("MusicVolumeSlider"));
@@ -431,6 +456,13 @@ void UBlackoutSettingsWidget::PopulateStaticOptions()
 		DLSSModeComboBox->AddOption(GetDLSSModeOptionLabel(EBlackoutDLSSQualityMode::UltraPerformance));
 	}
 
+	if (FrameGenerationComboBox)
+	{
+		FrameGenerationComboBox->ClearOptions();
+		FrameGenerationComboBox->AddOption(GetFrameGenerationOptionLabel(EBlackoutFrameGenerationMode::Disabled));
+		FrameGenerationComboBox->AddOption(GetFrameGenerationOptionLabel(EBlackoutFrameGenerationMode::Enabled));
+	}
+
 	if (ReflexComboBox)
 	{
 		ReflexComboBox->ClearOptions();
@@ -454,6 +486,12 @@ void UBlackoutSettingsWidget::BindControlEvents()
 	{
 		DLSSModeComboBox->OnSelectionChanged.RemoveDynamic(this, &UBlackoutSettingsWidget::HandleDLSSModeSelectionChanged);
 		DLSSModeComboBox->OnSelectionChanged.AddDynamic(this, &UBlackoutSettingsWidget::HandleDLSSModeSelectionChanged);
+	}
+
+	if (FrameGenerationComboBox)
+	{
+		FrameGenerationComboBox->OnSelectionChanged.RemoveDynamic(this, &UBlackoutSettingsWidget::HandleFrameGenerationSelectionChanged);
+		FrameGenerationComboBox->OnSelectionChanged.AddDynamic(this, &UBlackoutSettingsWidget::HandleFrameGenerationSelectionChanged);
 	}
 
 	if (ReflexComboBox)
@@ -508,6 +546,7 @@ void UBlackoutSettingsWidget::BindControlEvents()
 void UBlackoutSettingsWidget::UpdateControlState()
 {
 	const bool bDLSSAvailable = UBlackoutGraphicsBlueprintLibrary::IsDLSSRuntimeAvailable();
+	const bool bFrameGenerationAvailable = UBlackoutGraphicsBlueprintLibrary::IsFrameGenerationRuntimeAvailable();
 	const bool bReflexAvailable = UBlackoutGraphicsBlueprintLibrary::IsReflexRuntimeAvailable();
 	const bool bNeedsDLSSMode = PendingUpscalerMode == EBlackoutUpscalerMode::DLSS;
 
@@ -521,13 +560,21 @@ void UBlackoutSettingsWidget::UpdateControlState()
 		ReflexComboBox->SetIsEnabled(bReflexAvailable);
 	}
 
+	if (FrameGenerationComboBox)
+	{
+		FrameGenerationComboBox->SetIsEnabled(bFrameGenerationAvailable);
+	}
+
 	if (RuntimeAvailabilityText)
 	{
 		const FText AvailabilityText = FText::Format(
-			NSLOCTEXT("BlackoutSettings", "AvailabilityFormat", "DLSS: {0}  |  Reflex: {1}"),
+			NSLOCTEXT("BlackoutSettings", "AvailabilityFormat", "DLSS: {0}  |  프레임 생성: {1}  |  Reflex: {2}"),
 			bDLSSAvailable
 				? NSLOCTEXT("BlackoutSettings", "Available", "사용 가능")
 				: NSLOCTEXT("BlackoutSettings", "Unavailable", "사용 불가"),
+			bFrameGenerationAvailable
+				? NSLOCTEXT("BlackoutSettings", "FrameGenerationAvailable", "사용 가능")
+				: NSLOCTEXT("BlackoutSettings", "FrameGenerationUnavailable", "사용 불가"),
 			bReflexAvailable
 				? NSLOCTEXT("BlackoutSettings", "ReflexAvailable", "사용 가능")
 				: NSLOCTEXT("BlackoutSettings", "ReflexUnavailable", "사용 불가"));
@@ -568,6 +615,7 @@ void UBlackoutSettingsWidget::ApplyPendingSettings()
 
 	GraphicsSettings->SetUpscalerMode(PendingUpscalerMode);
 	GraphicsSettings->SetDLSSQualityMode(PendingDLSSMode);
+	GraphicsSettings->SetFrameGenerationMode(PendingFrameGenerationMode);
 	GraphicsSettings->SetReflexModeOption(PendingReflexMode);
 	GraphicsSettings->SetMasterVolume(PendingMasterVolume);
 	GraphicsSettings->SetMusicVolume(PendingMusicVolume);
@@ -580,6 +628,7 @@ void UBlackoutSettingsWidget::ResetPendingSettingsToDefaults()
 {
 	PendingUpscalerMode = EBlackoutUpscalerMode::TSR;
 	PendingDLSSMode = EBlackoutDLSSQualityMode::Quality;
+	PendingFrameGenerationMode = EBlackoutFrameGenerationMode::Disabled;
 	PendingReflexMode = EBlackoutReflexMode::Enabled;
 	PendingMasterVolume = 1.0f;
 	PendingMusicVolume = 1.0f;
@@ -644,6 +693,19 @@ FString UBlackoutSettingsWidget::GetReflexModeOptionLabel(const EBlackoutReflexM
 	}
 }
 
+FString UBlackoutSettingsWidget::GetFrameGenerationOptionLabel(const EBlackoutFrameGenerationMode InMode)
+{
+	switch (InMode)
+	{
+	case EBlackoutFrameGenerationMode::Enabled:
+		return TEXT("켜기");
+
+	case EBlackoutFrameGenerationMode::Disabled:
+	default:
+		return TEXT("끔");
+	}
+}
+
 bool UBlackoutSettingsWidget::TryParseUpscalerMode(const FString& InOption, EBlackoutUpscalerMode& OutMode)
 {
 	if (InOption.Equals(TEXT("DLSS")))
@@ -669,27 +731,55 @@ bool UBlackoutSettingsWidget::TryParseUpscalerMode(const FString& InOption, EBla
 
 bool UBlackoutSettingsWidget::TryParseDLSSMode(const FString& InOption, EBlackoutDLSSQualityMode& OutMode)
 {
-	if (InOption.Equals(TEXT("균형")))
+	if ( InOption.Equals(TEXT("밸런스"), ESearchCase::IgnoreCase)
+		|| InOption.Equals(TEXT("Balanced"), ESearchCase::IgnoreCase)
+		|| InOption.Equals(TEXT("Balance"), ESearchCase::IgnoreCase))
 	{
 		OutMode = EBlackoutDLSSQualityMode::Balanced;
 		return true;
 	}
 
-	if (InOption.Equals(TEXT("성능")))
+	if (InOption.Equals(TEXT("성능"), ESearchCase::IgnoreCase)
+		|| InOption.Equals(TEXT("Performance"), ESearchCase::IgnoreCase))
 	{
 		OutMode = EBlackoutDLSSQualityMode::Performance;
 		return true;
 	}
 
-	if (InOption.Equals(TEXT("초고성능")))
+	if (InOption.Equals(TEXT("초고성능"), ESearchCase::IgnoreCase)
+		|| InOption.Equals(TEXT("Ultra Performance"), ESearchCase::IgnoreCase)
+		|| InOption.Equals(TEXT("UltraPerformance"), ESearchCase::IgnoreCase))
 	{
 		OutMode = EBlackoutDLSSQualityMode::UltraPerformance;
 		return true;
 	}
 
-	if (InOption.Equals(TEXT("품질")))
+	if (InOption.Equals(TEXT("품질"), ESearchCase::IgnoreCase)
+		|| InOption.Equals(TEXT("퀄리티"), ESearchCase::IgnoreCase)
+		|| InOption.Equals(TEXT("Quality"), ESearchCase::IgnoreCase))
 	{
 		OutMode = EBlackoutDLSSQualityMode::Quality;
+		return true;
+	}
+
+	return false;
+}
+
+bool UBlackoutSettingsWidget::TryParseFrameGenerationMode(const FString& InOption, EBlackoutFrameGenerationMode& OutMode)
+{
+	if (InOption.Equals(TEXT("켜기"), ESearchCase::IgnoreCase)
+		|| InOption.Equals(TEXT("Enabled"), ESearchCase::IgnoreCase)
+		|| InOption.Equals(TEXT("On"), ESearchCase::IgnoreCase))
+	{
+		OutMode = EBlackoutFrameGenerationMode::Enabled;
+		return true;
+	}
+
+	if (InOption.Equals(TEXT("끔"), ESearchCase::IgnoreCase)
+		|| InOption.Equals(TEXT("Disabled"), ESearchCase::IgnoreCase)
+		|| InOption.Equals(TEXT("Off"), ESearchCase::IgnoreCase))
+	{
+		OutMode = EBlackoutFrameGenerationMode::Disabled;
 		return true;
 	}
 
@@ -744,6 +834,15 @@ void UBlackoutSettingsWidget::HandleReflexModeSelectionChanged(FString SelectedI
 	if (TryParseReflexMode(SelectedItem, ParsedMode))
 	{
 		PendingReflexMode = ParsedMode;
+	}
+}
+
+void UBlackoutSettingsWidget::HandleFrameGenerationSelectionChanged(FString SelectedItem, ESelectInfo::Type SelectionType)
+{
+	EBlackoutFrameGenerationMode ParsedMode = PendingFrameGenerationMode;
+	if (TryParseFrameGenerationMode(SelectedItem, ParsedMode))
+	{
+		PendingFrameGenerationMode = ParsedMode;
 	}
 }
 

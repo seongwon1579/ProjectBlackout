@@ -25,3 +25,8 @@ bool UBlackoutGraphicsBlueprintLibrary::IsReflexRuntimeAvailable()
 {
 	return UBlackoutGraphicsUserSettings::IsReflexRuntimeAvailable();
 }
+
+bool UBlackoutGraphicsBlueprintLibrary::IsFrameGenerationRuntimeAvailable()
+{
+	return UBlackoutGraphicsUserSettings::IsFrameGenerationRuntimeAvailable();
+}

@@ -42,6 +42,7 @@ public class ProjectBlackout : ModuleRules
 		if (Target.Platform == UnrealTargetPlatform.Win64 && Target.Type != TargetType.Server)
 		{
 			PublicDependencyModuleNames.Add("DLSSBlueprint");
+			PublicDependencyModuleNames.Add("StreamlineDLSSGBlueprint");
 			PublicDependencyModuleNames.Add("StreamlineReflexBlueprint");
 		}
 

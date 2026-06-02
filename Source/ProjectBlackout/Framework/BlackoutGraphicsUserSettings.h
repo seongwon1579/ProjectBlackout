@@ -29,6 +29,13 @@ enum class EBlackoutReflexMode : uint8
 	EnabledPlusBoost UMETA(DisplayName = "Enabled + Boost")
 };
 
+UENUM(BlueprintType)
+enum class EBlackoutFrameGenerationMode : uint8
+{
+	Disabled UMETA(DisplayName = "Disabled"),
+	Enabled UMETA(DisplayName = "Enabled")
+};
+
 /**
  * 그래픽/오디오/마우스 감도 사용자 설정을 저장하고 적용하는 클래스입니다.
  */
@@ -63,11 +70,20 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Blackout|Graphics")
 	EBlackoutReflexMode GetReflexModeOption() const { return ReflexMode; }
 
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Graphics")
+	void SetFrameGenerationMode(EBlackoutFrameGenerationMode InFrameGenerationMode);
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|Graphics")
+	EBlackoutFrameGenerationMode GetFrameGenerationMode() const { return FrameGenerationMode; }
+
 	UFUNCTION(BlueprintPure, Category = "Blackout|Graphics")
 	static bool IsDLSSRuntimeAvailable();
 
 	UFUNCTION(BlueprintPure, Category = "Blackout|Graphics")
 	static bool IsReflexRuntimeAvailable();
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|Graphics")
+	static bool IsFrameGenerationRuntimeAvailable();
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Audio")
 	void SetMasterVolume(float InMasterVolume);
@@ -105,6 +121,10 @@ protected:
 	/** NVIDIA Reflex의 지연 감소 모드입니다. */
 	UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "Blackout|Graphics")
 	EBlackoutReflexMode ReflexMode = EBlackoutReflexMode::Enabled;
+
+	/** NVIDIA DLSS Frame Generation 사용 여부입니다. */
+	UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "Blackout|Graphics")
+	EBlackoutFrameGenerationMode FrameGenerationMode = EBlackoutFrameGenerationMode::Disabled;
 
 	/** TSR 사용 시 적용할 Screen Percentage입니다. */
 	UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "Blackout|Graphics|ScreenPercentage", meta = (ClampMin = "25.0", ClampMax = "200.0"))
@@ -152,6 +172,7 @@ protected:
 
 private:
 	void ApplyUpscalerSettings();
+	void ApplyFrameGenerationSettings();
 	void ApplyReflexSettings() const;
 	void ApplyAudioSettings() const;
 	float ResolveTargetScreenPercentage() const;

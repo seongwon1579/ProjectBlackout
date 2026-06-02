@@ -10,11 +10,14 @@
 
 #if PLATFORM_WINDOWS && !UE_SERVER
 #include "DLSSLibrary.h"
+#include "StreamlineLibraryDLSSG.h"
 #include "StreamlineLibraryReflex.h"
 #define BLACKOUT_WITH_DLSS 1
+#define BLACKOUT_WITH_STREAMLINE_DLSSG 1
 #define BLACKOUT_WITH_STREAMLINE_REFLEX 1
 #else
 #define BLACKOUT_WITH_DLSS 0
+#define BLACKOUT_WITH_STREAMLINE_DLSSG 0
 #define BLACKOUT_WITH_STREAMLINE_REFLEX 0
 #endif
 
@@ -81,6 +84,7 @@ void UBlackoutGraphicsUserSettings::SetToDefaults()
 	UpscalerMode = EBlackoutUpscalerMode::TSR;
 	DLSSQualityMode = EBlackoutDLSSQualityMode::Quality;
 	ReflexMode = EBlackoutReflexMode::Enabled;
+	FrameGenerationMode = EBlackoutFrameGenerationMode::Disabled;
 
 	TSRScreenPercentage = 100.0f;
 	DLSSQualityScreenPercentage = 66.7f;
@@ -121,6 +125,7 @@ void UBlackoutGraphicsUserSettings::ApplyNonResolutionSettings()
 
 	ValidateSettings();
 	ApplyUpscalerSettings();
+	ApplyFrameGenerationSettings();
 	ApplyReflexSettings();
 	ApplyAudioSettings();
 }
@@ -148,6 +153,11 @@ void UBlackoutGraphicsUserSettings::SetDLSSQualityMode(const EBlackoutDLSSQualit
 void UBlackoutGraphicsUserSettings::SetReflexModeOption(const EBlackoutReflexMode InReflexMode)
 {
 	ReflexMode = InReflexMode;
+}
+
+void UBlackoutGraphicsUserSettings::SetFrameGenerationMode(const EBlackoutFrameGenerationMode InFrameGenerationMode)
+{
+	FrameGenerationMode = InFrameGenerationMode;
 }
 
 void UBlackoutGraphicsUserSettings::SetMasterVolume(const float InMasterVolume)
@@ -183,6 +193,15 @@ bool UBlackoutGraphicsUserSettings::IsReflexRuntimeAvailable()
 {
 #if BLACKOUT_WITH_STREAMLINE_REFLEX
 	return UStreamlineLibraryReflex::IsReflexSupported();
+#else
+	return false;
+#endif
+}
+
+bool UBlackoutGraphicsUserSettings::IsFrameGenerationRuntimeAvailable()
+{
+#if BLACKOUT_WITH_STREAMLINE_DLSSG
+	return UStreamlineLibraryDLSSG::IsDLSSGSupported();
 #else
 	return false;
 #endif
@@ -233,12 +252,48 @@ void UBlackoutGraphicsUserSettings::ApplyUpscalerSettings()
 		return;
 	}
 
-	UDLSSLibrary::EnableDLSS(true);
+	
+	UDLSSLibrary::SetDLSSMode(ResolveSettingsWorld(), TargetMode);
 #else
 	TrySetConsoleVariableInt(NGXEnableCVarName, 1);
 	TrySetConsoleVariableInt(DLSSEnableCVarName, 1);
 #endif
-	TrySetConsoleVariableFloat(ScreenPercentageCVarName, ResolveTargetScreenPercentage());
+}
+
+void UBlackoutGraphicsUserSettings::ApplyFrameGenerationSettings()
+{
+#if BLACKOUT_WITH_STREAMLINE_DLSSG
+	if (FrameGenerationMode == EBlackoutFrameGenerationMode::Disabled)
+	{
+		UStreamlineLibraryDLSSG::SetDLSSGMode(EStreamlineDLSSGMode::Off);
+		return;
+	}
+
+	if (!UStreamlineLibraryDLSSG::IsDLSSGSupported())
+	{
+		BO_LOG_CORE(Warning, "현재 하드웨어/환경에서 NVIDIA DLSS Frame Generation을 사용할 수 없어 적용을 건너뜁니다.");
+		FrameGenerationMode = EBlackoutFrameGenerationMode::Disabled;
+		UStreamlineLibraryDLSSG::SetDLSSGMode(EStreamlineDLSSGMode::Off);
+		return;
+	}
+
+	const EStreamlineDLSSGMode TargetMode = UStreamlineLibraryDLSSG::GetDefaultDLSSGMode();
+	if (TargetMode == EStreamlineDLSSGMode::Off || !UStreamlineLibraryDLSSG::IsDLSSGModeSupported(TargetMode))
+	{
+		BO_LOG_CORE(Warning, "현재 하드웨어에서 지원되는 기본 DLSS Frame Generation 모드를 찾지 못해 적용을 건너뜁니다.");
+		FrameGenerationMode = EBlackoutFrameGenerationMode::Disabled;
+		UStreamlineLibraryDLSSG::SetDLSSGMode(EStreamlineDLSSGMode::Off);
+		return;
+	}
+
+	UStreamlineLibraryDLSSG::SetDLSSGMode(TargetMode);
+#else
+	if (FrameGenerationMode == EBlackoutFrameGenerationMode::Enabled)
+	{
+		BO_LOG_CORE(Warning, "현재 빌드 대상에서는 NVIDIA DLSS Frame Generation 플러그인을 사용할 수 없습니다.");
+		FrameGenerationMode = EBlackoutFrameGenerationMode::Disabled;
+	}
+#endif
 }
 
 void UBlackoutGraphicsUserSettings::ApplyReflexSettings() const
