@@ -27,7 +27,7 @@ Unreal Engine **5.7.4 바이너리 빌드(버전 고정)** 기반의 **Dedicated
   - TPS 카메라 구동에 필수적인 `UCameraComponent` 및 `USpringArmComponent`를 부착합니다.
   - 크로스헤어 정렬 및 조준 오차(Parallax) 보상을 위한 `UBlackoutCombatComponent`를 개별적으로 부착하여 장전, 사격 분기 등 플레이어 특화 무기 행동을 분리합니다.
   - `PossessedBy` 함수를 오버라이딩하여, 빙의될 때 `ABlackoutPlayerState`에 있는 ASC를 찾아 `InitAbilityActorInfo`로 초기화하는 구조를 갖습니다.
-  - **플래시 라이트 기능 (토글 및 소켓 부착)**: 어두운 맵에서의 가시성 확보를 위해 `USpotLightComponent`를 가집니다. C++에서는 컴포넌트 생성 및 인풋 액션 바인딩, 멀티플레이 리플리케이션(`bIsFlashlightOn`)과 서버 검증을 포함한 토글 동작을 담당합니다. 실제 부착 소켓(예: `head` 등) 및 상세 트랜스폼 설정은 블루프린트 에디터에서 직접 처리할 수 있도록 유연하게 노출하고, 틱에서의 강제 조준 제어를 생략해 애니메이션 움직임에 맞춰 자연스럽게 흔들리도록 구성합니다.
+  - **플래시 라이트 기능 (조작 및 무기 위임)**: 어두운 맵에서의 가시성 확보를 위해 향상된 입력 `T` 키 매핑을 사용하여 플래시 토글 신호를 현재 장착 중인 무기(`ABOFirearm`)에 포워딩합니다. 실제 `USpotLightComponent` 컴포넌트 장착, 기본 활성화(켜짐) 상태 및 온/오프 상태 변수 복제(Replication) 등 실질적인 플래시 제어 권한은 총기 클래스가 담당하도록 분리 설계되었습니다.
 - **`ABlackoutEnemyCharacter`**: `ABlackoutCharacterBase`를 상속받는 AI 기믹용 적 캐릭터 베이스입니다.
   - 모델 자체에 ASC를 소유(`CreateDefaultSubobject`)하며, `BeginPlay` 시점에 자기 자신의 ASC를 초기화하고 기본 미니언 속성값(Attribute Asset)을 주입받습니다.
   - 풀링 서브시스템 재사용을 위해 `IBlackoutPoolableInterface`를 구현하며, 큐에서 뽑힐 때(`OnSpawnFromPool`) ASC 스탯을 리셋하는 기능과 사망 래그돌 처리 후 풀로 반환되는 로직이 내장됩니다.

@@ -31,7 +31,7 @@
 #include "Items/BlackoutDropItem.h"
 #include "Components/SphereComponent.h"
 #include "Components/WidgetComponent.h"
-#include "Components/SpotLightComponent.h"
+#include "Combat/Weapons/BOFirearm.h"
 
 ABlackoutPlayerCharacter::ABlackoutPlayerCharacter(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer.SetDefaultSubobjectClass<UBlackoutPlayerMovementComponent>(ACharacter::CharacterMovementComponentName))
@@ -69,17 +69,6 @@ ABlackoutPlayerCharacter::ABlackoutPlayerCharacter(const FObjectInitializer& Obj
 	DefaultMaxWalkSpeed = 600.f;
 	AimMaxWalkSpeed = 420.f;
 	DownedMaxWalkSpeed = 150.f;
-
-	// 플래시 라이트 컴포넌트 셋업
-	FlashlightComponent = CreateDefaultSubobject<USpotLightComponent>(TEXT("FlashlightComponent"));
-	FlashlightComponent->SetupAttachment(GetMesh()); // 블루프린트에서 원하는 소켓에 부착할 수 있도록 설정
-	FlashlightComponent->SetVisibility(false);       // 기본적으로 꺼진 상태
-	
-	// SpotLight 기본값 설정 (에디터 상에서 수정 가능)
-	FlashlightComponent->Intensity = 100000.f;        // 광원 세기 (Lumen 환경을 감안하여 10만으로 상향)
-	FlashlightComponent->OuterConeAngle = 35.f;      // 외각 원뿔각
-	FlashlightComponent->InnerConeAngle = 15.f;      // 내각 원뿔각
-	FlashlightComponent->AttenuationRadius = 2500.f; // 감쇠 반경 (그림자 최적화를 위한 적정 반경 설정)
 }
 
 void ABlackoutPlayerCharacter::BeginPlay()
@@ -88,12 +77,6 @@ void ABlackoutPlayerCharacter::BeginPlay()
 
 	CacheAimDefaults();
 	UpdateAimMovementMode();
-
-	// 플래시 라이트를 지정된 소켓에 동적 부착 (블루프린트 디폴트 서브오브젝트 소켓 수정 이슈 해결)
-	if (FlashlightComponent && GetMesh())
-	{
-		FlashlightComponent->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, FlashlightAttachSocketName);
-	}
 }
 
 void ABlackoutPlayerCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -107,7 +90,6 @@ void ABlackoutPlayerCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProper
 	DOREPLIFETIME(ABlackoutPlayerCharacter, bDownedDeathTimerPaused);
 	DOREPLIFETIME(ABlackoutPlayerCharacter, ReviveServerStartTimeSeconds);
 	DOREPLIFETIME(ABlackoutPlayerCharacter, ReviveDuration);
-	DOREPLIFETIME(ABlackoutPlayerCharacter, bIsFlashlightOn);
 }
 
 void ABlackoutPlayerCharacter::Tick(float DeltaSeconds)
@@ -2357,39 +2339,12 @@ void ABlackoutPlayerCharacter::ToggleFlashlight()
 		return;
 	}
 
-	bIsFlashlightOn = !bIsFlashlightOn;
-
-	UE_LOG(LogTemp, Warning, TEXT("[Flashlight] ToggleFlashlight Called. LocalState: %s"), bIsFlashlightOn ? TEXT("ON") : TEXT("OFF"));
-
-	// 로컬 빠른 체감 레이턴시 0ms 반응을 위한 선제 갱신
-	if (FlashlightComponent)
+	if (CombatComponent)
 	{
-		FlashlightComponent->SetVisibility(bIsFlashlightOn);
-	}
-
-	// 서버로 동기화 요청
-	Server_SetFlashlightState(bIsFlashlightOn);
-}
-
-void ABlackoutPlayerCharacter::Server_SetFlashlightState_Implementation(bool bNewState)
-{
-	bIsFlashlightOn = bNewState;
-	
-	UE_LOG(LogTemp, Warning, TEXT("[Flashlight] Server_SetFlashlightState RPC. ServerState: %s"), bIsFlashlightOn ? TEXT("ON") : TEXT("OFF"));
-
-	if (FlashlightComponent)
-	{
-		FlashlightComponent->SetVisibility(bIsFlashlightOn);
-	}
-}
-
-void ABlackoutPlayerCharacter::OnRep_FlashlightOn()
-{
-	UE_LOG(LogTemp, Warning, TEXT("[Flashlight] OnRep_FlashlightOn Called. ReplicatedState: %s"), bIsFlashlightOn ? TEXT("ON") : TEXT("OFF"));
-
-	if (FlashlightComponent)
-	{
-		FlashlightComponent->SetVisibility(bIsFlashlightOn);
+		if (ABOFirearm* EquippedFirearm = CombatComponent->GetEquippedFirearm())
+		{
+			EquippedFirearm->ToggleFlashlight();
+		}
 	}
 }
 

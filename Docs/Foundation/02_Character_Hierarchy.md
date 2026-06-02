@@ -25,14 +25,9 @@ classDiagram
         <<Skeleton — Combat Epic에서 확장>>
         -UCameraComponent* Camera
         -USpringArmComponent* SpringArm
-        -USpotLightComponent* FlashlightComponent
         -UInputAction* ToggleFlashlightAction
-        -FName FlashlightAttachSocketName
-        -bool bIsFlashlightOn
         +PossessedBy(AController*) void
         +ToggleFlashlight() void
-        +Server_SetFlashlightState(bool) void
-        +OnRep_FlashlightOn() void
     }
 
     class ABlackoutEnemyCharacter {

@@ -1,4 +1,6 @@
 #include "Combat/Weapons/BOFirearm.h"
+#include "Components/SpotLightComponent.h"
+#include "Net/UnrealNetwork.h"
 
 #include "DrawDebugHelpers.h"
 #include "Animation/AnimSingleNodeInstance.h"
@@ -23,6 +25,17 @@ ABOFirearm::ABOFirearm()
 	MuzzleFlash->SetAutoActivate(false);
 	
 	MuzzleSocket = TEXT("MuzzleSocket");
+
+	// 플래시 라이트 컴포넌트 셋업
+	FlashlightComponent = CreateDefaultSubobject<USpotLightComponent>(TEXT("FlashlightComponent"));
+	FlashlightComponent->SetupAttachment(WeaponMesh);
+	FlashlightComponent->SetVisibility(true); // 기본적으로 켜진 상태 (기본값 ON)
+	
+	// SpotLight 기본값 설정
+	FlashlightComponent->Intensity = 36377.64f;       // 광원 세기 (13.5 EV100 환산값)
+	FlashlightComponent->OuterConeAngle = 35.f;      // 외각 원뿔각
+	FlashlightComponent->InnerConeAngle = 15.f;      // 내각 원뿔각
+	FlashlightComponent->AttenuationRadius = 2500.f; // 감쇠 반경 (그림자 최적화를 위한 적정 반경 설정)
 }
 
 bool ABOFirearm::InitializeStatsFromDataTable()
@@ -378,4 +391,49 @@ bool ABOFirearm::StopWeaponReloadAnimation()
 void ABOFirearm::Multicast_StopWeaponReloadAnimation_Implementation()
 {
 	StopWeaponReloadAnimation();
+}
+
+
+
+void ABOFirearm::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ABOFirearm, bIsFlashlightOn);
+}
+
+void ABOFirearm::ToggleFlashlight()
+{
+	bIsFlashlightOn = !bIsFlashlightOn;
+
+	UE_LOG(LogTemp, Warning, TEXT("[Weapon Flashlight] ToggleFlashlight Called on Weapon %s. LocalState: %s"), *GetName(), bIsFlashlightOn ? TEXT("ON") : TEXT("OFF"));
+
+	if (FlashlightComponent)
+	{
+		FlashlightComponent->SetVisibility(bIsFlashlightOn);
+	}
+
+	Server_SetFlashlightState(bIsFlashlightOn);
+}
+
+void ABOFirearm::Server_SetFlashlightState_Implementation(bool bNewState)
+{
+	bIsFlashlightOn = bNewState;
+
+	UE_LOG(LogTemp, Warning, TEXT("[Weapon Flashlight] Server_SetFlashlightState RPC on Weapon %s. ServerState: %s"), *GetName(), bIsFlashlightOn ? TEXT("ON") : TEXT("OFF"));
+
+	if (FlashlightComponent)
+	{
+		FlashlightComponent->SetVisibility(bIsFlashlightOn);
+	}
+}
+
+void ABOFirearm::OnRep_FlashlightOn()
+{
+	UE_LOG(LogTemp, Warning, TEXT("[Weapon Flashlight] OnRep_FlashlightOn Called on Weapon %s. ReplicatedState: %s"), *GetName(), bIsFlashlightOn ? TEXT("ON") : TEXT("OFF"));
+
+	if (FlashlightComponent)
+	{
+		FlashlightComponent->SetVisibility(bIsFlashlightOn);
+	}
 }
