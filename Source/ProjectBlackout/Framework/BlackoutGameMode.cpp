@@ -9,6 +9,8 @@
 #include "Core/BlackoutTypes.h"
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/GameStateBase.h"
+#include "Engine/GameInstance.h"
+#include "BlackoutDedicatedSessionSubsystem.h"
 
 namespace
 {
@@ -50,6 +52,29 @@ void ABlackoutGameMode::InitGame(const FString& MapName, const FString& Options,
 		Options, TEXT("SessionId"));
 	BO_LOG_NET(Log, "InitGame: Map=%s SessionId=%s", *MapName,
 	           *MatchmakingSessionId);
+}
+
+void ABlackoutGameMode::PreLogin(const FString& Options, const FString& Address,
+                                 const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage)
+{
+	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
+
+	// 클라가 매칭으로 접속할 때 URL ?SessionId=... 옵션 캡처. 데디 라이프 내내 동일 SessionId 유지.
+	const FString IncomingSessionId = UGameplayStatics::ParseOption(Options, TEXT("SessionId"));
+	if (IncomingSessionId.IsEmpty() || MatchmakingSessionId == IncomingSessionId)
+	{
+		return;
+	}
+
+	MatchmakingSessionId = IncomingSessionId;
+	if (UGameInstance* GI = GetGameInstance())
+	{
+		if (UBlackoutDedicatedSessionSubsystem* Sess = GI->GetSubsystem<UBlackoutDedicatedSessionSubsystem>())
+		{
+			Sess->SetSessionId(IncomingSessionId);
+			BO_LOG_NET(Log, "PreLogin — SessionId 캡처: %s", *IncomingSessionId);
+		}
+	}
 }
 
 void ABlackoutGameMode::PostLogin(APlayerController* NewPlayer)
