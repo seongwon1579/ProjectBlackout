@@ -191,6 +191,11 @@ void UBlackoutGA_Ravager_Gorenado::EndAbility(const FGameplayAbilitySpecHandle H
 		World->GetTimerManager().ClearTimer(UpdateTimer);
 		World->GetTimerManager().ClearTimer(DamageTimer);
 	}
+
+	if (UAbilitySystemComponent* OwnerASC = GetAbilitySystemComponentFromActorInfo())
+	{
+		OwnerASC->RemoveGameplayCue(BlackoutGameplayTags::GameplayCue_Ravager_Gorenado);
+	}
 	
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
@@ -219,6 +224,14 @@ void UBlackoutGA_Ravager_Gorenado::OnPullStartNotify(FGameplayEventData Payload)
 	World->GetTimerManager().SetTimer(
 		DamageTimer, this, &UBlackoutGA_Ravager_Gorenado::ApplyDamage,
 		Settings.DamageTickInterval, true);
+
+	if (UAbilitySystemComponent* OwnerASC = GetAbilitySystemComponentFromActorInfo())
+	{
+		FGameplayCueParameters CueParams;
+		CueParams.Instigator = CachedOwner;
+		CueParams.EffectCauser = CachedOwner;
+		OwnerASC->AddGameplayCue(BlackoutGameplayTags::GameplayCue_Ravager_Gorenado, CueParams);
+	}
 }
 
 void UBlackoutGA_Ravager_Gorenado::OnPullEndNotify(FGameplayEventData Payload)
@@ -228,4 +241,9 @@ void UBlackoutGA_Ravager_Gorenado::OnPullEndNotify(FGameplayEventData Payload)
 
 	World->GetTimerManager().ClearTimer(UpdateTimer);
 	World->GetTimerManager().ClearTimer(DamageTimer);
+
+	if (UAbilitySystemComponent* OwnerASC = GetAbilitySystemComponentFromActorInfo())
+	{
+		OwnerASC->RemoveGameplayCue(BlackoutGameplayTags::GameplayCue_Ravager_Gorenado);
+	}
 }
