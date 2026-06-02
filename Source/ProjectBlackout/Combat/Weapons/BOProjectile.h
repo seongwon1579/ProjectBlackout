@@ -10,6 +10,8 @@
 class UAbilitySystemComponent;
 class UProjectileMovementComponent;
 class USphereComponent;
+class UNiagaraComponent;
+class UNiagaraSystem;
 
 USTRUCT()
 struct FBOProjectileNetState
@@ -83,6 +85,14 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Combat")
 	TObjectPtr<UProjectileMovementComponent> Movement;
+
+	// 투사체 궤적 이펙트를 처리하는 나이아가라 컴포넌트
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Visual")
+	TObjectPtr<UNiagaraComponent> NiagaraComponent;
+
+	// 에디터에서 지정할 나이아가라 이펙트 에셋
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Visual")
+	TObjectPtr<UNiagaraSystem> NiagaraEffect;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
 	float SplashRadius = 0.0f;

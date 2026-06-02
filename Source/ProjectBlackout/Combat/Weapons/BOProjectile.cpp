@@ -11,6 +11,8 @@
 #include "Interfaces/BlackoutDamageable.h"
 #include "Net/UnrealNetwork.h"
 #include "Pool/BlackoutPoolSubsystem.h"
+#include "NiagaraComponent.h"
+#include "NiagaraSystem.h"
 
 ABOProjectile::ABOProjectile()
 {
@@ -29,6 +31,10 @@ ABOProjectile::ABOProjectile()
 
 	Movement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("Movement"));
 	Movement->bAutoActivate = false;
+
+	NiagaraComponent = CreateDefaultSubobject<UNiagaraComponent>(TEXT("NiagaraComponent"));
+	NiagaraComponent->SetupAttachment(Collision);
+	NiagaraComponent->bAutoActivate = false;
 }
 
 void ABOProjectile::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -53,6 +59,11 @@ void ABOProjectile::OnSpawnFromPool_Implementation()
 void ABOProjectile::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if (NiagaraComponent && NiagaraEffect)
+	{
+		NiagaraComponent->SetAsset(NiagaraEffect);
+	}
 
 	ApplyProjectileNetState();
 }
@@ -193,6 +204,19 @@ void ABOProjectile::ApplyActiveState(bool bIsActive)
 	{
 		Movement->Deactivate();
 		Movement->Velocity = FVector::ZeroVector;
+	}
+
+	// 나이아가라 컴포넌트 활성화/비활성화 처리
+	if (NiagaraComponent)
+	{
+		if (bIsActive)
+		{
+			NiagaraComponent->Activate(true);
+		}
+		else
+		{
+			NiagaraComponent->Deactivate();
+		}
 	}
 }
 
