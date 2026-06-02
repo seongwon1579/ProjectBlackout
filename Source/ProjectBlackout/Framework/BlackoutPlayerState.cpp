@@ -62,6 +62,23 @@ void ABlackoutPlayerState::GetLifetimeReplicatedProps(
 	DOREPLIFETIME(ABlackoutPlayerState, bVotedAgainstSurrender);
 }
 
+void ABlackoutPlayerState::SetReadyState(bool bNewReady)
+{
+	if (!HasAuthority())
+	{
+		BO_LOG_NET(Warning, "SetReadyState 무시: 서버 권한이 없습니다. PlayerState=%s", *GetName());
+		return;
+	}
+
+	if (bIsReady == bNewReady)
+	{
+		return;
+	}
+
+	bIsReady = bNewReady;
+	BroadcastReadyStateChanged();
+}
+
 void ABlackoutPlayerState::ApplyBattleTransitionPolicy(
 	EBattleTransitionType TransitionType)
 {
@@ -233,6 +250,11 @@ bool ABlackoutPlayerState::IsBeingRevived() const
 	return HasStateTag(BlackoutGameplayTags::State_BeingRevived);
 }
 
+void ABlackoutPlayerState::OnRep_IsReady()
+{
+	BroadcastReadyStateChanged();
+}
+
 void ABlackoutPlayerState::OnRep_BloodRootCount()
 {
 	BroadcastConsumableCounts();
@@ -246,6 +268,11 @@ void ABlackoutPlayerState::OnRep_GulSerumCount()
 void ABlackoutPlayerState::BroadcastConsumableCounts()
 {
 	OnConsumableCountsChanged.Broadcast(BloodRootCount, GulSerumCount);
+}
+
+void ABlackoutPlayerState::BroadcastReadyStateChanged()
+{
+	OnReadyStateChangedNative.Broadcast(bIsReady);
 }
 
 bool ABlackoutPlayerState::HasStateTag(FGameplayTag StateTag) const

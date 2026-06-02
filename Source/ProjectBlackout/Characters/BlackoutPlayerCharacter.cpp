@@ -155,6 +155,7 @@ void ABlackoutPlayerCharacter::PossessedBy(AController* NewController)
 			AbilitySystemComponent->InitAbilityActorInfo(GetPlayerState(), this);
 			BindDownedStateTagEvent();
 			ApplyReplicatedReviveInteractionStateTag();
+			BindReadyStateChangedDelegate();
 
 			// 초기 스탯 및 어빌리티 부여
 			InitializeAttributes();
@@ -195,6 +196,7 @@ void ABlackoutPlayerCharacter::OnRep_PlayerState()
 			AbilitySystemComponent->InitAbilityActorInfo(GetPlayerState(), this);
 			BindDownedStateTagEvent();
 			ApplyReplicatedReviveInteractionStateTag();
+			BindReadyStateChangedDelegate();
 
 			// 클라이언트에서도 어트리뷰트 초기화
 			InitializeAttributes();
@@ -1764,6 +1766,204 @@ bool ABlackoutPlayerCharacter::StopRevivePerformMontage(UAnimMontage* Montage, f
 	return true;
 }
 
+bool ABlackoutPlayerCharacter::PlayReadyCheckStartMontage(UAnimMontage* Montage, float PlayRate)
+{
+	if (!Montage)
+	{
+		BO_LOG_GAS(Warning, "PlayReadyCheckStartMontage failed: Montage가 비어 있음");
+		return false;
+	}
+
+	USkeletalMeshComponent* MeshComponent = GetMesh();
+	if (!MeshComponent)
+	{
+		BO_LOG_GAS(Warning, "PlayReadyCheckStartMontage failed: MeshComponent가 비어 있음");
+		return false;
+	}
+
+	UAnimInstance* AnimInstance = MeshComponent->GetAnimInstance();
+	if (!AnimInstance)
+	{
+		BO_LOG_GAS(Warning, "PlayReadyCheckStartMontage failed: AnimInstance가 비어 있음");
+		return false;
+	}
+
+	const float PlayResult = PlayAnimMontage(Montage, PlayRate);
+	if (PlayResult > 0.f)
+	{
+		FOnMontageEnded MontageEndedDelegate;
+		MontageEndedDelegate.BindUObject(this, &ABlackoutPlayerCharacter::HandleReadyCheckStartMontageEnded);
+		AnimInstance->Montage_SetEndDelegate(MontageEndedDelegate, Montage);
+	}
+
+	return PlayResult > 0.f;
+}
+
+bool ABlackoutPlayerCharacter::PlayReadyCheckStartLoopMontage(float PlayRate)
+{
+	if (!ReadyCheckStartLoopMontage)
+	{
+		BO_LOG_GAS(Warning, "PlayReadyCheckStartLoopMontage failed: Montage가 비어 있음");
+		return false;
+	}
+
+	USkeletalMeshComponent* MeshComponent = GetMesh();
+	if (!MeshComponent)
+	{
+		BO_LOG_GAS(Warning, "PlayReadyCheckStartLoopMontage failed: MeshComponent가 비어 있음");
+		return false;
+	}
+
+	UAnimInstance* AnimInstance = MeshComponent->GetAnimInstance();
+	if (!AnimInstance)
+	{
+		BO_LOG_GAS(Warning, "PlayReadyCheckStartLoopMontage failed: AnimInstance가 비어 있음");
+		return false;
+	}
+
+	const auto ConfigureReadyCheckSectionFlow = [this, AnimInstance]()
+	{
+		if (ReadyCheckStartSectionName != NAME_None
+			&& ReadyCheckLoopSectionName != NAME_None
+			&& ReadyCheckStartSectionName != ReadyCheckLoopSectionName)
+		{
+			AnimInstance->Montage_SetNextSection(
+				ReadyCheckStartSectionName,
+				ReadyCheckLoopSectionName,
+				ReadyCheckStartLoopMontage);
+		}
+
+		if (ReadyCheckLoopSectionName != NAME_None)
+		{
+			AnimInstance->Montage_SetNextSection(
+				ReadyCheckLoopSectionName,
+				ReadyCheckLoopSectionName,
+				ReadyCheckStartLoopMontage);
+		}
+	};
+
+	if (AnimInstance->GetCurrentActiveMontage() == ReadyCheckStartLoopMontage
+		&& AnimInstance->Montage_IsPlaying(ReadyCheckStartLoopMontage))
+	{
+		ConfigureReadyCheckSectionFlow();
+
+		const FName CurrentSectionName = AnimInstance->Montage_GetCurrentSection(ReadyCheckStartLoopMontage);
+		if (CurrentSectionName == ReadyCheckStartSectionName
+			|| CurrentSectionName == ReadyCheckLoopSectionName
+			|| ReadyCheckStartSectionName == NAME_None)
+		{
+			bIsReadyCheckLoopMontagePlaying = true;
+			return true;
+		}
+	}
+
+	const float PlayResult = (ReadyCheckStartSectionName != NAME_None)
+		? PlayAnimMontage(ReadyCheckStartLoopMontage, PlayRate, ReadyCheckStartSectionName)
+		: PlayAnimMontage(ReadyCheckStartLoopMontage, PlayRate);
+
+	if (PlayResult > 0.f)
+	{
+		ConfigureReadyCheckSectionFlow();
+	}
+
+	bIsReadyCheckLoopMontagePlaying = (PlayResult > 0.f);
+	return PlayResult > 0.f;
+}
+
+bool ABlackoutPlayerCharacter::PlayReadyCheckLoopMontage(UAnimMontage* Montage, float PlayRate)
+{
+	if (!Montage)
+	{
+		BO_LOG_GAS(Warning, "PlayReadyCheckLoopMontage failed: Montage가 비어 있음");
+		return false;
+	}
+
+	USkeletalMeshComponent* MeshComponent = GetMesh();
+	if (!MeshComponent)
+	{
+		BO_LOG_GAS(Warning, "PlayReadyCheckLoopMontage failed: MeshComponent가 비어 있음");
+		return false;
+	}
+
+	UAnimInstance* AnimInstance = MeshComponent->GetAnimInstance();
+	if (!AnimInstance)
+	{
+		BO_LOG_GAS(Warning, "PlayReadyCheckLoopMontage failed: AnimInstance가 비어 있음");
+		return false;
+	}
+
+	FOnMontageEnded MontageEndedDelegate;
+	MontageEndedDelegate.BindUObject(this, &ABlackoutPlayerCharacter::HandleReadyCheckLoopMontageEnded);
+	AnimInstance->Montage_SetEndDelegate(MontageEndedDelegate, Montage);
+
+	if (AnimInstance->GetCurrentActiveMontage() == Montage && AnimInstance->Montage_IsPlaying(Montage))
+	{
+		bIsReadyCheckLoopMontagePlaying = true;
+		return true;
+	}
+
+	const float PlayResult = PlayAnimMontage(Montage, PlayRate);
+	bIsReadyCheckLoopMontagePlaying = (PlayResult > 0.f);
+	return PlayResult > 0.f;
+}
+
+bool ABlackoutPlayerCharacter::StopReadyCheckLoopMontage(UAnimMontage* Montage, float BlendOutTime)
+{
+	if (!Montage)
+	{
+		return false;
+	}
+
+	USkeletalMeshComponent* MeshComponent = GetMesh();
+	if (!MeshComponent)
+	{
+		return false;
+	}
+
+	UAnimInstance* AnimInstance = MeshComponent->GetAnimInstance();
+	if (!AnimInstance || !AnimInstance->Montage_IsPlaying(Montage))
+	{
+		return false;
+	}
+
+	AnimInstance->Montage_Stop(BlendOutTime, Montage);
+	bIsReadyCheckLoopMontagePlaying = false;
+	return true;
+}
+
+bool ABlackoutPlayerCharacter::PlayReadyCheckEndMontage(UAnimMontage* Montage, float PlayRate)
+{
+	if (!Montage)
+	{
+		BO_LOG_GAS(Warning, "PlayReadyCheckEndMontage failed: Montage가 비어 있음");
+		return false;
+	}
+
+	USkeletalMeshComponent* MeshComponent = GetMesh();
+	if (!MeshComponent)
+	{
+		BO_LOG_GAS(Warning, "PlayReadyCheckEndMontage failed: MeshComponent가 비어 있음");
+		return false;
+	}
+
+	UAnimInstance* AnimInstance = MeshComponent->GetAnimInstance();
+	if (!AnimInstance)
+	{
+		BO_LOG_GAS(Warning, "PlayReadyCheckEndMontage failed: AnimInstance가 비어 있음");
+		return false;
+	}
+
+	const float PlayResult = PlayAnimMontage(Montage, PlayRate);
+	if (PlayResult > 0.f)
+	{
+		FOnMontageEnded MontageEndedDelegate;
+		MontageEndedDelegate.BindUObject(this, &ABlackoutPlayerCharacter::HandleReadyCheckEndMontageEnded);
+		AnimInstance->Montage_SetEndDelegate(MontageEndedDelegate, Montage);
+	}
+
+	return PlayResult > 0.f;
+}
+
 void ABlackoutPlayerCharacter::Multicast_PlayReviveMontage_Implementation(UAnimMontage* Montage, float PlayRate)
 {
 	PlayReviveMontage(Montage, PlayRate);
@@ -1816,6 +2016,247 @@ void ABlackoutPlayerCharacter::HandleReviveMontageEnded(UAnimMontage* Montage, b
 	if (!IsDowned() && !IsDead())
 	{
 		RestoreWeaponVisibilityAfterRevive();
+	}
+}
+
+void ABlackoutPlayerCharacter::HandleReadyCheckStartMontageEnded(UAnimMontage* Montage, bool bInterrupted)
+{
+	if (bInterrupted || Montage != ReadyCheckStartMontage)
+	{
+		return;
+	}
+
+	const ABlackoutPlayerState* BlackoutPlayerState = GetPlayerState<ABlackoutPlayerState>();
+	if (!BlackoutPlayerState || !BlackoutPlayerState->IsReady())
+	{
+		return;
+	}
+
+	if (ReadyCheckLoopMontage)
+	{
+		PlayReadyCheckLoopMontage(ReadyCheckLoopMontage);
+	}
+}
+
+void ABlackoutPlayerCharacter::HandleReadyCheckLoopMontageEnded(UAnimMontage* Montage, bool bInterrupted)
+{
+	bIsReadyCheckLoopMontagePlaying = false;
+
+	if (bInterrupted || Montage != ReadyCheckLoopMontage)
+	{
+		return;
+	}
+
+	const ABlackoutPlayerState* BlackoutPlayerState = GetPlayerState<ABlackoutPlayerState>();
+	if (!BlackoutPlayerState || !BlackoutPlayerState->IsReady())
+	{
+		return;
+	}
+
+	// Ready 유지 중에는 루프 몽타주를 다시 재생해 대기 자세를 계속 유지합니다.
+	PlayReadyCheckLoopMontage(ReadyCheckLoopMontage);
+}
+
+void ABlackoutPlayerCharacter::HandleReadyCheckEndMontageEnded(UAnimMontage* Montage, bool bInterrupted)
+{
+	if (Montage != ReadyCheckEndMontage)
+	{
+		return;
+	}
+
+	const ABlackoutPlayerState* BlackoutPlayerState = GetPlayerState<ABlackoutPlayerState>();
+	if (BlackoutPlayerState && BlackoutPlayerState->IsReady())
+	{
+		return;
+	}
+
+	SetReadyInteractionMovementLocked(false, false);
+}
+
+void ABlackoutPlayerCharacter::HandleReadyStateChanged(bool bIsReadyNow)
+{
+	if (bIsReadyNow)
+	{
+		SetReadyInteractionMovementLocked(true, true);
+
+		UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+		if (AnimInstance && ReadyCheckEndMontage && AnimInstance->Montage_IsPlaying(ReadyCheckEndMontage))
+		{
+			// Ready 해제 종료 몽타주가 남아 있으면 즉시 정리하고 Ready 진입 몽타주로 전환합니다.
+			StopActiveReadyCheckMontages(0.1f);
+		}
+
+		if (ReadyCheckStartLoopMontage)
+		{
+			PlayReadyCheckStartLoopMontage();
+		}
+		else if (ReadyCheckStartMontage)
+		{
+			PlayReadyCheckStartMontage(ReadyCheckStartMontage);
+		}
+		else if (ReadyCheckLoopMontage)
+		{
+			PlayReadyCheckLoopMontage(ReadyCheckLoopMontage);
+		}
+		return;
+	}
+
+	StopActiveReadyCheckMontages(0.1f);
+	if (ReadyCheckEndMontage && PlayReadyCheckEndMontage(ReadyCheckEndMontage))
+	{
+		return;
+	}
+
+	SetReadyInteractionMovementLocked(false, false);
+}
+
+void ABlackoutPlayerCharacter::BindReadyStateChangedDelegate()
+{
+	ABlackoutPlayerState* NewPlayerState = GetPlayerState<ABlackoutPlayerState>();
+	if (BoundReadyStatePlayerState.Get() == NewPlayerState)
+	{
+		SyncReadyStateAnimation();
+		return;
+	}
+
+	UnbindReadyStateChangedDelegate();
+	BoundReadyStatePlayerState = NewPlayerState;
+
+	if (NewPlayerState)
+	{
+		NewPlayerState->OnReadyStateChangedNative.AddUObject(this, &ABlackoutPlayerCharacter::HandleReadyStateChanged);
+	}
+
+	SyncReadyStateAnimation();
+}
+
+void ABlackoutPlayerCharacter::UnbindReadyStateChangedDelegate()
+{
+	if (ABlackoutPlayerState* CurrentPlayerState = BoundReadyStatePlayerState.Get())
+	{
+		CurrentPlayerState->OnReadyStateChangedNative.RemoveAll(this);
+	}
+
+	BoundReadyStatePlayerState = nullptr;
+}
+
+void ABlackoutPlayerCharacter::SyncReadyStateAnimation()
+{
+	if (const ABlackoutPlayerState* BlackoutPlayerState = BoundReadyStatePlayerState.Get())
+	{
+		if (BlackoutPlayerState->IsReady())
+		{
+			HandleReadyStateChanged(true);
+		}
+		else
+		{
+			StopActiveReadyCheckMontages(0.1f);
+			SetReadyInteractionMovementLocked(false, false);
+		}
+		return;
+	}
+
+	StopActiveReadyCheckMontages(0.1f);
+	SetReadyInteractionMovementLocked(false, false);
+}
+
+void ABlackoutPlayerCharacter::StopActiveReadyCheckMontages(float BlendOutTime)
+{
+	USkeletalMeshComponent* MeshComponent = GetMesh();
+	if (!MeshComponent)
+	{
+		return;
+	}
+
+	UAnimInstance* AnimInstance = MeshComponent->GetAnimInstance();
+	if (!AnimInstance)
+	{
+		return;
+	}
+
+	if (ReadyCheckStartMontage)
+	{
+		FOnMontageEnded EmptyMontageEndedDelegate;
+		AnimInstance->Montage_SetEndDelegate(EmptyMontageEndedDelegate, ReadyCheckStartMontage);
+		if (AnimInstance->Montage_IsPlaying(ReadyCheckStartMontage))
+		{
+			AnimInstance->Montage_Stop(BlendOutTime, ReadyCheckStartMontage);
+		}
+	}
+
+	if (ReadyCheckStartLoopMontage && AnimInstance->Montage_IsPlaying(ReadyCheckStartLoopMontage))
+	{
+		AnimInstance->Montage_Stop(BlendOutTime, ReadyCheckStartLoopMontage);
+	}
+
+	if (ReadyCheckLoopMontage && AnimInstance->Montage_IsPlaying(ReadyCheckLoopMontage))
+	{
+		AnimInstance->Montage_Stop(BlendOutTime, ReadyCheckLoopMontage);
+	}
+
+	if (ReadyCheckEndMontage)
+	{
+		FOnMontageEnded EmptyMontageEndedDelegate;
+		AnimInstance->Montage_SetEndDelegate(EmptyMontageEndedDelegate, ReadyCheckEndMontage);
+		if (AnimInstance->Montage_IsPlaying(ReadyCheckEndMontage))
+		{
+			AnimInstance->Montage_Stop(BlendOutTime, ReadyCheckEndMontage);
+		}
+	}
+
+	bIsReadyCheckLoopMontagePlaying = false;
+}
+
+void ABlackoutPlayerCharacter::SetReadyInteractionMovementLocked(bool bNewLocked, bool bStopMovementImmediately)
+{
+	bIsReadyInteractionMovementLocked = bNewLocked;
+
+	if (bNewLocked && bStopMovementImmediately)
+	{
+		if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+		{
+			MoveComp->StopMovementImmediately();
+		}
+		else
+		{
+			BO_LOG_GAS(Warning, "Ready 이동 잠금 실패: MovementComponent가 비어 있음 Player=%s", *GetNameSafe(this));
+		}
+	}
+
+	if (!HasAuthority() && !IsLocallyControlled())
+	{
+		return;
+	}
+
+	if (!AbilitySystemComponent)
+	{
+		if (!bNewLocked)
+		{
+			bAppliedReadyInteractionLockedTag = false;
+		}
+
+		BO_LOG_GAS(Warning,
+			"Ready 이동 잠금 태그 변경 실패: AbilitySystemComponent가 비어 있음 Player=%s Lock=%s",
+			*GetNameSafe(this),
+			bNewLocked ? TEXT("true") : TEXT("false"));
+		return;
+	}
+
+	if (bNewLocked)
+	{
+		if (!bAppliedReadyInteractionLockedTag)
+		{
+			AbilitySystemComponent->AddLooseGameplayTag(BlackoutGameplayTags::State_Locked);
+			bAppliedReadyInteractionLockedTag = true;
+		}
+
+		return;
+	}
+
+	if (bAppliedReadyInteractionLockedTag)
+	{
+		AbilitySystemComponent->RemoveLooseGameplayTag(BlackoutGameplayTags::State_Locked);
+		bAppliedReadyInteractionLockedTag = false;
 	}
 }
 
@@ -2282,6 +2723,11 @@ void ABlackoutPlayerCharacter::DoMove(float Right, float Forward)
 		return;
 	}
 
+	if (bIsReadyInteractionMovementLocked)
+	{
+		return;
+	}
+
 	if (bIsHitReactMontagePlaying && !bCanMoveDuringHitReact)
 	{
 		return;
@@ -2323,9 +2769,14 @@ void ABlackoutPlayerCharacter::DoLook(float Yaw, float Pitch)
 	{
 		const UBlackoutGraphicsUserSettings* GraphicsUserSettings = Cast<UBlackoutGraphicsUserSettings>(
 			UGameUserSettings::GetGameUserSettings());
-		const float AppliedMouseSensitivity = GraphicsUserSettings
-			? GraphicsUserSettings->GetMouseSensitivity()
-			: 1.0f;
+		float AppliedMouseSensitivity = 1.0f;
+		if (GraphicsUserSettings)
+		{
+			// 일반 상태와 조준 상태가 서로 독립적인 감도 값을 사용하도록 분리합니다.
+			AppliedMouseSensitivity = (CombatComponent && CombatComponent->IsAiming())
+				? GraphicsUserSettings->GetAimMouseSensitivityMultiplier()
+				: GraphicsUserSettings->GetMouseSensitivity();
+		}
 
 		AddControllerYawInput(Yaw * AppliedMouseSensitivity);
 		AddControllerPitchInput(Pitch * AppliedMouseSensitivity);
