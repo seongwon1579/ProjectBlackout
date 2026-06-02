@@ -179,6 +179,11 @@ void UBlackoutSettingsWidget::RefreshFromCurrentSettings()
 	PendingSFXVolume = GraphicsSettings->GetSFXVolume();
 	PendingMouseSensitivity = GraphicsSettings->GetMouseSensitivity();
 
+	if (!UBlackoutGraphicsBlueprintLibrary::IsFrameGenerationModeRuntimeAvailable(PendingFrameGenerationMode))
+	{
+		PendingFrameGenerationMode = EBlackoutFrameGenerationMode::Disabled;
+	}
+
 	SyncControlsFromPendingSettings();
 	UpdateControlState();
 	UpdateValueTexts();
@@ -460,7 +465,20 @@ void UBlackoutSettingsWidget::PopulateStaticOptions()
 	{
 		FrameGenerationComboBox->ClearOptions();
 		FrameGenerationComboBox->AddOption(GetFrameGenerationOptionLabel(EBlackoutFrameGenerationMode::Disabled));
-		FrameGenerationComboBox->AddOption(GetFrameGenerationOptionLabel(EBlackoutFrameGenerationMode::Enabled));
+		if (UBlackoutGraphicsBlueprintLibrary::IsFrameGenerationModeRuntimeAvailable(EBlackoutFrameGenerationMode::On2X))
+		{
+			FrameGenerationComboBox->AddOption(GetFrameGenerationOptionLabel(EBlackoutFrameGenerationMode::On2X));
+		}
+
+		if (UBlackoutGraphicsBlueprintLibrary::IsFrameGenerationModeRuntimeAvailable(EBlackoutFrameGenerationMode::On3X))
+		{
+			FrameGenerationComboBox->AddOption(GetFrameGenerationOptionLabel(EBlackoutFrameGenerationMode::On3X));
+		}
+
+		if (UBlackoutGraphicsBlueprintLibrary::IsFrameGenerationModeRuntimeAvailable(EBlackoutFrameGenerationMode::On4X))
+		{
+			FrameGenerationComboBox->AddOption(GetFrameGenerationOptionLabel(EBlackoutFrameGenerationMode::On4X));
+		}
 	}
 
 	if (ReflexComboBox)
@@ -697,8 +715,14 @@ FString UBlackoutSettingsWidget::GetFrameGenerationOptionLabel(const EBlackoutFr
 {
 	switch (InMode)
 	{
-	case EBlackoutFrameGenerationMode::Enabled:
-		return TEXT("켜기");
+	case EBlackoutFrameGenerationMode::On2X:
+		return TEXT("2X");
+
+	case EBlackoutFrameGenerationMode::On3X:
+		return TEXT("3X");
+
+	case EBlackoutFrameGenerationMode::On4X:
+		return TEXT("4X");
 
 	case EBlackoutFrameGenerationMode::Disabled:
 	default:
@@ -767,11 +791,21 @@ bool UBlackoutSettingsWidget::TryParseDLSSMode(const FString& InOption, EBlackou
 
 bool UBlackoutSettingsWidget::TryParseFrameGenerationMode(const FString& InOption, EBlackoutFrameGenerationMode& OutMode)
 {
-	if (InOption.Equals(TEXT("켜기"), ESearchCase::IgnoreCase)
-		|| InOption.Equals(TEXT("Enabled"), ESearchCase::IgnoreCase)
-		|| InOption.Equals(TEXT("On"), ESearchCase::IgnoreCase))
+	if (InOption.Equals(TEXT("2X"), ESearchCase::IgnoreCase))
 	{
-		OutMode = EBlackoutFrameGenerationMode::Enabled;
+		OutMode = EBlackoutFrameGenerationMode::On2X;
+		return true;
+	}
+
+	if (InOption.Equals(TEXT("3X"), ESearchCase::IgnoreCase))
+	{
+		OutMode = EBlackoutFrameGenerationMode::On3X;
+		return true;
+	}
+
+	if (InOption.Equals(TEXT("4X"), ESearchCase::IgnoreCase))
+	{
+		OutMode = EBlackoutFrameGenerationMode::On4X;
 		return true;
 	}
 

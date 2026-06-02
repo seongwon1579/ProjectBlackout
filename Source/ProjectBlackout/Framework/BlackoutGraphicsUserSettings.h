@@ -33,7 +33,9 @@ UENUM(BlueprintType)
 enum class EBlackoutFrameGenerationMode : uint8
 {
 	Disabled UMETA(DisplayName = "Disabled"),
-	Enabled UMETA(DisplayName = "Enabled")
+	On2X UMETA(DisplayName = "2X"),
+	On3X UMETA(DisplayName = "3X"),
+	On4X UMETA(DisplayName = "4X")
 };
 
 /**
@@ -84,6 +86,9 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Blackout|Graphics")
 	static bool IsFrameGenerationRuntimeAvailable();
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|Graphics")
+	static bool IsFrameGenerationModeRuntimeAvailable(EBlackoutFrameGenerationMode InFrameGenerationMode);
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Audio")
 	void SetMasterVolume(float InMasterVolume);
