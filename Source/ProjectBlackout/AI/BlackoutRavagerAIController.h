@@ -28,8 +28,8 @@ public:
 	EBOBossPhase GetCurrentPhase() const;
 
 protected:
-	virtual void OnPossess(APawn* InPawn) override;
 	virtual void OnUnPossess() override;
+	virtual void PreInitialize(APawn* InPawn) override;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Blackout|BT")
 	TMap<EBOBossPhase, TObjectPtr<UBehaviorTree>> PhaseBehaviorTrees;
