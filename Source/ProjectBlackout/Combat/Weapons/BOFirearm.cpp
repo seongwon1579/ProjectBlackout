@@ -29,7 +29,7 @@ ABOFirearm::ABOFirearm()
 	// 플래시 라이트 컴포넌트 셋업
 	FlashlightComponent = CreateDefaultSubobject<USpotLightComponent>(TEXT("FlashlightComponent"));
 	FlashlightComponent->SetupAttachment(WeaponMesh);
-	FlashlightComponent->SetVisibility(true); // 기본적으로 켜진 상태 (기본값 ON)
+	FlashlightComponent->SetVisibility(false); // 생성 시에는 비활성화 (장착 상태에 따라 활성화)
 	
 	// SpotLight 기본값 설정
 	FlashlightComponent->Intensity = 36377.64f;       // 광원 세기 (13.5 EV100 환산값)
@@ -410,7 +410,7 @@ void ABOFirearm::ToggleFlashlight()
 
 	if (FlashlightComponent)
 	{
-		FlashlightComponent->SetVisibility(bIsFlashlightOn);
+		FlashlightComponent->SetVisibility(bIsEquipped && bIsFlashlightOn);
 	}
 
 	Server_SetFlashlightState(bIsFlashlightOn);
@@ -424,7 +424,7 @@ void ABOFirearm::Server_SetFlashlightState_Implementation(bool bNewState)
 
 	if (FlashlightComponent)
 	{
-		FlashlightComponent->SetVisibility(bIsFlashlightOn);
+		FlashlightComponent->SetVisibility(bIsEquipped && bIsFlashlightOn);
 	}
 }
 
@@ -434,6 +434,19 @@ void ABOFirearm::OnRep_FlashlightOn()
 
 	if (FlashlightComponent)
 	{
-		FlashlightComponent->SetVisibility(bIsFlashlightOn);
+		FlashlightComponent->SetVisibility(bIsEquipped && bIsFlashlightOn);
+	}
+}
+
+void ABOFirearm::OnEquipStateChanged(bool bInEquipped)
+{
+	bIsEquipped = bInEquipped;
+
+	UE_LOG(LogTemp, Warning, TEXT("[Weapon Flashlight] OnEquipStateChanged on Weapon %s. Equipped: %s, FlashlightOn: %s"), 
+		*GetName(), bIsEquipped ? TEXT("TRUE") : TEXT("FALSE"), bIsFlashlightOn ? TEXT("TRUE") : TEXT("FALSE"));
+
+	if (FlashlightComponent)
+	{
+		FlashlightComponent->SetVisibility(bIsEquipped && bIsFlashlightOn);
 	}
 }

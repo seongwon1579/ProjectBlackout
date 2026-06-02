@@ -25,6 +25,8 @@ public:
 	UFUNCTION(Server, Reliable)
 	void Server_SetFlashlightState(bool bNewState);
 
+	virtual void OnEquipStateChanged(bool bEquipped) override;
+
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	FHitResult Fire(const FVector& Direction, const FGameplayEffectSpecHandle& DamageSpecHandle);
 
@@ -158,6 +160,9 @@ protected:
 
 	UPROPERTY(Transient, ReplicatedUsing = OnRep_FlashlightOn)
 	bool bIsFlashlightOn = true;
+
+	UPROPERTY(Transient)
+	bool bIsEquipped = false;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Combat")
 	TObjectPtr<UNiagaraComponent> MuzzleFlash;
