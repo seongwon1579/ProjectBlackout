@@ -1,6 +1,7 @@
 #include "UI/BlackoutSettingsWidget.h"
 
 #include "Blueprint/WidgetTree.h"
+#include "InputCoreTypes.h"
 #include "Components/Border.h"
 #include "Components/Button.h"
 #include "Components/ComboBoxString.h"
@@ -17,6 +18,17 @@
 
 namespace
 {
+	template <typename TWidgetType>
+	void ResolveNamedWidget(UWidgetTree* WidgetTree, TObjectPtr<TWidgetType>& WidgetPointer, const FName WidgetName)
+	{
+		if (WidgetPointer || !WidgetTree)
+		{
+			return;
+		}
+
+		WidgetPointer = Cast<TWidgetType>(WidgetTree->FindWidget(WidgetName));
+	}
+
 	UTextBlock* CreateTextBlock(UWidgetTree* WidgetTree, const FName Name, const FText& InText)
 	{
 		UTextBlock* TextBlock = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), Name);
@@ -66,9 +78,12 @@ void UBlackoutSettingsWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 
+	SetIsFocusable(true);
+	ResolveOptionalBindings();
 	PopulateStaticOptions();
 	BindControlEvents();
 	RefreshFromCurrentSettings();
+	SetKeyboardFocus();
 }
 
 void UBlackoutSettingsWidget::NativeDestruct()
@@ -113,6 +128,11 @@ void UBlackoutSettingsWidget::NativeDestruct()
 		ApplyButton->OnClicked.RemoveDynamic(this, &UBlackoutSettingsWidget::HandleApplyClicked);
 	}
 
+	if (ResetButton)
+	{
+		ResetButton->OnClicked.RemoveDynamic(this, &UBlackoutSettingsWidget::HandleResetClicked);
+	}
+
 	if (CloseButton)
 	{
 		CloseButton->OnClicked.RemoveDynamic(this, &UBlackoutSettingsWidget::HandleCloseClicked);
@@ -121,11 +141,27 @@ void UBlackoutSettingsWidget::NativeDestruct()
 	Super::NativeDestruct();
 }
 
+FReply UBlackoutSettingsWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
+{
+	if (InKeyEvent.GetKey() == EKeys::Escape)
+	{
+		CloseSettingsWidget();
+		return FReply::Handled();
+	}
+
+	return Super::NativeOnKeyDown(InGeometry, InKeyEvent);
+}
+
 void UBlackoutSettingsWidget::RefreshFromCurrentSettings()
 {
 	const UBlackoutGraphicsUserSettings* GraphicsSettings = UBlackoutGraphicsBlueprintLibrary::GetBlackoutGraphicsUserSettings();
 	if (!GraphicsSettings)
 	{
+		// 설정 객체를 찾지 못하더라도 UI가 기본 문구에 머무르지 않도록 기본값과 가용성 텍스트를 갱신합니다.
+		ResetPendingSettingsToDefaults();
+		SyncControlsFromPendingSettings();
+		UpdateControlState();
+		UpdateValueTexts();
 		return;
 	}
 
@@ -137,6 +173,13 @@ void UBlackoutSettingsWidget::RefreshFromCurrentSettings()
 	PendingSFXVolume = GraphicsSettings->GetSFXVolume();
 	PendingMouseSensitivity = GraphicsSettings->GetMouseSensitivity();
 
+	SyncControlsFromPendingSettings();
+	UpdateControlState();
+	UpdateValueTexts();
+}
+
+void UBlackoutSettingsWidget::SyncControlsFromPendingSettings()
+{
 	if (UpscalerComboBox)
 	{
 		UpscalerComboBox->SetSelectedOption(GetUpscalerOptionLabel(PendingUpscalerMode));
@@ -171,9 +214,6 @@ void UBlackoutSettingsWidget::RefreshFromCurrentSettings()
 	{
 		MouseSensitivitySlider->SetValue((PendingMouseSensitivity - 0.1f) / 2.9f);
 	}
-
-	UpdateControlState();
-	UpdateValueTexts();
 }
 
 void UBlackoutSettingsWidget::BuildFallbackWidgetTree()
@@ -196,7 +236,7 @@ void UBlackoutSettingsWidget::BuildFallbackWidgetTree()
 	UTextBlock* TitleText = CreateTextBlock(
 		WidgetTree,
 		TEXT("SettingsTitleText"),
-		NSLOCTEXT("BlackoutSettings", "Title", "Options"));
+		NSLOCTEXT("BlackoutSettings", "Title", "옵션"));
 	ContentBox->AddChildToVerticalBox(TitleText);
 
 	UTextBlock* DescriptionText = CreateTextBlock(
@@ -222,14 +262,14 @@ void UBlackoutSettingsWidget::BuildFallbackWidgetTree()
 	UTextBlock* GraphicsSectionTitle = CreateTextBlock(
 		WidgetTree,
 		TEXT("GraphicsSectionTitle"),
-		NSLOCTEXT("BlackoutSettings", "GraphicsSection", "Graphics"));
+		NSLOCTEXT("BlackoutSettings", "GraphicsSection", "그래픽"));
 	ContentBox->AddChildToVerticalBox(GraphicsSectionTitle);
 
 	UHorizontalBox* UpscalerRow = CreateLabeledRow(
 		WidgetTree,
 		ContentBox,
 		TEXT("UpscalerRow"),
-		NSLOCTEXT("BlackoutSettings", "UpscalerLabel", "Upscaler"));
+		NSLOCTEXT("BlackoutSettings", "UpscalerLabel", "업스케일러"));
 	UpscalerComboBox = WidgetTree->ConstructWidget<UComboBoxString>(UComboBoxString::StaticClass(), TEXT("UpscalerComboBox"));
 	if (UHorizontalBoxSlot* ComboSlot = UpscalerRow->AddChildToHorizontalBox(UpscalerComboBox))
 	{
@@ -242,7 +282,7 @@ void UBlackoutSettingsWidget::BuildFallbackWidgetTree()
 		WidgetTree,
 		ContentBox,
 		TEXT("DLSSRow"),
-		NSLOCTEXT("BlackoutSettings", "DLSSModeLabel", "DLSS Mode"));
+		NSLOCTEXT("BlackoutSettings", "DLSSModeLabel", "DLSS 모드"));
 	DLSSModeComboBox = WidgetTree->ConstructWidget<UComboBoxString>(UComboBoxString::StaticClass(), TEXT("DLSSModeComboBox"));
 	if (UHorizontalBoxSlot* ComboSlot = DLSSRow->AddChildToHorizontalBox(DLSSModeComboBox))
 	{
@@ -255,7 +295,7 @@ void UBlackoutSettingsWidget::BuildFallbackWidgetTree()
 		WidgetTree,
 		ContentBox,
 		TEXT("ReflexRow"),
-		NSLOCTEXT("BlackoutSettings", "ReflexModeLabel", "Reflex"));
+		NSLOCTEXT("BlackoutSettings", "ReflexModeLabel", "리플렉스"));
 	ReflexComboBox = WidgetTree->ConstructWidget<UComboBoxString>(UComboBoxString::StaticClass(), TEXT("ReflexComboBox"));
 	if (UHorizontalBoxSlot* ComboSlot = ReflexRow->AddChildToHorizontalBox(ReflexComboBox))
 	{
@@ -269,7 +309,7 @@ void UBlackoutSettingsWidget::BuildFallbackWidgetTree()
 	UTextBlock* AudioSectionTitle = CreateTextBlock(
 		WidgetTree,
 		TEXT("AudioSectionTitle"),
-		NSLOCTEXT("BlackoutSettings", "AudioSection", "Audio"));
+		NSLOCTEXT("BlackoutSettings", "AudioSection", "오디오"));
 	ContentBox->AddChildToVerticalBox(AudioSectionTitle);
 
 	UTextBlock* AudioHintText = CreateTextBlock(
@@ -306,19 +346,19 @@ void UBlackoutSettingsWidget::BuildFallbackWidgetTree()
 		}
 	};
 
-	BuildSliderRow(TEXT("MasterVolumeRow"), NSLOCTEXT("BlackoutSettings", "MasterVolumeLabel", "Master Volume"), MasterVolumeSlider, MasterVolumeValueText);
-	BuildSliderRow(TEXT("MusicVolumeRow"), NSLOCTEXT("BlackoutSettings", "MusicVolumeLabel", "Music Volume"), MusicVolumeSlider, MusicVolumeValueText);
-	BuildSliderRow(TEXT("SFXVolumeRow"), NSLOCTEXT("BlackoutSettings", "SFXVolumeLabel", "SFX Volume"), SFXVolumeSlider, SFXVolumeValueText);
+	BuildSliderRow(TEXT("MasterVolumeRow"), NSLOCTEXT("BlackoutSettings", "MasterVolumeLabel", "전체 볼륨"), MasterVolumeSlider, MasterVolumeValueText);
+	BuildSliderRow(TEXT("MusicVolumeRow"), NSLOCTEXT("BlackoutSettings", "MusicVolumeLabel", "배경음 볼륨"), MusicVolumeSlider, MusicVolumeValueText);
+	BuildSliderRow(TEXT("SFXVolumeRow"), NSLOCTEXT("BlackoutSettings", "SFXVolumeLabel", "효과음 볼륨"), SFXVolumeSlider, SFXVolumeValueText);
 
 	AddSectionSpacer(WidgetTree, ContentBox, 20.0f);
 
 	UTextBlock* InputSectionTitle = CreateTextBlock(
 		WidgetTree,
 		TEXT("InputSectionTitle"),
-		NSLOCTEXT("BlackoutSettings", "InputSection", "Controls"));
+		NSLOCTEXT("BlackoutSettings", "InputSection", "조작"));
 	ContentBox->AddChildToVerticalBox(InputSectionTitle);
 
-	BuildSliderRow(TEXT("MouseSensitivityRow"), NSLOCTEXT("BlackoutSettings", "MouseSensitivityLabel", "Mouse Sensitivity"), MouseSensitivitySlider, MouseSensitivityValueText);
+	BuildSliderRow(TEXT("MouseSensitivityRow"), NSLOCTEXT("BlackoutSettings", "MouseSensitivityLabel", "마우스 감도"), MouseSensitivitySlider, MouseSensitivityValueText);
 
 	AddSectionSpacer(WidgetTree, ContentBox, 24.0f);
 
@@ -333,11 +373,38 @@ void UBlackoutSettingsWidget::BuildFallbackWidgetTree()
 	{
 		ButtonSlot->SetPadding(FMargin(0.0f, 0.0f, 12.0f, 0.0f));
 	}
-	ApplyButton->SetContent(CreateTextBlock(WidgetTree, TEXT("ApplyButtonText"), NSLOCTEXT("BlackoutSettings", "ApplyButton", "Apply")));
+	ApplyButton->SetContent(CreateTextBlock(WidgetTree, TEXT("ApplyButtonText"), NSLOCTEXT("BlackoutSettings", "ApplyButton", "적용")));
+
+	ResetButton = WidgetTree->ConstructWidget<UButton>(UButton::StaticClass(), TEXT("ResetButton"));
+	if (UHorizontalBoxSlot* ButtonSlot = ButtonRow->AddChildToHorizontalBox(ResetButton))
+	{
+		ButtonSlot->SetPadding(FMargin(0.0f, 0.0f, 12.0f, 0.0f));
+	}
+	ResetButton->SetContent(CreateTextBlock(WidgetTree, TEXT("ResetButtonText"), NSLOCTEXT("BlackoutSettings", "ResetButton", "초기화")));
 
 	CloseButton = WidgetTree->ConstructWidget<UButton>(UButton::StaticClass(), TEXT("CloseButton"));
 	ButtonRow->AddChildToHorizontalBox(CloseButton);
-	CloseButton->SetContent(CreateTextBlock(WidgetTree, TEXT("CloseButtonText"), NSLOCTEXT("BlackoutSettings", "CloseButton", "Close")));
+	CloseButton->SetContent(CreateTextBlock(WidgetTree, TEXT("CloseButtonText"), NSLOCTEXT("BlackoutSettings", "CloseButton", "닫기")));
+}
+
+void UBlackoutSettingsWidget::ResolveOptionalBindings()
+{
+	// WBP에서 Is Variable 체크가 빠졌더라도 이름이 일치하면 위젯을 찾아 연결합니다.
+	ResolveNamedWidget(WidgetTree, UpscalerComboBox, TEXT("UpscalerComboBox"));
+	ResolveNamedWidget(WidgetTree, DLSSModeComboBox, TEXT("DLSSModeComboBox"));
+	ResolveNamedWidget(WidgetTree, ReflexComboBox, TEXT("ReflexComboBox"));
+	ResolveNamedWidget(WidgetTree, MasterVolumeSlider, TEXT("MasterVolumeSlider"));
+	ResolveNamedWidget(WidgetTree, MusicVolumeSlider, TEXT("MusicVolumeSlider"));
+	ResolveNamedWidget(WidgetTree, SFXVolumeSlider, TEXT("SFXVolumeSlider"));
+	ResolveNamedWidget(WidgetTree, MouseSensitivitySlider, TEXT("MouseSensitivitySlider"));
+	ResolveNamedWidget(WidgetTree, MasterVolumeValueText, TEXT("MasterVolumeValueText"));
+	ResolveNamedWidget(WidgetTree, MusicVolumeValueText, TEXT("MusicVolumeValueText"));
+	ResolveNamedWidget(WidgetTree, SFXVolumeValueText, TEXT("SFXVolumeValueText"));
+	ResolveNamedWidget(WidgetTree, MouseSensitivityValueText, TEXT("MouseSensitivityValueText"));
+	ResolveNamedWidget(WidgetTree, RuntimeAvailabilityText, TEXT("RuntimeAvailabilityText"));
+	ResolveNamedWidget(WidgetTree, ApplyButton, TEXT("ApplyButton"));
+	ResolveNamedWidget(WidgetTree, ResetButton, TEXT("ResetButton"));
+	ResolveNamedWidget(WidgetTree, CloseButton, TEXT("CloseButton"));
 }
 
 void UBlackoutSettingsWidget::PopulateStaticOptions()
@@ -425,6 +492,12 @@ void UBlackoutSettingsWidget::BindControlEvents()
 		ApplyButton->OnClicked.AddDynamic(this, &UBlackoutSettingsWidget::HandleApplyClicked);
 	}
 
+	if (ResetButton)
+	{
+		ResetButton->OnClicked.RemoveDynamic(this, &UBlackoutSettingsWidget::HandleResetClicked);
+		ResetButton->OnClicked.AddDynamic(this, &UBlackoutSettingsWidget::HandleResetClicked);
+	}
+
 	if (CloseButton)
 	{
 		CloseButton->OnClicked.RemoveDynamic(this, &UBlackoutSettingsWidget::HandleCloseClicked);
@@ -453,11 +526,11 @@ void UBlackoutSettingsWidget::UpdateControlState()
 		const FText AvailabilityText = FText::Format(
 			NSLOCTEXT("BlackoutSettings", "AvailabilityFormat", "DLSS: {0}  |  Reflex: {1}"),
 			bDLSSAvailable
-				? NSLOCTEXT("BlackoutSettings", "Available", "Available")
-				: NSLOCTEXT("BlackoutSettings", "Unavailable", "Unavailable"),
+				? NSLOCTEXT("BlackoutSettings", "Available", "사용 가능")
+				: NSLOCTEXT("BlackoutSettings", "Unavailable", "사용 불가"),
 			bReflexAvailable
-				? NSLOCTEXT("BlackoutSettings", "ReflexAvailable", "Available")
-				: NSLOCTEXT("BlackoutSettings", "ReflexUnavailable", "Unavailable"));
+				? NSLOCTEXT("BlackoutSettings", "ReflexAvailable", "사용 가능")
+				: NSLOCTEXT("BlackoutSettings", "ReflexUnavailable", "사용 불가"));
 		RuntimeAvailabilityText->SetText(AvailabilityText);
 	}
 }
@@ -503,6 +576,23 @@ void UBlackoutSettingsWidget::ApplyPendingSettings()
 	GraphicsSettings->ApplyBlackoutGraphicsSettings(true);
 }
 
+void UBlackoutSettingsWidget::ResetPendingSettingsToDefaults()
+{
+	PendingUpscalerMode = EBlackoutUpscalerMode::TSR;
+	PendingDLSSMode = EBlackoutDLSSQualityMode::Quality;
+	PendingReflexMode = EBlackoutReflexMode::Enabled;
+	PendingMasterVolume = 1.0f;
+	PendingMusicVolume = 1.0f;
+	PendingSFXVolume = 1.0f;
+	PendingMouseSensitivity = 1.0f;
+}
+
+void UBlackoutSettingsWidget::CloseSettingsWidget()
+{
+	OnSettingsClosed.Broadcast();
+	RemoveFromParent();
+}
+
 FString UBlackoutSettingsWidget::GetUpscalerOptionLabel(const EBlackoutUpscalerMode InMode)
 {
 	switch (InMode)
@@ -524,17 +614,17 @@ FString UBlackoutSettingsWidget::GetDLSSModeOptionLabel(const EBlackoutDLSSQuali
 	switch (InMode)
 	{
 	case EBlackoutDLSSQualityMode::Balanced:
-		return TEXT("Balanced");
+		return TEXT("밸런스");
 
 	case EBlackoutDLSSQualityMode::Performance:
-		return TEXT("Performance");
+		return TEXT("성능");
 
 	case EBlackoutDLSSQualityMode::UltraPerformance:
-		return TEXT("Ultra Performance");
+		return TEXT("초고성능");
 
 	case EBlackoutDLSSQualityMode::Quality:
 	default:
-		return TEXT("Quality");
+		return TEXT("품질");
 	}
 }
 
@@ -543,14 +633,14 @@ FString UBlackoutSettingsWidget::GetReflexModeOptionLabel(const EBlackoutReflexM
 	switch (InMode)
 	{
 	case EBlackoutReflexMode::Enabled:
-		return TEXT("Enabled");
+		return TEXT("켜기");
 
 	case EBlackoutReflexMode::EnabledPlusBoost:
-		return TEXT("Enabled + Boost");
+		return TEXT("켜기 + 부스트");
 
 	case EBlackoutReflexMode::Disabled:
 	default:
-		return TEXT("Disabled");
+		return TEXT("끔");
 	}
 }
 
@@ -579,25 +669,25 @@ bool UBlackoutSettingsWidget::TryParseUpscalerMode(const FString& InOption, EBla
 
 bool UBlackoutSettingsWidget::TryParseDLSSMode(const FString& InOption, EBlackoutDLSSQualityMode& OutMode)
 {
-	if (InOption.Equals(TEXT("Balanced")))
+	if (InOption.Equals(TEXT("균형")))
 	{
 		OutMode = EBlackoutDLSSQualityMode::Balanced;
 		return true;
 	}
 
-	if (InOption.Equals(TEXT("Performance")))
+	if (InOption.Equals(TEXT("성능")))
 	{
 		OutMode = EBlackoutDLSSQualityMode::Performance;
 		return true;
 	}
 
-	if (InOption.Equals(TEXT("Ultra Performance")))
+	if (InOption.Equals(TEXT("초고성능")))
 	{
 		OutMode = EBlackoutDLSSQualityMode::UltraPerformance;
 		return true;
 	}
 
-	if (InOption.Equals(TEXT("Quality")))
+	if (InOption.Equals(TEXT("품질")))
 	{
 		OutMode = EBlackoutDLSSQualityMode::Quality;
 		return true;
@@ -608,19 +698,19 @@ bool UBlackoutSettingsWidget::TryParseDLSSMode(const FString& InOption, EBlackou
 
 bool UBlackoutSettingsWidget::TryParseReflexMode(const FString& InOption, EBlackoutReflexMode& OutMode)
 {
-	if (InOption.Equals(TEXT("Enabled")))
+	if (InOption.Equals(TEXT("켜기")))
 	{
 		OutMode = EBlackoutReflexMode::Enabled;
 		return true;
 	}
 
-	if (InOption.Equals(TEXT("Enabled + Boost")))
+	if (InOption.Equals(TEXT("켜기 + 부스트")))
 	{
 		OutMode = EBlackoutReflexMode::EnabledPlusBoost;
 		return true;
 	}
 
-	if (InOption.Equals(TEXT("Disabled")))
+	if (InOption.Equals(TEXT("끔")))
 	{
 		OutMode = EBlackoutReflexMode::Disabled;
 		return true;
@@ -687,8 +777,15 @@ void UBlackoutSettingsWidget::HandleApplyClicked()
 	RefreshFromCurrentSettings();
 }
 
+void UBlackoutSettingsWidget::HandleResetClicked()
+{
+	ResetPendingSettingsToDefaults();
+	SyncControlsFromPendingSettings();
+	UpdateControlState();
+	UpdateValueTexts();
+}
+
 void UBlackoutSettingsWidget::HandleCloseClicked()
 {
-	OnSettingsClosed.Broadcast();
-	RemoveFromParent();
+	CloseSettingsWidget();
 }

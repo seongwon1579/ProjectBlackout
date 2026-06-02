@@ -10,11 +10,14 @@
 
 #include  "Components/Button.h"
 #include "Components/TextBlock.h"
+#include "InputCoreTypes.h"
 #include "Kismet/KismetSystemLibrary.h"
 
 void UBlackoutMainMenuWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
+
+	SetIsFocusable(true);
 
 	if (LoginButton)
 	{
@@ -41,6 +44,11 @@ void UBlackoutMainMenuWidget::NativeConstruct()
 		QuitButton->OnClicked.AddDynamic(
 			this, &UBlackoutMainMenuWidget::HandleQuitClicked);
 	}
+	if (BackButton)
+	{
+		BackButton->OnClicked.AddDynamic(
+			this, &UBlackoutMainMenuWidget::HandleBackClicked);
+	}
 
 	if (UGameInstance* GameInstance = GetGameInstance())
 	{
@@ -53,6 +61,7 @@ void UBlackoutMainMenuWidget::NativeConstruct()
 	}
 
 	RefreshForLoginState();
+	SetKeyboardFocus();
 }
 
 void UBlackoutMainMenuWidget::NativeDestruct()
@@ -84,7 +93,23 @@ void UBlackoutMainMenuWidget::NativeDestruct()
 			this, &UBlackoutMainMenuWidget::HandleSettingsClosed);
 		ActiveSettingsWidget = nullptr;
 	}
+	if (BackButton)
+	{
+		BackButton->OnClicked.RemoveDynamic(
+			this, &UBlackoutMainMenuWidget::HandleBackClicked);
+	}
 	Super::NativeDestruct();
+}
+
+FReply UBlackoutMainMenuWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
+{
+	if (bUseAsInGameMenu && !ActiveSettingsWidget && InKeyEvent.GetKey() == EKeys::Escape)
+	{
+		CloseMenu();
+		return FReply::Handled();
+	}
+
+	return Super::NativeOnKeyDown(InGeometry, InKeyEvent);
 }
 
 void UBlackoutMainMenuWidget::HandleLoginClicked()
@@ -157,12 +182,24 @@ void UBlackoutMainMenuWidget::HandleOptionsClicked()
 	ActiveSettingsWidget->OnSettingsClosed.AddDynamic(
 		this, &UBlackoutMainMenuWidget::HandleSettingsClosed);
 	ActiveSettingsWidget->AddToViewport(120);
+	SetVisibility(ESlateVisibility::Hidden);
 }
 
 void UBlackoutMainMenuWidget::HandleQuitClicked()
 {
 	UKismetSystemLibrary::QuitGame(this, GetOwningPlayer(),
 	                               EQuitPreference::Quit, false);
+}
+
+void UBlackoutMainMenuWidget::HandleBackClicked()
+{
+	CloseMenu();
+}
+
+void UBlackoutMainMenuWidget::CloseMenu()
+{
+	OnMenuClosed.Broadcast();
+	RemoveFromParent();
 }
 
 void UBlackoutMainMenuWidget::HandleSettingsClosed()
@@ -175,6 +212,7 @@ void UBlackoutMainMenuWidget::HandleSettingsClosed()
 	ActiveSettingsWidget->OnSettingsClosed.RemoveDynamic(
 		this, &UBlackoutMainMenuWidget::HandleSettingsClosed);
 	ActiveSettingsWidget = nullptr;
+	SetVisibility(ESlateVisibility::Visible);
 }
 
 void UBlackoutMainMenuWidget::HandleLoginAttemptFinished(bool bSuccess,
@@ -228,6 +266,31 @@ void UBlackoutMainMenuWidget::HandleMatchmakingWidgetExited(bool bSuccess)
 
 void UBlackoutMainMenuWidget::RefreshForLoginState()
 {
+	if (bUseAsInGameMenu)
+	{
+		if (LoginButton)
+		{
+			LoginButton->SetVisibility(ESlateVisibility::Collapsed);
+		}
+		if (LogoutButton)
+		{
+			LogoutButton->SetVisibility(ESlateVisibility::Collapsed);
+		}
+		if (StartMatchmakingButton)
+		{
+			StartMatchmakingButton->SetVisibility(ESlateVisibility::Collapsed);
+		}
+		if (WelcomeText)
+		{
+			WelcomeText->SetVisibility(ESlateVisibility::Collapsed);
+		}
+		if (BackButton)
+		{
+			BackButton->SetVisibility(ESlateVisibility::Visible);
+		}
+		return;
+	}
+
 	const UGameInstance* GameInstance = GetGameInstance();
 	const UBlackoutMatchmakingSubsystem* MatchmakingSubsystem = GameInstance
 		? GameInstance->GetSubsystem<UBlackoutMatchmakingSubsystem>()

@@ -15,7 +15,9 @@
 #include "Data/BOCharacterRoster.h"
 #include "UI/BlackoutClassSelectWidget.h"
 #include "UI/BlackoutClassSelectWidgetController.h"
+#include "UI/BlackoutMainMenuWidget.h"
 #include "Camera/PlayerCameraManager.h"
+#include "InputCoreTypes.h"
 
 void ABlackoutPlayerController::AcknowledgePossession(APawn* P)
 {
@@ -74,6 +76,56 @@ void ABlackoutPlayerController::CloseClassSelectUI()
 			}
 		}
 	}
+}
+
+void ABlackoutPlayerController::OpenPlayerMenu()
+{
+	if (!IsLocalPlayerController() || ActivePlayerMenuWidget)
+	{
+		return;
+	}
+
+	if (!PlayerMenuWidgetClass)
+	{
+		BO_LOG_CORE(Warning, "OpenPlayerMenu 실패: PlayerMenuWidgetClass가 설정되지 않았습니다.");
+		return;
+	}
+
+	ActivePlayerMenuWidget = CreateWidget<UBlackoutMainMenuWidget>(this, PlayerMenuWidgetClass);
+	if (!ActivePlayerMenuWidget)
+	{
+		BO_LOG_CORE(Warning, "OpenPlayerMenu 실패: 인게임 메뉴 위젯 생성에 실패했습니다.");
+		return;
+	}
+
+	// 인게임 ESC 메뉴 전용 모드로 전환하여 불필요한 메인메뉴 버튼을 숨깁니다.
+	ActivePlayerMenuWidget->bUseAsInGameMenu = true;
+	ActivePlayerMenuWidget->OnMenuClosed.AddDynamic(this, &ABlackoutPlayerController::HandlePlayerMenuClosed);
+	ActivePlayerMenuWidget->AddToViewport(110);
+
+	FInputModeUIOnly InputMode;
+	InputMode.SetWidgetToFocus(ActivePlayerMenuWidget->TakeWidget());
+	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+	SetInputMode(InputMode);
+	bShowMouseCursor = true;
+
+	ActivePlayerMenuWidget->SetKeyboardFocus();
+}
+
+void ABlackoutPlayerController::ClosePlayerMenu()
+{
+	if (!ActivePlayerMenuWidget)
+	{
+		return;
+	}
+
+	ActivePlayerMenuWidget->OnMenuClosed.RemoveDynamic(this, &ABlackoutPlayerController::HandlePlayerMenuClosed);
+	ActivePlayerMenuWidget->RemoveFromParent();
+	ActivePlayerMenuWidget = nullptr;
+
+	FInputModeGameOnly InputMode;
+	SetInputMode(InputMode);
+	bShowMouseCursor = false;
 }
 
 void ABlackoutPlayerController::Client_StartScreenFadeOut_Implementation(
@@ -362,6 +414,11 @@ void ABlackoutPlayerController::SetupInputComponent()
 		return;
 	}
 
+	if (InputComponent)
+	{
+		InputComponent->BindKey(EKeys::Escape, IE_Pressed, this, &ABlackoutPlayerController::OnMenuTogglePressed);
+	}
+
 	if (UEnhancedInputLocalPlayerSubsystem* InputSubsystem =
 		ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LocalPlayer))
 	{
@@ -524,9 +581,32 @@ void ABlackoutPlayerController::OnClassSelectCancelPressed()
 	CloseClassSelectUI();
 }
 
+void ABlackoutPlayerController::OnMenuTogglePressed()
+{
+	// 캐릭터 선택 UI가 열려 있으면 메뉴보다 먼저 닫기 동작을 우선합니다.
+	if (ClassSelectWidget || ClassSelectController)
+	{
+		CloseClassSelectUI();
+		return;
+	}
+
+	if (ActivePlayerMenuWidget)
+	{
+		ClosePlayerMenu();
+		return;
+	}
+
+	OpenPlayerMenu();
+}
+
 void ABlackoutPlayerController::HandleClassSelectionConfirmed()
 {
 	CloseClassSelectUI();
+}
+
+void ABlackoutPlayerController::HandlePlayerMenuClosed()
+{
+	ClosePlayerMenu();
 }
 
 void ABlackoutPlayerController::OnFirePressed()

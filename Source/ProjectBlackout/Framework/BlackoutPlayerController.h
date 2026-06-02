@@ -13,6 +13,7 @@ class UBlackoutCombatComponent;
 class AActor;
 class UBlackoutClassSelectWidget;
 class UBlackoutClassSelectWidgetController;
+class UBlackoutMainMenuWidget;
 
 UCLASS()
 class PROJECTBLACKOUT_API ABlackoutPlayerController : public APlayerController
@@ -78,6 +79,14 @@ public:
 	/** ESC 또는 OnSelectionConfirmed 후 자동 호출. Widget 정리 + IMC 원복. */
 	UFUNCTION(BlueprintCallable,Category="Blackout|ClassSelect")
 	void CloseClassSelectUI();
+
+	/** 인게임 ESC 메뉴를 엽니다. */
+	UFUNCTION(BlueprintCallable, Category = "Blackout|UI")
+	void OpenPlayerMenu();
+
+	/** 인게임 ESC 메뉴를 닫고 게임 입력으로 복귀합니다. */
+	UFUNCTION(BlueprintCallable, Category = "Blackout|UI")
+	void ClosePlayerMenu();
 	
 	/** 레벨 전환 전 , 서버가 각 클라 화면을 페이드아웃 */
 	UFUNCTION(Client,Reliable , Category="Blackout|Controller|Transition")
@@ -192,6 +201,10 @@ protected:
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input|ClassSelect")
 	TObjectPtr<UInputAction> ClassSelectCancelAction;
+
+	/** 인게임 ESC 메뉴를 생성할 위젯 클래스입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|UI")
+	TSubclassOf<UBlackoutMainMenuWidget> PlayerMenuWidgetClass;
 	
 	/** UMG 위젯 클래스 WBP_ClassSelect */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly,Category="Blackout|ClassSelect")
@@ -203,13 +216,21 @@ protected:
 	UPROPERTY(Transient)
 	TObjectPtr<UBlackoutClassSelectWidgetController> ClassSelectController;
 
+	/** 현재 화면에 열려 있는 인게임 ESC 메뉴 인스턴스입니다. */
+	UPROPERTY(Transient)
+	TObjectPtr<UBlackoutMainMenuWidget> ActivePlayerMenuWidget;
+
 	void OnClassSelectNextPressed();
 	void OnClassSelectPrevPressed();
 	void OnClassSelectConfirmPressed();
 	void OnClassSelectCancelPressed();
+	void OnMenuTogglePressed();
 
 	UFUNCTION()
 	void HandleClassSelectionConfirmed();
+
+	UFUNCTION()
+	void HandlePlayerMenuClosed();
 
 	void OnFirePressed();
 	void OnFireReleased();
