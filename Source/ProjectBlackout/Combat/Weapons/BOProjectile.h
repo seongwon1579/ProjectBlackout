@@ -76,6 +76,8 @@ protected:
 
 	void ApplyProjectileNetState();
 	void ApplyActiveState(bool bIsActive);
+	// 발사자(firer) 콜리전을 이동 sweep에서 무시하도록 설정. 서버 Launch와 클라 NetState 적용 양쪽에서 사용.
+	void IgnoreFirerWhenMoving();
 	void ExecuteImpactCue(const FHitResult& Hit) const;
 	UAbilitySystemComponent* GetCueAbilitySystemComponent() const;
 	void ReturnToPool();
