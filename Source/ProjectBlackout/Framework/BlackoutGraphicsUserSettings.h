@@ -114,6 +114,12 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Blackout|Input")
 	float GetMouseSensitivity() const { return MouseSensitivity; }
 
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Input")
+	void SetAimMouseSensitivityMultiplier(float InAimMouseSensitivityMultiplier);
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|Input")
+	float GetAimMouseSensitivityMultiplier() const { return AimMouseSensitivityMultiplier; }
+
 protected:
 	/** 현재 프로젝트에서 사용할 업스케일러 종류입니다. */
 	UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "Blackout|Graphics")
@@ -174,6 +180,10 @@ protected:
 	/** 마우스 감도 배율입니다. */
 	UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "Blackout|Input", meta = (ClampMin = "0.1", ClampMax = "3.0"))
 	float MouseSensitivity = 1.0f;
+
+	/** 정조준 중 사용할 별도 마우스 감도 값입니다. */
+	UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "Blackout|Input", meta = (ClampMin = "0.1", ClampMax = "3.0"))
+	float AimMouseSensitivityMultiplier = 1.0f;
 
 private:
 	void ApplyUpscalerSettings();

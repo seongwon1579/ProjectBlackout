@@ -41,8 +41,8 @@ void ABlackoutAreaGate::OnInteract_Implementation(AActor* Interactor)
 		return;
 	}
 
-	PS->bIsReady = !PS->bIsReady;
-	BO_LOG_NET(Log, "이동 비석 Ready 토글: %s = %d", *GetNameSafe(PS), PS->bIsReady ? 1 : 0);
+	PS->SetReadyState(!PS->IsReady());
+	BO_LOG_NET(Log, "이동 비석 Ready 토글: %s = %d", *GetNameSafe(PS), PS->IsReady() ? 1 : 0);
 
 	if (ABlackoutGameMode* GM = GetWorld()->GetAuthGameMode<ABlackoutGameMode>())
 	{
