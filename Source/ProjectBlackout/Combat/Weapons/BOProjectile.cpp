@@ -205,11 +205,12 @@ void ABOProjectile::ApplyActiveState(bool bIsActive)
 		{
 			FGameplayCueParameters Params;
 			Params.EffectCauser = this;
-			Params.Location = GetActorLocation();
+			Params.TargetAttachComponent = GetRootComponent();
 
 			if (bIsActive)
 			{
 				CueManager->HandleGameplayCue(this, TrailCueTag, EGameplayCueEvent::OnActive, Params);
+				CueManager->HandleGameplayCue(this, TrailCueTag, EGameplayCueEvent::WhileActive, Params);
 			}
 			else
 			{
