@@ -7,6 +7,7 @@
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "Combat/Components/BlackoutHitboxComponent.h"
 #include "Combat/BlackoutWeaponCueLibrary.h"
+#include "Components/SceneComponent.h"
 #include "Components/SphereComponent.h"
 #include "Core/BlackoutLog.h"
 #include "GameFramework/ProjectileMovementComponent.h"
@@ -28,6 +29,9 @@ ABOProjectile::ABOProjectile()
 	Collision->OnComponentHit.AddDynamic(this, &ABOProjectile::OnHit);
 	// 충돌 HitResult에서 표면 재질 기반 GCN을 고를 수 있게 피지컬 머티리얼을 반환합니다.
 	Collision->bReturnMaterialOnMove = true;
+
+	TrailCueAttachComponent = CreateDefaultSubobject<USceneComponent>(TEXT("TrailCueAttachComponent"));
+	TrailCueAttachComponent->SetupAttachment(Collision);
 
 	Movement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("Movement"));
 	Movement->bAutoActivate = false;
@@ -203,9 +207,15 @@ void ABOProjectile::ApplyActiveState(bool bIsActive)
 	{
 		if (UGameplayCueManager* CueManager = UAbilitySystemGlobals::Get().GetGameplayCueManager())
 		{
+			USceneComponent* AttachComponent = TrailCueAttachComponent ? TrailCueAttachComponent.Get() : GetRootComponent();
+			if (AttachComponent)
+			{
+				AttachComponent->SetRelativeLocation(TrailCueLocationOffset);
+			}
+
 			FGameplayCueParameters Params;
 			Params.EffectCauser = this;
-			Params.TargetAttachComponent = GetRootComponent();
+			Params.TargetAttachComponent = AttachComponent;
 
 			if (bIsActive)
 			{

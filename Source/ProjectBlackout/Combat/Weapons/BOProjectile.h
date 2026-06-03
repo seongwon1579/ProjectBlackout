@@ -10,6 +10,7 @@
 
 class UAbilitySystemComponent;
 class UProjectileMovementComponent;
+class USceneComponent;
 class USphereComponent;
 
 USTRUCT()
@@ -85,9 +86,15 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Combat")
 	TObjectPtr<UProjectileMovementComponent> Movement;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|Visual")
+	TObjectPtr<USceneComponent> TrailCueAttachComponent;
+
 	// 비행 중 적용할 루핑 트레일 Gameplay Cue 태그
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Visual")
 	FGameplayTag TrailCueTag;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Visual")
+	FVector TrailCueLocationOffset = FVector::ZeroVector;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
 	float SplashRadius = 0.0f;
