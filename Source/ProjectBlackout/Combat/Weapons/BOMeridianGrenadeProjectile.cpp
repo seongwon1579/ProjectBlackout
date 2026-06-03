@@ -45,7 +45,7 @@ ABOMeridianGrenadeProjectile::ABOMeridianGrenadeProjectile()
 	Movement->InitialSpeed = 1800.0f;
 	Movement->MaxSpeed = 2500.0f;
 
-	ExplosionCueTag = BlackoutGameplayTags::GameplayCue_Shrewd_Projectile_Explosion;
+	ExplosionCueTag = BlackoutGameplayTags::GameplayCue_Weapon_Meridian_Explosion;
 	ApplyProjectileSettingsToComponents();
 }
 
