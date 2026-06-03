@@ -287,19 +287,44 @@ void ABOProjectile::ExecuteImpactCue(const FHitResult& Hit) const
 	}
 
 	FGameplayCueParameters CueParameters = UBlackoutWeaponCueLibrary::BuildImpactCueParameters(const_cast<ABOProjectile*>(this), Hit);
+	ExecuteProjectileGameplayCue(ImpactCueTag, CueParameters);
+}
+
+void ABOProjectile::ExecuteProjectileGameplayCue(FGameplayTag CueTag, const FGameplayCueParameters& CueParameters) const
+{
+	if (!CueTag.IsValid())
+	{
+		BO_LOG_CORE(Warning, "ExecuteProjectileGameplayCue skipped: CueTag가 유효하지 않음 (Projectile=%s)", *GetNameSafe(this));
+		return;
+	}
+
 	if (ABlackoutPlayerCharacter* InstigatorCharacter = Cast<ABlackoutPlayerCharacter>(GetInstigator()))
 	{
-		InstigatorCharacter->Multicast_ExecuteWeaponGameplayCue(ImpactCueTag, CueParameters, false);
+		InstigatorCharacter->Multicast_ExecuteWeaponGameplayCue(CueTag, CueParameters, false);
 		return;
 	}
 
 	if (ABlackoutPlayerCharacter* OwnerCharacter = Cast<ABlackoutPlayerCharacter>(GetOwner()))
 	{
-		OwnerCharacter->Multicast_ExecuteWeaponGameplayCue(ImpactCueTag, CueParameters, false);
+		OwnerCharacter->Multicast_ExecuteWeaponGameplayCue(CueTag, CueParameters, false);
 		return;
 	}
 
-	UBlackoutWeaponCueLibrary::ExecuteWeaponCue(GetCueAbilitySystemComponent(), ImpactCueTag, CueParameters);
+	if (UAbilitySystemComponent* AbilitySystemComponent = GetCueAbilitySystemComponent())
+	{
+		AbilitySystemComponent->ExecuteGameplayCue(CueTag, CueParameters);
+		return;
+	}
+
+	if (UGameplayCueManager* CueManager = UAbilitySystemGlobals::Get().GetGameplayCueManager())
+	{
+		CueManager->HandleGameplayCue(const_cast<ABOProjectile*>(this), CueTag, EGameplayCueEvent::Executed, CueParameters);
+		return;
+	}
+
+	BO_LOG_CORE(Error, "ExecuteProjectileGameplayCue failed: ASC와 GameplayCueManager가 모두 유효하지 않음 (Projectile=%s, Cue=%s)",
+	            *GetNameSafe(this),
+	            *CueTag.ToString());
 }
 
 UAbilitySystemComponent* ABOProjectile::GetCueAbilitySystemComponent() const
