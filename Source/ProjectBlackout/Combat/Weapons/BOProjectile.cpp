@@ -103,19 +103,7 @@ void ABOProjectile::Launch(const FVector& Direction)
 	}
 
 	// firer(발사자) 자기충돌 무시. 풀 재사용 대비 이전 ignore 목록 클리어 후 현재 firer 등록.
-	if (Collision)
-	{
-		Collision->ClearMoveIgnoreActors();
-		AActor* Firer = GetInstigator();
-		if (!Firer)
-		{
-			Firer = GetOwner();
-		}
-		if (Firer)
-		{
-			Collision->IgnoreActorWhenMoving(Firer, true);
-		}
-	}
+	IgnoreFirerWhenMoving();
 
 	Movement->Velocity = Direction.GetSafeNormal() * Movement->InitialSpeed;
 	Movement->SetActive(true, true);
@@ -177,6 +165,10 @@ void ABOProjectile::ApplyProjectileNetState()
 	
 	Movement->ProjectileGravityScale = ReplicatedNetState.GravityScale;
 
+	// 클라이언트도 발사자 자기충돌을 무시해야 스폰 즉시 발사자 콜리전에 막혀 정지하는 것을 방지.
+	// Launch는 서버에서만 실행되므로 클라 발사 경로(이 함수)에서 별도로 설정한다.
+	IgnoreFirerWhenMoving();
+
 	SetActorLocationAndRotation(
 		ReplicatedNetState.Location,
 		ReplicatedNetState.Direction.Rotation(),
@@ -185,6 +177,26 @@ void ABOProjectile::ApplyProjectileNetState()
 		ETeleportType::TeleportPhysics);
 	Movement->Velocity = FVector(ReplicatedNetState.Direction) * ReplicatedNetState.Speed;
 	Movement->SetActive(true, true);
+}
+
+void ABOProjectile::IgnoreFirerWhenMoving()
+{
+	if (!Collision)
+	{
+		return;
+	}
+
+	// 풀 재사용 대비 이전 ignore 목록 클리어 후 현재 firer 등록.
+	Collision->ClearMoveIgnoreActors();
+	AActor* Firer = GetInstigator();
+	if (!Firer)
+	{
+		Firer = GetOwner();
+	}
+	if (Firer)
+	{
+		Collision->IgnoreActorWhenMoving(Firer, true);
+	}
 }
 
 void ABOProjectile::ApplyActiveState(bool bIsActive)

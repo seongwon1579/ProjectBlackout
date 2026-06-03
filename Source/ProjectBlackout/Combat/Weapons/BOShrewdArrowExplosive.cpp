@@ -18,13 +18,7 @@ void ABOShrewdArrowExplosive::Launch(const FVector& Velocity)
 	
 	if (!Movement) return;
 
-	if (Collision)
-	{
-		Collision->ClearMoveIgnoreActors();
-		AActor* Firer = GetInstigator();
-		if (!Firer) Firer = GetOwner();
-		if (Firer) Collision->IgnoreActorWhenMoving(Firer, true);
-	}
+	IgnoreFirerWhenMoving();
 
 	Movement->Velocity = Velocity;
 	Movement->SetActive(true, true);
