@@ -231,7 +231,7 @@ void ABlackoutGameMode::TransitionTo(EBlackoutMatchState NewState)
 		{
 			if (ABlackoutPlayerState* BPS = Cast<ABlackoutPlayerState>(PS))
 			{
-				BPS->bIsReady = false;
+				BPS->SetReadyState(false);
 			}
 		}
 	}

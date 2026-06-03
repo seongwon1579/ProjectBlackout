@@ -128,6 +128,11 @@ void UBlackoutSettingsWidget::NativeDestruct()
 		MouseSensitivitySlider->OnValueChanged.RemoveDynamic(this, &UBlackoutSettingsWidget::HandleMouseSensitivityChanged);
 	}
 
+	if (AimMouseSensitivitySlider)
+	{
+		AimMouseSensitivitySlider->OnValueChanged.RemoveDynamic(this, &UBlackoutSettingsWidget::HandleAimMouseSensitivityChanged);
+	}
+
 	if (ApplyButton)
 	{
 		ApplyButton->OnClicked.RemoveDynamic(this, &UBlackoutSettingsWidget::HandleApplyClicked);
@@ -178,6 +183,7 @@ void UBlackoutSettingsWidget::RefreshFromCurrentSettings()
 	PendingMusicVolume = GraphicsSettings->GetMusicVolume();
 	PendingSFXVolume = GraphicsSettings->GetSFXVolume();
 	PendingMouseSensitivity = GraphicsSettings->GetMouseSensitivity();
+	PendingAimMouseSensitivityMultiplier = GraphicsSettings->GetAimMouseSensitivityMultiplier();
 
 	if (!UBlackoutGraphicsBlueprintLibrary::IsFrameGenerationModeRuntimeAvailable(PendingFrameGenerationMode))
 	{
@@ -229,6 +235,11 @@ void UBlackoutSettingsWidget::SyncControlsFromPendingSettings()
 	if (MouseSensitivitySlider)
 	{
 		MouseSensitivitySlider->SetValue((PendingMouseSensitivity - 0.1f) / 2.9f);
+	}
+
+	if (AimMouseSensitivitySlider)
+	{
+		AimMouseSensitivitySlider->SetValue((PendingAimMouseSensitivityMultiplier - 0.1f) / 2.9f);
 	}
 }
 
@@ -388,6 +399,7 @@ void UBlackoutSettingsWidget::BuildFallbackWidgetTree()
 	ContentBox->AddChildToVerticalBox(InputSectionTitle);
 
 	BuildSliderRow(TEXT("MouseSensitivityRow"), NSLOCTEXT("BlackoutSettings", "MouseSensitivityLabel", "마우스 감도"), MouseSensitivitySlider, MouseSensitivityValueText);
+	BuildSliderRow(TEXT("AimMouseSensitivityRow"), NSLOCTEXT("BlackoutSettings", "AimMouseSensitivityLabel", "조준 감도"), AimMouseSensitivitySlider, AimMouseSensitivityValueText);
 
 	AddSectionSpacer(WidgetTree, ContentBox, 24.0f);
 
@@ -427,10 +439,12 @@ void UBlackoutSettingsWidget::ResolveOptionalBindings()
 	ResolveNamedWidget(WidgetTree, MusicVolumeSlider, TEXT("MusicVolumeSlider"));
 	ResolveNamedWidget(WidgetTree, SFXVolumeSlider, TEXT("SFXVolumeSlider"));
 	ResolveNamedWidget(WidgetTree, MouseSensitivitySlider, TEXT("MouseSensitivitySlider"));
+	ResolveNamedWidget(WidgetTree, AimMouseSensitivitySlider, TEXT("AimMouseSensitivitySlider"));
 	ResolveNamedWidget(WidgetTree, MasterVolumeValueText, TEXT("MasterVolumeValueText"));
 	ResolveNamedWidget(WidgetTree, MusicVolumeValueText, TEXT("MusicVolumeValueText"));
 	ResolveNamedWidget(WidgetTree, SFXVolumeValueText, TEXT("SFXVolumeValueText"));
 	ResolveNamedWidget(WidgetTree, MouseSensitivityValueText, TEXT("MouseSensitivityValueText"));
+	ResolveNamedWidget(WidgetTree, AimMouseSensitivityValueText, TEXT("AimMouseSensitivityValueText"));
 	ResolveNamedWidget(WidgetTree, RuntimeAvailabilityText, TEXT("RuntimeAvailabilityText"));
 	ResolveNamedWidget(WidgetTree, ApplyButton, TEXT("ApplyButton"));
 	ResolveNamedWidget(WidgetTree, ResetButton, TEXT("ResetButton"));
@@ -542,6 +556,12 @@ void UBlackoutSettingsWidget::BindControlEvents()
 		MouseSensitivitySlider->OnValueChanged.AddDynamic(this, &UBlackoutSettingsWidget::HandleMouseSensitivityChanged);
 	}
 
+	if (AimMouseSensitivitySlider)
+	{
+		AimMouseSensitivitySlider->OnValueChanged.RemoveDynamic(this, &UBlackoutSettingsWidget::HandleAimMouseSensitivityChanged);
+		AimMouseSensitivitySlider->OnValueChanged.AddDynamic(this, &UBlackoutSettingsWidget::HandleAimMouseSensitivityChanged);
+	}
+
 	if (ApplyButton)
 	{
 		ApplyButton->OnClicked.RemoveDynamic(this, &UBlackoutSettingsWidget::HandleApplyClicked);
@@ -621,6 +641,11 @@ void UBlackoutSettingsWidget::UpdateValueTexts()
 	{
 		MouseSensitivityValueText->SetText(FText::FromString(FString::Printf(TEXT("%.2fx"), PendingMouseSensitivity)));
 	}
+
+	if (AimMouseSensitivityValueText)
+	{
+		AimMouseSensitivityValueText->SetText(FText::FromString(FString::Printf(TEXT("%.2fx"), PendingAimMouseSensitivityMultiplier)));
+	}
 }
 
 void UBlackoutSettingsWidget::ApplyPendingSettings()
@@ -639,6 +664,7 @@ void UBlackoutSettingsWidget::ApplyPendingSettings()
 	GraphicsSettings->SetMusicVolume(PendingMusicVolume);
 	GraphicsSettings->SetSFXVolume(PendingSFXVolume);
 	GraphicsSettings->SetMouseSensitivity(PendingMouseSensitivity);
+	GraphicsSettings->SetAimMouseSensitivityMultiplier(PendingAimMouseSensitivityMultiplier);
 	GraphicsSettings->ApplyBlackoutGraphicsSettings(true);
 }
 
@@ -652,6 +678,7 @@ void UBlackoutSettingsWidget::ResetPendingSettingsToDefaults()
 	PendingMusicVolume = 1.0f;
 	PendingSFXVolume = 1.0f;
 	PendingMouseSensitivity = 1.0f;
+	PendingAimMouseSensitivityMultiplier = 1.0f;
 }
 
 void UBlackoutSettingsWidget::CloseSettingsWidget()
@@ -901,6 +928,12 @@ void UBlackoutSettingsWidget::HandleSFXVolumeChanged(const float InValue)
 void UBlackoutSettingsWidget::HandleMouseSensitivityChanged(const float InValue)
 {
 	PendingMouseSensitivity = FMath::Lerp(0.1f, 3.0f, InValue);
+	UpdateValueTexts();
+}
+
+void UBlackoutSettingsWidget::HandleAimMouseSensitivityChanged(const float InValue)
+{
+	PendingAimMouseSensitivityMultiplier = FMath::Lerp(0.1f, 3.0f, InValue);
 	UpdateValueTexts();
 }
 
