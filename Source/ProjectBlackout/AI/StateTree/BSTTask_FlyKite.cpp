@@ -3,6 +3,9 @@
 #include "AIController.h"
 #include "GameFramework/Pawn.h"
 #include "Engine/World.h"
+#include "AbilitySystemComponent.h"
+#include "AbilitySystemGlobals.h"
+#include "BlackoutGameplayTags.h"
 
 EStateTreeRunStatus FBSTTask_FlyKite::EnterState(
 	FStateTreeExecutionContext& Context,
@@ -34,6 +37,15 @@ EStateTreeRunStatus FBSTTask_FlyKite::Tick(FStateTreeExecutionContext& Context, 
 	if (!Pawn || !Data.Target || !World)
 	{
 		return EStateTreeRunStatus::Running; // 호버 대기
+	}
+
+	// 이동 잠금 태그(텔레포트 등 이동 독점 능력) 동안엔 이동 억제 — 능력이 목적지를 끌어당기지 않게
+	if (UAbilitySystemComponent* ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(Pawn))
+	{
+		if (ASC->HasMatchingGameplayTag(BlackoutGameplayTags::State_MovementLocked))
+		{
+			return EStateTreeRunStatus::Running;
+		}
 	}
 
 	const float Now = World->GetTimeSeconds();
