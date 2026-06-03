@@ -221,6 +221,7 @@ void UBlackoutGA_Ravager_Gorenado::OnPullStartNotify(FGameplayEventData Payload)
 		UpdateInterval,
 		true);
 
+	ApplyDamage();
 	World->GetTimerManager().SetTimer(
 		DamageTimer, this, &UBlackoutGA_Ravager_Gorenado::ApplyDamage,
 		Settings.DamageTickInterval, true);
