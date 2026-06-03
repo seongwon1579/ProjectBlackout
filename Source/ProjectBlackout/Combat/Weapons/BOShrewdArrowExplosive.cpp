@@ -6,12 +6,17 @@
 #include "BlackoutDamageable.h"
 #include "BlackoutHitboxComponent.h"
 #include "BlackoutLog.h"
-#include "BlackoutPlayerCharacter.h"
 #include "BlackoutWeaponCueLibrary.h"
 #include "Components/SphereComponent.h"
 #include "Engine/OverlapResult.h"
 #include "DrawDebugHelpers.h" 
 #include "GameFramework/ProjectileMovementComponent.h"
+#include "GameplayTags/BlackoutGameplayTags.h"
+
+ABOShrewdArrowExplosive::ABOShrewdArrowExplosive()
+{
+	ExplosionCueTag = BlackoutGameplayTags::GameplayCue_Shrewd_Projectile_Explosion;
+}
 
 void ABOShrewdArrowExplosive::Launch(const FVector& Velocity)
 {
@@ -61,24 +66,13 @@ void ABOShrewdArrowExplosive::ExecuteExplosionCue(const FHitResult& Hit)
 	if (!Hit.bBlockingHit) return;
 	if (!ExplosionCueTag.IsValid())
 	{
-		BO_LOG_CORE(Warning, "ExecuteImpactCue skipped: ExplosionCueTag invalid (Projectile=%s)", *GetNameSafe(this));
+		BO_LOG_CORE(Warning, "ExecuteExplosionCue skipped: ExplosionCueTag가 유효하지 않음 (Projectile=%s)", *GetNameSafe(this));
 		return;
 	}
 
 	FGameplayCueParameters Params = UBlackoutWeaponCueLibrary::BuildImpactCueParameters(
 		this, Hit);
-	
-	if (ABlackoutPlayerCharacter* InstigatorCharacter = Cast<ABlackoutPlayerCharacter>(GetInstigator()))
-	{
-		InstigatorCharacter->Multicast_ExecuteWeaponGameplayCue(ExplosionCueTag, Params, false);
-		return;
-	}
-	if (ABlackoutPlayerCharacter* OwnerCharacter = Cast<ABlackoutPlayerCharacter>(GetOwner()))
-	{
-		OwnerCharacter->Multicast_ExecuteWeaponGameplayCue(ExplosionCueTag, Params, false);
-		return;
-	}
-	UBlackoutWeaponCueLibrary::ExecuteWeaponCue(GetCueAbilitySystemComponent(), ExplosionCueTag, Params);
+	ExecuteProjectileGameplayCue(ExplosionCueTag, Params);
 }
 
 void ABOShrewdArrowExplosive::ApplyImpactDamage(const FHitResult& Hit)

@@ -54,9 +54,9 @@ classDiagram
         -ExecuteExplosionCue(const FHitResult&) void
     }
 
-    class BP_GCN_MeridianGrenadeExplosion {
+    class BP_GCN_SharedProjectileExplosion {
         <<Blueprint GameplayCueNotify>>
-        +GameplayCueTag : GameplayCue.Weapon.MeridianGrenade.Explosion
+        +GameplayCueTag : GameplayCue.Shrewd.Projectile.Explosion
     }
 
     ABOFirearm ..> ABOMeridianGrenadeProjectile : ProjectileClass 설정
@@ -65,7 +65,7 @@ classDiagram
     ABOMeridianGrenadeProjectile ..> IBlackoutDamageableInterface : 충격 피해
     ABOMeridianGrenadeProjectile ..> GE_Damage : 폭발 광역 피해
     ABOMeridianGrenadeProjectile ..> ABOProjectile : 공통 Cue 실행 경로 사용
-    ABOMeridianGrenadeProjectile ..> BP_GCN_MeridianGrenadeExplosion : 폭발 GCN 태그 실행
+    ABOMeridianGrenadeProjectile ..> BP_GCN_SharedProjectileExplosion : 폭발 GCN 태그 실행
 ```
 
 ## 요구사항 매핑
@@ -83,7 +83,7 @@ classDiagram
 
 - `ABOMeridianGrenadeProjectile`은 `ABOProjectile`을 상속해 기존 풀링 진입점(`OnSpawnFromPool`, `OnReturnToPool`)을 재사용합니다.
 - 기존 `ABOProjectile::OnHit`가 즉시 피해 후 풀 반환하는 구조이므로, 유탄 구현 시 `OnHit`는 `virtual`로 확장하거나 유탄 전용 히트 핸들러를 바인딩해야 합니다.
-- 신관 거리 판정은 네트워크 권한 서버에서 확정하고, 시각 효과는 GameplayCue로 복제 흐름에 태웁니다. GCN은 C++ 클래스가 아니라 `GameplayCue.Weapon.MeridianGrenade.Explosion` 태그를 받는 블루프린트 `GameplayCueNotify` 에셋으로 제작합니다.
+- 신관 거리 판정은 네트워크 권한 서버에서 확정하고, 시각 효과는 GameplayCue로 복제 흐름에 태웁니다. 기본 폭발 GCN은 슈루드 폭발 화살과 같은 `GameplayCue.Shrewd.Projectile.Explosion` 태그를 사용하며, 필요하면 메리디안 블루프린트 기본값에서 `ExplosionCueTag`를 별도 태그로 override할 수 있습니다.
 - 폭발 Cue 실행 시 `ABOMeridianGrenadeProjectile`은 위치·노멀·Instigator·EffectCauser 등 폭발 전용 `FGameplayCueParameters`를 구성하고, 실제 실행 경로는 `ABOProjectile::ExecuteProjectileGameplayCue()` 공통 헬퍼를 사용합니다. 따라서 유탄 고유의 신관/폭발 피해 로직은 유지하되, 플레이어 멀티캐스트·ASC·GameplayCueManager fallback 분기는 기본 투사체에 모읍니다.
 - 폭발 반경 피해는 기존 `FGameplayEffectSpecHandle` 기반 피해 전달 방식을 따르되, 다중 대상 처리는 `OverlapMultiByChannel` 또는 별도 전투 유틸로 분리할 수 있습니다.
 - 메리디안 무기는 별도 C++ 무기 클래스를 두지 않고 `ABOFirearm` 기반 블루프린트/데이터 행에서 `bUseHitscan=false`, `ProjectileClass=ABOMeridianGrenadeProjectile`로 설정합니다.

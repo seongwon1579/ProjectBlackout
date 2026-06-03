@@ -9,11 +9,13 @@
 /**
  * 
  */
-UCLASS()
+UCLASS(Blueprintable)
 class PROJECTBLACKOUT_API ABOShrewdArrowExplosive : public ABOProjectile
 {
 	GENERATED_BODY()
 
+public:
+	ABOShrewdArrowExplosive();
 
 protected:
 	
@@ -30,7 +32,7 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Projectile", meta=(ClampMin="0.1"))
 	float SpeedMultiplier = 1.5f;
 	
-	UPROPERTY(EditDefaultsOnly, Category = "Explosion")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
 	FGameplayTag ExplosionCueTag;
 	
 	UPROPERTY(EditAnywhere, Category = "Blackout|Debug")

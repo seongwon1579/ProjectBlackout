@@ -1,6 +1,5 @@
 #include "Combat/Weapons/BOMeridianGrenadeProjectile.h"
 
-#include "AbilitySystemGlobals.h"
 #include "Combat/Components/BlackoutHitboxComponent.h"
 #include "Combat/Weapons/BOWeaponDebugUtils.h"
 #include "Components/SphereComponent.h"
@@ -16,7 +15,6 @@
 #include "GameFramework/Pawn.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "GAS/Effects/ExecCalc_CombatReward.h"
-#include "GameplayCueManager.h"
 #include "GameplayEffect.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "Interfaces/BlackoutDamageable.h"
@@ -47,7 +45,7 @@ ABOMeridianGrenadeProjectile::ABOMeridianGrenadeProjectile()
 	Movement->InitialSpeed = 1800.0f;
 	Movement->MaxSpeed = 2500.0f;
 
-	ExplosionCueTag = BlackoutGameplayTags::GameplayCue_Weapon_Meridian_Explosion;
+	ExplosionCueTag = BlackoutGameplayTags::GameplayCue_Shrewd_Projectile_Explosion;
 	ApplyProjectileSettingsToComponents();
 }
 
@@ -384,30 +382,7 @@ void ABOMeridianGrenadeProjectile::ExecuteExplosionCue(const FHitResult& Hit)
 	CueParameters.EffectCauser = this;
 	CueParameters.SourceObject = this;
 
-	AActor* CueOwner = GetInstigator();
-	if (!CueOwner)
-	{
-		CueOwner = GetOwner();
-	}
-
-	if (IAbilitySystemInterface* AbilitySystemInterface = Cast<IAbilitySystemInterface>(CueOwner))
-	{
-		if (UAbilitySystemComponent* AbilitySystemComponent = AbilitySystemInterface->GetAbilitySystemComponent())
-		{
-			AbilitySystemComponent->ExecuteGameplayCue(ExplosionCueTag, CueParameters);
-			return;
-		}
-	}
-
-	if (UGameplayCueManager* CueManager = UAbilitySystemGlobals::Get().GetGameplayCueManager())
-	{
-		CueManager->HandleGameplayCue(this, ExplosionCueTag, EGameplayCueEvent::Executed, CueParameters);
-		return;
-	}
-
-	BO_LOG_CORE(Error, "ExecuteExplosionCue failed: GameplayCueManager가 유효하지 않음 (Projectile=%s, Cue=%s)",
-	            *GetNameSafe(this),
-	            *ExplosionCueTag.ToString());
+	ExecuteProjectileGameplayCue(ExplosionCueTag, CueParameters);
 }
 
 void ABOMeridianGrenadeProjectile::StartAutoReturnTimer()
