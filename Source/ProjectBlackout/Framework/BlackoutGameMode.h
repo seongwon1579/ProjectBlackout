@@ -36,6 +36,10 @@ protected:
 	// 매치 시작 시 URL 옵션(?SessionId=...)을 파싱해 MatchmakingSessionId에 보관한다.
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 
+	// 클라가 매칭으로 처음 접속할 때 URL ?SessionId=... 옵션을 잡아 DedicatedSessionSubsystem 에 저장.
+	virtual void PreLogin(const FString& Options, const FString& Address,
+		const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage) override;
+
 	virtual void Logout(AController* Exiting) override;
 	
 	virtual void HandleSeamlessTravelPlayer(AController*& C) override;
