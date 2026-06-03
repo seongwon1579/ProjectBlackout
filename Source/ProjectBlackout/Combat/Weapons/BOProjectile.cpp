@@ -2,9 +2,12 @@
 
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemInterface.h"
+#include "AbilitySystemGlobals.h"
+#include "GameplayCueManager.h"
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "Combat/Components/BlackoutHitboxComponent.h"
 #include "Combat/BlackoutWeaponCueLibrary.h"
+#include "Components/SceneComponent.h"
 #include "Components/SphereComponent.h"
 #include "Core/BlackoutLog.h"
 #include "GameFramework/ProjectileMovementComponent.h"
@@ -26,6 +29,9 @@ ABOProjectile::ABOProjectile()
 	Collision->OnComponentHit.AddDynamic(this, &ABOProjectile::OnHit);
 	// 충돌 HitResult에서 표면 재질 기반 GCN을 고를 수 있게 피지컬 머티리얼을 반환합니다.
 	Collision->bReturnMaterialOnMove = true;
+
+	TrailCueAttachComponent = CreateDefaultSubobject<USceneComponent>(TEXT("TrailCueAttachComponent"));
+	TrailCueAttachComponent->SetupAttachment(Collision);
 
 	Movement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("Movement"));
 	Movement->bAutoActivate = false;
@@ -194,6 +200,33 @@ void ABOProjectile::ApplyActiveState(bool bIsActive)
 	{
 		Movement->Deactivate();
 		Movement->Velocity = FVector::ZeroVector;
+	}
+
+	// Trail Gameplay Cue 로컬 제어
+	if (TrailCueTag.IsValid())
+	{
+		if (UGameplayCueManager* CueManager = UAbilitySystemGlobals::Get().GetGameplayCueManager())
+		{
+			USceneComponent* AttachComponent = TrailCueAttachComponent ? TrailCueAttachComponent.Get() : GetRootComponent();
+			if (AttachComponent)
+			{
+				AttachComponent->SetRelativeLocation(TrailCueLocationOffset);
+			}
+
+			FGameplayCueParameters Params;
+			Params.EffectCauser = this;
+			Params.TargetAttachComponent = AttachComponent;
+
+			if (bIsActive)
+			{
+				CueManager->HandleGameplayCue(this, TrailCueTag, EGameplayCueEvent::OnActive, Params);
+				CueManager->HandleGameplayCue(this, TrailCueTag, EGameplayCueEvent::WhileActive, Params);
+			}
+			else
+			{
+				CueManager->HandleGameplayCue(this, TrailCueTag, EGameplayCueEvent::Removed, Params);
+			}
+		}
 	}
 }
 

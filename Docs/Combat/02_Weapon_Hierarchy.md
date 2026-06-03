@@ -89,6 +89,7 @@ classDiagram
     class ABOProjectile {
         -UProjectileMovementComponent* Movement
         -USphereComponent* Collision
+        -FGameplayTag TrailCueTag
         -FGameplayEffectSpecHandle DamageSpec
         -float SplashRadius
         +InitFromSpec(const FGameplayEffectSpecHandle&, float Radius) void
@@ -163,8 +164,8 @@ classDiagram
   - `bSingleTargetPelletCap`이 켜진 경우 동일 타겟에 적용되는 최대 펠릿 수를 `MaxPelletsPerTarget`으로 제한하여 근접 보스 대상 폭딜을 튜닝할 수 있습니다.
   - 포자피개/더블 배럴은 `FBlackoutShotgunFirearmStat` 행으로 `PelletCount`, `PelletSpreadDegrees`, `DamagePerPellet`, `PelletTraceDistance`를 각각 튜닝합니다.
 - **투사체 풀링**: `ABOProjectile`은 `IBlackoutPoolableInterface` 구현. `UBlackoutPoolSubsystem::SpawnFromPool`로 획득.
-  - `OnSpawnFromPool`: Collision/Movement 리셋, `DamageSpec` 주입
-  - `OnReturnToPool`: Movement 정지, Collision 비활성화, `DamageSpec` 초기화
+  - `OnSpawnFromPool`: Collision/Movement 리셋, `DamageSpec` 주입, 트레일 루핑 Gameplay Cue 활성화 (`EGameplayCueEvent::OnActive` 트리거)
+  - `OnReturnToPool`: Movement 정지, Collision 비활성화, `DamageSpec` 초기화, 트레일 루핑 Gameplay Cue 비활성화 (`EGameplayCueEvent::Removed` 트리거)
 - **근접 무기**: `ABOMeleeWeapon::PerformSweep` 결과는 `GA_Melee_Player` 가 수신 → `GE_Damage` 적용.
 - **투사체 데미지 전달**: `ABOProjectile`은 `SpecHandle`만 보관하고, `OnHit` 시점에 `IBlackoutDamageableInterface::ReceiveDamageFromHitbox(SpecHandle, BoneName)` 를 호출.
 - **산탄 데미지 전달**: `ABOShotgunFirearm::FireShotgun`은 펠릿별로 `DamageSpec`을 복제하거나 `Data.Damage`를 펠릿 피해량으로 재설정한 Spec을 사용합니다. 히트박스가 있으면 `UBlackoutHitboxComponent::ReceiveDamageSpec`, 일반 Damageable이면 `ReceiveDamageFromHitbox`로 전달합니다.
