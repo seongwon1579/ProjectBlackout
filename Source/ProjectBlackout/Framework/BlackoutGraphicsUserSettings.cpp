@@ -120,6 +120,7 @@ void UBlackoutGraphicsUserSettings::SetToDefaults()
 	MusicVolume = 1.0f;
 	SFXVolume = 1.0f;
 	MouseSensitivity = 1.0f;
+	AimMouseSensitivityMultiplier = 1.0f;
 }
 
 void UBlackoutGraphicsUserSettings::ValidateSettings()
@@ -138,6 +139,7 @@ void UBlackoutGraphicsUserSettings::ValidateSettings()
 	MusicVolume = FMath::Clamp(MusicVolume, 0.0f, 1.0f);
 	SFXVolume = FMath::Clamp(SFXVolume, 0.0f, 1.0f);
 	MouseSensitivity = FMath::Clamp(MouseSensitivity, 0.1f, 3.0f);
+	AimMouseSensitivityMultiplier = FMath::Clamp(AimMouseSensitivityMultiplier, 0.1f, 3.0f);
 }
 
 void UBlackoutGraphicsUserSettings::ApplyNonResolutionSettings()
@@ -199,6 +201,11 @@ void UBlackoutGraphicsUserSettings::SetSFXVolume(const float InSFXVolume)
 void UBlackoutGraphicsUserSettings::SetMouseSensitivity(const float InMouseSensitivity)
 {
 	MouseSensitivity = InMouseSensitivity;
+}
+
+void UBlackoutGraphicsUserSettings::SetAimMouseSensitivityMultiplier(const float InAimMouseSensitivityMultiplier)
+{
+	AimMouseSensitivityMultiplier = InAimMouseSensitivityMultiplier;
 }
 
 bool UBlackoutGraphicsUserSettings::IsDLSSRuntimeAvailable()

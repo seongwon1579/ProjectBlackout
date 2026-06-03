@@ -59,6 +59,9 @@ protected:
 	TObjectPtr<USlider> MouseSensitivitySlider;
 
 	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<USlider> AimMouseSensitivitySlider;
+
+	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UTextBlock> MasterVolumeValueText;
 
 	UPROPERTY(meta = (BindWidgetOptional))
@@ -69,6 +72,9 @@ protected:
 
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UTextBlock> MouseSensitivityValueText;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UTextBlock> AimMouseSensitivityValueText;
 
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UTextBlock> RuntimeAvailabilityText;
@@ -129,6 +135,9 @@ private:
 	void HandleMouseSensitivityChanged(float InValue);
 
 	UFUNCTION()
+	void HandleAimMouseSensitivityChanged(float InValue);
+
+	UFUNCTION()
 	void HandleApplyClicked();
 
 	UFUNCTION()
@@ -146,4 +155,5 @@ private:
 	float PendingMusicVolume = 1.0f;
 	float PendingSFXVolume = 1.0f;
 	float PendingMouseSensitivity = 1.0f;
+	float PendingAimMouseSensitivityMultiplier = 1.0f;
 };

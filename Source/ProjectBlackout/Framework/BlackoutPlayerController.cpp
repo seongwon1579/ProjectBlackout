@@ -198,7 +198,7 @@ void ABlackoutPlayerController::Server_SetReady_Implementation(bool bNewReady)
 	{
 		return;
 	}
-	PS->bIsReady = bNewReady;
+	PS->SetReadyState(bNewReady);
 	BO_LOG_NET(Log , "Server_SetReady:%s -> %s",*GetName(), bNewReady ? TEXT("Ready") : TEXT("NotReady"));
 	
 	// Lobby / Battle 공통. 부모 GameMode 의 NotifyReadyChanged 가 자식의 OnAllPlayersReady 훅을 호출.

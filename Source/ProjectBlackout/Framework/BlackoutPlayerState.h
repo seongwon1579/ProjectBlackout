@@ -15,6 +15,7 @@ class UBOCharacterData;
 class UBOConsumableData;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FBlackoutConsumableCountsChangedSignature, int32, BloodRootCount, int32, GulSerumCount);
+DECLARE_MULTICAST_DELEGATE_OneParam(FBlackoutReadyStateChangedNativeSignature, bool);
 
 UCLASS()
 class PROJECTBLACKOUT_API ABlackoutPlayerState : public APlayerState, public IAbilitySystemInterface
@@ -49,6 +50,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|PlayerState|Consumables")
 	bool ConsumeConsumable(FGameplayTag ConsumableTag, int32 Amount = 1);
 
+	/** Ready Check 상태를 서버 권위로 갱신하고 로컬/원격에 동일한 변경 이벤트를 전달합니다. */
+	UFUNCTION(BlueprintCallable, Category = "Blackout|PlayerState|Ready")
+	void SetReadyState(bool bNewReady);
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|PlayerState|Ready")
+	bool IsReady() const { return bIsReady; }
+
 	UFUNCTION(BlueprintPure, Category = "Blackout|PlayerState|State")
 	bool IsDowned() const;
 
@@ -67,7 +75,7 @@ public:
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_GulSerumCount, Category = "Blackout|PlayerState")
 	int32 GulSerumCount = 0;
 
-	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Blackout|PlayerState")
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_IsReady, Category = "Blackout|PlayerState")
 	bool bIsReady = false;
 
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_SurrenderVoteState, Category = "Blackout|PlayerState")
@@ -79,7 +87,13 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Blackout|PlayerState|Consumables")
 	FBlackoutConsumableCountsChangedSignature OnConsumableCountsChanged;
 
+	/** Ready Check 대기 애니메이션처럼 코드 전용 반응이 필요할 때 구독하는 네이티브 이벤트입니다. */
+	FBlackoutReadyStateChangedNativeSignature OnReadyStateChangedNative;
+
 protected:
+	UFUNCTION()
+	void OnRep_IsReady();
+
 	UFUNCTION()
 	void OnRep_BloodRootCount();
 
@@ -106,6 +120,7 @@ protected:
 	TObjectPtr<const UBlackoutAmmoAttributeSet> AmmoAttributeSet;
 	
 private:
+	void BroadcastReadyStateChanged();
 	void RestoreAtCheckpoint();
 
 };

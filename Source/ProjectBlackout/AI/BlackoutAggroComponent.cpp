@@ -251,8 +251,9 @@ bool UBlackoutAggroComponent::IsValidTarget(APawn* Target) const
 	{
 		if (UAbilitySystemComponent* ASC = ASI->GetAbilitySystemComponent())
 		{
-			if (ASC->GetNumericAttribute(
-				UBlackoutBaseAttributeSet::GetHealthAttribute()) <= 0.0f)
+			if (ASC->HasMatchingGameplayTag(BlackoutGameplayTags::State_Downed)
+				|| ASC->
+				HasMatchingGameplayTag(BlackoutGameplayTags::State_Dead))
 			{
 				return false;
 			}
