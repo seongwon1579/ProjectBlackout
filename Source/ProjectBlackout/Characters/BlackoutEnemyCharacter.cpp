@@ -2,6 +2,7 @@
 
 #include "BlackoutAbilitySystemComponent.h"
 #include "Attributes/BlackoutBaseAttributeSet.h"
+#include "Highlight/BOHighlightComponent.h"
 
 ABlackoutEnemyCharacter::ABlackoutEnemyCharacter()
 {
@@ -15,6 +16,9 @@ ABlackoutEnemyCharacter::ABlackoutEnemyCharacter()
 	BaseAttributeSet = CreateDefaultSubobject<UBlackoutBaseAttributeSet>(
 		TEXT("BaseAttributeSet"));
 	AbilitySystemComponent->AddAttributeSetSubobject(BaseAttributeSet.Get());
+	
+	UBOHighlightComponent* HighlightComponent = CreateDefaultSubobject<UBOHighlightComponent>(TEXT("HighlightComponent"));
+	HighlightComponent->BaseStencil = EBlackoutStencil::Enemy;
 }
 
 void ABlackoutEnemyCharacter::BeginPlay()
