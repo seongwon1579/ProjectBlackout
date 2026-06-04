@@ -32,6 +32,7 @@
 #include "Components/SphereComponent.h"
 #include "Components/WidgetComponent.h"
 #include "Combat/Weapons/BOFirearm.h"
+#include "Highlight/BOHighlightComponent.h"
 
 ABlackoutPlayerCharacter::ABlackoutPlayerCharacter(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer.SetDefaultSubobjectClass<UBlackoutPlayerMovementComponent>(ACharacter::CharacterMovementComponentName))
@@ -69,6 +70,11 @@ ABlackoutPlayerCharacter::ABlackoutPlayerCharacter(const FObjectInitializer& Obj
 	DefaultMaxWalkSpeed = 600.f;
 	AimMaxWalkSpeed = 420.f;
 	DownedMaxWalkSpeed = 150.f;
+	
+	// 외곽선
+	UBOHighlightComponent* HighlightComponent = CreateDefaultSubobject<UBOHighlightComponent>(TEXT("HighlightComponent"));
+	HighlightComponent->BaseStencil = EBlackoutStencil::Player;
+	HighlightComponent->bSuppressForLocalViewer =true;
 }
 
 void ABlackoutPlayerCharacter::BeginPlay()
