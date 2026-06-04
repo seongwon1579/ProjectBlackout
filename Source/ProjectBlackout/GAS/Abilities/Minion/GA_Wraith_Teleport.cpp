@@ -37,9 +37,9 @@ void UGA_Wraith_Teleport::ActivateAbility(
 		return;
 	}
 
-	// EQS 비동기 호출
+	// EQS 비동기 호출 — RandomBest로 상위 후보 중 랜덤 선택 (여러 Wraith가 같은 점에 몰리는 것 방지)
 	FEnvQueryRequest Request(TeleportQuery, Avatar);
-	Request.Execute(EEnvQueryRunMode::SingleResult, this,
+	Request.Execute(EEnvQueryRunMode::RandomBest25Pct, this,
 	                &UGA_Wraith_Teleport::OnEQSFinished);
 }
 
