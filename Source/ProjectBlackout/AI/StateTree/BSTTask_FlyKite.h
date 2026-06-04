@@ -33,9 +33,11 @@ struct PROJECTBLACKOUT_API FBSTTask_FlyKiteInstanceData
 	UPROPERTY(EditAnywhere, Category = "Parameter|Orbit", meta = (ClampMin = "0.1"))
 	float ReverseIntervalMax = 5.0f;
 
-	// 수직 (타겟 위 고도 + 부유)
+	// 수직 (타겟 위 고도 밴드 — 선회 반전마다 랜덤 추첨 + 부유)
 	UPROPERTY(EditAnywhere, Category = "Parameter|Vertical")
-	float HeightOffset = 300.0f;
+	float HeightMin = 250.0f;
+	UPROPERTY(EditAnywhere, Category = "Parameter|Vertical")
+	float HeightMax = 700.0f;
 	UPROPERTY(EditAnywhere, Category = "Parameter|Vertical")
 	float BobAmplitude = 80.0f;
 	UPROPERTY(EditAnywhere, Category = "Parameter|Vertical")
@@ -49,6 +51,7 @@ struct PROJECTBLACKOUT_API FBSTTask_FlyKiteInstanceData
 
 	// 내부 상태
 	float OrbitAngle = 0.0f;   // 타겟 기준 현재 선회 각(rad)
+	float CurrentHeightOffset = 0.0f;  // 현재 목표 고도(밴드 내, 반전마다 재추첨)
 	bool bOrbitRight = true;
 	float NextReverseTime = 0.0f;
 };
