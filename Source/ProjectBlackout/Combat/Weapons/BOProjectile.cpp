@@ -52,6 +52,9 @@ void ABOProjectile::OnSpawnFromPool_Implementation()
 		FlushNetDormancy();
 	}
 
+	bReturnedToPool = false;
+	// 풀 재사용 시 LifeSpan 타이머 재무장. InitialLifeSpan(BP 기본값)이 0이면 자동 정리 없음(히트로만 반환).
+	SetLifeSpan(InitialLifeSpan);
 	ApplyActiveState(true);
 	Movement->Velocity = FVector::ZeroVector;
 }
@@ -63,8 +66,21 @@ void ABOProjectile::BeginPlay()
 	ApplyProjectileNetState();
 }
 
+void ABOProjectile::LifeSpanExpired()
+{
+	// 엔진 기본 동작(Destroy) 대신 풀로 반환. 권한 없는 클라이언트는 무시(서버 복제로 상태 동기화).
+	SetLifeSpan(0.0f);
+	if (HasAuthority())
+	{
+		ReturnToPool();
+	}
+}
+
 void ABOProjectile::OnReturnToPool_Implementation()
 {
+	// 풀 대기 중 엔진 LifeSpan 타이머가 액터를 Destroy하지 않도록 취소.
+	SetLifeSpan(0.0f);
+
 	SetActorHiddenInGame(true);
 	if (HasAuthority())
 	{
@@ -351,6 +367,13 @@ void ABOProjectile::ReturnToPool()
 	{
 		return;
 	}
+
+	// 같은 프레임에 OnHit이 여러 번 발생해도 풀 반환은 한 번만. (이중 반환 → 풀 중복 등록 방지)
+	if (bReturnedToPool)
+	{
+		return;
+	}
+	bReturnedToPool = true;
 
 	if (UWorld* World = GetWorld())
 	{
