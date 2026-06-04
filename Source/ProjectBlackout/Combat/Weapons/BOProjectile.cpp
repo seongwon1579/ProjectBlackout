@@ -20,6 +20,10 @@ ABOProjectile::ABOProjectile()
 	PrimaryActorTick.bCanEverTick = false;
 	bReplicates = true;
 	SetReplicateMovement(false);
+	// 풀링 발사체는 수명이 짧고 재사용이 잦아 네트 도먼시 이득이 거의 없는 반면,
+	// "도먼트 → 재사용 시 깨우기 → 같은 프레임 상태 변경 → 재도먼트" 사이클에서
+	// 깨어난 직후 첫 업데이트의 NetState 델타가 누락되는 레이스를 유발한다.
+	// 항상 Awake로 유지해 Launch의 ForceNetUpdate가 NetState를 확실히 복제하게 한다.
 	SetNetDormancy(DORM_Awake);
 	SetNetUpdateFrequency(60.f);
 	SetMinNetUpdateFrequency(30.f);
@@ -46,13 +50,8 @@ void ABOProjectile::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 
 void ABOProjectile::OnSpawnFromPool_Implementation()
 {
-	if (HasAuthority())
-	{
-		SetNetDormancy(DORM_Awake);
-		FlushNetDormancy();
-	}
-
 	bReturnedToPool = false;
+	
 	// 풀 재사용 시 LifeSpan 타이머 재무장. InitialLifeSpan(BP 기본값)이 0이면 자동 정리 없음(히트로만 반환).
 	SetLifeSpan(InitialLifeSpan);
 	ApplyActiveState(true);
@@ -94,8 +93,8 @@ void ABOProjectile::OnReturnToPool_Implementation()
 
 	if (HasAuthority())
 	{
+		// 도먼시는 사용하지 않는다(생성자 주석 참고). 비활성 상태는 ForceNetUpdate로만 전파한다.
 		ForceNetUpdate();
-		SetNetDormancy(DORM_DormantAll);
 	}
 }
 
@@ -126,8 +125,6 @@ void ABOProjectile::Launch(const FVector& Direction)
 
 	if (HasAuthority())
 	{
-		SetNetDormancy(DORM_Awake);
-		FlushNetDormancy();
 		++ReplicatedNetState.StateId;
 		ReplicatedNetState.bActive = true;
 		ReplicatedNetState.Location = GetActorLocation();

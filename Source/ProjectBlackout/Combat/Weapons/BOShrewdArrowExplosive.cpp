@@ -29,8 +29,6 @@ void ABOShrewdArrowExplosive::Launch(const FVector& Velocity)
 	
 	if (HasAuthority())
 	{
-		SetNetDormancy(DORM_Awake);
-		FlushNetDormancy();
 		++ReplicatedNetState.StateId;
 		ReplicatedNetState.bActive = true;
 		ReplicatedNetState.Location = GetActorLocation();
