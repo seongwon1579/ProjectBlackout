@@ -68,6 +68,10 @@ public:
 protected:
 	virtual void BeginPlay() override;
 
+	// 엔진 기본 LifeSpan 만료는 Destroy()를 호출하지만, 풀링 액터는 파괴 대신 풀로 반환해야
+	// 댕글링 포인터/불필요한 재스폰을 피할 수 있습니다.
+	virtual void LifeSpanExpired() override;
+
 	UFUNCTION()
 	void OnRep_ProjectileNetState();
 
@@ -109,6 +113,10 @@ protected:
 	FBOProjectileNetState ReplicatedNetState;
 
 	uint32 LastAppliedStateId = 0;
+
+	// 풀 반환 재진입 가드. OnHit/수명만료 등으로 ReturnToPool이 같은 프레임에 여러 번 호출될 때
+	// 풀 이중 등록을 막습니다. OnSpawnFromPool에서 재사용 시 false로 리셋됩니다.
+	bool bReturnedToPool = false;
 
 	FGameplayEffectSpecHandle DamageSpec;
 	FBlackoutWeaponCueSet CueSet;

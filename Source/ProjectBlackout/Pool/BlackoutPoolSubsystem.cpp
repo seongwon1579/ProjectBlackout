@@ -9,7 +9,7 @@ AActor* UBlackoutPoolSubsystem::SpawnFromPool(TSubclassOf<AActor> ActorClass, co
 		return nullptr;
 	}
 
-	TArray<TObjectPtr<AActor>>& Pool = InactivePool.FindOrAdd(ActorClass);
+	TArray<TObjectPtr<AActor>>& Pool = InactivePool.FindOrAdd(ActorClass).Actors;
 
 	// 유효한 액터가 나올 때까지 탐색
 	while (Pool.Num() > 0)
@@ -37,8 +37,18 @@ void UBlackoutPoolSubsystem::ReturnToPool(AActor* Actor)
 		return;
 	}
 
+	// 같은 액터가 한 프레임에 여러 번 반환되면(예: ProjectileMovement sub-step sweep으로 OnHit 다중 발생)
+	// 풀에 동일 포인터가 중복 등록되어, 이후 서로 다른 두 발사가 같은 인스턴스를 공유하게 됩니다.
+	// 이는 네트워크 액터 채널 상태 손상으로 이어지므로 중복 반환을 무시합니다.
+	TArray<TObjectPtr<AActor>>& Pool = InactivePool.FindOrAdd(Actor->GetClass()).Actors;
+	if (Pool.Contains(Actor))
+	{
+		BO_LOG_POOL(Warning, "ReturnToPool 무시: 이미 풀에 존재하는 액터의 중복 반환 (%s)", *Actor->GetName());
+		return;
+	}
+
 	IBlackoutPoolableInterface::Execute_OnReturnToPool(Actor);
-	InactivePool.FindOrAdd(Actor->GetClass()).Add(Actor);
+	Pool.Add(Actor);
 	BO_LOG_POOL(Verbose, "ReturnToPool: %s", *Actor->GetName());
 }
 
@@ -49,7 +59,7 @@ void UBlackoutPoolSubsystem::WarmUp(TSubclassOf<AActor> ActorClass, int32 Count)
 		return;
 	}
 
-	TArray<TObjectPtr<AActor>>& Pool = InactivePool.FindOrAdd(ActorClass);
+	TArray<TObjectPtr<AActor>>& Pool = InactivePool.FindOrAdd(ActorClass).Actors;
 	for (int32 i = 0; i < Count; ++i)
 	{
 		AActor* NewActor = SpawnNewActor(ActorClass, FTransform::Identity);
