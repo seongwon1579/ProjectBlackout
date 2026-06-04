@@ -20,7 +20,6 @@ ABOShrewdArrowExplosive::ABOShrewdArrowExplosive()
 
 void ABOShrewdArrowExplosive::Launch(const FVector& Velocity)
 {
-	
 	if (!Movement) return;
 
 	IgnoreFirerWhenMoving();
