@@ -2076,6 +2076,7 @@ void ABlackoutPlayerCharacter::HandleReadyCheckEndMontageEnded(UAnimMontage* Mon
 		return;
 	}
 
+	SetReadyInteractionWeaponHolstered(false);
 	SetReadyInteractionMovementLocked(false, false);
 }
 
@@ -2083,6 +2084,7 @@ void ABlackoutPlayerCharacter::HandleReadyStateChanged(bool bIsReadyNow)
 {
 	if (bIsReadyNow)
 	{
+		SetReadyInteractionWeaponHolstered(true);
 		SetReadyInteractionMovementLocked(true, true);
 
 		UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
@@ -2113,6 +2115,7 @@ void ABlackoutPlayerCharacter::HandleReadyStateChanged(bool bIsReadyNow)
 		return;
 	}
 
+	SetReadyInteractionWeaponHolstered(false);
 	SetReadyInteractionMovementLocked(false, false);
 }
 
@@ -2157,12 +2160,14 @@ void ABlackoutPlayerCharacter::SyncReadyStateAnimation()
 		else
 		{
 			StopActiveReadyCheckMontages(0.1f);
+			SetReadyInteractionWeaponHolstered(false);
 			SetReadyInteractionMovementLocked(false, false);
 		}
 		return;
 	}
 
 	StopActiveReadyCheckMontages(0.1f);
+	SetReadyInteractionWeaponHolstered(false);
 	SetReadyInteractionMovementLocked(false, false);
 }
 
@@ -2211,6 +2216,25 @@ void ABlackoutPlayerCharacter::StopActiveReadyCheckMontages(float BlendOutTime)
 	}
 
 	bIsReadyCheckLoopMontagePlaying = false;
+}
+
+void ABlackoutPlayerCharacter::SetReadyInteractionWeaponHolstered(bool bNewHolstered)
+{
+	if (!CombatComponent)
+	{
+		return;
+	}
+
+	if (bNewHolstered)
+	{
+		CombatComponent->StopFire();
+		CombatComponent->HandlePrimaryActionReleased();
+		CombatComponent->StopAim();
+		CombatComponent->BeginEquippedWeaponHolsterOverride();
+		return;
+	}
+
+	CombatComponent->EndEquippedWeaponHolsterOverride();
 }
 
 void ABlackoutPlayerCharacter::SetReadyInteractionMovementLocked(bool bNewLocked, bool bStopMovementImmediately)

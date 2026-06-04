@@ -384,6 +384,7 @@ protected:
 	void UnbindReadyStateChangedDelegate();
 	void SyncReadyStateAnimation();
 	void StopActiveReadyCheckMontages(float BlendOutTime);
+	void SetReadyInteractionWeaponHolstered(bool bNewHolstered);
 	void SetReadyInteractionMovementLocked(bool bNewLocked, bool bStopMovementImmediately);
 	void SetRevivingStateActive(bool bNewReviving);
 	void SetBeingRevivedStateActive(bool bNewBeingRevived);
