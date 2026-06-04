@@ -45,4 +45,10 @@ protected:
 private:
 	/** OnDefeated broadcast 단일 발화 가드 — 죽음 후 추가 damage/재호출에도 1회만 브로드캐스트. */
 	bool bDefeatedBroadcastSent = false;
+	
+	/** TryBindToHuD 재시도 카운터 **/
+	int32 HUDBindRetryCount = 0;
+	static constexpr  int32 HUDBindMaxRetries =120;
+	
+	
 };

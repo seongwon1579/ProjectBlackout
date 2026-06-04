@@ -219,6 +219,7 @@ namespace BlackoutGameplayTags
 	// ─── Shrewd Abilities ──────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Shrewd_Teleport_ToPoint, "Ability.Shrewd.Teleport.ToPoint");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Shrewd_Teleport_ByEQS, "Ability.Shrewd.Teleport.ByEQS");
+	UE_DEFINE_GAMEPLAY_TAG(Cooldown_Shrewd_Teleport, "Cooldown.Shrewd.Teleport");
 	
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Shrewd_Fire_Arrow_Straight, "Ability.Shrewd.Fire.Arrow.Straight");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Shrewd_Fire_Arrow_Explosive, "Ability.Shrewd.Fire.Arrow.Explosive");

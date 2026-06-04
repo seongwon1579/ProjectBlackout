@@ -8,6 +8,7 @@
 enum class EBlackoutMatchEndReason : uint8;
 class ABlackoutPlayerCharacter;
 class ABlackoutPlayerController;
+class ABlackoutBossCharacter;
 /**
  * 전투 레벨 전용 GameMode. 전투 진입 자원 초기화 / 체크포인트 등록 / 파티 전멸 복귀 처리.
  */
@@ -24,6 +25,9 @@ public:
 	// 중간 보스 처치 시 보스 사망 로직에서 호출. 보스 구현 후 연결된다.
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Battle")
 	void OnBossDefeated();
+	
+	// 보스가 BeginPlay에서 자기 등록 
+	void RegisterBoss(ABlackoutBossCharacter* Boss);
 
 	// [테스트 전용] 콘솔에서 중간 보스 처치 시뮬레이션. 보스/4인 없이 루프 검증용.
 	UFUNCTION(Exec)
