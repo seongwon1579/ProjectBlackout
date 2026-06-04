@@ -28,6 +28,15 @@ public:
 
 	EBossType GetCurrentBossType() const;
 	
+	// 정원 , GameMode 가 InitGame 에서 읽어서 MaxPlayers 설정
+	int32 GetExpectedPlayers() const {return ExpectedPlayers; }
+	
+	// 싱글/멀티 진입시 정원 , 1 미만은 1로 클램프
+	void SetExpectedPlayers(int32 InCount) {ExpectedPlayers = FMath::Max(1 , InCount); }
+	
 private:
 	int32 CurrentStageIndex=0;
+	
+	// 멀티 기본 4 , 싱글 1
+	int32 ExpectedPlayers=4;
 };

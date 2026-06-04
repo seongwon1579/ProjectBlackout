@@ -39,6 +39,10 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blackout|MainMenu")
 	TSubclassOf<UBlackoutSettingsWidget> SettingsWidgetClass;
+	
+	/** 혼자하기 진입시 OpenLevel 로비맵 **/
+	UPROPERTY(EditDefaultsOnly , BlueprintReadWrite, Category = "Blackout|MainMenu")
+	TSoftObjectPtr<UWorld> SinglePlayLobbyMap;
 
 	/** 인게임에서 ESC 메뉴로 사용할 때 활성화하는 모드입니다. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blackout|MainMenu")
@@ -65,6 +69,9 @@ protected:
 	UPROPERTY(meta=(BindWidget))
 	TObjectPtr<UButton> StartMatchmakingButton;
 	
+	UPROPERTY(meta=(BindWidgetOptional))
+	TObjectPtr<UButton> SinglePlayButton;
+	
 	UPROPERTY(meta=(BindWidget))
 	TObjectPtr<UButton> OptionsButton;
 	
@@ -86,6 +93,9 @@ private:
 	
 	UFUNCTION()
 	void HandleStartMatchmakingClicked();
+	
+	UFUNCTION()
+	void HandleSinglePlayClicked();
 	
 	UFUNCTION()
 	void HandleOptionsClicked();
