@@ -3,7 +3,9 @@
 
 #include "BlackoutMainMenuWidget.h"
 
+#include "BlackoutLog.h"
 #include "BlackoutLoginWidget.h"
+#include "BlackoutMatchFlowSubsystem.h"
 #include "BlackoutMatchmakingWidget.h"
 #include "BlackoutSettingsWidget.h"
 #include "Framework/BlackoutMatchmakingSubsystem.h"
@@ -12,6 +14,7 @@
 #include "Components/TextBlock.h"
 #include "InputCoreTypes.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "Kismet/GameplayStatics.h"
 
 void UBlackoutMainMenuWidget::NativeConstruct()
 {
@@ -34,6 +37,13 @@ void UBlackoutMainMenuWidget::NativeConstruct()
 		StartMatchmakingButton->OnClicked.AddDynamic(
 			this, &UBlackoutMainMenuWidget::HandleStartMatchmakingClicked);
 	}
+
+	if (SinglePlayButton)
+	{
+		SinglePlayButton->OnClicked.AddDynamic(
+			this, &UBlackoutMainMenuWidget::HandleSinglePlayClicked);
+	}
+
 	if (OptionsButton)
 	{
 		OptionsButton->OnClicked.AddDynamic(
@@ -101,9 +111,11 @@ void UBlackoutMainMenuWidget::NativeDestruct()
 	Super::NativeDestruct();
 }
 
-FReply UBlackoutMainMenuWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
+FReply UBlackoutMainMenuWidget::NativeOnKeyDown(const FGeometry& InGeometry,
+                                                const FKeyEvent& InKeyEvent)
 {
-	if (bUseAsInGameMenu && !ActiveSettingsWidget && InKeyEvent.GetKey() == EKeys::Escape)
+	if (bUseAsInGameMenu && !ActiveSettingsWidget && InKeyEvent.GetKey() ==
+		EKeys::Escape)
 	{
 		CloseMenu();
 		return FReply::Handled();
@@ -159,6 +171,32 @@ void UBlackoutMainMenuWidget::HandleStartMatchmakingClicked()
 	ActiveMatchmakingWidget->AddToViewport(100);
 }
 
+void UBlackoutMainMenuWidget::HandleSinglePlayClicked()
+{
+	UGameInstance* GameInstance = GetGameInstance();
+	if (!GameInstance)
+	{
+		return;
+	}
+
+	// 정원 1 -> 로비/보스 GameMode InitGame이 MaxPlayer=1로 처리
+	if (UBlackoutMatchFlowSubsystem* MatchFlowSubsystem = GameInstance->
+		GetSubsystem<UBlackoutMatchFlowSubsystem>())
+	{
+		MatchFlowSubsystem->SetExpectedPlayers(1);
+	}
+
+	if (SinglePlayLobbyMap.IsNull())
+	{
+		BO_LOG_NET(Warning, "혼자하기: SinglePlayLobbyMap 미지정 — 진입 중단");
+		return;
+	}
+
+	// listen
+	UGameplayStatics::OpenLevelBySoftObjectPtr(this, SinglePlayLobbyMap, true,
+	                                           TEXT("listen"));
+}
+
 void UBlackoutMainMenuWidget::HandleOptionsClicked()
 {
 	if (ActiveSettingsWidget)
@@ -166,7 +204,8 @@ void UBlackoutMainMenuWidget::HandleOptionsClicked()
 		return;
 	}
 
-	TSubclassOf<UBlackoutSettingsWidget> ResolvedSettingsClass = SettingsWidgetClass;
+	TSubclassOf<UBlackoutSettingsWidget> ResolvedSettingsClass =
+		SettingsWidgetClass;
 	if (!ResolvedSettingsClass)
 	{
 		ResolvedSettingsClass = UBlackoutSettingsWidget::StaticClass();
@@ -279,6 +318,10 @@ void UBlackoutMainMenuWidget::RefreshForLoginState()
 		if (StartMatchmakingButton)
 		{
 			StartMatchmakingButton->SetVisibility(ESlateVisibility::Collapsed);
+		}
+		if (SinglePlayButton)
+		{
+			SinglePlayButton->SetVisibility(ESlateVisibility::Collapsed);
 		}
 		if (WelcomeText)
 		{

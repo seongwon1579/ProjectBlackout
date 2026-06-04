@@ -11,6 +11,7 @@
 #include "GameFramework/GameStateBase.h"
 #include "Engine/GameInstance.h"
 #include "BlackoutDedicatedSessionSubsystem.h"
+#include "BlackoutMatchFlowSubsystem.h"
 
 namespace
 {
@@ -52,6 +53,15 @@ void ABlackoutGameMode::InitGame(const FString& MapName, const FString& Options,
 		Options, TEXT("SessionId"));
 	BO_LOG_NET(Log, "InitGame: Map=%s SessionId=%s", *MapName,
 	           *MatchmakingSessionId);
+	
+	// 정원 
+	if (const UGameInstance* GI = GetGameInstance())
+	{
+		if (const UBlackoutMatchFlowSubsystem* MatchFlowSubsystem = GI->GetSubsystem<UBlackoutMatchFlowSubsystem>())
+		{
+			MaxPlayers= MatchFlowSubsystem->GetExpectedPlayers();
+		}
+	}
 }
 
 void ABlackoutGameMode::PreLogin(const FString& Options, const FString& Address,

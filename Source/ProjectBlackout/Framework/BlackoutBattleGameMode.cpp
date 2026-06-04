@@ -156,6 +156,17 @@ void ABlackoutBattleGameMode::OnBossDefeated()
 	}
 }
 
+void ABlackoutBattleGameMode::RegisterBoss(ABlackoutBossCharacter* Boss)
+{
+	if (!Boss)
+	{
+		return;
+	}
+	// 보스 BeginPlay OnDefeated 바인딩
+	Boss->OnDefeated.AddUObject(this, &ABlackoutBattleGameMode::OnBossDefeated);
+	BO_LOG_NET(Log , "보스 등록: %s — OnDefeated 바인딩", *GetNameSafe(Boss))
+}
+
 void ABlackoutBattleGameMode::BO_SimBossDefeated()
 {
 	BO_LOG_NET(Warning, "[테스트] BO_SimMidBossDefeated — 중간 보스 처치 시뮬레이션");
@@ -826,7 +837,7 @@ void ABlackoutBattleGameMode::TimeoutSurrenderVote()
 
 void ABlackoutBattleGameMode::StartBossCombat()
 {
-	BO_LOG_NET(Log, "StartBossCombat 진입 (보스 델리게이트 바인딩 — 중복 호출 시 누적 의심)");
+	BO_LOG_NET(Log, "StartBossCombat 진입 (StartBossCombat 진입 — 전투 상태 전이)");
 
 	const UBlackoutMatchFlowSubsystem* Flow = GetGameInstance() ? GetGameInstance() ->GetSubsystem<UBlackoutMatchFlowSubsystem>() : nullptr;
 	
@@ -841,14 +852,7 @@ void ABlackoutBattleGameMode::StartBossCombat()
 	TransitionTo(NewState);
 	BO_LOG_NET(Log, "보스맵 전원 도착 — 전투 시작 (%s)", *UEnum::GetValueAsString(NewState));
 
-	// 레벨 배치 보스의 사망 델리게이트에 핸들러 바인딩 (단일 보스 가정)
-	for (TActorIterator<ABlackoutBossCharacter> It(GetWorld()); It; ++It)
-	{
-		if (ABlackoutBossCharacter* Boss = *It)
-		{
-			Boss->OnDefeated.AddUObject(this, &ABlackoutBattleGameMode::OnBossDefeated);
-		}
-	}
+	
 }
 
 void ABlackoutBattleGameMode::TravelToTitle()

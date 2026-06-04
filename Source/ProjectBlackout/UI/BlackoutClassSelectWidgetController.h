@@ -6,6 +6,7 @@
 #include "UObject/Object.h"
 #include "Templates/SubclassOf.h"
 #include "UI/BlackoutClassSelectTypes.h"
+#include "Engine/TimerHandle.h"
 #include "BlackoutClassSelectWidgetController.generated.h"
 
 class APlayerController;
@@ -76,4 +77,9 @@ private:
 	TWeakObjectPtr<class ABlackoutCharacterPreviewManager> PreviewManager;
 	int32 CurrentIndex = 0;
 	bool bRenderTargetBroadcast = false;
+
+	// 프리뷰 매니저(스트리밍 서브레벨 L_CharacterPreview)가 아직 로드 전일 때 재시도용.
+	FTimerHandle PreviewManagerRetryHandle;
+	int32 PreviewManagerRetryCount = 0;
+	static constexpr int32 PreviewManagerMaxRetries = 30; // 0.1s × 30 ≈ 3초
 };

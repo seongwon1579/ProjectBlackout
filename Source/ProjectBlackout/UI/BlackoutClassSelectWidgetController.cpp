@@ -12,6 +12,8 @@
 #include "Framework/BlackoutCharacterPreviewManager.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/TextureRenderTarget2D.h"
+#include "TimerManager.h"
+#include "Engine/World.h"
 
 bool UBlackoutClassSelectWidgetController::Initialize(
 	APlayerController* InPlayerController,const UBOCharacterRoster* InRoster)
@@ -147,19 +149,33 @@ void UBlackoutClassSelectWidgetController::UpdatePreviewPawn()
 		}
 	}
 	
-	if (!PreviewManager.IsValid())
+	// 매니저가 없거나, 있어도 아직 BeginPlay 전이라 RT 미준비면 재시도.
+	// GetAllActorsOfClass 는 BeginPlay 전 액터도 반환하므로(RT/CaptureComp null),
+	// 액터 존재가 아니라 RT 준비 여부로 초기화 완료를 판정한다.
+	// (스트리밍 서브레벨 L_CharacterPreview — 정원 1 싱글에선 UI 가 로드보다 먼저 열림.)
+	UTextureRenderTarget2D* RT = PreviewManager.IsValid() ? PreviewManager->GetRenderTarget() : nullptr;
+	if (!RT)
 	{
+		const UWorld* World = PlayerController.IsValid() ? PlayerController->GetWorld() : nullptr;
+		if (World && PreviewManagerRetryCount < PreviewManagerMaxRetries)
+		{
+			++PreviewManagerRetryCount;
+			World->GetTimerManager().SetTimer(PreviewManagerRetryHandle, this,
+				&UBlackoutClassSelectWidgetController::UpdatePreviewPawn, 0.1f, false);
+		}
+		else
+		{
+			BO_LOG_CORE(Warning, "ClassSelect: PreviewManager RT 미준비 — 프리뷰 비활성 (재시도 %d회 초과)", PreviewManagerRetryCount);
+		}
 		return;
 	}
+	PreviewManagerRetryCount = 0;
 
 	// RT 한 번만 broadcast — Widget 이 Image_Portrait 에 동적 bind
 	if (!bRenderTargetBroadcast)
 	{
-		if (UTextureRenderTarget2D* RT = PreviewManager->GetRenderTarget())
-		{
-			OnPreviewRenderTargetReady.Broadcast(RT);
-			bRenderTargetBroadcast = true;
-		}
+		OnPreviewRenderTargetReady.Broadcast(RT);
+		bRenderTargetBroadcast = true;
 	}
 
 	if (!Roster.IsValid() || !Roster->Characters.IsValidIndex(CurrentIndex))
