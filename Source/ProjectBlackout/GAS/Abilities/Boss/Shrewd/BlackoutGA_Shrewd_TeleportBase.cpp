@@ -8,6 +8,8 @@
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/Character.h"
+#include "Engine/World.h"
+#include "TimerManager.h"
 
 void UBlackoutGA_Shrewd_TeleportBase::EndAbility(const FGameplayAbilitySpecHandle Handle,
 	const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo,
@@ -22,6 +24,23 @@ void UBlackoutGA_Shrewd_TeleportBase::EndAbility(const FGameplayAbilitySpecHandl
 	}
 
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+}
+
+bool UBlackoutGA_Shrewd_TeleportBase::CanActivateAbility(const FGameplayAbilitySpecHandle Handle,
+	const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags,
+	const FGameplayTagContainer* TargetTags, FGameplayTagContainer* OptionalRelevantTags) const
+{
+	if (!Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags))
+	{
+		return false;
+	}
+	// 쿨다운 중이면 발동 불가 → ActivateAbility Task가 Failed → At Random 재추첨(연속 텔포 차단)
+	if (ActorInfo && ActorInfo->AbilitySystemComponent.IsValid() &&
+		ActorInfo->AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::Cooldown_Shrewd_Teleport))
+	{
+		return false;
+	}
+	return true;
 }
 
 void UBlackoutGA_Shrewd_TeleportBase::PrepareAbility()
@@ -98,6 +117,24 @@ void UBlackoutGA_Shrewd_TeleportBase::OnVanishEvent(FGameplayEventData Payload)
 		FGameplayCueParameters EndCueParams;
 		EndCueParams.Location = TeleportDest;
 		SourceASC->ExecuteGameplayCue(BlackoutGameplayTags::GameplayCue_Wraith_Teleport_End, EndCueParams);
+	}
+
+	// 텔레포트 쿨다운 — 연속 텔포 방지 (TeleportCooldown 초간 재발동 차단, 타이머로 자동 해제)
+	if (UAbilitySystemComponent* CooldownASC = GetAbilitySystemComponentFromActorInfo())
+	{
+		CooldownASC->AddLooseGameplayTag(BlackoutGameplayTags::Cooldown_Shrewd_Teleport);
+		if (UWorld* World = GetWorld())
+		{
+			TWeakObjectPtr<UAbilitySystemComponent> WeakASC = CooldownASC;
+			FTimerHandle CooldownTimer;
+			World->GetTimerManager().SetTimer(CooldownTimer, [WeakASC]()
+			{
+				if (WeakASC.IsValid())
+				{
+					WeakASC->RemoveLooseGameplayTag(BlackoutGameplayTags::Cooldown_Shrewd_Teleport);
+				}
+			}, TeleportCooldown, false);
+		}
 	}
 }
 

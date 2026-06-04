@@ -222,6 +222,7 @@ namespace BlackoutGameplayTags
 	// ─── Shrewd Abilities ──────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Shrewd_Teleport_ToPoint);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Shrewd_Teleport_ByEQS);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Cooldown_Shrewd_Teleport);
 	
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Shrewd_Fire_Arrow_Straight);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Shrewd_Fire_Arrow_Explosive);

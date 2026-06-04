@@ -14,7 +14,14 @@ class PROJECTBLACKOUT_API UBlackoutGA_Shrewd_TeleportBase : public UBlackoutGA_S
 {
 	GENERATED_BODY()
 	
+public:
+	virtual bool CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags = nullptr, const FGameplayTagContainer* TargetTags = nullptr, FGameplayTagContainer* OptionalRelevantTags = nullptr) const override;
+
 protected:
+	// 텔레포트 쿨다운(초) — 연속 텔포 방지
+	UPROPERTY(EditDefaultsOnly, Category = "Blackout")
+	float TeleportCooldown = 5.0f;
+
 	virtual void EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
 
 	virtual void PrepareAbility() override;

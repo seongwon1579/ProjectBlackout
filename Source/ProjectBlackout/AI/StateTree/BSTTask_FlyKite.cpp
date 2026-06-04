@@ -17,6 +17,7 @@ EStateTreeRunStatus FBSTTask_FlyKite::EnterState(
 
 	Data.bOrbitRight = FMath::RandBool();
 	Data.NextReverseTime = Now + FMath::RandRange(Data.ReverseIntervalMin, Data.ReverseIntervalMax);
+	Data.CurrentHeightOffset = FMath::RandRange(Data.HeightMin, Data.HeightMax);
 
 	// 선회 각을 현재 보스->타겟 방향으로 초기화 (목표점이 제자리에서 시작 -> 튐 방지)
 	const APawn* Pawn = Data.Controller ? Data.Controller->GetPawn() : nullptr;
@@ -50,11 +51,12 @@ EStateTreeRunStatus FBSTTask_FlyKite::Tick(FStateTreeExecutionContext& Context, 
 
 	const float Now = World->GetTimeSeconds();
 
-	// 선회 방향 반전
+	// 선회 방향 반전 (+ 목표 고도 재추첨 → 높이 변주)
 	if (Now >= Data.NextReverseTime)
 	{
 		Data.bOrbitRight = !Data.bOrbitRight;
 		Data.NextReverseTime = Now + FMath::RandRange(Data.ReverseIntervalMin, Data.ReverseIntervalMax);
+		Data.CurrentHeightOffset = FMath::RandRange(Data.HeightMin, Data.HeightMax);
 	}
 
 	// 선회 각 진행
@@ -69,7 +71,7 @@ EStateTreeRunStatus FBSTTask_FlyKite::Tick(FStateTreeExecutionContext& Context, 
 	FVector Desired = TargetLoc;
 	Desired.X += FMath::Cos(Data.OrbitAngle) * Radius;
 	Desired.Y += FMath::Sin(Data.OrbitAngle) * Radius;
-	Desired.Z = TargetLoc.Z + Data.HeightOffset + Data.BobAmplitude * FMath::Sin(Now * Data.BobFrequency);
+	Desired.Z = TargetLoc.Z + Data.CurrentHeightOffset + Data.BobAmplitude * FMath::Sin(Now * Data.BobFrequency);
 
 	// 단일 방향 스티어링 (반경/선회/고도가 목표점에 인코딩 -> 합산 희석 없음)
 	const FVector ToDesired = Desired - Pawn->GetActorLocation();
