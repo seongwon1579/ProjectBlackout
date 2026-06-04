@@ -8,6 +8,7 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(State_BeingRevived,  "State.BeingRevived");
 	UE_DEFINE_GAMEPLAY_TAG(State_Dead,          "State.Dead");
 	UE_DEFINE_GAMEPLAY_TAG(State_Invulnerable,  "State.Invulnerable");
+	UE_DEFINE_GAMEPLAY_TAG(State_MovementLocked,"State.MovementLocked");
 	UE_DEFINE_GAMEPLAY_TAG(State_Locked,        "State.Locked");
 	UE_DEFINE_GAMEPLAY_TAG(State_Aiming,        "State.Aiming");
 	UE_DEFINE_GAMEPLAY_TAG(State_Sprinting,     "State.Sprinting");

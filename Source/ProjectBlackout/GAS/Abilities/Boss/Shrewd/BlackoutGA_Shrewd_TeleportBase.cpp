@@ -15,12 +15,22 @@ void UBlackoutGA_Shrewd_TeleportBase::EndAbility(const FGameplayAbilitySpecHandl
 {
 	SetTeleportVisualsHidden(false);
 	RemoveInvulnerableTag();
-	
+
+	if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
+	{
+		ASC->RemoveLooseGameplayTag(BlackoutGameplayTags::State_MovementLocked);
+	}
+
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
 
 void UBlackoutGA_Shrewd_TeleportBase::PrepareAbility()
 {
+	// 텔레포트 능력 활성 동안 이동 잠금 (FlyKite가 목적지를 끌어당기지 않게)
+	if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
+	{
+		ASC->AddLooseGameplayTag(BlackoutGameplayTags::State_MovementLocked);
+	}
 	StartResolveDestination();
 }
 
