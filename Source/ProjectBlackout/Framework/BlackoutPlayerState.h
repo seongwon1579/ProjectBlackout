@@ -16,6 +16,7 @@ class UBOConsumableData;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FBlackoutConsumableCountsChangedSignature, int32, BloodRootCount, int32, GulSerumCount);
 DECLARE_MULTICAST_DELEGATE_OneParam(FBlackoutReadyStateChangedNativeSignature, bool);
+DECLARE_MULTICAST_DELEGATE(FBlackoutPlayerNameChangedNativeSignature);
 
 UCLASS()
 class PROJECTBLACKOUT_API ABlackoutPlayerState : public APlayerState, public IAbilitySystemInterface
@@ -90,7 +91,13 @@ public:
 	/** Ready Check 대기 애니메이션처럼 코드 전용 반응이 필요할 때 구독하는 네이티브 이벤트입니다. */
 	FBlackoutReadyStateChangedNativeSignature OnReadyStateChangedNative;
 
+	/** PlayerName 이 복제(변경)될 때 코드로 알림 — 파티 로스터가 닉네임 늦게 도착 시 갱신용. */
+	FBlackoutPlayerNameChangedNativeSignature OnPlayerNameChangedNative;
+
 protected:
+	/** 기본 PlayerName 복제 콜백 — 늦게 도착하는 닉네임을 로스터에 알리려 오버라이드. */
+	virtual void OnRep_PlayerName() override;
+
 	UFUNCTION()
 	void OnRep_IsReady();
 

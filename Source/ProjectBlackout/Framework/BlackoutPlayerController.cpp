@@ -18,11 +18,13 @@
 #include "UI/BlackoutMainMenuWidget.h"
 #include "Camera/PlayerCameraManager.h"
 #include "InputCoreTypes.h"
+#include "Framework/BlackoutMatchmakingSubsystem.h"
+#include "GameFramework/PlayerState.h"
 
 void ABlackoutPlayerController::AcknowledgePossession(APawn* P)
 {
 	Super::AcknowledgePossession(P);
-
+	SendDisplayNameToServer();
 	TryInitHUD();
 
 	// 모든 possess path(매칭 / open 콘솔 / 미래 우회 경로) 안전망 — possess 도착 시 게임 모드로 복구.
@@ -41,6 +43,27 @@ void ABlackoutPlayerController::AcknowledgePossession(APawn* P)
 		bScreenFadePending = false;
 		StartScreenFadeIn();
 	}
+}
+
+void ABlackoutPlayerController::Server_SetPlayerDisplayName_Implementation(
+	const FString& InName)
+{
+	const FString Clean = InName.TrimStartAndEnd().Left(24);
+	if (Clean.IsEmpty())
+	{
+		return;
+	}
+	if (APlayerState* PS = GetPlayerState<APlayerState>())
+	{
+		PS->SetPlayerName(Clean);
+	}
+}
+
+
+bool ABlackoutPlayerController::Server_SetPlayerDisplayName_Validate(
+	const FString& InName)
+{
+	return InName.Len() <=64;
 }
 
 void ABlackoutPlayerController::CloseClassSelectUI()
@@ -151,6 +174,7 @@ void ABlackoutPlayerController::OnPossess(APawn* InPawn)
 void ABlackoutPlayerController::OnRep_PlayerState()
 {
 	Super::OnRep_PlayerState();
+	SendDisplayNameToServer();
 
 	TryInitHUD();
 }
@@ -920,6 +944,38 @@ void ABlackoutPlayerController::StartScreenFadeIn()
 		return;
 	}
 	PlayerCameraManager->StartCameraFade(1.0f, 0.0f , ScreenFadeDuration , LastFadeColor , false , false);
+}
+
+void ABlackoutPlayerController::SendDisplayNameToServer()
+{
+	if (!IsLocalController())
+	{
+		return;
+	}
+	
+	const UBlackoutMatchmakingSubsystem* MatchmakingSubsystem = GetGameInstance()? GetGameInstance()->GetSubsystem<UBlackoutMatchmakingSubsystem>() : nullptr;
+	
+	if (!MatchmakingSubsystem)
+	{
+		return;
+	}
+
+	const FString Name = MatchmakingSubsystem->GetPlayerName();
+	if (Name.IsEmpty())   // 로그인 안 한 경우(단일 모드 등)는 기본 이름 유지
+	{
+		return;
+	}
+
+	if (HasAuthority())
+	{
+		if (APlayerState* PS = GetPlayerState<APlayerState>())
+		{
+			PS->SetPlayerName(Name);
+		}
+	}else
+	{
+		Server_SetPlayerDisplayName(Name);
+	}
 }
 
 void ABlackoutPlayerController::BO_SetMatchState(const FString& NewStateStr)

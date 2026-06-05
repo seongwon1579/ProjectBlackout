@@ -28,6 +28,7 @@ struct FBlackoutPartyMemberBinding
 	FDelegateHandle DownedStateTagChangedHandle;
 	FDelegateHandle BeingRevivedStateTagChangedHandle;
 	FDelegateHandle DeadStateTagChangedHandle;
+	FDelegateHandle NameChangedHandle;
 };
 
 UCLASS(BlueprintType)

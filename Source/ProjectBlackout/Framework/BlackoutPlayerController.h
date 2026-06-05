@@ -28,6 +28,9 @@ public:
 	
 	UFUNCTION(Server, Reliable , BlueprintCallable , Category= "Blackout|Controller")
 	void Server_SetReady(bool bNewReady);
+	
+	UFUNCTION(Server, Reliable , WithValidation , Category="Blackout|Controller")
+	void Server_SetPlayerDisplayName(const FString& InName);
 
 	UFUNCTION(Client, Reliable, BlueprintCallable, Category = "Blackout|Controller")
 	void Client_OpenClassSelectUI();
@@ -105,6 +108,9 @@ private:
 	
 	/** 도착 후 화면 복귀 */
 	void StartScreenFadeIn();
+	
+	/** 오너 클라이언트가 로그인 닉네임을 서버 PlayerState에 반영하도록 송신 */
+	void SendDisplayNameToServer();
 	
 
 public:
