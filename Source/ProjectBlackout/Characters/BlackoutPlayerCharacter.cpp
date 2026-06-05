@@ -720,7 +720,10 @@ void ABlackoutPlayerCharacter::Multicast_ExecuteWeaponGameplayCue_Implementation
 		return;
 	}
 
-	if (bSkipLocallyControlled && IsLocallyControlled() && GetNetMode() != NM_Standalone)
+	// 예측 경로(ExecutePredictedWeaponCues)를 실제로 탄 클라이언트만 중복 재생을 방지하기 위해 제외합니다.
+	// 그 경로는 "로컬 컨트롤 && 비권한"일 때만 실행되므로, 권한을 가진 리슨 서버 호스트(예측 미실행)는
+	// 여기서 제외하면 안 됩니다. !HasAuthority() 조건이 Standalone(권한 보유) 케이스도 함께 면제합니다.
+	if (bSkipLocallyControlled && IsLocallyControlled() && !HasAuthority())
 	{
 		return;
 	}
@@ -747,7 +750,10 @@ void ABlackoutPlayerCharacter::Multicast_ExecuteWeaponGameplayCueBatch_Implement
 		return;
 	}
 
-	if (bSkipLocallyControlled && IsLocallyControlled() && GetNetMode() != NM_Standalone)
+	// 예측 경로(ExecutePredictedWeaponCues)를 실제로 탄 클라이언트만 중복 재생을 방지하기 위해 제외합니다.
+	// 그 경로는 "로컬 컨트롤 && 비권한"일 때만 실행되므로, 권한을 가진 리슨 서버 호스트(예측 미실행)는
+	// 여기서 제외하면 안 됩니다. !HasAuthority() 조건이 Standalone(권한 보유) 케이스도 함께 면제합니다.
+	if (bSkipLocallyControlled && IsLocallyControlled() && !HasAuthority())
 	{
 		return;
 	}
