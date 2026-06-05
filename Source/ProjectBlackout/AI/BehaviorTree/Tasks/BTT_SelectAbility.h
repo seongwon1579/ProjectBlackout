@@ -19,8 +19,8 @@ public:
 
 protected:
 	virtual EBTNodeResult::Type ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;
-	
-private:
+	virtual FString GetStaticDescription() const override;
+
 	UPROPERTY(EditAnywhere, Category = "Blackout|Ability")
 	FGameplayTag AbilityTagToSet;
 

@@ -21,7 +21,8 @@ public:
 protected:
 	virtual void PrepareEventData(FGameplayEventData& EventData, UBlackboardComponent* BB) override;
 	
-private:
+	virtual FString GetStaticDescription() const override;
+	
 	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard|Input")
 	FBlackboardKeySelector SignedAngleKey;
 

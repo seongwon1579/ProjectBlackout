@@ -10,6 +10,7 @@
 UBTT_ActivateEvadeAbility::UBTT_ActivateEvadeAbility()
 {
 	NodeName = TEXT("Activate Evade Ability");
+	bUseAbilityTagKey = false;
 }
 
 FGameplayTag UBTT_ActivateEvadeAbility::ResolveAbilityTag(UBehaviorTreeComponent& OwnerComp) const
@@ -19,4 +20,9 @@ FGameplayTag UBTT_ActivateEvadeAbility::ResolveAbilityTag(UBehaviorTreeComponent
 
 	const auto Dir = static_cast<EEvadeDirection>(BB->GetValueAsEnum(EvadeDirectionKey.SelectedKeyName));
 	return Dir == EEvadeDirection::Right ? RightAbilityTag : LeftAbilityTag;
+}
+
+FString UBTT_ActivateEvadeAbility::GetStaticDescription() const
+{
+	return FString::Printf(TEXT("Evade GA: %s"), *EvadeDirectionKey.SelectedKeyName.ToString());
 }

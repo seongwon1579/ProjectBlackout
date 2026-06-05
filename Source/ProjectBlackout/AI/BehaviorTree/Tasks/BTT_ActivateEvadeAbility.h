@@ -19,8 +19,8 @@ public:
 	
 protected:
 	virtual FGameplayTag ResolveAbilityTag(UBehaviorTreeComponent& OwnerComp) const override;
-
-private:
+	virtual FString GetStaticDescription() const override;
+	
 	UPROPERTY(EditAnywhere, Category = "Blackout|Ability", meta = (Categories = "Ability"))
 	FGameplayTag LeftAbilityTag;
 

@@ -98,7 +98,11 @@ void UBTT_ActivateAbility::UnbindDelegate()
 
 FString UBTT_ActivateAbility::GetStaticDescription() const
 {
-	return FString::Printf(TEXT("Activate GA: %s"), *AbilityTag.ToString());
+	if (bUseAbilityTagKey)
+	{
+		return FString::Printf(TEXT("Activate GA: %s"), *AbilityTag.ToString());
+	}
+	return FString::Printf(TEXT("Activate GA from SelectedKey"));
 }
 
 FGameplayTag UBTT_ActivateAbility::ResolveAbilityTag(UBehaviorTreeComponent& OwnerComp) const
