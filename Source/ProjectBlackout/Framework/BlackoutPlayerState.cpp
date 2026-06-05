@@ -250,6 +250,12 @@ bool ABlackoutPlayerState::IsBeingRevived() const
 	return HasStateTag(BlackoutGameplayTags::State_BeingRevived);
 }
 
+void ABlackoutPlayerState::OnRep_PlayerName()
+{
+	Super::OnRep_PlayerName();
+	OnPlayerNameChangedNative.Broadcast();   // 닉네임 늦게 도착 → 로스터 그 멤버 갱신
+}
+
 void ABlackoutPlayerState::OnRep_IsReady()
 {
 	BroadcastReadyStateChanged();
