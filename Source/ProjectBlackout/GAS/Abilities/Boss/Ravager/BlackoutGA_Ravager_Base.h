@@ -27,7 +27,8 @@ protected:
 	virtual void SetupEventListeners() {}
 	virtual FGameplayTag SelectMontageTag(const FGameplayEventData* TriggerEventData) const;
 	virtual bool CanActivatePattern() const;
-	virtual bool HasValidSettings() const { return true; }  
+	virtual bool HasValidSettings() const { return true; }
+	virtual bool ShouldDamageTarget(AActor* Target) const;
 	
 	bool TryResolveMontage(const FGameplayEventData* TriggerEventData);
 	USceneComponent* TrySetupMotionWarp(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData);

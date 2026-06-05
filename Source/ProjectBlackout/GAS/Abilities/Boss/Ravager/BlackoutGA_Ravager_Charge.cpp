@@ -100,22 +100,6 @@ void UBlackoutGA_Ravager_Charge::HandleLoopStart(FGameplayEventData Payload)
 
 void UBlackoutGA_Ravager_Charge::TickChargeMovement(float DeltaTime)
 {
-	// if (bEndingTriggered || !CachedOwner) return;
-	//
-	// FVector Forward = CachedOwner->GetActorForwardVector();
-	// Forward.Z = 0.f;
-	// if (!Forward.Normalize()) return;
-	//
-	// CachedOwner->AddMovementInput(Forward, 1.f);
-	//
-	// if (UCharacterMovementComponent* Move = CachedOwner->GetCharacterMovement())
-	// {
-	// 	UE_LOG(LogTemp, Warning, TEXT("[Charge] MaxSpeed=%.1f / Mode=%d / Vel=%.1f / RootMotion=%d"),
-	// 		Move->MaxWalkSpeed,
-	// 		(int32)Move->MovementMode,
-	// 		CachedOwner->GetVelocity().Size(),
-	// 		Move->HasRootMotionSources() || Move->CurrentRootMotion.HasActiveRootMotionSources());
-	// }
 	if (bEndingTriggered || !CachedOwner || !CachedPatternData) return;
 
 	FVector Forward = CachedOwner->GetActorForwardVector();
@@ -142,8 +126,6 @@ void UBlackoutGA_Ravager_Charge::TickCheckDistance()
 
 	const float Dist2D = FVector::DistXY(CachedOwner->GetActorLocation(), CachedTargetComponent->GetComponentLocation());
 	
-	UE_LOG(LogTemp, Log, TEXT("[Charge] Dist2D=%.1f / StopDist=%.1f / Elapsed=%.2f"),
-	   Dist2D, ChargeSetting.ChargeStopDistance, ElapsedTime);
 	if (Dist2D <= ChargeSetting.ChargeStopDistance)
 	{
 		bShouldEnd = true;

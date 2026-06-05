@@ -2,6 +2,7 @@
 
 #include "Characters/BlackoutBossCharacter.h"
 #include "BlackoutGameplayTags.h"
+#include "BlackoutPlayerCharacter.h"
 #include "BORavagerBoss.h"
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 
@@ -81,6 +82,11 @@ FGameplayTag UBlackoutGA_Ravager_Base::SelectMontageTag(const FGameplayEventData
 bool UBlackoutGA_Ravager_Base::CanActivatePattern() const
 {
 	return CachedOwner && CachedPatternData && HasValidSettings();
+}
+
+bool UBlackoutGA_Ravager_Base::ShouldDamageTarget(AActor* Target) const
+{
+	return IsValid(Target) && Target->IsA(ABlackoutPlayerCharacter::StaticClass());
 }
 
 bool UBlackoutGA_Ravager_Base::TryResolveMontage(const FGameplayEventData* TriggerEventData)
