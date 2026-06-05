@@ -35,13 +35,20 @@ protected:
 	
 	void PullTarget(AActor* Target, float DeltaTime);
 	
-	
+	void SetBeingPulledTag(AActor* Target, bool bApply);
+
 private:
+	
+	void ClearAllPulledTags();
+	
 	UPROPERTY(Transient)
 	TObjectPtr<UAbilityTask_WaitGameplayEvent> WaitBeginEvent;
 	
 	UPROPERTY(Transient)
 	TObjectPtr<UAbilityTask_WaitGameplayEvent> WaitEndEvent;
+	
+	UPROPERTY()
+	TSet<TWeakObjectPtr<AActor>> PulledActors;
 	
 	FTimerHandle UpdateTimer;
 	
