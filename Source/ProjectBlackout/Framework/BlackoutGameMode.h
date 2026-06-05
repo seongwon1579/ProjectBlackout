@@ -51,6 +51,13 @@ protected:
 	
 	// seamless 도착 시 공통 집계 뒤 자식이 붙는 훅
 	virtual  void OnSeamlessArrival(APlayerController* PC) {};
+	
+	// 전원 퇴장 (정원 0) 이 grace동안 유지되면 호출
+	virtual void HandleEmptyServerReset(){}
+	
+	// 정원 0 grace 만료 콜백. 여전히 0이면 HandleEmptyServerReset 실행
+	void ConfirmEmptyServer();
+	
 	// 전원 Ready 성립 시 자식 GameMode 가 override 하여 액션을 정의하는 훅 (Lobby: StartBattle / Battle: 보스 활성).
 	virtual void OnAllPlayersReady() {}
 
@@ -68,10 +75,18 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Blackout|GameMode")
 	TArray<TObjectPtr<APlayerController>> ConnectedPlayers;
 	
+	// 정원 0 감지후 Idle 복귀까지 유예
+	UPROPERTY(EditDefaultsOnly , Category="Blackout|GameMode")
+	float EmptyServerGracePeriod =10.0f;
+	
+	FTimerHandle EmptyServerGraceHandle;
+	
 	// 레벨 전환 직전, 접속 중 전 클라에 화면 페이드아웃 브로드캐스트
 	void BroadcastScreenFadeOut(FLinearColor FadeColor);
 	
 	// 페이드아웃 후 실제 travel 까지 서버대기 
 	UPROPERTY(EditDefaultsOnly, Category="Blackout|Transition")
 	float FadeOutTravelDelay = 1.5f;
+	
+
 };

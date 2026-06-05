@@ -33,6 +33,7 @@ public class ProjectBlackout : ModuleRules
 			"Json",
 			"JsonUtilities",
 			"WebSockets",
+			"CoreOnline",
 			"DeveloperSettings",
 			// Plugin
 			"MotionWarping",
