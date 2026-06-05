@@ -6,6 +6,18 @@
 
 class IBlackoutPoolableInterface;
 
+// TMap의 값으로 TArray를 직접 UPROPERTY 지정할 수 없어(중첩 컨테이너 미지원) 구조체로 래핑합니다.
+// UPROPERTY로 노출해야 GC가 풀에 보관된 액터 참조를 추적하여, 파괴된 액터 포인터가 null로 정리되고
+// 살아있는 풀 액터는 수거되지 않습니다.
+USTRUCT()
+struct FBlackoutPooledActorArray
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	TArray<TObjectPtr<AActor>> Actors;
+};
+
 UCLASS()
 class PROJECTBLACKOUT_API UBlackoutPoolSubsystem : public UWorldSubsystem
 {
@@ -25,8 +37,9 @@ public:
 	void WarmUp(TSubclassOf<AActor> ActorClass, int32 Count);
 
 private:
-	// 클래스별 비활성 액터 풀
-	TMap<TSubclassOf<AActor>, TArray<TObjectPtr<AActor>>> InactivePool;
+	// 클래스별 비활성 액터 풀 (GC 추적을 위해 UPROPERTY)
+	UPROPERTY()
+	TMap<TSubclassOf<AActor>, FBlackoutPooledActorArray> InactivePool;
 
 	AActor* SpawnNewActor(TSubclassOf<AActor> ActorClass, const FTransform& SpawnTransform);
 };

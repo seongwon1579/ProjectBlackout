@@ -13,6 +13,8 @@
 #include "Kismet/GameplayStatics.h"
 #include  "Engine/GameInstance.h"
 #include "BlackoutMatchFlowSubsystem.h"
+#include "Characters/BlackoutBossCharacter.h"
+#include "EngineUtils.h"
 
 namespace
 {
@@ -128,6 +130,8 @@ void ABlackoutBattleGameMode::Logout(AController* Exiting)
 
 void ABlackoutBattleGameMode::OnBossDefeated()
 {
+	BO_LOG_NET(Log, "OnBossDefeated 진입 (중복 시 델리게이트/바인딩 다중 발화 의심)");
+
 	
 	UBlackoutMatchFlowSubsystem* Flow = GetGameInstance() ? GetGameInstance()->GetSubsystem<UBlackoutMatchFlowSubsystem>() : nullptr;
 	
@@ -140,8 +144,9 @@ void ABlackoutBattleGameMode::OnBossDefeated()
 	if (Flow->GetCurrentBossType() == EBossType::Mid)
 	{
 		Flow->AdvanceStage();
-		BO_LOG_NET(Log, "중간보스 처치 — AdvanceStage + 로비 복귀");
-		TravelToLobby(FLinearColor::White);
+		BO_LOG_NET(Log, "중간보스 처치 — 사망 연출 %.1fs 후 로비 복귀", MidBossDeathDelay);
+		GetWorldTimerManager().SetTimer(MidBossDeathDelayHandle, this,
+			&ABlackoutBattleGameMode::DoMidBossTravelToLobby, MidBossDeathDelay, false);
 	}
 	else
 	{
@@ -149,6 +154,17 @@ void ABlackoutBattleGameMode::OnBossDefeated()
 		EndMatch(EBlackoutMatchEndReason::BossDefeated);
 		GetWorldTimerManager().SetTimer(TitleTravelTimerHandle , this , &ABlackoutBattleGameMode::TravelToTitle ,5.0f , false);
 	}
+}
+
+void ABlackoutBattleGameMode::RegisterBoss(ABlackoutBossCharacter* Boss)
+{
+	if (!Boss)
+	{
+		return;
+	}
+	// 보스 BeginPlay OnDefeated 바인딩
+	Boss->OnDefeated.AddUObject(this, &ABlackoutBattleGameMode::OnBossDefeated);
+	BO_LOG_NET(Log , "보스 등록: %s — OnDefeated 바인딩", *GetNameSafe(Boss))
 }
 
 void ABlackoutBattleGameMode::BO_SimBossDefeated()
@@ -603,6 +619,11 @@ void ABlackoutBattleGameMode::DoTravelToLobby()
 	GetWorld()->ServerTravel(PackageName);
 }
 
+void ABlackoutBattleGameMode::DoMidBossTravelToLobby()
+{
+	TravelToLobby(FLinearColor::White);
+}
+
 void ABlackoutBattleGameMode::DoTravelToTitle()
 {
 	const FString URL = TitleMapPath.GetLongPackageName();
@@ -613,6 +634,20 @@ void ABlackoutBattleGameMode::DoTravelToTitle()
 		{
 			PC ->ClientTravel(URL ,TRAVEL_Absolute);
 		}
+	}
+
+	// 다음 매치를 위해 매치 진행 인덱스 초기화
+	if (UBlackoutMatchFlowSubsystem* Flow = GetGameInstance() ? GetGameInstance()->GetSubsystem<UBlackoutMatchFlowSubsystem>() : nullptr)
+	{
+		Flow->ResetStages();
+	}
+
+	// 서버 idle 복귀 → heartbeat mapName 갱신, 매칭 시스템 재가용 표시
+	if (LobbyMapPath.IsValid())
+	{
+		const FString LobbyPackage = LobbyMapPath.GetLongPackageName();
+		BO_LOG_NET(Log, "서버 idle 복귀 — ServerTravel -> %s", *LobbyPackage);
+		GetWorld()->ServerTravel(LobbyPackage);
 	}
 }
 
@@ -802,6 +837,8 @@ void ABlackoutBattleGameMode::TimeoutSurrenderVote()
 
 void ABlackoutBattleGameMode::StartBossCombat()
 {
+	BO_LOG_NET(Log, "StartBossCombat 진입 (StartBossCombat 진입 — 전투 상태 전이)");
+
 	const UBlackoutMatchFlowSubsystem* Flow = GetGameInstance() ? GetGameInstance() ->GetSubsystem<UBlackoutMatchFlowSubsystem>() : nullptr;
 	
 	if (!Flow)
@@ -814,6 +851,8 @@ void ABlackoutBattleGameMode::StartBossCombat()
 	
 	TransitionTo(NewState);
 	BO_LOG_NET(Log, "보스맵 전원 도착 — 전투 시작 (%s)", *UEnum::GetValueAsString(NewState));
+
+	
 }
 
 void ABlackoutBattleGameMode::TravelToTitle()

@@ -54,6 +54,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	bool AttachToOwner(FName SocketName);
 
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	virtual void OnEquipStateChanged(bool bEquipped);
+
 	UFUNCTION(BlueprintPure, Category = "Blackout|Animation")
 	bool HasLeftHandIKTarget() const;
 

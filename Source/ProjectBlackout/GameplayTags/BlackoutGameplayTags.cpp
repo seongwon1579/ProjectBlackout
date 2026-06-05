@@ -8,6 +8,7 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(State_BeingRevived,  "State.BeingRevived");
 	UE_DEFINE_GAMEPLAY_TAG(State_Dead,          "State.Dead");
 	UE_DEFINE_GAMEPLAY_TAG(State_Invulnerable,  "State.Invulnerable");
+	UE_DEFINE_GAMEPLAY_TAG(State_MovementLocked,"State.MovementLocked");
 	UE_DEFINE_GAMEPLAY_TAG(State_Locked,        "State.Locked");
 	UE_DEFINE_GAMEPLAY_TAG(State_Aiming,        "State.Aiming");
 	UE_DEFINE_GAMEPLAY_TAG(State_Sprinting,     "State.Sprinting");
@@ -200,14 +201,15 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Evade_R, "Ability.Ravager.Evade.R");
 	
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Shockwave, "Ability.Ravager.Shockwave");
-	
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_SpawnMinion, "Ability.Ravager.SpawnMinion");
-	
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Gorenado, "Ability.Ravager.Gorenado");
-	
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_EnergyBurst, "Ability.Ravager.EnergyBurst");
-	
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Charge, "Ability.Ravager.Charge");
+	
+	// ─── Ravager Gameplay Cues ──────────────────────────────────────────────────
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Ravager_Gorenado, "GameplayCue.Ravager.Gorenado");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Ravager_EnergyBurst, "GameplayCue.Ravager.EnergyBurst");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Ravager_Shockwave_Launch, "GameplayCue.Ravager.Shockwave.Launch");
 	
 	// ─── Hollow Abilities ──────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Hollow_Spawn, "Ability.Hollow.Spawn");
@@ -217,9 +219,14 @@ namespace BlackoutGameplayTags
 	// ─── Shrewd Abilities ──────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Shrewd_Teleport_ToPoint, "Ability.Shrewd.Teleport.ToPoint");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Shrewd_Teleport_ByEQS, "Ability.Shrewd.Teleport.ByEQS");
+	UE_DEFINE_GAMEPLAY_TAG(Cooldown_Shrewd_Teleport, "Cooldown.Shrewd.Teleport");
 	
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Shrewd_Fire_Arrow_Straight, "Ability.Shrewd.Fire.Arrow.Straight");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Shrewd_Fire_Arrow_Explosive, "Ability.Shrewd.Fire.Arrow.Explosive");
+	
+	// ─── Shrewd Gameplay Cues ──────────────────────────────────────────────────
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Shrewd_Projectile_Trail, "GameplayCue.Shrewd.Projectile.Trail");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Shrewd_Projectile_Explosion, "GameplayCue.Shrewd.Projectile.Explosion");
 	
 	// ─── Wraith Abilities ──────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Wraith_FireTwinArrows, "Ability.Wraith.FireTwinArrows");
@@ -230,13 +237,17 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Wraith_BowShove,"Ability.Wraith.BowShove");
 	UE_DEFINE_GAMEPLAY_TAG(Cooldown_Wraith_BowShove, "Cooldown.Wraith.BowShove");
 	
+	UE_DEFINE_GAMEPLAY_TAG(Event_Wraith_Teleport_Vanish, "Event.Wraith.Teleport.Vanish");
+	UE_DEFINE_GAMEPLAY_TAG(Event_Wraith_Teleport_Appear , "Event.Wraith.Teleport.Appear");
+	
 	// ─── Wraith Gameplay Cues ──────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Wraith_Fire, "GameplayCue.Wraith.Fire");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Wraith_Teleport_Start, "GameplayCue.Wraith.Teleport.Start");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Wraith_Teleport_End, "GameplayCue.Wraith.Teleport.End");
-	UE_DEFINE_GAMEPLAY_TAG(Event_Wraith_Teleport_Vanish, "Event.Wraith.Teleport.Vanish");
-	UE_DEFINE_GAMEPLAY_TAG(Event_Wraith_Teleport_Appear , "Event.Wraith.Teleport.Appear");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Wraith_BowShove, "GameplayCue.Wraith.BowShove");
+	
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Wraith_Projectile_Trail, "GameplayCue.Wraith.Projectile.Trail");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Wraith_Projectile_Explosion, "GameplayCue.Wraith.Projectile.Explosion");
 	
 	// ─── Attack Events ────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_OnCollision, "Event.Enemy.Attack.OnCollision");

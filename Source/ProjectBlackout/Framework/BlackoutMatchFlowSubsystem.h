@@ -22,9 +22,21 @@ public:
 	
 	// 보스 클리어 시 다음 스테이지로
 	void AdvanceStage(){++CurrentStageIndex;}
-	
+
+	// 매치 종료(메인보스 클리어) 후 다음 매치를 위해 진행 인덱스 초기화
+	void ResetStages(){CurrentStageIndex = 0;}
+
 	EBossType GetCurrentBossType() const;
+	
+	// 정원 , GameMode 가 InitGame 에서 읽어서 MaxPlayers 설정
+	int32 GetExpectedPlayers() const {return ExpectedPlayers; }
+	
+	// 싱글/멀티 진입시 정원 , 1 미만은 1로 클램프
+	void SetExpectedPlayers(int32 InCount) {ExpectedPlayers = FMath::Max(1 , InCount); }
 	
 private:
 	int32 CurrentStageIndex=0;
+	
+	// 멀티 기본 4 , 싱글 1
+	int32 ExpectedPlayers=4;
 };

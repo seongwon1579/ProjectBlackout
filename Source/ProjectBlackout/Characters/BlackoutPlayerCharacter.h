@@ -17,7 +17,9 @@ class UGameplayEffect;
 class UInputAction;
 class UAnimMontage;
 class ABlackoutPlayerCharacter;
+class ABlackoutPlayerState;
 class AActor;
+class USpotLightComponent;
 
 struct FInputActionValue;
 
@@ -207,6 +209,9 @@ public:
 	bool IsReviveInteractionActive() const { return IsBeingRevived(); }
 
 	UFUNCTION(BlueprintPure, Category = "Blackout|Interaction")
+	bool IsReadyInteractionMovementLocked() const { return bIsReadyInteractionMovementLocked; }
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|Interaction")
 	bool IsReviving() const;
 
 	UFUNCTION(BlueprintPure, Category = "Blackout|Interaction")
@@ -352,12 +357,35 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
 	bool StopRevivePerformMontage(UAnimMontage* Montage, float BlendOutTime = 0.1f);
 
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
+	bool PlayReadyCheckStartMontage(UAnimMontage* Montage, float PlayRate = 1.f);
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
+	bool PlayReadyCheckLoopMontage(UAnimMontage* Montage, float PlayRate = 1.f);
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
+	bool StopReadyCheckLoopMontage(UAnimMontage* Montage, float BlendOutTime = 0.1f);
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Animation")
+	bool PlayReadyCheckEndMontage(UAnimMontage* Montage, float PlayRate = 1.f);
+
 protected:
 	void ApplyDownedStateLocally();
 	void ClearDownedStateLocally();
 	void RestoreWeaponVisibilityAfterRevive();
 	void ScheduleWeaponVisibilityRestoreAfterRevive();
 	void HandleReviveMontageEnded(UAnimMontage* Montage, bool bInterrupted);
+	bool PlayReadyCheckStartLoopMontage(float PlayRate = 1.f);
+	void HandleReadyCheckStartMontageEnded(UAnimMontage* Montage, bool bInterrupted);
+	void HandleReadyCheckLoopMontageEnded(UAnimMontage* Montage, bool bInterrupted);
+	void HandleReadyCheckEndMontageEnded(UAnimMontage* Montage, bool bInterrupted);
+	void HandleReadyStateChanged(bool bIsReadyNow);
+	void BindReadyStateChangedDelegate();
+	void UnbindReadyStateChangedDelegate();
+	void SyncReadyStateAnimation();
+	void StopActiveReadyCheckMontages(float BlendOutTime);
+	void SetReadyInteractionWeaponHolstered(bool bNewHolstered);
+	void SetReadyInteractionMovementLocked(bool bNewLocked, bool bStopMovementImmediately);
 	void SetRevivingStateActive(bool bNewReviving);
 	void SetBeingRevivedStateActive(bool bNewBeingRevived);
 	void ApplyReplicatedReviveInteractionStateTag();
@@ -383,6 +411,9 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input")
 	TObjectPtr<UInputAction> MouseLookAction;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Input")
+	TObjectPtr<UInputAction> ToggleFlashlightAction;
 
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
@@ -429,6 +460,39 @@ protected:
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Animation")
 	bool bIsDeathMontagePlaying = false;
 
+	/** Ready Check 진입과 대기 루프를 같은 몽타주 섹션으로 처리할 때 사용하는 결합 몽타주입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Interaction")
+	TObjectPtr<UAnimMontage> ReadyCheckStartLoopMontage;
+
+	/** 결합 몽타주에서 Ready 진입용 시작 섹션 이름입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Interaction")
+	FName ReadyCheckStartSectionName = TEXT("Start");
+
+	/** 결합 몽타주에서 반복 대기용 루프 섹션 이름입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Interaction")
+	FName ReadyCheckLoopSectionName = TEXT("Loop");
+
+	/** Ready Check 진입 시 1회 재생 후 대기 루프로 넘어가는 시작 몽타주입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Interaction")
+	TObjectPtr<UAnimMontage> ReadyCheckStartMontage;
+
+	/** Ready Check 대기 중 반복 재생하는 루프 몽타주입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Interaction")
+	TObjectPtr<UAnimMontage> ReadyCheckLoopMontage;
+
+	/** Ready Check 취소 시 1회 재생하는 종료 몽타주입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Interaction")
+	TObjectPtr<UAnimMontage> ReadyCheckEndMontage;
+
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Interaction")
+	bool bIsReadyCheckLoopMontagePlaying = false;
+
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Interaction")
+	bool bIsReadyInteractionMovementLocked = false;
+
+	UPROPERTY(Transient)
+	bool bAppliedReadyInteractionLockedTag = false;
+
 	/** 서버의 State.BeingRevived 태그를 클라이언트 로컬 ASC 태그로 옮기기 위한 복제 브리지입니다. */
 	UPROPERTY(Transient, ReplicatedUsing = OnRep_ReviveInteractionActive, BlueprintReadOnly, Category = "Blackout|Interaction")
 	bool bIsReviveInteractionActive = false;
@@ -453,6 +517,9 @@ protected:
 
 	UPROPERTY(Transient)
 	TWeakObjectPtr<ABlackoutPlayerCharacter> ActiveReviver;
+
+	UPROPERTY(Transient)
+	TWeakObjectPtr<ABlackoutPlayerState> BoundReadyStatePlayerState;
 
 	FTimerHandle ReviveWeaponRestoreTimerHandle;
 	FTimerHandle DownedDeathTimerHandle;
@@ -488,6 +555,8 @@ protected:
 
 	UFUNCTION()
 	void OnRep_ReviveInteractionActive();
+
+	void ToggleFlashlight();
 
 	void BroadcastReviveInteractionStateChanged();
 	void UpdateFocusedInteractable(float DeltaSeconds);

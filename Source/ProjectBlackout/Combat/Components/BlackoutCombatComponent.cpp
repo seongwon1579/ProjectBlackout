@@ -752,6 +752,7 @@ void UBlackoutCombatComponent::RefreshWeaponAttachments() const
 		if (bEquippedWeaponHiddenOverride && Weapon == EquippedWeapon)
 		{
 			Weapon->SetActorHiddenInGame(true);
+			Weapon->OnEquipStateChanged(bAttachAsEquipped);
 			return;
 		}
 
@@ -760,6 +761,7 @@ void UBlackoutCombatComponent::RefreshWeaponAttachments() const
 		const FName SocketName = bAttachAsEquipped ? EquippedWeaponSocketName : Weapon->GetHolsterSocketName();
 		if (SocketName.IsNone())
 		{
+			Weapon->OnEquipStateChanged(bAttachAsEquipped);
 			return;
 		}
 
@@ -767,6 +769,8 @@ void UBlackoutCombatComponent::RefreshWeaponAttachments() const
 		{
 			Weapon->SetActorHiddenInGame(false);
 		}
+
+		Weapon->OnEquipStateChanged(bAttachAsEquipped);
 	};
 
 	const bool bPrimaryEquipped = EquippedWeapon == PrimaryWeapon;

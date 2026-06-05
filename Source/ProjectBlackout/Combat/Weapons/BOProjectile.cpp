@@ -2,9 +2,12 @@
 
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemInterface.h"
+#include "AbilitySystemGlobals.h"
+#include "GameplayCueManager.h"
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "Combat/Components/BlackoutHitboxComponent.h"
 #include "Combat/BlackoutWeaponCueLibrary.h"
+#include "Components/SceneComponent.h"
 #include "Components/SphereComponent.h"
 #include "Core/BlackoutLog.h"
 #include "GameFramework/ProjectileMovementComponent.h"
@@ -17,6 +20,10 @@ ABOProjectile::ABOProjectile()
 	PrimaryActorTick.bCanEverTick = false;
 	bReplicates = true;
 	SetReplicateMovement(false);
+	// 풀링 발사체는 수명이 짧고 재사용이 잦아 네트 도먼시 이득이 거의 없는 반면,
+	// "도먼트 → 재사용 시 깨우기 → 같은 프레임 상태 변경 → 재도먼트" 사이클에서
+	// 깨어난 직후 첫 업데이트의 NetState 델타가 누락되는 레이스를 유발한다.
+	// 항상 Awake로 유지해 Launch의 ForceNetUpdate가 NetState를 확실히 복제하게 한다.
 	SetNetDormancy(DORM_Awake);
 	SetNetUpdateFrequency(60.f);
 	SetMinNetUpdateFrequency(30.f);
@@ -26,6 +33,9 @@ ABOProjectile::ABOProjectile()
 	Collision->OnComponentHit.AddDynamic(this, &ABOProjectile::OnHit);
 	// 충돌 HitResult에서 표면 재질 기반 GCN을 고를 수 있게 피지컬 머티리얼을 반환합니다.
 	Collision->bReturnMaterialOnMove = true;
+
+	TrailCueAttachComponent = CreateDefaultSubobject<USceneComponent>(TEXT("TrailCueAttachComponent"));
+	TrailCueAttachComponent->SetupAttachment(Collision);
 
 	Movement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("Movement"));
 	Movement->bAutoActivate = false;
@@ -40,12 +50,10 @@ void ABOProjectile::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 
 void ABOProjectile::OnSpawnFromPool_Implementation()
 {
-	if (HasAuthority())
-	{
-		SetNetDormancy(DORM_Awake);
-		FlushNetDormancy();
-	}
-
+	bReturnedToPool = false;
+	
+	// 풀 재사용 시 LifeSpan 타이머 재무장. InitialLifeSpan(BP 기본값)이 0이면 자동 정리 없음(히트로만 반환).
+	SetLifeSpan(InitialLifeSpan);
 	ApplyActiveState(true);
 	Movement->Velocity = FVector::ZeroVector;
 }
@@ -57,8 +65,21 @@ void ABOProjectile::BeginPlay()
 	ApplyProjectileNetState();
 }
 
+void ABOProjectile::LifeSpanExpired()
+{
+	// 엔진 기본 동작(Destroy) 대신 풀로 반환. 권한 없는 클라이언트는 무시(서버 복제로 상태 동기화).
+	SetLifeSpan(0.0f);
+	if (HasAuthority())
+	{
+		ReturnToPool();
+	}
+}
+
 void ABOProjectile::OnReturnToPool_Implementation()
 {
+	// 풀 대기 중 엔진 LifeSpan 타이머가 액터를 Destroy하지 않도록 취소.
+	SetLifeSpan(0.0f);
+
 	SetActorHiddenInGame(true);
 	if (HasAuthority())
 	{
@@ -72,8 +93,8 @@ void ABOProjectile::OnReturnToPool_Implementation()
 
 	if (HasAuthority())
 	{
+		// 도먼시는 사용하지 않는다(생성자 주석 참고). 비활성 상태는 ForceNetUpdate로만 전파한다.
 		ForceNetUpdate();
-		SetNetDormancy(DORM_DormantAll);
 	}
 }
 
@@ -97,32 +118,19 @@ void ABOProjectile::Launch(const FVector& Direction)
 	}
 
 	// firer(발사자) 자기충돌 무시. 풀 재사용 대비 이전 ignore 목록 클리어 후 현재 firer 등록.
-	if (Collision)
-	{
-		Collision->ClearMoveIgnoreActors();
-		AActor* Firer = GetInstigator();
-		if (!Firer)
-		{
-			Firer = GetOwner();
-		}
-		if (Firer)
-		{
-			Collision->IgnoreActorWhenMoving(Firer, true);
-		}
-	}
+	IgnoreFirerWhenMoving();
 
 	Movement->Velocity = Direction.GetSafeNormal() * Movement->InitialSpeed;
 	Movement->SetActive(true, true);
 
 	if (HasAuthority())
 	{
-		SetNetDormancy(DORM_Awake);
-		FlushNetDormancy();
 		++ReplicatedNetState.StateId;
 		ReplicatedNetState.bActive = true;
 		ReplicatedNetState.Location = GetActorLocation();
 		ReplicatedNetState.Direction = Direction.GetSafeNormal();
 		ReplicatedNetState.Speed = Movement->InitialSpeed;
+		ReplicatedNetState.GravityScale = Movement->ProjectileGravityScale;
 		ApplyProjectileNetState();
 		ForceNetUpdate();
 	}
@@ -167,6 +175,12 @@ void ABOProjectile::ApplyProjectileNetState()
 	{
 		return;
 	}
+	
+	Movement->ProjectileGravityScale = ReplicatedNetState.GravityScale;
+
+	// 클라이언트도 발사자 자기충돌을 무시해야 스폰 즉시 발사자 콜리전에 막혀 정지하는 것을 방지.
+	// Launch는 서버에서만 실행되므로 클라 발사 경로(이 함수)에서 별도로 설정한다.
+	IgnoreFirerWhenMoving();
 
 	SetActorLocationAndRotation(
 		ReplicatedNetState.Location,
@@ -176,6 +190,26 @@ void ABOProjectile::ApplyProjectileNetState()
 		ETeleportType::TeleportPhysics);
 	Movement->Velocity = FVector(ReplicatedNetState.Direction) * ReplicatedNetState.Speed;
 	Movement->SetActive(true, true);
+}
+
+void ABOProjectile::IgnoreFirerWhenMoving()
+{
+	if (!Collision)
+	{
+		return;
+	}
+
+	// 풀 재사용 대비 이전 ignore 목록 클리어 후 현재 firer 등록.
+	Collision->ClearMoveIgnoreActors();
+	AActor* Firer = GetInstigator();
+	if (!Firer)
+	{
+		Firer = GetOwner();
+	}
+	if (Firer)
+	{
+		Collision->IgnoreActorWhenMoving(Firer, true);
+	}
 }
 
 void ABOProjectile::ApplyActiveState(bool bIsActive)
@@ -191,6 +225,33 @@ void ABOProjectile::ApplyActiveState(bool bIsActive)
 	{
 		Movement->Deactivate();
 		Movement->Velocity = FVector::ZeroVector;
+	}
+
+	// Trail Gameplay Cue 로컬 제어
+	if (TrailCueTag.IsValid())
+	{
+		if (UGameplayCueManager* CueManager = UAbilitySystemGlobals::Get().GetGameplayCueManager())
+		{
+			USceneComponent* AttachComponent = TrailCueAttachComponent ? TrailCueAttachComponent.Get() : GetRootComponent();
+			if (AttachComponent)
+			{
+				AttachComponent->SetRelativeLocation(TrailCueLocationOffset);
+			}
+
+			FGameplayCueParameters Params;
+			Params.EffectCauser = this;
+			Params.TargetAttachComponent = AttachComponent;
+
+			if (bIsActive)
+			{
+				CueManager->HandleGameplayCue(this, TrailCueTag, EGameplayCueEvent::OnActive, Params);
+				CueManager->HandleGameplayCue(this, TrailCueTag, EGameplayCueEvent::WhileActive, Params);
+			}
+			else
+			{
+				CueManager->HandleGameplayCue(this, TrailCueTag, EGameplayCueEvent::Removed, Params);
+			}
+		}
 	}
 }
 
@@ -239,19 +300,44 @@ void ABOProjectile::ExecuteImpactCue(const FHitResult& Hit) const
 	}
 
 	FGameplayCueParameters CueParameters = UBlackoutWeaponCueLibrary::BuildImpactCueParameters(const_cast<ABOProjectile*>(this), Hit);
+	ExecuteProjectileGameplayCue(ImpactCueTag, CueParameters);
+}
+
+void ABOProjectile::ExecuteProjectileGameplayCue(FGameplayTag CueTag, const FGameplayCueParameters& CueParameters) const
+{
+	if (!CueTag.IsValid())
+	{
+		BO_LOG_CORE(Warning, "ExecuteProjectileGameplayCue skipped: CueTag가 유효하지 않음 (Projectile=%s)", *GetNameSafe(this));
+		return;
+	}
+
 	if (ABlackoutPlayerCharacter* InstigatorCharacter = Cast<ABlackoutPlayerCharacter>(GetInstigator()))
 	{
-		InstigatorCharacter->Multicast_ExecuteWeaponGameplayCue(ImpactCueTag, CueParameters, false);
+		InstigatorCharacter->Multicast_ExecuteWeaponGameplayCue(CueTag, CueParameters, false);
 		return;
 	}
 
 	if (ABlackoutPlayerCharacter* OwnerCharacter = Cast<ABlackoutPlayerCharacter>(GetOwner()))
 	{
-		OwnerCharacter->Multicast_ExecuteWeaponGameplayCue(ImpactCueTag, CueParameters, false);
+		OwnerCharacter->Multicast_ExecuteWeaponGameplayCue(CueTag, CueParameters, false);
 		return;
 	}
 
-	UBlackoutWeaponCueLibrary::ExecuteWeaponCue(GetCueAbilitySystemComponent(), ImpactCueTag, CueParameters);
+	if (UAbilitySystemComponent* AbilitySystemComponent = GetCueAbilitySystemComponent())
+	{
+		AbilitySystemComponent->ExecuteGameplayCue(CueTag, CueParameters);
+		return;
+	}
+
+	if (UGameplayCueManager* CueManager = UAbilitySystemGlobals::Get().GetGameplayCueManager())
+	{
+		CueManager->HandleGameplayCue(const_cast<ABOProjectile*>(this), CueTag, EGameplayCueEvent::Executed, CueParameters);
+		return;
+	}
+
+	BO_LOG_CORE(Error, "ExecuteProjectileGameplayCue failed: ASC와 GameplayCueManager가 모두 유효하지 않음 (Projectile=%s, Cue=%s)",
+	            *GetNameSafe(this),
+	            *CueTag.ToString());
 }
 
 UAbilitySystemComponent* ABOProjectile::GetCueAbilitySystemComponent() const
@@ -278,6 +364,13 @@ void ABOProjectile::ReturnToPool()
 	{
 		return;
 	}
+
+	// 같은 프레임에 OnHit이 여러 번 발생해도 풀 반환은 한 번만. (이중 반환 → 풀 중복 등록 방지)
+	if (bReturnedToPool)
+	{
+		return;
+	}
+	bReturnedToPool = true;
 
 	if (UWorld* World = GetWorld())
 	{

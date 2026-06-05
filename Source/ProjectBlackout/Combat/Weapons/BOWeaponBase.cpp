@@ -111,3 +111,8 @@ FTransform ABOWeaponBase::GetLeftHandIKTransform() const
 
 	return WeaponMesh->GetSocketTransform(LeftHandIKSocketName);
 }
+
+void ABOWeaponBase::OnEquipStateChanged(bool bEquipped)
+{
+	// 기본 구현은 비워두고 자식 클래스에서 재정의합니다.
+}

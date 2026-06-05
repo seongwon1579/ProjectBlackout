@@ -135,7 +135,7 @@ protected:
 	void Multicast_PlayBreakDustEffect();
 
 private:
-	// Reset 시 원래 위치로 복원하기 위한 조각 초기 트랜스폼입니다.
+	// Reset 시 ChildActorComponent 기준 원래 상대 위치로 복원하기 위한 조각 초기 트랜스폼입니다.
 	UPROPERTY()
 	TArray<FTransform> InitialPieceTransforms;
 
@@ -174,6 +174,9 @@ private:
 
 	// ChildActor 내부에서 주 물리 컴포넌트를 찾습니다.
 	UPrimitiveComponent* ResolvePrimitiveFromChild(UChildActorComponent* ChildActorComponent) const;
+
+	// ChildActorComponent가 보유한 현재 월드 트랜스폼에 자식 액터를 다시 맞춥니다.
+	void SyncChildActorToComponent(UChildActorComponent* ChildActorComponent) const;
 
 	// 물리 또는 이동이 필요한 컴포넌트가 Movable 상태인지 보장합니다.
 	void EnsurePrimitiveIsMovable(UPrimitiveComponent* PrimitiveComponent) const;

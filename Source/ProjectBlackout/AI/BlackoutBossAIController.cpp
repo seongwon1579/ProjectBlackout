@@ -16,18 +16,12 @@ void ABlackoutBossAIController::RecordDamage(APawn* Source, float Amount)
 void ABlackoutBossAIController::OnPossess(APawn* InPawn)
 {
 	Super::OnPossess(InPawn);
-
-	CachedASC = nullptr;
-	if (IAbilitySystemInterface* ASI = Cast<IAbilitySystemInterface>(InPawn))
-	{
-		CachedASC = ASI->GetAbilitySystemComponent();
-	}
+	PreInitialize(InPawn);
 	
 	// Aggro
 	AggroEvaluator = NewObject<UBlackoutAggroEvaluator>(this);
 	AggroEvaluator->OnAggroTargetChanged.AddUObject(this,&ABlackoutBossAIController::HandleAggroTargetChanged);
 	AggroEvaluator->Initialize(this, CachedASC);
-	
 }
 
 void ABlackoutBossAIController::OnUnPossess()
@@ -38,4 +32,13 @@ void ABlackoutBossAIController::OnUnPossess()
 	AggroEvaluator = nullptr;
 	
 	Super::OnUnPossess();
+}
+
+void ABlackoutBossAIController::PreInitialize(APawn* InPawn)
+{
+	CachedASC = nullptr;
+	if (IAbilitySystemInterface* ASI = Cast<IAbilitySystemInterface>(InPawn))
+	{
+		CachedASC = ASI->GetAbilitySystemComponent();
+	}
 }

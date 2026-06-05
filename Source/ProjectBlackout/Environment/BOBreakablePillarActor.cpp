@@ -249,6 +249,15 @@ void ABOBreakablePillarActor::RefreshBreakPieces()
 		return !IsValid(PieceComponent);
 	});
 
+	// 패키징 실행에서는 ChildActor가 초기 월드 좌표를 잠깐 잘못 들고 오는 경우가 있어
+	// 캐시 전에 각 컴포넌트 기준 위치로 한 번 다시 정렬합니다.
+	SyncChildActorToComponent(WholeMesh);
+
+	for (UChildActorComponent* PieceComponent : BreakPieces)
+	{
+		SyncChildActorToComponent(PieceComponent);
+	}
+
 	CacheInitialPieceTransforms();
 }
 
@@ -351,6 +360,8 @@ void ABOBreakablePillarActor::ApplyWholeMeshState(bool bVisible)
 		return;
 	}
 
+	SyncChildActorToComponent(WholeMesh);
+
 	WholeMesh->SetHiddenInGame(!bVisible, true);
 	WholeMesh->SetVisibility(bVisible, true);
 
@@ -416,19 +427,9 @@ void ABOBreakablePillarActor::CacheInitialPieceTransforms()
 
 	for (UChildActorComponent* PieceComponent : BreakPieces)
 	{
-		FTransform InitialTransform = FTransform::Identity;
-
-		if (IsValid(PieceComponent))
-		{
-			if (AActor* PieceChildActor = PieceComponent->GetChildActor())
-			{
-				InitialTransform = PieceChildActor->GetActorTransform();
-			}
-			else
-			{
-				InitialTransform = PieceComponent->GetComponentTransform();
-			}
-		}
+		const FTransform InitialTransform = IsValid(PieceComponent)
+			? PieceComponent->GetRelativeTransform()
+			: FTransform::Identity;
 
 		InitialPieceTransforms.Add(InitialTransform);
 	}
@@ -453,14 +454,17 @@ void ABOBreakablePillarActor::RestorePieceTransforms()
 			PrimitiveComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		}
 
-		if (AActor* PieceChildActor = PieceComponent->GetChildActor())
+		if (PieceComponent->Mobility != EComponentMobility::Movable)
 		{
-			const FTransform RestoreTransform = InitialPieceTransforms.IsValidIndex(Index)
-				? InitialPieceTransforms[Index]
-				: PieceComponent->GetComponentTransform();
-
-			PieceChildActor->SetActorTransform(RestoreTransform, false, nullptr, ETeleportType::ResetPhysics);
+			PieceComponent->SetMobility(EComponentMobility::Movable);
 		}
+
+		const FTransform RestoreRelativeTransform = InitialPieceTransforms.IsValidIndex(Index)
+			? InitialPieceTransforms[Index]
+			: PieceComponent->GetRelativeTransform();
+
+		PieceComponent->SetRelativeTransform(RestoreRelativeTransform);
+		SyncChildActorToComponent(PieceComponent);
 	}
 }
 
@@ -596,6 +600,35 @@ UPrimitiveComponent* ABOBreakablePillarActor::ResolvePrimitiveFromChild(UChildAc
 	}
 
 	return Cast<UPrimitiveComponent>(ChildActor->GetComponentByClass(UPrimitiveComponent::StaticClass()));
+}
+
+void ABOBreakablePillarActor::SyncChildActorToComponent(UChildActorComponent* ChildActorComponent) const
+{
+	if (!IsValid(ChildActorComponent))
+	{
+		return;
+	}
+
+	if (ChildActorComponent->Mobility != EComponentMobility::Movable)
+	{
+		ChildActorComponent->SetMobility(EComponentMobility::Movable);
+	}
+
+	AActor* ChildActor = ChildActorComponent->GetChildActor();
+	if (!IsValid(ChildActor))
+	{
+		return;
+	}
+
+	if (USceneComponent* ChildRootComponent = ChildActor->GetRootComponent())
+	{
+		if (ChildRootComponent->Mobility != EComponentMobility::Movable)
+		{
+			ChildRootComponent->SetMobility(EComponentMobility::Movable);
+		}
+	}
+
+	ChildActor->SetActorTransform(ChildActorComponent->GetComponentTransform(), false, nullptr, ETeleportType::ResetPhysics);
 }
 
 void ABOBreakablePillarActor::EnsurePrimitiveIsMovable(UPrimitiveComponent* PrimitiveComponent) const

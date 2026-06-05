@@ -15,7 +15,9 @@
 #include "Data/BOCharacterRoster.h"
 #include "UI/BlackoutClassSelectWidget.h"
 #include "UI/BlackoutClassSelectWidgetController.h"
+#include "UI/BlackoutMainMenuWidget.h"
 #include "Camera/PlayerCameraManager.h"
+#include "InputCoreTypes.h"
 
 void ABlackoutPlayerController::AcknowledgePossession(APawn* P)
 {
@@ -74,6 +76,56 @@ void ABlackoutPlayerController::CloseClassSelectUI()
 			}
 		}
 	}
+}
+
+void ABlackoutPlayerController::OpenPlayerMenu()
+{
+	if (!IsLocalPlayerController() || ActivePlayerMenuWidget)
+	{
+		return;
+	}
+
+	if (!PlayerMenuWidgetClass)
+	{
+		BO_LOG_CORE(Warning, "OpenPlayerMenu 실패: PlayerMenuWidgetClass가 설정되지 않았습니다.");
+		return;
+	}
+
+	ActivePlayerMenuWidget = CreateWidget<UBlackoutMainMenuWidget>(this, PlayerMenuWidgetClass);
+	if (!ActivePlayerMenuWidget)
+	{
+		BO_LOG_CORE(Warning, "OpenPlayerMenu 실패: 인게임 메뉴 위젯 생성에 실패했습니다.");
+		return;
+	}
+
+	// 인게임 ESC 메뉴 전용 모드로 전환하여 불필요한 메인메뉴 버튼을 숨깁니다.
+	ActivePlayerMenuWidget->bUseAsInGameMenu = true;
+	ActivePlayerMenuWidget->OnMenuClosed.AddDynamic(this, &ABlackoutPlayerController::HandlePlayerMenuClosed);
+	ActivePlayerMenuWidget->AddToViewport(110);
+
+	FInputModeUIOnly InputMode;
+	InputMode.SetWidgetToFocus(ActivePlayerMenuWidget->TakeWidget());
+	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+	SetInputMode(InputMode);
+	bShowMouseCursor = true;
+
+	ActivePlayerMenuWidget->SetKeyboardFocus();
+}
+
+void ABlackoutPlayerController::ClosePlayerMenu()
+{
+	if (!ActivePlayerMenuWidget)
+	{
+		return;
+	}
+
+	ActivePlayerMenuWidget->OnMenuClosed.RemoveDynamic(this, &ABlackoutPlayerController::HandlePlayerMenuClosed);
+	ActivePlayerMenuWidget->RemoveFromParent();
+	ActivePlayerMenuWidget = nullptr;
+
+	FInputModeGameOnly InputMode;
+	SetInputMode(InputMode);
+	bShowMouseCursor = false;
 }
 
 void ABlackoutPlayerController::Client_StartScreenFadeOut_Implementation(
@@ -146,7 +198,7 @@ void ABlackoutPlayerController::Server_SetReady_Implementation(bool bNewReady)
 	{
 		return;
 	}
-	PS->bIsReady = bNewReady;
+	PS->SetReadyState(bNewReady);
 	BO_LOG_NET(Log , "Server_SetReady:%s -> %s",*GetName(), bNewReady ? TEXT("Ready") : TEXT("NotReady"));
 	
 	// Lobby / Battle 공통. 부모 GameMode 의 NotifyReadyChanged 가 자식의 OnAllPlayersReady 훅을 호출.
@@ -362,6 +414,11 @@ void ABlackoutPlayerController::SetupInputComponent()
 		return;
 	}
 
+	if (InputComponent)
+	{
+		InputComponent->BindKey(EKeys::Escape, IE_Pressed, this, &ABlackoutPlayerController::OnMenuTogglePressed);
+	}
+
 	if (UEnhancedInputLocalPlayerSubsystem* InputSubsystem =
 		ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LocalPlayer))
 	{
@@ -524,9 +581,32 @@ void ABlackoutPlayerController::OnClassSelectCancelPressed()
 	CloseClassSelectUI();
 }
 
+void ABlackoutPlayerController::OnMenuTogglePressed()
+{
+	// 캐릭터 선택 UI가 열려 있으면 메뉴보다 먼저 닫기 동작을 우선합니다.
+	if (ClassSelectWidget || ClassSelectController)
+	{
+		CloseClassSelectUI();
+		return;
+	}
+
+	if (ActivePlayerMenuWidget)
+	{
+		ClosePlayerMenu();
+		return;
+	}
+
+	OpenPlayerMenu();
+}
+
 void ABlackoutPlayerController::HandleClassSelectionConfirmed()
 {
 	CloseClassSelectUI();
+}
+
+void ABlackoutPlayerController::HandlePlayerMenuClosed()
+{
+	ClosePlayerMenu();
 }
 
 void ABlackoutPlayerController::OnFirePressed()
@@ -842,10 +922,9 @@ void ABlackoutPlayerController::StartScreenFadeIn()
 	PlayerCameraManager->StartCameraFade(1.0f, 0.0f , ScreenFadeDuration , LastFadeColor , false , false);
 }
 
-#if WITH_EDITOR || UE_BUILD_DEVELOPMENT
-
 void ABlackoutPlayerController::BO_SetMatchState(const FString& NewStateStr)
 {
+#if WITH_EDITOR || UE_BUILD_DEVELOPMENT
 	FString TargetState = NewStateStr.ToLower().TrimStartAndEnd();
 	EBlackoutMatchState SelectedState = EBlackoutMatchState::WaitingForPlayers;
 	bool bIsValid = false;
@@ -904,20 +983,29 @@ void ABlackoutPlayerController::BO_SetMatchState(const FString& NewStateStr)
 	{
 		BO_LOG_CORE(Warning, TEXT("알 수 없는 매치 상태 치트 문자열입니다: %s"), *NewStateStr);
 	}
+#else
+	BO_LOG_CORE(Warning, TEXT("개발 빌드가 아닌 환경에서는 매치 상태 치트 명령을 사용할 수 없습니다: %s"), *NewStateStr);
+#endif
 }
 
 void ABlackoutPlayerController::Server_SetMatchStateCheat_Implementation(EBlackoutMatchState NewState)
 {
+#if WITH_EDITOR || UE_BUILD_DEVELOPMENT
 	if (ABlackoutGameState* GS = GetWorld() ? GetWorld()->GetGameState<ABlackoutGameState>() : nullptr)
 	{
 		GS->SetMatchState(NewState);
 		BO_LOG_NET(Log, TEXT("치트 명령어로 매치 상태를 강제 전환했습니다: %s"), *UEnum::GetValueAsString(NewState));
 	}
+#else
+	BO_LOG_NET(Warning, TEXT("개발 빌드가 아닌 환경에서 매치 상태 치트 RPC가 차단되었습니다: %s"), *UEnum::GetValueAsString(NewState));
+#endif
 }
 
 bool ABlackoutPlayerController::Server_SetMatchStateCheat_Validate(EBlackoutMatchState NewState)
 {
+#if WITH_EDITOR || UE_BUILD_DEVELOPMENT
 	return true;
+#else
+	return false;
+#endif
 }
-#endif 
-

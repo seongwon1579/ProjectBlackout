@@ -9,6 +9,6 @@ void UBOGA_Shrewd_FireStraightArrow::LaunchProjectile(ABOProjectile* Arrow, cons
 {
 	if (!Arrow) return;
 
-	const FVector Velocity = (TargetLocation - SpawnLocation).GetSafeNormal() * StraightSpeed;
+	const FVector Velocity = (TargetLocation - SpawnLocation).GetSafeNormal();
 	Arrow->Launch(Velocity);
 }

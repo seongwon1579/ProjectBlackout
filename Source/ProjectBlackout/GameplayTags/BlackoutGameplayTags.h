@@ -11,6 +11,7 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_BeingRevived);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Dead);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Invulnerable);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_MovementLocked);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Locked);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Aiming);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Sprinting);
@@ -203,14 +204,15 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_Evade_R);
 	
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_Shockwave);
-	
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_SpawnMinion);
-	
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_Gorenado);
-	
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_EnergyBurst);
-	
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_Charged);
+	
+	// ─── Ravager Gameplay Cues ─────────────────────────────────────────────────────────
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Ravager_Gorenado);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Ravager_EnergyBurst);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Ravager_Shockwave_Launch);
 	
 	// ─── Hollow Abilities ──────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Hollow_Spawn);
@@ -220,9 +222,14 @@ namespace BlackoutGameplayTags
 	// ─── Shrewd Abilities ──────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Shrewd_Teleport_ToPoint);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Shrewd_Teleport_ByEQS);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Cooldown_Shrewd_Teleport);
 	
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Shrewd_Fire_Arrow_Straight);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Shrewd_Fire_Arrow_Explosive);
+	
+	// ─── Shrewd Gameplay Cues ─────────────────────────────────────────────────────────
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Shrewd_Projectile_Trail);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Shrewd_Projectile_Explosion);
 
 	// ─── Wraith Abilities ─────────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Wraith_FireTwinArrows);
@@ -233,13 +240,17 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Wraith_BowShove);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Cooldown_Wraith_BowShove);
 	
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Wraith_Teleport_Vanish);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Wraith_Teleport_Appear);
+	
 	// ─── Wraith Gameplay Cues ───────────────────────────────────────────────────────── 
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Wraith_Fire);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Wraith_Teleport_Start);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Wraith_Teleport_End);
-	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Wraith_Teleport_Vanish);
-	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Wraith_Teleport_Appear);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Wraith_BowShove);
+	
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Wraith_Projectile_Trail);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Wraith_Projectile_Explosion);
 	
 	// ─── Attack Events ────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Enemy_Attack_OnCollision);

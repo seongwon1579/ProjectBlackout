@@ -8,6 +8,7 @@
 enum class EBlackoutMatchEndReason : uint8;
 class ABlackoutPlayerCharacter;
 class ABlackoutPlayerController;
+class ABlackoutBossCharacter;
 /**
  * 전투 레벨 전용 GameMode. 전투 진입 자원 초기화 / 체크포인트 등록 / 파티 전멸 복귀 처리.
  */
@@ -24,6 +25,9 @@ public:
 	// 중간 보스 처치 시 보스 사망 로직에서 호출. 보스 구현 후 연결된다.
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Battle")
 	void OnBossDefeated();
+	
+	// 보스가 BeginPlay에서 자기 등록 
+	void RegisterBoss(ABlackoutBossCharacter* Boss);
 
 	// [테스트 전용] 콘솔에서 중간 보스 처치 시뮬레이션. 보스/4인 없이 루프 검증용.
 	UFUNCTION(Exec)
@@ -64,10 +68,14 @@ protected:
 	virtual void PreLogin(const FString& Options, const FString& Address,
 		const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage) override;
 
-	// 항복 가결 시 복귀할 로비 맵 경로 
+	// 항복 가결 시 복귀할 로비 맵 경로
 	UPROPERTY(EditDefaultsOnly , Category="Blackout|Battle")
 	FSoftObjectPath LobbyMapPath;
-	
+
+	// 중간보스 사망 → 페이드 시작까지 대기(초). 사망 애님 자연스럽게 보이도록.
+	UPROPERTY(EditDefaultsOnly, Category="Blackout|Battle")
+	float MidBossDeathDelay = 2.0f;
+
 	void TravelToLobby(FLinearColor FadeColor);
 	
 	// 메인보스 클리어후 복귀 타이틀 맵 
@@ -109,6 +117,9 @@ private:
 	
 	void TravelToTitle();
 	FTimerHandle TitleTravelTimerHandle;
+
+	void DoMidBossTravelToLobby();
+	FTimerHandle MidBossDeathDelayHandle;
 
 	FTimerHandle SurrenderVoteTimerHandle;
 

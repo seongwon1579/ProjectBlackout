@@ -82,44 +82,61 @@ void UBlackoutPlayerAnimInstance::UpdateAimOffset(float DeltaSeconds)
 	UpdateAimTarget();
 
 	const FVector AimOrigin = CombatComponent->GetMuzzleTransform().GetLocation();
-	FVector SafeAimTarget = AimTargetLocation;
 
 	// 뷰 방향 벡터 조회
 	FVector ViewLocation = FVector::ZeroVector;
 	FRotator ViewRotation = FRotator::ZeroRotator;
-	GetAimTraceViewPoint(ViewLocation, ViewRotation);
+	if (!GetAimTraceViewPoint(ViewLocation, ViewRotation))
+	{
+		ResetAimOffset();
+		ReplicateAimOffset(DeltaSeconds);
+		return;
+	}
+
 	const FVector ViewDir = ViewRotation.Vector();
 
-	// 부호화 투영 거리(내적) 계산: 총구가 타겟을 뚫고 들어가면 음수(-)가 되어 항상 폴백 처리 보장
+	// 부호화 투영 거리(내적)로 근거리 파랄랙스가 커지는 구간을 판정합니다.
 	const float ProjectedDistance = FVector::DotProduct(AimTargetLocation - AimOrigin, ViewDir);
 
-	// Alpha 계산: ProjectedDistance가 Threshold 이하(음수 포함)이면 1.0(완전 폴백), Threshold + BlendRange 이상이면 0.0(완전 기본)
-	float BlendAlpha = 0.f;
-	if (ProjectedDistance <= SafeAimDistanceThreshold)
+	const float TargetViewBlendAlpha = BlackoutAimOffsetMath::CalculateEyeBlendAlpha(ProjectedDistance, AimOffsetBlendSettings);
+	CurrentAimOffsetViewBlendAlpha = BlackoutAimOffsetMath::InterpEyeBlendAlpha(
+		CurrentAimOffsetViewBlendAlpha,
+		TargetViewBlendAlpha,
+		DeltaSeconds,
+		AimOffsetBlendSettings);
+
+	const FRotator MuzzleAimRotation = UKismetMathLibrary::FindLookAtRotation(AimOrigin, AimTargetLocation);
+	FRotator ViewTargetAimRotation = ViewRotation;
+	const FVector EyeLocation = PlayerCharacter->GetPawnViewLocation();
+	if ((AimTargetLocation - EyeLocation).SizeSquared() > KINDA_SMALL_NUMBER)
 	{
-		BlendAlpha = 1.0f;
-	}
-	else if (ProjectedDistance >= SafeAimDistanceThreshold + SafeAimBlendRange)
-	{
-		BlendAlpha = 0.0f;
-	}
-	else if (SafeAimBlendRange > 0.f)
-	{
-		BlendAlpha = 1.0f - ((ProjectedDistance - SafeAimDistanceThreshold) / SafeAimBlendRange);
+		// ViewRotation 자체가 아니라 눈 위치에서 카메라 타겟을 바라보는 각도를 사용해 근거리 파랄랙스를 반영합니다.
+		ViewTargetAimRotation = UKismetMathLibrary::FindLookAtRotation(EyeLocation, AimTargetLocation);
 	}
 
-	if (BlendAlpha > 0.f)
-	{
-		const FVector FallbackTarget = ViewLocation + ViewDir * FallbackAimTargetDistance;
-		// 기본 타겟과 폴백 타겟을 직접적인 벡터 수학식(A + (B - A) * t)으로 LERP 보간하여 100% 컴파일 안전성을 보장합니다.
-		SafeAimTarget = AimTargetLocation + (FallbackTarget - AimTargetLocation) * BlendAlpha;
-	}
-
-	const FRotator AimRotation = UKismetMathLibrary::FindLookAtRotation(AimOrigin, SafeAimTarget);
 	const FRotator ActorRotation = PlayerCharacter->GetActorRotation();
-	const FRotator Delta = UKismetMathLibrary::NormalizedDeltaRotator(AimRotation, ActorRotation);
-	const float TargetYaw = FMath::Clamp(Delta.Yaw, -180.f, 180.f);
-	const float TargetPitch = FMath::Clamp(Delta.Pitch, -90.f, 90.f);
+	const FRotator MuzzleDelta = UKismetMathLibrary::NormalizedDeltaRotator(MuzzleAimRotation, ActorRotation);
+	const FRotator ViewDelta = UKismetMathLibrary::NormalizedDeltaRotator(ViewTargetAimRotation, ActorRotation);
+
+	const float MuzzleYaw = FMath::Clamp(MuzzleDelta.Yaw, -180.f, 180.f);
+	const float MuzzlePitch = FMath::Clamp(MuzzleDelta.Pitch, -90.f, 90.f);
+	const float ViewYaw = FMath::Clamp(ViewDelta.Yaw, -180.f, 180.f);
+	const float ViewPitch = FMath::Clamp(ViewDelta.Pitch, -90.f, 90.f);
+
+	float TargetYaw = BlackoutAimOffsetMath::BlendAngleDegrees(MuzzleYaw, ViewYaw, CurrentAimOffsetViewBlendAlpha);
+	float TargetPitch = BlackoutAimOffsetMath::BlendAngleDegrees(MuzzlePitch, ViewPitch, CurrentAimOffsetViewBlendAlpha);
+	TargetYaw = FMath::Clamp(FRotator::NormalizeAxis(TargetYaw), -180.f, 180.f);
+	TargetPitch = FMath::Clamp(FRotator::NormalizeAxis(TargetPitch), -90.f, 90.f);
+
+	if (FMath::IsNearlyEqual(CurrentAimOffsetViewBlendAlpha, 1.f, KINDA_SMALL_NUMBER))
+	{
+		TargetYaw = ViewYaw;
+		TargetPitch = ViewPitch;
+	}
+
+	const FVector2D ScaledAimOffsetAngleOffset = AimOffsetBlendSettings.AimOffsetAngleOffset * CurrentAimOffsetViewBlendAlpha;
+	TargetYaw = FMath::Clamp(FRotator::NormalizeAxis(TargetYaw + ScaledAimOffsetAngleOffset.X), -180.f, 180.f);
+	TargetPitch = FMath::Clamp(FRotator::NormalizeAxis(TargetPitch + ScaledAimOffsetAngleOffset.Y), -90.f, 90.f);
 
 	AO_Yaw = FMath::FInterpTo(AO_Yaw, TargetYaw, DeltaSeconds, AO_InterpSpeed);
 	AO_Pitch = FMath::FInterpTo(AO_Pitch, TargetPitch, DeltaSeconds, AO_InterpSpeed);
@@ -134,6 +151,7 @@ void UBlackoutPlayerAnimInstance::ResetAimOffset()
 	AimTargetLocation = FVector::ZeroVector;
 	AimTargetActor = nullptr;
 	bHasAimTarget = false;
+	CurrentAimOffsetViewBlendAlpha = 0.f;
 }
 
 void UBlackoutPlayerAnimInstance::ApplyReplicatedAimOffset(float DeltaSeconds)

@@ -9,7 +9,7 @@
 /**
  * 
  */
-UCLASS()
+UCLASS(Blueprintable)
 class PROJECTBLACKOUT_API ABOShrewdArrowExplosive : public ABOProjectile
 {
 	GENERATED_BODY()
@@ -19,7 +19,7 @@ public:
 
 protected:
 	
-	virtual void Launch(const FVector& Velocity);
+	virtual void Launch(const FVector& Velocity) override;
 	virtual void OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp,
 	                   FVector NormalImpulse, const FHitResult& Hit) override;
 	
@@ -29,6 +29,12 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Blackout|Arrow", meta = (ClampMin = "0.0"))
 	float ExplosionRadius = 300.f;
 	
-	UPROPERTY(EditDefaultsOnly, Category = "Explosion")
+	UPROPERTY(EditAnywhere, Category = "Projectile", meta=(ClampMin="0.1"))
+	float SpeedMultiplier = 1.5f;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Combat")
 	FGameplayTag ExplosionCueTag;
+	
+	UPROPERTY(EditAnywhere, Category = "Blackout|Debug")
+	bool bShowDebugExplosion = true;
 };

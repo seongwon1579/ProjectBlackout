@@ -46,7 +46,7 @@ protected:
 	
 	UPROPERTY(Transient)
 	TObjectPtr<APawn> CurrentPawn;
-	
+
 	UPROPERTY(Transient)
 	TSubclassOf<APawn> CurrentPawnClass;
 	

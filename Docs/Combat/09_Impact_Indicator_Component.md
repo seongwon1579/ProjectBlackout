@@ -32,6 +32,31 @@ classDiagram
         -ResolveTargetActor(FHitResult) AActor*
     }
 
+    class UBlackoutPlayerAnimInstance {
+        <<AnimInstance>>
+        -FBlackoutAimOffsetBlendSettings AimOffsetBlendSettings
+        +GetAimOffsetBlendSettings() FBlackoutAimOffsetBlendSettings
+    }
+
+    class UBlackoutGA_FireWeapon {
+        <<GameplayAbility>>
+        -BuildFireDirection() FVector
+    }
+
+    class FBlackoutAimOffsetBlendSettings {
+        <<Struct>>
+        +float MuzzleFullDistance
+        +float EyeFullDistance
+        +float BlendInterpSpeed
+        +FVector2D AimOffsetAngleOffset
+    }
+
+    class BlackoutAimOffsetMath {
+        <<Namespace>>
+        +CalculateEyeBlendAlpha(float ProjectedDistance, FBlackoutAimOffsetBlendSettings) float
+        +BlendDirection(FVector MuzzleDirection, FVector EyeTargetDirection, float Alpha) FVector
+    }
+
     class FBlackoutImpactIndicatorUpdateKey {
         <<Struct>>
         +bool bIsAiming
@@ -100,9 +125,16 @@ classDiagram
 
     ABlackoutPlayerCharacter *-- UBlackoutCombatComponent : 전투 상태
     ABlackoutPlayerCharacter *-- UBlackoutImpactIndicatorComponent : 착탄 계산
+    ABlackoutPlayerCharacter --> UBlackoutPlayerAnimInstance : 에임 오프셋 설정 소유
     UBlackoutImpactIndicatorComponent --> UBlackoutCombatComponent : 현재 조준/무기 조회
     UBlackoutImpactIndicatorComponent --> ABOFirearm : 히트스캔/투사체 분기
     UBlackoutImpactIndicatorComponent --> ABOProjectile : 투사체 예측 파라미터 조회
+    UBlackoutImpactIndicatorComponent --> FBlackoutAimOffsetBlendSettings : 근거리 전환 설정 조회
+    UBlackoutImpactIndicatorComponent --> BlackoutAimOffsetMath : True Hit 방향 전환
+    UBlackoutGA_FireWeapon --> FBlackoutAimOffsetBlendSettings : 실제 발사 설정 조회
+    UBlackoutGA_FireWeapon --> BlackoutAimOffsetMath : 실제 발사 방향 전환
+    UBlackoutPlayerAnimInstance o-- FBlackoutAimOffsetBlendSettings : owns
+    UBlackoutPlayerAnimInstance --> BlackoutAimOffsetMath : AO 전환 알파 계산
     UBlackoutImpactIndicatorComponent --> FBlackoutImpactIndicatorUpdateKey : caches update key
     UBlackoutImpactIndicatorComponent --> FBlackoutTrajectoryPointData : fills projectile path
     UBlackoutImpactIndicatorComponent --> FBlackoutImpactIndicatorData : fills
@@ -115,6 +147,8 @@ classDiagram
 |---|---|
 | `UBlackoutCombatComponent` | 입력, 조준 상태, 장착 무기, 총구 Transform 제공 |
 | `UBlackoutImpactIndicatorComponent` | 카메라 조준 대상, 실제 착탄 위치, 대상 불일치, 히트스캔/투사체 예측 계산, 유탄 궤적 월드 포인트 캐싱 |
+| `FBlackoutAimOffsetBlendSettings` | 총구 기준/눈 위치 기준 조준 전환 거리, 보간 속도, 에임 오프셋 각도 보정값을 단일 설정으로 제공 |
+| `BlackoutAimOffsetMath` | 에임 오프셋, True Hit, 실제 발사가 공유하는 근거리 전환 알파와 방향 보간 계산 |
 | `ABOFirearm` | 히트스캔 여부와 투사체 예측에 필요한 무기/발사체 파라미터 제공 |
 | `UBlackoutHUDWidgetController` | 로컬 플레이어의 인디케이터 데이터와 궤적 포인트를 HUD 좌표계로 전달 |
 | `UBlackoutHUDWidget` | 전달받은 데이터로 인디케이터 위치/색/표시 상태와 궤적 표시 갱신 |

@@ -26,10 +26,8 @@ void ABlackoutCharacterPreviewManager::BeginPlay()
 	if (CaptureComp)
 	{
 		CaptureComp->TextureTarget = DynamicRT;
-		
-		CaptureComp->PrimitiveRenderMode = ESceneCapturePrimitiveRenderMode::PRM_UseShowOnlyList; 
+		CaptureComp->PrimitiveRenderMode = ESceneCapturePrimitiveRenderMode::PRM_UseShowOnlyList;
 	}
-	TArray<AActor*> Captures;
 	BO_LOG_CORE(Log, "Manager BeginPlay: DynamicRT created (%dx%d), CaptureComp=%s",
 		RTSizeX, RTSizeY, CaptureComp ? TEXT("OK") : TEXT("NULL"));
 	
@@ -45,40 +43,38 @@ ABlackoutCharacterPreviewManager::ABlackoutCharacterPreviewManager()
 	RootComponent = SpawnRoot;
 }
 
-void ABlackoutCharacterPreviewManager::SetPreviewCharacter(
-	TSubclassOf<APawn> PawnClass)
+void ABlackoutCharacterPreviewManager::SetPreviewCharacter(TSubclassOf<APawn> PawnClass)
 {
-	
 	if (CurrentPawnClass == PawnClass)
 	{
 		return; // 같은 클래스는 재스폰 X
 	}
-	
+
 	ClearPreview();
-	
+
 	if (!PawnClass)
 	{
 		return;
 	}
-	
+
 	FTransform SpawnTransform = GetActorTransform();
-	SpawnTransform.SetRotation(FRotator(0.f ,PreviewYawOffset , 0.f).Quaternion());
-	
+	SpawnTransform.SetRotation(FRotator(0.f, PreviewYawOffset, 0.f).Quaternion());
+
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.Owner = this;
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-	
-	CurrentPawn = GetWorld() ->SpawnActor<APawn>(PawnClass , SpawnTransform , SpawnParams);
+
+	CurrentPawn = GetWorld()->SpawnActor<APawn>(PawnClass, SpawnTransform, SpawnParams);
 	if (CurrentPawn)
 	{
 		// Preview Pawn 은 각 client local — server 의 Pawn 이 다른 client 로 replicate 되면 stack
 		CurrentPawn->SetReplicates(false);
-		
+
 		if (CaptureComp)
 		{
 			CaptureComp->ShowOnlyActors.Reset();
 			CaptureComp->ShowOnlyActors.Add(CurrentPawn);
-			
+
 			TArray<AActor*> AttachedActors;
 			CurrentPawn->GetAttachedActors(AttachedActors);
 			for (AActor* Attached : AttachedActors)
@@ -92,7 +88,7 @@ void ABlackoutCharacterPreviewManager::SetPreviewCharacter(
 		}
 	}
 	CurrentPawnClass = PawnClass;
-	
+
 	BO_LOG_CORE(Log, "CharacterPreview spawn: %s @ %s", *GetNameSafe(PawnClass.Get()), *SpawnTransform.GetLocation().ToString());
 }
 
@@ -100,13 +96,7 @@ void ABlackoutCharacterPreviewManager::ClearPreview()
 {
 	if (CurrentPawn)
 	{
-		const FString PawnName = GetNameSafe(CurrentPawn);
-		AController* C = CurrentPawn->GetController();
-
-		const bool bDestroyed = CurrentPawn->Destroy();
-
-		BO_LOG_CORE(Log, "ClearPreview: %s, ControllerWas=%s, DestroyResult=%d",
-			*PawnName, *GetNameSafe(C), bDestroyed);
+		CurrentPawn->Destroy();
 		CurrentPawn = nullptr;
 	}
 
@@ -116,9 +106,6 @@ void ABlackoutCharacterPreviewManager::ClearPreview()
 	{
 		CaptureComp->ShowOnlyActors.Reset();
 	}
-	TArray<AActor*> AllPawns;
-	UGameplayStatics::GetAllActorsOfClass(this, APawn::StaticClass(), AllPawns);
-	BO_LOG_CORE(Log, "Pawns in world after Clear: %d", AllPawns.Num());
 }
 
 void ABlackoutCharacterPreviewManager::CaptureCurrentPreview()

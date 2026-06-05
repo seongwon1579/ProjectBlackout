@@ -22,4 +22,16 @@ public:
 	/** 실행할 GameplayCue 태그입니다. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|GameplayCue", meta = (Categories = "GameplayCue"))
 	FGameplayTag GameplayCueTag;
+
+	/** GameplayCue의 시작 위치와 회전(Normal)을 가져올 소켓 이름입니다. (지정하지 않으면 액터 기준) */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|GameplayCue")
+	FName SocketName = NAME_None;
+
+	/** 회전 오프셋입니다. Normal 벡터에 이 회전값이 가해집니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|GameplayCue")
+	FRotator RotationOffset = FRotator::ZeroRotator;
+
+	/** 로컬 위치 오프셋입니다. 소켓/캐릭터의 로컬 좌표계 기준으로 적용됩니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|GameplayCue")
+	FVector LocationOffset = FVector::ZeroVector;
 };
