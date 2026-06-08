@@ -69,6 +69,10 @@ public:
 
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Blackout|PlayerState")
 	FGameplayTag SelectedClassTag;
+	
+	// 로그인 ID = 재접속 키
+	// InitNewPlayer 에서 ?Acc= 파싱으로 설정
+	FString AccountId;
 
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_BloodRootCount, Category = "Blackout|PlayerState")
 	int32 BloodRootCount = 0;
