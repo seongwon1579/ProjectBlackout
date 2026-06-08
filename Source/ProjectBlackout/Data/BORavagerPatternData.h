@@ -111,6 +111,15 @@ struct FBossMinionSpawnSettings
     
 	UPROPERTY(EditAnywhere)
 	float ThrowPitch = 45.f;
+	
+	UPROPERTY(EditAnywhere, Category = "Spawn|Throw")
+	float ThrowPitchVariance = 10.f;
+
+	UPROPERTY(EditAnywhere, Category = "Spawn|Throw", meta = (ClampMin = "0.1"))
+	float DistanceScaleMin = 0.7f;
+
+	UPROPERTY(EditAnywhere, Category = "Spawn|Throw", meta = (ClampMin = "0.1"))
+	float DistanceScaleMax = 1.3f;
     
 	UPROPERTY(EditAnywhere, Category = "Elite")
 	FMinionSpawnData EliteMinionSpawnData;

@@ -4,11 +4,6 @@
 
 ABORootHollow::ABORootHollow()
 {
-	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bCanEverTick = false;
 	MotionWarpingComponent = CreateDefaultSubobject<UMotionWarpingComponent>(TEXT("MotionWarpingComponent"));
-}
-
-void ABORootHollow::PerformCharge()
-{
-	// TODO: 돌진 애니메이션 및 로직 수행
 }

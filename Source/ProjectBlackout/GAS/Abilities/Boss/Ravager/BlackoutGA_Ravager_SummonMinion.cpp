@@ -86,36 +86,46 @@ void UBlackoutGA_Ravager_SummonMinion::ThrowSingleSpawnerProjectile(const FVecto
 	int32 Index, int32 Total)
 {
 	if (!CanActivatePattern()) return;
-	
+
 	const FBossMinionSpawnSettings& Settings = CachedPatternData->MinionSettings;
-	
+
 	float YawOffset = 0.f;
 	if (Total > 1)
 	{
-		const float Step = (Settings.SpreadAngle * 2.f) / (Total - 1);
-		YawOffset = -Settings.SpreadAngle + Step * Index;
+		const float Step       = (Settings.SpreadAngle * 2.f) / Total;    
+		const float CellCenter = -Settings.SpreadAngle + Step * (Index + 0.5f); 
+		YawOffset = CellCenter + FMath::FRandRange(-Step * 0.5f, Step * 0.5f);  
 	}
+	else
+	{
+		YawOffset = FMath::FRandRange(-Settings.SpreadAngle, Settings.SpreadAngle);
+	}
+
 	FRotator ThrowRotation = BaseRotation;
-	ThrowRotation.Yaw += YawOffset;
-	ThrowRotation.Pitch = Settings.ThrowPitch;
-	
+	ThrowRotation.Yaw   += YawOffset;
+	ThrowRotation.Pitch  = Settings.ThrowPitch + FMath::FRandRange(-Settings.ThrowPitchVariance, Settings.ThrowPitchVariance);
+
 	UWorld* World = GetWorld();
 	if (!World) return;
-	
+
 	FActorSpawnParameters SpawnParams;
-	SpawnParams.Owner = CachedOwner;
+	SpawnParams.Owner    = CachedOwner;
 	SpawnParams.Instigator = CachedOwner;
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
-	
+
 	ABOEnemySpawnerProjectile* SpawnerProjectile = World->SpawnActor<ABOEnemySpawnerProjectile>(
 		Settings.SpawnerClass,
 		SpawnLocation,
 		ThrowRotation,
 		SpawnParams
 		);
+
 	if (SpawnerProjectile)
 	{
-		SpawnerProjectile->InitializeProjectile(Settings.ProjectileSpawnData);
+		FProjectileSpawnData PerShotData = Settings.ProjectileSpawnData;
+		PerShotData.Speed *= FMath::FRandRange(Settings.DistanceScaleMin, Settings.DistanceScaleMax);
+
+		SpawnerProjectile->InitializeProjectile(PerShotData);
 		SpawnerProjectile->SetSpawnerData(Settings.MinionSpawnData);
 	}
 }

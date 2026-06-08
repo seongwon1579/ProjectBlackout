@@ -6,6 +6,11 @@
 #include "KismetAnimationLibrary.h"
 #include "GameFramework/Character.h"
 
+// void UBlackoutMinionAnimInstance::OnDeath()
+// {
+// 	bIsDead = true;
+// }
+
 void UBlackoutMinionAnimInstance::NativeInitializeAnimation()
 {
 	Super::NativeInitializeAnimation();
