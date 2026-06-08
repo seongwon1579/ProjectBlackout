@@ -8,7 +8,6 @@
 #include "BlackoutRavagerAIController.h"
 #include "BrainComponent.h"
 #include "GameplayEffectExtension.h"
-#include "Animation/UBlackoutRavagerAnimInstance.h"
 #include "GameFramework/PlayerState.h"
 #include "Framework/BlackoutMatchFlowSubsystem.h"
 
@@ -34,12 +33,6 @@ void ABORavagerBoss::OnDeath()
 		{
 			Brain->StopLogic("Dead");
 		}
-	}
-	
-	if (UUBlackoutRavagerAnimInstance* Anim = Cast<UUBlackoutRavagerAnimInstance>(
-		GetMesh()->GetAnimInstance()))
-	{
-		Anim->OnDeath();
 	}
 }
 

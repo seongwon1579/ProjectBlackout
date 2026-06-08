@@ -13,9 +13,6 @@ class PROJECTBLACKOUT_API UBlackoutBossAnimInstance : public UBlackoutEnemyAnimI
 {
 	GENERATED_BODY()
 
-public:
-	virtual void OnDeath() {}
-
 protected:
 	virtual void NativeUpdateAnimation(float DeltaSeconds) override;
 	virtual void UpdateAnimationProperties() {}

@@ -1,17 +1,12 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "Animation/UBlackoutRavagerAnimInstance.h"
+#include "Animation/BlackoutRavagerAnimInstance.h"
 
 #include "KismetAnimationLibrary.h"
 #include "GameFramework/Character.h"
 
-void UUBlackoutRavagerAnimInstance::OnDeath()
-{
-	IsDead = true;
-}
-
-void UUBlackoutRavagerAnimInstance::UpdateAnimationProperties()
+void UBlackoutRavagerAnimInstance::UpdateAnimationProperties()
 {
 	ACharacter* Char = Cast<ACharacter>(TryGetPawnOwner());
 	if (!Char) return;
