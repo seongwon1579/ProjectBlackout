@@ -245,10 +245,6 @@ protected:
 
 private:
 	void UnbindWidgetControllerCallbacks();
-	void EnsureRevivePromptWidget();
-	void EnsureReviveProgressWidget();
-	void ResolveRevivePromptBindingsFromTree();
-	void ResolveReviveProgressBindingsFromTree();
 	void UpdateImpactIndicator(const FBlackoutImpactIndicatorData& ImpactIndicatorData);
 	void UpdateInteractionPrompt(const FBlackoutInteractionPromptData& InteractionPromptData);
 	void ApplyImpactIndicatorColor(const FLinearColor& IndicatorColor) const;

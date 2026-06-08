@@ -1,8 +1,6 @@
 #include "UI/BlackoutHUDWidget.h"
 
-#include "Blueprint/WidgetTree.h"
 #include "Blueprint/WidgetLayoutLibrary.h"
-#include "Components/PanelWidget.h"
 #include "Components/CanvasPanel.h"
 #include "Components/CanvasPanelSlot.h"
 #include "Core/BlackoutLog.h"
@@ -28,50 +26,23 @@
 #include "UI/BlackoutWeaponAmmoWidget.h"
 #include "UI/BlackoutSurrenderVoteWidget.h"
 
-namespace
-{
-	const TCHAR* DefaultRevivePromptWidgetClassPath =
-		TEXT("/Game/_BP/UI/WBP/WBP_RevivePrompt.WBP_RevivePrompt_C");
-	const TCHAR* DefaultReviveProgressWidgetClassPath =
-		TEXT("/Game/_BP/UI/WBP/WBP_ReviveProgress.WBP_ReviveProgress_C");
-}
-
 void UBlackoutHUDWidget::NativeOnInitialized()
 {
 	Super::NativeOnInitialized();
 
-	ResolveRevivePromptBindingsFromTree();
-	ResolveReviveProgressBindingsFromTree();
-	EnsureRevivePromptWidget();
-	EnsureReviveProgressWidget();
+	UpdateInteractionPrompt(FBlackoutInteractionPromptData());
 }
 
 void UBlackoutHUDWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 
-	ResolveRevivePromptBindingsFromTree();
-	ResolveReviveProgressBindingsFromTree();
-	EnsureRevivePromptWidget();
-	EnsureReviveProgressWidget();
+	UpdateInteractionPrompt(FBlackoutInteractionPromptData());
 }
 
 void UBlackoutHUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
-
-	ResolveRevivePromptBindingsFromTree();
-	ResolveReviveProgressBindingsFromTree();
-
-	if (!RevivePromptWidget && !RevivePromptContainer && !RevivePromptTextWidget && !ReviveStatusTextWidget && !ReviveProgressBarWidget)
-	{
-		EnsureRevivePromptWidget();
-	}
-
-	if (!ReviveProgressWidget)
-	{
-		EnsureReviveProgressWidget();
-	}
 
 	FBlackoutImpactIndicatorData ImpactIndicatorData;
 	FBlackoutInteractionPromptData InteractionPromptData;
@@ -261,188 +232,6 @@ void UBlackoutHUDWidget::UnbindWidgetControllerCallbacks()
 	WidgetController->OnDownedStateHUDDataChanged.RemoveAll(this);
 }
 
-void UBlackoutHUDWidget::EnsureRevivePromptWidget()
-{
-	ResolveRevivePromptBindingsFromTree();
-
-	if (RevivePromptWidget)
-	{
-		// 블루프린트에 직접 배치된 부활 프롬프트 위젯이 있으면 그것을 우선 사용합니다.
-		return;
-	}
-
-	UPanelWidget* RootPanel = Cast<UPanelWidget>(GetRootWidget());
-	if (!RootPanel)
-	{
-		BO_LOG_CORE(Warning, "HUD 루트가 PanelWidget이 아니어서 부활 프롬프트 위젯을 자동 배치하지 못했습니다.");
-		return;
-	}
-
-	TSubclassOf<UBlackoutInteractionPromptWidget> PromptWidgetClass =
-		LoadClass<UBlackoutInteractionPromptWidget>(nullptr, DefaultRevivePromptWidgetClassPath);
-	if (!PromptWidgetClass)
-	{
-		BO_LOG_CORE(Error, "WBP_RevivePrompt 클래스를 찾지 못했습니다. 부활 프롬프트는 WBP 경로로만 생성됩니다.");
-		return;
-	}
-
-	UBlackoutInteractionPromptWidget* CreatedRevivePromptWidget = CreateWidget<UBlackoutInteractionPromptWidget>(
-		GetOwningPlayer(),
-		PromptWidgetClass);
-	if (!CreatedRevivePromptWidget)
-	{
-		BO_LOG_CORE(Error, "부활 프롬프트 위젯 인스턴스를 생성하지 못했습니다.");
-		return;
-	}
-
-	RevivePromptWidget = CreatedRevivePromptWidget;
-	RevivePromptWidget->SetVisibility(ESlateVisibility::Hidden);
-
-	if (UCanvasPanel* CanvasRoot = Cast<UCanvasPanel>(RootPanel))
-	{
-		if (UCanvasPanelSlot* CanvasSlot = CanvasRoot->AddChildToCanvas(RevivePromptWidget))
-		{
-			CanvasSlot->SetAutoSize(true);
-			CanvasSlot->SetAnchors(FAnchors(0.5f, 0.78f, 0.5f, 0.78f));
-			CanvasSlot->SetAlignment(FVector2D(0.5f, 0.5f));
-			CanvasSlot->SetPosition(FVector2D::ZeroVector);
-		}
-		return;
-	}
-
-	RootPanel->AddChild(RevivePromptWidget);
-}
-
-void UBlackoutHUDWidget::EnsureReviveProgressWidget()
-{
-	ResolveReviveProgressBindingsFromTree();
-
-	if (ReviveProgressWidget)
-	{
-		// 블루프린트에 직접 배치된 진행 UI가 있으면 그것을 우선 사용합니다.
-		return;
-	}
-
-	UPanelWidget* RootPanel = Cast<UPanelWidget>(GetRootWidget());
-	if (!RootPanel)
-	{
-		BO_LOG_CORE(Warning, "HUD 루트가 PanelWidget이 아니어서 부활 진행 UI를 자동 배치하지 못했습니다.");
-		return;
-	}
-
-	TSubclassOf<UBlackoutReviveProgressWidget> ProgressWidgetClass =
-		LoadClass<UBlackoutReviveProgressWidget>(nullptr, DefaultReviveProgressWidgetClassPath);
-	if (!ProgressWidgetClass)
-	{
-		// 진행 UI WBP가 아직 없으면 C++ 기본 위젯으로라도 즉시 동작하도록 합니다.
-		ProgressWidgetClass = UBlackoutReviveProgressWidget::StaticClass();
-	}
-
-	UBlackoutReviveProgressWidget* CreatedReviveProgressWidget = CreateWidget<UBlackoutReviveProgressWidget>(
-		GetOwningPlayer(),
-		ProgressWidgetClass);
-	if (!CreatedReviveProgressWidget)
-	{
-		BO_LOG_CORE(Error, "부활 진행 UI 위젯 인스턴스를 생성하지 못했습니다.");
-		return;
-	}
-
-	ReviveProgressWidget = CreatedReviveProgressWidget;
-	ReviveProgressWidget->SetVisibility(ESlateVisibility::Hidden);
-
-	if (UCanvasPanel* CanvasRoot = Cast<UCanvasPanel>(RootPanel))
-	{
-		if (UCanvasPanelSlot* CanvasSlot = CanvasRoot->AddChildToCanvas(ReviveProgressWidget))
-		{
-			CanvasSlot->SetAutoSize(true);
-			CanvasSlot->SetAnchors(ReviveProgressScreenAnchors);
-			CanvasSlot->SetAlignment(FVector2D(0.5f, 0.5f));
-			CanvasSlot->SetPosition(ReviveProgressScreenOffset);
-		}
-		return;
-	}
-
-	RootPanel->AddChild(ReviveProgressWidget);
-}
-
-void UBlackoutHUDWidget::ResolveRevivePromptBindingsFromTree()
-{
-	if (!WidgetTree)
-	{
-		return;
-	}
-
-	if (!RevivePromptWidget)
-	{
-		RevivePromptWidget = Cast<UBlackoutInteractionPromptWidget>(WidgetTree->FindWidget(TEXT("RevivePromptWidget")));
-	}
-
-	if (!RevivePromptContainer)
-	{
-		RevivePromptContainer = WidgetTree->FindWidget(TEXT("RevivePromptContainer"));
-	}
-
-	if (!RevivePromptTextWidget)
-	{
-		RevivePromptTextWidget = Cast<UTextBlock>(WidgetTree->FindWidget(TEXT("RevivePromptTextWidget")));
-	}
-
-	if (!ReviveStatusTextWidget)
-	{
-		ReviveStatusTextWidget = Cast<UTextBlock>(WidgetTree->FindWidget(TEXT("ReviveStatusTextWidget")));
-	}
-
-	if (!ReviveProgressBarWidget)
-	{
-		ReviveProgressBarWidget = Cast<UProgressBar>(WidgetTree->FindWidget(TEXT("ReviveProgressBarWidget")));
-	}
-
-	if (RevivePromptWidget)
-	{
-		return;
-	}
-
-	TArray<UWidget*> AllWidgets;
-	WidgetTree->GetAllWidgets(AllWidgets);
-	for (UWidget* CandidateWidget : AllWidgets)
-	{
-		if (UBlackoutInteractionPromptWidget* CandidateRevivePromptWidget = Cast<UBlackoutInteractionPromptWidget>(CandidateWidget))
-		{
-			RevivePromptWidget = CandidateRevivePromptWidget;
-			break;
-		}
-	}
-}
-
-void UBlackoutHUDWidget::ResolveReviveProgressBindingsFromTree()
-{
-	if (!WidgetTree)
-	{
-		return;
-	}
-
-	if (!ReviveProgressWidget)
-	{
-		ReviveProgressWidget = Cast<UBlackoutReviveProgressWidget>(WidgetTree->FindWidget(TEXT("ReviveProgressWidget")));
-	}
-
-	if (ReviveProgressWidget)
-	{
-		return;
-	}
-
-	TArray<UWidget*> AllWidgets;
-	WidgetTree->GetAllWidgets(AllWidgets);
-	for (UWidget* CandidateWidget : AllWidgets)
-	{
-		if (UBlackoutReviveProgressWidget* CandidateReviveProgressWidget = Cast<UBlackoutReviveProgressWidget>(CandidateWidget))
-		{
-			ReviveProgressWidget = CandidateReviveProgressWidget;
-			break;
-		}
-	}
-}
-
 void UBlackoutHUDWidget::UpdateImpactIndicator(const FBlackoutImpactIndicatorData& ImpactIndicatorData)
 {
 	CachedTrajectoryPoints = ImpactIndicatorData.bIsVisible
@@ -497,9 +286,6 @@ void UBlackoutHUDWidget::UpdateImpactIndicator(const FBlackoutImpactIndicatorDat
 
 void UBlackoutHUDWidget::UpdateInteractionPrompt(const FBlackoutInteractionPromptData& InteractionPromptData)
 {
-	ResolveRevivePromptBindingsFromTree();
-	ResolveReviveProgressBindingsFromTree();
-
 	const bool bShowScreenProgress =
 		InteractionPromptData.bIsVisible &&
 		InteractionPromptData.State == EBlackoutInteractionPromptState::InProgress;
@@ -512,21 +298,6 @@ void UBlackoutHUDWidget::UpdateInteractionPrompt(const FBlackoutInteractionPromp
 	HiddenPromptData.State = EBlackoutInteractionPromptState::Hidden;
 	HiddenPromptData.PromptText = FText::GetEmpty();
 	HiddenPromptData.StatusText = FText::GetEmpty();
-
-	if (bShowWorldPrompt &&
-		!RevivePromptWidget &&
-		!RevivePromptContainer &&
-		!RevivePromptTextWidget &&
-		!ReviveStatusTextWidget &&
-		!ReviveProgressBarWidget)
-	{
-		EnsureRevivePromptWidget();
-	}
-
-	if (bShowScreenProgress && !ReviveProgressWidget)
-	{
-		EnsureReviveProgressWidget();
-	}
 
 	if (RevivePromptWidget)
 	{
