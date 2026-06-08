@@ -90,6 +90,7 @@ void ABlackoutPlayerCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProper
 
 	DOREPLIFETIME_CONDITION(ABlackoutPlayerCharacter, ReplicatedAimOffset, COND_SkipOwner);
 	DOREPLIFETIME(ABlackoutPlayerCharacter, bIsReviveInteractionActive);
+	DOREPLIFETIME(ABlackoutPlayerCharacter, ActiveReviveTarget);
 	DOREPLIFETIME(ABlackoutPlayerCharacter, DownedDeathServerEndTimeSeconds);
 	DOREPLIFETIME(ABlackoutPlayerCharacter, DownedDeathPausedRemainingTime);
 	DOREPLIFETIME(ABlackoutPlayerCharacter, bDownedDeathTimerPaused);
@@ -1099,6 +1100,7 @@ bool ABlackoutPlayerCharacter::TryBeginReviveInteraction(ABlackoutPlayerCharacte
 
 	SetBeingRevivedStateActive(true);
 	Reviver->SetRevivingStateActive(true);
+	Reviver->ActiveReviveTarget = this;
 	ActiveReviver = Reviver;
 	BroadcastReviveInteractionStateChanged();
 	return true;
@@ -1119,6 +1121,7 @@ void ABlackoutPlayerCharacter::EndReviveInteraction(ABlackoutPlayerCharacter* Re
 	if (ABlackoutPlayerCharacter* CurrentReviver = ActiveReviver.Get())
 	{
 		CurrentReviver->SetRevivingStateActive(false);
+		CurrentReviver->ActiveReviveTarget = nullptr;
 	}
 
 	SetBeingRevivedStateActive(false);
@@ -1488,6 +1491,7 @@ void ABlackoutPlayerCharacter::RestoreToFullState()
 	SetBeingRevivedStateActive(false);
 	SetRevivingStateActive(false);
 	ActiveReviver = nullptr;
+	ActiveReviveTarget = nullptr;
 
 	bIsHitReactMontagePlaying = false;
 	bIsDodgeMontagePlaying = false;
@@ -2514,6 +2518,11 @@ void ABlackoutPlayerCharacter::NotifyBattleGameModePlayerFullyDead()
 
 void ABlackoutPlayerCharacter::SetRevivingStateActive(bool bNewReviving)
 {
+	if (HasAuthority() && !bNewReviving)
+	{
+		ActiveReviveTarget = nullptr;
+	}
+
 	if (!AbilitySystemComponent)
 	{
 		return;

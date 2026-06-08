@@ -285,30 +285,53 @@ bool UBlackoutHUDWidgetController::GetInteractionPromptData(FBlackoutInteraction
 		return false;
 	}
 
+	auto BuildReviveInProgressPromptData =
+		[this, BlackoutPlayerController, &OutPromptData](const ABlackoutPlayerCharacter* ActiveReviveTarget, float ProgressNormalized)
+	{
+		if (!ActiveReviveTarget)
+		{
+			return false;
+		}
+
+		const FVector PromptWorldLocation = GetRevivePromptWorldLocation(ActiveReviveTarget);
+		FVector2D PromptScreenPosition = FVector2D::ZeroVector;
+		UWidgetLayoutLibrary::ProjectWorldLocationToWidgetPosition(
+			BlackoutPlayerController,
+			PromptWorldLocation,
+			PromptScreenPosition,
+			true);
+
+		// 진행 UI는 화면 고정 위젯이므로 월드 좌표 투영 실패와 무관하게 표시합니다.
+		OutPromptData.bIsVisible = true;
+		OutPromptData.bShowProgress = true;
+		OutPromptData.ProgressNormalized = FMath::Clamp(ProgressNormalized, 0.0f, 1.0f);
+		OutPromptData.WorldLocation = PromptWorldLocation;
+		OutPromptData.ScreenPosition = PromptScreenPosition;
+		OutPromptData.State = EBlackoutInteractionPromptState::InProgress;
+		OutPromptData.PromptText = FText::GetEmpty();
+		OutPromptData.StatusText = ReviveInProgressText;
+		return true;
+	};
+
+	// 데디케이트 서버 환경에서는 서버의 GA 인스턴스가 실제 진행을 소유하므로,
+	// 시전자 HUD는 복제된 대상 포인터와 대상의 서버 시간 데이터를 우선 사용합니다.
+	if (const ABlackoutPlayerCharacter* ReplicatedReviveTarget = LocalPlayerCharacter->GetActiveReviveTarget())
+	{
+		if (ReplicatedReviveTarget->IsDowned() && ReplicatedReviveTarget->IsBeingRevived())
+		{
+			return BuildReviveInProgressPromptData(
+				ReplicatedReviveTarget,
+				ReplicatedReviveTarget->GetReviveProgressNormalized());
+		}
+	}
+
 	if (const UBlackoutGA_Revive* ActiveReviveAbility = UBlackoutGA_Revive::GetActiveReviveAbilityFromActor(LocalPlayerCharacter))
 	{
 		if (ABlackoutPlayerCharacter* ActiveReviveTarget = ActiveReviveAbility->GetReviveTarget())
 		{
-			const FVector PromptWorldLocation = GetRevivePromptWorldLocation(ActiveReviveTarget);
-			FVector2D PromptScreenPosition = FVector2D::ZeroVector;
-			if (!UWidgetLayoutLibrary::ProjectWorldLocationToWidgetPosition(
-				BlackoutPlayerController,
-				PromptWorldLocation,
-				PromptScreenPosition,
-				true))
-			{
-				return false;
-			}
-
-			OutPromptData.bIsVisible = true;
-			OutPromptData.bShowProgress = true;
-			OutPromptData.ProgressNormalized = ActiveReviveAbility->GetReviveProgressNormalized();
-			OutPromptData.WorldLocation = PromptWorldLocation;
-			OutPromptData.ScreenPosition = PromptScreenPosition;
-			OutPromptData.State = EBlackoutInteractionPromptState::InProgress;
-			OutPromptData.PromptText = FText::GetEmpty();
-			OutPromptData.StatusText = ReviveInProgressText;
-			return true;
+			return BuildReviveInProgressPromptData(
+				ActiveReviveTarget,
+				ActiveReviveAbility->GetReviveProgressNormalized());
 		}
 	}
 
