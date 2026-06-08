@@ -10,6 +10,7 @@
 #include "GameplayEffectExtension.h"
 #include "Animation/UBlackoutRavagerAnimInstance.h"
 #include "GameFramework/PlayerState.h"
+#include "Framework/BlackoutMatchFlowSubsystem.h"
 
 
 UBORavagerPatternData* ABORavagerBoss::GetPatternData(FGameplayTag AbilityTag) const
@@ -60,14 +61,25 @@ void ABORavagerBoss::SetData()
 	{
 		AbilitySystemComponent->InitAbilityActorInfo(this, this);
 
-		if (BaseAttributeSet && BossStatData)
+		if (BaseAttributeSet && BossStatData && HasAuthority())
 		{
+			float HealthMultiplier =1.0f;
+			if (UGameInstance* GameInstance = GetGameInstance())
+			{
+				if (UBlackoutMatchFlowSubsystem* FlowSubsystem = GameInstance->GetSubsystem<UBlackoutMatchFlowSubsystem>())
+				{
+					HealthMultiplier = FlowSubsystem->GetBossHealthMultiplier();
+				}
+			}
+			
+			const float ScaledMaxHealth = BossStatData->MaxHealth * HealthMultiplier;
+			
 			AbilitySystemComponent->SetNumericAttributeBase(
 				UBlackoutBaseAttributeSet::GetMaxHealthAttribute(),
-				BossStatData->MaxHealth);
+				ScaledMaxHealth);
 			AbilitySystemComponent->SetNumericAttributeBase(
 				UBlackoutBaseAttributeSet::GetHealthAttribute(),
-				BossStatData->MaxHealth);
+				ScaledMaxHealth);
 		}
 	}
 }
