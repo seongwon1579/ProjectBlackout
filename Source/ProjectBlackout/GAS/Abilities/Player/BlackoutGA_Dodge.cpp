@@ -84,7 +84,6 @@ void UBlackoutGA_Dodge::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
 	const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
 	BO_LOG_GAS(Log, "GA_Dodge activate requested");
-
 	// 사전 조건(ActorInfo/DodgeData/스태미나/Blocked tags)은 CanActivateAbility 에서 이미 검증됨.
 	// 여기서는 실제 활성에 필요한 cast 와 commit 만 수행합니다.
 	ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get());
@@ -218,7 +217,16 @@ bool UBlackoutGA_Dodge::StartMontageTask()
 	{
 		return false;
 	}
-
+	
+	float RootMotionScale = 1.0f;
+	if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
+	{
+		if (ASC->HasMatchingGameplayTag(BlackoutGameplayTags::State_Pulled))
+		{
+			RootMotionScale = 0.15f;
+		}
+	}
+	
 	MontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
 		this,
 		NAME_None,
@@ -226,7 +234,7 @@ bool UBlackoutGA_Dodge::StartMontageTask()
 		1.f,
 		NAME_None,
 		true,
-		1.f,
+		RootMotionScale,
 		0.f,
 		false);
 
