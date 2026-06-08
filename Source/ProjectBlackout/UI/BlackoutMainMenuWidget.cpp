@@ -37,7 +37,12 @@ void UBlackoutMainMenuWidget::NativeConstruct()
 		StartMatchmakingButton->OnClicked.AddDynamic(
 			this, &UBlackoutMainMenuWidget::HandleStartMatchmakingClicked);
 	}
-
+	
+	if (ReconnectButton)
+	{
+		ReconnectButton->OnClicked.AddDynamic(this, &UBlackoutMainMenuWidget::HandleReconnectClicked);
+	}
+	
 	if (SinglePlayButton)
 	{
 		SinglePlayButton->OnClicked.AddDynamic(
@@ -67,6 +72,9 @@ void UBlackoutMainMenuWidget::NativeConstruct()
 		{
 			MatchmakingSubsystem->OnMatchmakingError.AddDynamic(
 				this, &UBlackoutMainMenuWidget::HandleMatchmakingError);
+			
+			MatchmakingSubsystem->OnActiveSessionFound.AddDynamic(
+				this, &UBlackoutMainMenuWidget::HandleActiveSessionFound);
 		}
 	}
 
@@ -83,6 +91,9 @@ void UBlackoutMainMenuWidget::NativeDestruct()
 		{
 			MatchmakingSubsystem->OnMatchmakingError.RemoveDynamic(
 				this, &UBlackoutMainMenuWidget::HandleMatchmakingError);
+			
+			MatchmakingSubsystem->OnActiveSessionFound.RemoveDynamic(
+				this , &UBlackoutMainMenuWidget::HandleActiveSessionFound);
 		}
 	}
 	if (ActiveLoginWidget)
@@ -103,6 +114,7 @@ void UBlackoutMainMenuWidget::NativeDestruct()
 			this, &UBlackoutMainMenuWidget::HandleSettingsClosed);
 		ActiveSettingsWidget = nullptr;
 	}
+	
 	if (BackButton)
 	{
 		BackButton->OnClicked.RemoveDynamic(
@@ -169,6 +181,17 @@ void UBlackoutMainMenuWidget::HandleStartMatchmakingClicked()
 	ActiveMatchmakingWidget->OnMatchmakingExited.AddDynamic(
 		this, &UBlackoutMainMenuWidget::HandleMatchmakingWidgetExited);
 	ActiveMatchmakingWidget->AddToViewport(100);
+}
+
+void UBlackoutMainMenuWidget::HandleReconnectClicked()
+{
+	if (UGameInstance* GameInstance = GetGameInstance())
+	{
+		if (UBlackoutMatchmakingSubsystem* MatchmakingSubsystem = GameInstance->GetSubsystem<UBlackoutMatchmakingSubsystem>())
+		{
+			MatchmakingSubsystem->TravelToActiveSession();
+		}
+	}
 }
 
 void UBlackoutMainMenuWidget::HandleSinglePlayClicked()
@@ -267,6 +290,14 @@ void UBlackoutMainMenuWidget::HandleLoginAttemptFinished(bool bSuccess,
 	if (bSuccess)
 	{
 		RefreshForLoginState();
+		
+		if (UGameInstance* GameInstance = GetGameInstance())
+		{
+			if (UBlackoutMatchmakingSubsystem* MatchmakingSubsystem = GameInstance->GetSubsystem<UBlackoutMatchmakingSubsystem>())
+			{
+				MatchmakingSubsystem->CheckActiveSession();
+			}
+		}
 	}
 }
 
@@ -303,6 +334,14 @@ void UBlackoutMainMenuWidget::HandleMatchmakingWidgetExited(bool bSuccess)
 	}
 }
 
+void UBlackoutMainMenuWidget::HandleActiveSessionFound()
+{
+	if (ReconnectButton)
+	{
+		ReconnectButton ->SetVisibility(ESlateVisibility::Visible);
+	}
+}
+
 void UBlackoutMainMenuWidget::RefreshForLoginState()
 {
 	if (bUseAsInGameMenu)
@@ -318,6 +357,10 @@ void UBlackoutMainMenuWidget::RefreshForLoginState()
 		if (StartMatchmakingButton)
 		{
 			StartMatchmakingButton->SetVisibility(ESlateVisibility::Collapsed);
+		}
+		if (ReconnectButton)
+		{
+			ReconnectButton ->SetVisibility(ESlateVisibility::Collapsed);
 		}
 		if (SinglePlayButton)
 		{
@@ -357,6 +400,12 @@ void UBlackoutMainMenuWidget::RefreshForLoginState()
 	{
 		StartMatchmakingButton->SetIsEnabled(bLoggedIn);
 	}
+	
+	if (ReconnectButton)
+	{
+		ReconnectButton ->SetVisibility(ESlateVisibility::Collapsed);
+	}
+	
 	if (WelcomeText)
 	{
 		WelcomeText->SetVisibility(bLoggedIn

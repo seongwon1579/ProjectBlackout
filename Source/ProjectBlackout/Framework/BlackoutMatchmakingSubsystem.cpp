@@ -246,6 +246,11 @@ void UBlackoutMatchmakingSubsystem::TravelToGameServer(
 	if (!SessionId.IsEmpty())
 	{
 		Addr += FString::Printf(TEXT("?SessionId=%s"), *SessionId);
+		
+	}
+	if (!CachedPlayerName.IsEmpty())
+	{
+		Addr +=FString::Printf(TEXT("?Acc=%s"), *CachedPlayerName);
 	}
 	BO_LOG_NET(Log, "ClientTravel -> %s", *Addr);
 
@@ -253,6 +258,16 @@ void UBlackoutMatchmakingSubsystem::TravelToGameServer(
 	// 라이프사이클 종료는 PostLoadMapWithWorld delegate 가 명시 StopMovie 로 처리.
 	DisconnectLobby();
 	PC->ClientTravel(Addr, TRAVEL_Absolute);
+}
+
+void UBlackoutMatchmakingSubsystem::TravelToActiveSession()
+{
+	if (ActiveSessionIp.IsEmpty() || ActiveSessionPort <= 0)
+	{
+		BO_LOG_NET(Warning, "TravelToActiveSession — 저장된 세션 없음");
+		return;
+	}
+	TravelToGameServer(ActiveSessionIp , ActiveSessionPort , ActiveSessionId);
 }
 
 // 로비 WebSocket 연결. 이벤트 콜백 바인딩 + Connect 호출.
@@ -316,6 +331,31 @@ void UBlackoutMatchmakingSubsystem::Logout()
 bool UBlackoutMatchmakingSubsystem::IsLobbyConnected() const
 {
 	return WebSocket.IsValid() && WebSocket->IsConnected();
+}
+
+void UBlackoutMatchmakingSubsystem::CheckActiveSession()
+{
+	if (!IsLoggedIn())
+	{
+		BO_LOG_NET(Log, "CheckActiveSession — 로그인 안 됨, skip");
+		return;
+	}
+	
+	const UBlackoutNetworkSettings* Settings = GetDefault<UBlackoutNetworkSettings>();
+	if (!Settings)
+	{
+		return;
+	}
+	
+	const FHttpRequestRef Request = FHttpModule::Get().CreateRequest();
+	Request ->SetURL(Settings->ApiBaseUrl + TEXT("/me/active-session"));
+	Request->SetVerb(TEXT("GET"));
+	SetAuthHeader(Request);
+	Request->OnProcessRequestComplete().BindUObject(this, &UBlackoutMatchmakingSubsystem::OnCheckActiveSessionResponse);
+	Request->ProcessRequest();
+	
+	BO_LOG_NET(Log, "CheckActiveSession 요청");
+
 }
 
 void UBlackoutMatchmakingSubsystem::ManualReconnect()
@@ -502,6 +542,49 @@ void UBlackoutMatchmakingSubsystem::OnCancelMatchmakingResponse(
 	BO_LOG_NET(Log, "매칭 취소 - sessionDestroyed=%s",
 	           bDestroyed ? TEXT("true") : TEXT("false"));
 	OnMatchmakingCancelled.Broadcast(bDestroyed);
+}
+
+void UBlackoutMatchmakingSubsystem::OnCheckActiveSessionResponse(
+	FHttpRequestPtr Request, FHttpResponsePtr Response, bool bSucceeded)
+{
+	if (!bSucceeded || !Response.IsValid())
+	{
+		BO_LOG_NET(Warning, "CheckActiveSession 응답 실패");
+		return;
+	}
+	const int32 Status = Response->GetResponseCode();
+	if (Status < 200 || Status >= 300)
+	{
+		BO_LOG_NET(Warning, "CheckActiveSession 비정상 - %d", Status);
+		return;
+	}
+	
+	// 진행 세션 없으면 null / 빈 바디 -> 파싱 실패로 버튼 안나옴
+	TSharedPtr<FJsonObject> Json;
+	const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Response->GetContentAsString());
+	if (!FJsonSerializer::Deserialize(Reader, Json) || !Json.IsValid())
+	{
+		BO_LOG_NET(Log, "CheckActiveSession — 진행 세션 없음");
+		return;
+	}
+	
+	FString Ip, SessionId;
+	int32 Port = 0;
+	Json->TryGetStringField(TEXT("dediIp"),Ip);
+	Json->TryGetNumberField(TEXT("port"),Port);
+	Json->TryGetStringField(TEXT("sessionId"),SessionId);
+	
+	if (Ip.IsEmpty() || Port<= 0)
+	{
+		BO_LOG_NET(Log, "CheckActiveSession — 데디 주소 없음(미배정)");
+		return;
+	}
+	ActiveSessionIp = Ip;
+	ActiveSessionPort = Port;
+	ActiveSessionId = SessionId;
+	BO_LOG_NET(Log, "재접속 가능 세션: %s:%d (%s)", *Ip, Port, *SessionId);
+	OnActiveSessionFound.Broadcast();
+	
 }
 
 // join_session 요청 처리. WebSocket 미연결이면 PendingSessionId 에 예약.

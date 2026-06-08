@@ -70,6 +70,9 @@ protected:
 	TObjectPtr<UButton> StartMatchmakingButton;
 	
 	UPROPERTY(meta=(BindWidgetOptional))
+	TObjectPtr<UButton> ReconnectButton;
+	
+	UPROPERTY(meta=(BindWidgetOptional))
 	TObjectPtr<UButton> SinglePlayButton;
 	
 	UPROPERTY(meta=(BindWidget))
@@ -95,6 +98,9 @@ private:
 	void HandleStartMatchmakingClicked();
 	
 	UFUNCTION()
+	void HandleReconnectClicked();
+	
+	UFUNCTION()
 	void HandleSinglePlayClicked();
 	
 	UFUNCTION()
@@ -118,6 +124,9 @@ private:
 	UFUNCTION()
 	void HandleMatchmakingWidgetExited(bool bSuccess);
 	
+	UFUNCTION()
+	void HandleActiveSessionFound();
+	
 	// 로그인 상태에 맞춰서 버튼 Visible / Welcome 텍스트 갱신
 	void RefreshForLoginState();
 	
@@ -129,4 +138,5 @@ private:
 
 	UPROPERTY()
 	TObjectPtr<UBlackoutSettingsWidget> ActiveSettingsWidget;
+	
 };
