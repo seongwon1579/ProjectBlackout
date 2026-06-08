@@ -93,8 +93,8 @@ protected:
 	// 끊긴 플레이어 UniqueId -> SelectedClassTag 재접속 클래스 복원용 매치 종료시 Clear
 	TMap<FString , FGameplayTag> ReconnectStash;
 	
-	// FUniqueNetIdRepl -> stash 키 문자열 무효 ID는 빈 문자 
-	static FString MakeReconnectKey(const FUniqueNetIdRepl& UniqueId);
+	// 로그인 ID -> stash 키. 빈 ID는 빈 문자열 (호출부에서 스킵)
+	static FString MakeReconnectKey(const FString& AccountId);
 
 	
 	

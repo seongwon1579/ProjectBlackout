@@ -87,6 +87,25 @@ void ABlackoutGameMode::PreLogin(const FString& Options, const FString& Address,
 	}
 }
 
+FString ABlackoutGameMode::InitNewPlayer(APlayerController* NewPlayerController,
+	const FUniqueNetIdRepl& UniqueId, const FString& Options,
+	const FString& Portal)
+{
+	FString ErrorMessage  =Super::InitNewPlayer(NewPlayerController, UniqueId, Options, Portal);
+	
+	// ?Acc=<로그인ID> 보관 - 재접속 시 프로세스 재실행해도 남아있음
+	if (ABlackoutPlayerState *PS = NewPlayerController ? NewPlayerController ->GetPlayerState<ABlackoutPlayerState>() : nullptr)
+	{
+		const FString Acc = UGameplayStatics::ParseOption(Options, TEXT("Acc"));
+		if (!Acc.IsEmpty())
+		{
+			PS->AccountId = Acc;
+			BO_LOG_NET(Log, "InitNewPlayer — Acc 보관: %s", *Acc);
+		}
+	}
+	return  ErrorMessage;
+}
+
 void ABlackoutGameMode::PostLogin(APlayerController* NewPlayer)
 {
 	Super::PostLogin(NewPlayer);
