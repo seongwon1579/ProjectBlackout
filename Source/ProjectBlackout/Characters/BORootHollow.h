@@ -18,14 +18,7 @@ class PROJECTBLACKOUT_API ABORootHollow : public ABlackoutMinionCharacter
 
 public:
 	ABORootHollow();
-
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Minion")
-	void PerformCharge();
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|MotionWarping")
 	TObjectPtr<UMotionWarpingComponent> MotionWarpingComponent;
-
-protected:
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|AI")
-	TObjectPtr<UStateTree> ST_RootHollow;
 };
