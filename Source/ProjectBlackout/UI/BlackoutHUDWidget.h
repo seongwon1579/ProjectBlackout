@@ -23,8 +23,6 @@ class UBlackoutSpectatorWidget;
 class UBlackoutValueBarWidget;
 class UBlackoutWeaponAmmoWidget;
 class UCanvasPanel;
-class UProgressBar;
-class UTextBlock;
 class UWidget;
 
 UCLASS(BlueprintType, Blueprintable)
@@ -111,18 +109,6 @@ protected:
 	TObjectPtr<UBlackoutReviveProgressWidget> ReviveProgressWidget;
 
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
-	TObjectPtr<UWidget> RevivePromptContainer;
-
-	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
-	TObjectPtr<UTextBlock> RevivePromptTextWidget;
-
-	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
-	TObjectPtr<UTextBlock> ReviveStatusTextWidget;
-
-	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
-	TObjectPtr<UProgressBar> ReviveProgressBarWidget;
-
-	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
 	TObjectPtr<UCanvasPanel> CNV_DamageNumbers;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD")
@@ -154,12 +140,6 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD")
 	FLinearColor ImpactIndicatorOccludedColor = FLinearColor(1.0f, 0.7f, 0.0f, 1.0f);
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD")
-	FLinearColor RevivePromptDefaultColor = FLinearColor::White;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD")
-	FLinearColor RevivePromptErrorColor = FLinearColor(1.0f, 0.2f, 0.2f, 1.0f);
 
 	/** 부활 프롬프트를 대상 월드 좌표보다 화면에서 얼마나 더 아래로 내릴지 조정합니다. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD")

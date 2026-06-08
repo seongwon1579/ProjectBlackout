@@ -6,8 +6,6 @@
 #include "Core/BlackoutLog.h"
 #include "Components/Border.h"
 #include "Components/Image.h"
-#include "Components/ProgressBar.h"
-#include "Components/TextBlock.h"
 #include "Components/Widget.h"
 #include "GameFramework/PlayerController.h"
 #include "Rendering/DrawElements.h"
@@ -309,12 +307,6 @@ void UBlackoutHUDWidget::UpdateInteractionPrompt(const FBlackoutInteractionPromp
 		ReviveProgressWidget->SetInteractionProgressData(bShowScreenProgress ? InteractionPromptData : HiddenPromptData);
 	}
 
-	const ESlateVisibility VisibleState = ESlateVisibility::HitTestInvisible;
-	const ESlateVisibility HiddenState = ESlateVisibility::Hidden;
-	const bool bShowPrompt = bShowWorldPrompt;
-	const bool bShowStatus = bShowPrompt && !InteractionPromptData.StatusText.IsEmpty();
-	const bool bShowProgress = bShowPrompt && InteractionPromptData.bShowProgress;
-
 	auto ApplyTrackedPromptPosition = [this, &InteractionPromptData](UWidget* TargetWidget)
 	{
 		if (!TargetWidget)
@@ -348,42 +340,9 @@ void UBlackoutHUDWidget::UpdateInteractionPrompt(const FBlackoutInteractionPromp
 		}
 	};
 
-	if (RevivePromptContainer)
+	if (bShowWorldPrompt && RevivePromptWidget)
 	{
-		RevivePromptContainer->SetVisibility(bShowPrompt ? VisibleState : HiddenState);
-	}
-
-	if (RevivePromptTextWidget)
-	{
-		RevivePromptTextWidget->SetText(InteractionPromptData.PromptText);
-		RevivePromptTextWidget->SetColorAndOpacity(FSlateColor(RevivePromptDefaultColor));
-		RevivePromptTextWidget->SetVisibility(bShowPrompt ? VisibleState : HiddenState);
-	}
-
-	if (ReviveStatusTextWidget)
-	{
-		ReviveStatusTextWidget->SetText(InteractionPromptData.StatusText);
-		ReviveStatusTextWidget->SetColorAndOpacity(FSlateColor(
-			InteractionPromptData.bIsStatusError ? RevivePromptErrorColor : RevivePromptDefaultColor));
-		ReviveStatusTextWidget->SetVisibility(bShowStatus ? VisibleState : HiddenState);
-	}
-
-	if (ReviveProgressBarWidget)
-	{
-		ReviveProgressBarWidget->SetPercent(InteractionPromptData.ProgressNormalized);
-		ReviveProgressBarWidget->SetVisibility(bShowProgress ? VisibleState : HiddenState);
-	}
-
-	if (bShowPrompt)
-	{
-		if (RevivePromptWidget)
-		{
-			ApplyTrackedPromptPosition(RevivePromptWidget);
-		}
-		else if (RevivePromptContainer)
-		{
-			ApplyTrackedPromptPosition(RevivePromptContainer);
-		}
+		ApplyTrackedPromptPosition(RevivePromptWidget);
 	}
 
 	if (bShowScreenProgress && ReviveProgressWidget)
