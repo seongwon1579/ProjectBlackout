@@ -87,7 +87,7 @@ void ABlackoutBattleGameMode::OnPlayerJoined(APlayerController* NewPlayer)
 	if (ABlackoutPlayerState* PS = NewPlayer->GetPlayerState<
 		ABlackoutPlayerState>())
 	{
-		const FString Key = MakeReconnectKey(PS->GetUniqueId());
+		const FString Key = MakeReconnectKey(PS->AccountId);
 		if (const FGameplayTag* Saved = ReconnectStash.Find(Key))
 		{
 			PS->SelectedClassTag = *Saved; // 서버 Set 복제
@@ -97,12 +97,11 @@ void ABlackoutBattleGameMode::OnPlayerJoined(APlayerController* NewPlayer)
 		}
 		PS->ApplyBattleTransitionPolicy(EBattleTransitionType::LobbyToBattle);
 	}
-	
 }
 
 void ABlackoutBattleGameMode::HandleEmptyServerReset()
 {
-	ReconnectStash.Empty();  // 전원 퇴장 -> 돌아갈 사람 X
+	ReconnectStash.Empty(); // 전원 퇴장 -> 돌아갈 사람 X
 	// 매칭 서버 finish 보고 (EndMatch 내부 ) 후 데디를 로비 Idle 로 되돌려 재사용
 	EndMatch(EBlackoutMatchEndReason::AllPlayersLeft);
 	ReturnServerToIdleLobby();
@@ -119,9 +118,9 @@ void ABlackoutBattleGameMode::OnSeamlessArrival(APlayerController* PC)
 
 
 FString ABlackoutBattleGameMode::MakeReconnectKey(
-	const FUniqueNetIdRepl& UniqueId)
+	const FString& AccountId)
 {
-	return UniqueId.IsValid() ? UniqueId.ToString() : FString();
+	return AccountId;
 }
 
 void ABlackoutBattleGameMode::Logout(AController* Exiting)
@@ -153,7 +152,7 @@ void ABlackoutBattleGameMode::Logout(AController* Exiting)
 
 		if (bInMatch && PS && PS->SelectedClassTag.IsValid())
 		{
-			const FString Key = MakeReconnectKey(PS->GetUniqueId());
+			const FString Key = MakeReconnectKey(PS->AccountId);
 			if (!Key.IsEmpty())
 			{
 				ReconnectStash.Add(Key, PS->SelectedClassTag);
@@ -290,8 +289,10 @@ void ABlackoutBattleGameMode::PreLogin(const FString& Options,
 	{
 		return; // 상위에서 이미 거부
 	}
-	// stash 에 있는 UniqueId = 재접속 -> 진행중이여도 허용
-	if (const FString Key = MakeReconnectKey(UniqueId); !Key.IsEmpty() &&
+	// stash 에 있는 Account = 재접속 -> 진행중이여도 허용
+	const FString Key = MakeReconnectKey(
+		UGameplayStatics::ParseOption(Options, TEXT("Acc")));
+	if (!Key.IsEmpty() &&
 		ReconnectStash.Contains(Key))
 	{
 		BO_LOG_NET(Log, "PreLogin 재접속 허용: %s", *Key);

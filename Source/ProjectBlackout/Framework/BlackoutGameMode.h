@@ -39,6 +39,9 @@ protected:
 	// 클라가 매칭으로 처음 접속할 때 URL ?SessionId=... 옵션을 잡아 DedicatedSessionSubsystem 에 저장.
 	virtual void PreLogin(const FString& Options, const FString& Address,
 		const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage) override;
+	
+	// 접속시 URL ?Acc (로그인 ID) 파싱 -> PlayerState에 보관 재접속 stash 키 소스
+	virtual FString InitNewPlayer(APlayerController* NewPlayerController, const FUniqueNetIdRepl& UniqueId, const FString& Options, const FString& Portal = L"") override;
 
 	virtual void Logout(AController* Exiting) override;
 	
