@@ -217,6 +217,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Blackout|Interaction")
 	bool IsBeingRevived() const;
 
+	/** 이 플레이어가 현재 부활을 진행 중인 대상입니다. 진행 중이 아니면 nullptr입니다. */
+	UFUNCTION(BlueprintPure, Category = "Blackout|Interaction")
+	ABlackoutPlayerCharacter* GetActiveReviveTarget() const { return ActiveReviveTarget.Get(); }
+
 	/** 다운 상태 진입 시 설정된 완전 사망 카운트다운 총 지속 시간(초)입니다. */
 	UFUNCTION(BlueprintPure, Category = "Blackout|State")
 	float GetDownedDeathDuration() const { return DownedDeathDuration; }
@@ -517,6 +521,10 @@ protected:
 
 	UPROPERTY(Transient)
 	TWeakObjectPtr<ABlackoutPlayerCharacter> ActiveReviver;
+
+	/** 서버가 부활 시전자에게 복제하는 현재 부활 대상입니다. 시전자 HUD는 이 값을 기준으로 진행 UI를 계산합니다. */
+	UPROPERTY(Transient, Replicated, BlueprintReadOnly, Category = "Blackout|Interaction")
+	TObjectPtr<ABlackoutPlayerCharacter> ActiveReviveTarget = nullptr;
 
 	UPROPERTY(Transient)
 	TWeakObjectPtr<ABlackoutPlayerState> BoundReadyStatePlayerState;
