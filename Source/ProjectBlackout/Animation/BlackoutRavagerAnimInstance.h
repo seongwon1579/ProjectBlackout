@@ -4,18 +4,15 @@
 
 #include "CoreMinimal.h"
 #include "Animation/BlackoutBossAnimInstance.h"
-#include "UBlackoutRavagerAnimInstance.generated.h"
+#include "BlackoutRavagerAnimInstance.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class PROJECTBLACKOUT_API UUBlackoutRavagerAnimInstance : public UBlackoutBossAnimInstance
+class PROJECTBLACKOUT_API UBlackoutRavagerAnimInstance : public UBlackoutBossAnimInstance
 {
 	GENERATED_BODY()
-
-public:
-	virtual void OnDeath() override;
 
 protected:
 	virtual void UpdateAnimationProperties() override;
@@ -32,6 +29,4 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Animation|BlendSpace")
 	float AimDirection;
 	
-	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Animation|BlendSpace")
-	float IsDead = false;
 };
