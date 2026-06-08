@@ -80,7 +80,6 @@ ABlackoutPlayerCharacter::ABlackoutPlayerCharacter(const FObjectInitializer& Obj
 void ABlackoutPlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-
 	CacheAimDefaults();
 	UpdateAimMovementMode();
 }
@@ -212,10 +211,21 @@ void ABlackoutPlayerCharacter::OnRep_PlayerState()
 
 void ABlackoutPlayerCharacter::ApplyPull(const FPullData& PullData)
 {
+	if (UAbilitySystemComponent* ASC = GetAbilitySystemComponent())
+	{
+		static const FGameplayTagContainer PullImmuneTags = FGameplayTagContainer::CreateFromArray(TArray<FGameplayTag>{
+			BlackoutGameplayTags::State_Downed,
+			BlackoutGameplayTags::State_Dead
+		});
+		
+		if (ASC->HasAnyMatchingGameplayTags(PullImmuneTags)) return;
+	}
+	
 	UCharacterMovementComponent* MoveComp = GetCharacterMovement();
 	if (!MoveComp) return;
-   
-	MoveComp->Velocity += PullData.PullDirection * PullData.PullStrength * PullData.DeltaTime;
+	
+	const FVector LaunchVelocity = PullData.PullDirection * PullData.PullStrength;
+	LaunchCharacter(LaunchVelocity, true, true);
 }
 
 void ABlackoutPlayerCharacter::Server_RequestDebugSelfDamage_Implementation(float DamageAmount)

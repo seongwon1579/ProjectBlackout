@@ -19,31 +19,33 @@ class PROJECTBLACKOUT_API UBTT_ActivateAbility : public UBTTaskNode
 public:
 	UBTT_ActivateAbility();
 
+protected:
 	virtual EBTNodeResult::Type ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;
 	virtual EBTNodeResult::Type AbortTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;
 	virtual FString GetStaticDescription() const override;
-
+	virtual FGameplayTag ResolveAbilityTag(UBehaviorTreeComponent& OwnerComp) const;
+	virtual void PrepareEventData(FGameplayEventData& EventData, UBlackboardComponent* BB){}
+	
 	UPROPERTY(EditAnywhere, Category = "Blackout|Ability")
 	bool bWaitForEnd = true;
 
 	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard|Input")
 	FBlackboardKeySelector TargetKey;
 	
-	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard|Input")
+	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard|Input", meta = (EditCondition = "!bUseAbilityTagKey", EditConditionHides))
 	FBlackboardKeySelector SelectedAbilityTagKey;
-
-	virtual FGameplayTag ResolveAbilityTag(UBehaviorTreeComponent& OwnerComp) const;
-
-	virtual void PrepareEventData(FGameplayEventData& EventData, UBlackboardComponent* BB){}
-
+	
+	UPROPERTY(EditAnywhere, Category = "Blackout|Ability")
+	bool bUseAbilityTagKey = true;
+	
+	UPROPERTY(EditAnywhere, Category = "Blackout|Ability", meta = (Categories = "Ability", EditCondition = "bUseAbilityTagKey", EditConditionHides))
+	FGameplayTag AbilityTag;
+	
 private:
 	void HandleAbilityActivated(UGameplayAbility* Ability);
 	void HandleAbilityEnded(UGameplayAbility* Ability);
 	void UnbindDelegate();
-
-	UPROPERTY(EditAnywhere, Category = "Blackout|Ability", meta = (Categories = "Ability"))
-	FGameplayTag AbilityTag;
-
+	
 	UBehaviorTreeComponent* CachedOwnerComp = nullptr;
 	TWeakObjectPtr<UAbilitySystemComponent> CachedASC;
 	TWeakObjectPtr<UGameplayAbility> BoundAbility;

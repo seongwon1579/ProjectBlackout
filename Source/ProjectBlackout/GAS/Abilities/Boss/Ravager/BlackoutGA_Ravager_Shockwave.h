@@ -4,9 +4,6 @@
 #include "GAS/Abilities/Boss/Ravager/BlackoutGA_Ravager_Base.h"
 #include "BlackoutGA_Ravager_Shockwave.generated.h"
 
-/**
- * Phase A — 앞발 충전 후 지면 장풍
- */
 class UAbilityTask_WaitGameplayEvent;
 
 UCLASS()

@@ -7,7 +7,7 @@
 
 UBTT_SelectAbility::UBTT_SelectAbility()
 {
-	NodeName = TEXT("SetSelectedAbilityTag");
+	NodeName = TEXT("SelectAbility");
 }
 
 EBTNodeResult::Type UBTT_SelectAbility::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
@@ -18,4 +18,9 @@ EBTNodeResult::Type UBTT_SelectAbility::ExecuteTask(UBehaviorTreeComponent& Owne
 	BB->SetValueAsName(SelectedAbilityTagKey.SelectedKeyName, AbilityTagToSet.GetTagName());
 	
 	return EBTNodeResult::Succeeded;
+}
+
+FString UBTT_SelectAbility::GetStaticDescription() const
+{
+	return FString::Printf(TEXT("Selected Key = %s"), *AbilityTagToSet.ToString());
 }

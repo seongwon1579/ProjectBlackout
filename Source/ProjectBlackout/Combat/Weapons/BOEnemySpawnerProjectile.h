@@ -15,12 +15,12 @@ class PROJECTBLACKOUT_API ABOEnemySpawnerProjectile : public ABOEnemyProjectile
 	GENERATED_BODY()
 
 public:
-
 	void SetSpawnerData(const FMinionSpawnData& InData);
 
 protected:
 	virtual void SetCollisionEvent() override;
-	
+
+private:
 	UFUNCTION()
 	void OnHit(
 		UPrimitiveComponent* HitComp,
@@ -28,17 +28,15 @@ protected:
 		UPrimitiveComponent* OtherComp,
 		FVector NormalImpulse,
 		const FHitResult& Hit);
-	
+
 	void Hatch();
-	
+
 	UPROPERTY(Transient)
 	FMinionSpawnData MinionData;
-	
+
 	UPROPERTY(Transient)
 	FTimerHandle HatchTimer;
-	
+
 	UPROPERTY(Transient)
 	bool bHasLanded = false;
-	
-	
 };

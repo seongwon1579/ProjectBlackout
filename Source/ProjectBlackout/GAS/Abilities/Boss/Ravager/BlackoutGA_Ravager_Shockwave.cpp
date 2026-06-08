@@ -1,6 +1,6 @@
 #include "GAS/Abilities/Boss/Ravager/BlackoutGA_Ravager_Shockwave.h"
 
-#include "BlackoutBossCharacter.h"
+#include "Characters/BORavagerBoss.h"
 #include "BlackoutGameplayTags.h"
 #include "BOEnemyProjectile.h"
 #include "Abilities/Tasks/AbilityTask.h"

@@ -4,26 +4,26 @@
 
 #include "CoreMinimal.h"
 #include "BehaviorTree/BTTaskNode.h"
-#include "BTT_SelectAbility.generated.h"
+#include "BTT_PickNextPattern.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class PROJECTBLACKOUT_API UBTT_SelectAbility : public UBTTaskNode
+class PROJECTBLACKOUT_API UBTT_PickNextPattern : public UBTTaskNode
 {
 	GENERATED_BODY()
 
 public:
-	UBTT_SelectAbility();
+	UBTT_PickNextPattern();
 
 protected:
 	virtual EBTNodeResult::Type ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;
 	virtual FString GetStaticDescription() const override;
-
-	UPROPERTY(EditAnywhere, Category = "Blackout|Ability")
-	FGameplayTag AbilityTagToSet;
-
-	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard|Output")
-	FBlackboardKeySelector SelectedAbilityTagKey;
+	
+	UPROPERTY(EditAnywhere, Category = "Blackout|PatternNumber")
+	int32 PatternNumber;
+	
+	UPROPERTY(EditAnywhere, Category = "Blackout|Blackboard|Input")
+	FBlackboardKeySelector PatternNumberKey;
 };

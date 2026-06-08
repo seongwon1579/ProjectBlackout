@@ -129,6 +129,8 @@ void UBlackoutGA_Ravager_HitboxAttack::ApplyHitboxDamage(const FHitResult& HitRe
 
 	AActor* HitActor = HitResult.GetActor();
 	if (!HitActor) return;
+	
+	if (!ShouldDamageTarget(HitActor)) return;
 
 	if (DamagedActorsThisWindow.Contains(HitActor)) return;
 

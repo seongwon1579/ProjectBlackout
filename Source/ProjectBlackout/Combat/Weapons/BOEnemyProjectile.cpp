@@ -7,6 +7,7 @@
 #include "AbilitySystemComponent.h"
 #include "BlackoutDamageable.h"
 #include "BlackoutGameplayTags.h"
+#include "BlackoutPlayerCharacter.h"
 #include "NiagaraComponent.h"
 #include "Components/BoxComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -73,6 +74,8 @@ void ABOEnemyProjectile::OnBeginOverlap(UPrimitiveComponent* OverlappedComp, AAc
 void ABOEnemyProjectile::ApplyDamageToTarget(AActor* Target, FName HitBoneName)
 {
 	if (!SpawnParams.Effect) return;
+	
+	if (!Target || !Target->IsA(ABlackoutPlayerCharacter::StaticClass())) return;
 	
 	IBlackoutDamageable* Damageable = Cast<IBlackoutDamageable>(Target);
 	if (!Damageable) return;

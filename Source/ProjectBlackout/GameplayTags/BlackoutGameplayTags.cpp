@@ -16,6 +16,7 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(State_Reloading,     "State.Reloading");
 	UE_DEFINE_GAMEPLAY_TAG(State_UseConsumable, "State.UseConsumable");
 	UE_DEFINE_GAMEPLAY_TAG(State_UseRelic,      "State.UseRelic");
+	UE_DEFINE_GAMEPLAY_TAG(State_Pulled,		"State.Pulled");
 	
 	// ─── Character Abilities ───────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Player_Dodge,			"Ability.Player.Dodge");

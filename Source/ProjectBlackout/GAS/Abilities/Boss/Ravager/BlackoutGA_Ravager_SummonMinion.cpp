@@ -4,8 +4,6 @@
 #include "BlackoutGameplayTags.h"
 #include "BOEnemySpawnerProjectile.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
-#include "Kismet/GameplayStatics.h"
-#include "AI/BlackoutBossAIController.h"
 #include "AbilitySystemComponent.h"
 #include "NavigationSystem.h"
 #include "BlackoutLog.h"

@@ -14,3 +14,9 @@ void UBTT_ActivateRotateAbility::PrepareEventData(FGameplayEventData& EventData,
 {
 	EventData.EventMagnitude = BB->GetValueAsFloat(SignedAngleKey.SelectedKeyName);
 }
+
+FString UBTT_ActivateRotateAbility::GetStaticDescription() const
+{
+	return FString::Printf(TEXT("%s"),
+	*Super::GetStaticDescription());
+}
