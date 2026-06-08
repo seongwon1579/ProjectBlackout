@@ -108,6 +108,12 @@ void ABlackoutGameMode::Logout(AController* Exiting)
 	           *GetNameSafe(Exiting), ConnectedPlayers.Num());
 
 	OnPlayerLeft(Exiting);
+	
+	// 전원 퇴장이면 grace 타이머 . 이미 도는중이면 중복 무시
+	if (ConnectedPlayers.Num() == 0 && !GetWorldTimerManager().IsTimerActive(EmptyServerGraceHandle))
+	{
+		GetWorldTimerManager().SetTimer(EmptyServerGraceHandle,this ,&ABlackoutGameMode::ConfirmEmptyServer, EmptyServerGracePeriod, false);
+	}
 }
 
 void ABlackoutGameMode::HandleSeamlessTravelPlayer(AController*& C)
@@ -208,6 +214,20 @@ void ABlackoutGameMode::NotifyReadyChanged()
 	{
 		OnAllPlayersReady();
 	}
+}
+
+void ABlackoutGameMode::ConfirmEmptyServer()
+{
+	// grace 동안 접속이 들어와 1명이라도 있으면 Idle 복귀 취소
+	if (ConnectedPlayers.Num() >0)
+	{
+		BO_LOG_NET(Log, "EmptyServer grace 취소 — 접속 %d명 복귀", ConnectedPlayers.Num());
+		return;
+	}
+	
+	
+	BO_LOG_NET(Log, "EmptyServer 확정 — idle 복귀 트리거");
+	HandleEmptyServerReset();
 }
 
 // 매치 상태 전이 단일 권위. SetMatchState 직접 호출을 이 진입점으로 일원화한다.

@@ -4,9 +4,12 @@
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "Interfaces/IHttpRequest.h"
 #include "HttpFwd.h"
+#include "Engine/EngineBaseTypes.h"
+
 
 #include "IWebSocket.h"
 #include "BlackoutMatchmakingSubsystem.generated.h"
+
 
 
 /**
@@ -82,6 +85,9 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnBlackoutMatchmakingFailed,
                                              const FString&, SessionId,
                                              const FString&, Reason);
 
+// 자동 재접속 N 회 실패 - UI 수동 재접속 버튼 표시
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnBlackoutReconnectFailed);
+
 /**
  * 매칭 서버(Nest.js) HTTP + 로비 WebSocket 클라이언트.
  * Login → StartMatchmaking → WebSocket game_start 수신 → 자동 ClientTravel 전 경로 처리.
@@ -136,6 +142,10 @@ public:
 	FString GetPlayerName() const { return CachedPlayerName; }
 
 	const FString& GetAccessToken() const { return AccessToken; }
+	
+	// 자동 재접속 소진 후 버튼에서 호출 - 카운터 리셋하고 다시 시도
+	UFUNCTION(BlueprintCallable , Category="Blackout|Matchmaking")
+	void ManualReconnect();
 
 	// NetworkSettings 기본값 Initialize 에서 로드. 런타임에 BP에서 토글 가능.
 	UPROPERTY(BlueprintReadWrite, Category = "Blackout|Matchmaking")
@@ -167,6 +177,9 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category = "Blackout|Matchmaking")
 	FOnBlackoutMatchmakingFailed OnMatchmakingFailed;
+	
+	UPROPERTY(BlueprintAssignable, Category = "Blackout|Matchmaking")
+	FOnBlackoutReconnectFailed OnReconnectFailed;
 
 private:
 	// PreLoadMap 시점에 MoviePlayer SetupLoadingScreen — ClientTravel 시 자동 로딩 화면 표시.
@@ -204,4 +217,25 @@ private:
 	FString CurrentSessionId;
 	// WebSocket 미연결 시점의 join_session 요청 대기 큐.
 	FString PendingSessionId;
+	
+	// 마지막 접속 데디 
+	FString LastServerIp;
+	int32 LastServerPort = 0;
+	FString LastSessionId;
+	
+	// GEngine NetworkFailure 콜백 , 비정상 끊김 판별 
+	void HandleNetworkFailure(UWorld* World, UNetDriver* NetDriver , ENetworkFailure::Type FailureType , const FString& ErrorString);
+	FDelegateHandle NetworkFailureHandle;
+	
+	UPROPERTY(EditDefaultsOnly, Category="Blackout|Matchmaking")
+	int32 MaxReconnectAttempts =3;
+	
+	UPROPERTY(EditDefaultsOnly, Category="Blackout|Matchmaking")
+	float ReconnectInterval = 12.0f;
+	
+	int32 ReconnectAttempts = 0;
+	bool bIsReconnecting = false;
+	FTimerHandle ReconnectTimerHandle;
+	void ScheduleReconnect();
+	void AttemptReconnect();
 };

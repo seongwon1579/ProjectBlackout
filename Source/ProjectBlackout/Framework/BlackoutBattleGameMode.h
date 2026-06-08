@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "BlackoutGameMode.h"
 #include "UObject/SoftObjectPath.h"
+#include "GameplayTagContainer.h"
 #include "BlackoutBattleGameMode.generated.h"
 
 enum class EBlackoutMatchEndReason : uint8;
@@ -59,7 +60,8 @@ protected:
 	// 플레이어 접속 시 전투 진입 자원 초기화 정책 적용 (LobbyToBattle).
 	virtual void OnPlayerJoined(APlayerController* NewPlayer) override;
 	
-	virtual void OnPlayerLeft(AController* Exiting) override;
+	// 전원 퇴장 grace 만료 시 베이스 가 호출. EndMatch , Idle 복귀
+	virtual void HandleEmptyServerReset() override;
 
 	// GameState 생성 직후 초기 상태를 WaitingForPlayers 로 세팅.
 	virtual void InitGameState() override;
@@ -87,6 +89,12 @@ protected:
 	bool bTravelInitiated  = false;
 	
 	virtual void OnSeamlessArrival(APlayerController* PC) override;
+	
+	// 끊긴 플레이어 UniqueId -> SelectedClassTag 재접속 클래스 복원용 매치 종료시 Clear
+	TMap<FString , FGameplayTag> ReconnectStash;
+	
+	// FUniqueNetIdRepl -> stash 키 문자열 무효 ID는 빈 문자 
+	static FString MakeReconnectKey(const FUniqueNetIdRepl& UniqueId);
 
 	
 	
@@ -139,6 +147,9 @@ private:
 	void DoTravelToLobby();
 	
 	void DoTravelToTitle();
+	
+	// 데디 서버측 Idle 복귀 : 매치 인덱스 리셋 , 로비맵 ServerTravel  (타이틀/전원퇴장 공용)
+	void ReturnServerToIdleLobby();
 	
 	FTimerHandle FadeTravelTimerHandle;
 };
