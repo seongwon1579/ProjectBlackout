@@ -41,7 +41,7 @@ protected:
 		const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage) override;
 	
 	// 접속시 URL ?Acc (로그인 ID) 파싱 -> PlayerState에 보관 재접속 stash 키 소스
-	virtual FString InitNewPlayer(APlayerController* NewPlayerController, const FUniqueNetIdRepl& UniqueId, const FString& Options, const FString& Portal = L"") override;
+	virtual FString InitNewPlayer(APlayerController* NewPlayerController, const FUniqueNetIdRepl& UniqueId, const FString& Options, const FString& Portal = TEXT("")) override;
 
 	virtual void Logout(AController* Exiting) override;
 	
