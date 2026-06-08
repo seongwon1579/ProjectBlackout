@@ -1,7 +1,9 @@
 #include "Characters/BOShrewdBoss.h"
 
+#include "AIController.h"
 #include "BlackoutAbilitySystemComponent.h"
 #include "BlackoutBaseAttributeSet.h"
+#include "BrainComponent.h"
 #include "GameplayEffectExtension.h"
 #include "UBOShrewdData.h"
 #include "GameFramework/PlayerState.h"
@@ -107,6 +109,24 @@ APawn* ABOShrewdBoss::ResolveInstigatorPawn(AActor* SourceActor) const
 	if (APlayerState* PS = Cast<APlayerState>(SourceActor)) return PS->GetPawn();
 
 	return nullptr;
+}
+
+void ABOShrewdBoss::OnDeath()
+{
+	Super::OnDeath();
+	
+	if (UAbilitySystemComponent* ASC = GetAbilitySystemComponent())
+	{
+		ASC->CancelAllAbilities();
+	}
+	
+	if (AAIController* AIC = Cast<AAIController>(GetController()))
+	{
+		if (UBrainComponent* Brain = AIC->GetBrainComponent())
+		{
+			Brain->StopLogic("Dead");
+		}
+	}
 }
 
 FText ABOShrewdBoss::GetBossDisplayName() const

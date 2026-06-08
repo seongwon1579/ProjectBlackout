@@ -45,4 +45,6 @@ protected:
 	
 	APawn* ResolveInstigatorPawn(AActor* SourceActor) const;
 	
+	virtual void OnDeath() override;
+	
 };
