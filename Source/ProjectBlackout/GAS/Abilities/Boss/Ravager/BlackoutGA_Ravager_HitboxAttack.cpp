@@ -27,7 +27,7 @@ void UBlackoutGA_Ravager_HitboxAttack::SetupEventListeners()
 		this,
 		BlackoutGameplayTags::Event_Enemy_Attack_OnCollision,
 		nullptr,
-		true);
+		false);
 
 	WaitCollisionOnEvent->EventReceived.AddDynamic(this, &UBlackoutGA_Ravager_HitboxAttack::HandleHitboxEnable);
 	WaitCollisionOnEvent->ReadyForActivation();
@@ -36,7 +36,7 @@ void UBlackoutGA_Ravager_HitboxAttack::SetupEventListeners()
 		this,
 		BlackoutGameplayTags::Event_Enemy_Attack_OffCollision,
 		nullptr,
-		true);
+		false);
 	WaitCollisionOffEvent->EventReceived.AddDynamic(this, &UBlackoutGA_Ravager_HitboxAttack::HandleHitboxDisable);
 	WaitCollisionOffEvent->ReadyForActivation();
 }
