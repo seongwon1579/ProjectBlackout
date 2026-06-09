@@ -5,11 +5,35 @@
 #include "Characters/BlackoutPlayerMovementComponent.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
 #include "Core/BlackoutLog.h"
+#include "Framework/BlackoutPlayerState.h"
 #include "GAS/BlackoutAbilitySystemComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "GAS/Attributes/BlackoutPlayerAttributeSet.h"
 #include "TimerManager.h"
+
+namespace
+{
+	const ABlackoutPlayerState* ResolveOwningBlackoutPlayerState(const FGameplayAbilityActorInfo* ActorInfo)
+	{
+		if (!ActorInfo)
+		{
+			return nullptr;
+		}
+
+		if (const ABlackoutPlayerState* PlayerState = Cast<ABlackoutPlayerState>(ActorInfo->OwnerActor.Get()))
+		{
+			return PlayerState;
+		}
+
+		if (const ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()))
+		{
+			return PlayerCharacter->GetPlayerState<ABlackoutPlayerState>();
+		}
+
+		return nullptr;
+	}
+}
 
 UBlackoutGA_Sprint::UBlackoutGA_Sprint()
 {
@@ -42,7 +66,16 @@ void UBlackoutGA_Sprint::ActivateAbility(const FGameplayAbilitySpecHandle Handle
 		return;
 	}
 	const UBlackoutAbilitySystemComponent* BlackoutASC = Cast<UBlackoutAbilitySystemComponent>(AbilitySystemComponent);
-	const bool bSkipStaminaCheck = BlackoutASC && BlackoutASC->ShouldSkipCostInShelter();
+	const bool bHasInfiniteStaminaCheat = [&]()
+	{
+		if (const ABlackoutPlayerState* BlackoutPlayerState = ResolveOwningBlackoutPlayerState(ActorInfo))
+		{
+			return BlackoutPlayerState->HasInfiniteStaminaCheat();
+		}
+
+		return false;
+	}();
+	const bool bSkipStaminaCheck = bHasInfiniteStaminaCheat || (BlackoutASC && BlackoutASC->ShouldSkipCostInShelter());
 	
 	const float CurrentStamina = AbilitySystemComponent->GetNumericAttribute(UBlackoutPlayerAttributeSet::GetStaminaAttribute());
 	if ((!bSkipStaminaCheck && CurrentStamina < MinActivationStamina ) || !CommitAbility(Handle, ActorInfo, ActivationInfo))
@@ -178,6 +211,14 @@ bool UBlackoutGA_Sprint::ConsumeSprintStamina() const
 	}
 
 	const UBlackoutAbilitySystemComponent* BlackoutAbilitySystemComponent = Cast<UBlackoutAbilitySystemComponent>(AbilitySystemComponent);
+	if (const ABlackoutPlayerState* BlackoutPlayerState = ResolveOwningBlackoutPlayerState(CurrentActorInfo))
+	{
+		if (BlackoutPlayerState->HasInfiniteStaminaCheat())
+		{
+			return true;
+		}
+	}
+
 	if (BlackoutAbilitySystemComponent && BlackoutAbilitySystemComponent->ShouldSkipCostInShelter())
 	{
 		return true;

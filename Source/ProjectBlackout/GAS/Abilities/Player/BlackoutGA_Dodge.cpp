@@ -13,10 +13,34 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/GameStateBase.h"
 #include "GameFramework/PlayerState.h"
+#include "Framework/BlackoutPlayerState.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "GAS/Abilities/Player/BlackoutGA_MeleePlayer.h"
 #include "GAS/Attributes/BlackoutPlayerAttributeSet.h"
 #include "TimerManager.h"
+
+namespace
+{
+	const ABlackoutPlayerState* ResolveOwningBlackoutPlayerState(const FGameplayAbilityActorInfo* ActorInfo)
+	{
+		if (!ActorInfo)
+		{
+			return nullptr;
+		}
+
+		if (const ABlackoutPlayerState* PlayerState = Cast<ABlackoutPlayerState>(ActorInfo->OwnerActor.Get()))
+		{
+			return PlayerState;
+		}
+
+		if (const ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()))
+		{
+			return PlayerCharacter->GetPlayerState<ABlackoutPlayerState>();
+		}
+
+		return nullptr;
+	}
+}
 
 UBlackoutGA_Dodge::UBlackoutGA_Dodge()
 {
@@ -66,6 +90,14 @@ bool UBlackoutGA_Dodge::CanActivateAbility(const FGameplayAbilitySpecHandle Hand
 	if (!AbilitySystemComponent)
 	{
 		return false;
+	}
+
+	if (const ABlackoutPlayerState* BlackoutPlayerState = ResolveOwningBlackoutPlayerState(ActorInfo))
+	{
+		if (BlackoutPlayerState->HasInfiniteStaminaCheat())
+		{
+			return true;
+		}
 	}
 
 	const UBlackoutAbilitySystemComponent* BlackoutASC = Cast<UBlackoutAbilitySystemComponent>(AbilitySystemComponent);
@@ -151,8 +183,11 @@ void UBlackoutGA_Dodge::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
 		return;
 	}
 
-	// 입력 수집은 양측 모두에서. 클라이언트는 표준 GAS 경로로 서버에 InputPressed 를 전파합니다.
-	StartChainInputTask();
+	// 일반 회피만 체인 입력을 수집합니다. 백스텝은 별도 몽타주를 사용하므로 체인을 비활성화합니다.
+	if (!bCurrentDodgeIsBackstep)
+	{
+		StartChainInputTask();
+	}
 }
 
 void UBlackoutGA_Dodge::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
@@ -211,9 +246,9 @@ void UBlackoutGA_Dodge::EndAbility(const FGameplayAbilitySpecHandle Handle, cons
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
 
-bool UBlackoutGA_Dodge::StartMontageTask()
+bool UBlackoutGA_Dodge::StartMontageTask(UAnimMontage* MontageToPlay, FName StartSectionName)
 {
-	if (!DodgeData || !DodgeData->DodgeMontage)
+	if (!MontageToPlay)
 	{
 		return false;
 	}
@@ -230,9 +265,9 @@ bool UBlackoutGA_Dodge::StartMontageTask()
 	MontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
 		this,
 		NAME_None,
-		DodgeData->DodgeMontage,
+		MontageToPlay,
 		1.f,
-		NAME_None,
+		StartSectionName,
 		true,
 		RootMotionScale,
 		0.f,
@@ -364,9 +399,9 @@ void UBlackoutGA_Dodge::CheckCancelInput()
 		{
 			BO_LOG_GAS(Log, "GA_Dodge: 캔슬 윈도우 내 이동 입력 감지. 몽타주를 강제 정지하고 어빌리티를 취소합니다.");
 
-			if (DodgeData && DodgeData->DodgeMontage)
+			if (ActiveDodgeMontage)
 			{
-				PlayerCharacter->StopAnimMontage(DodgeData->DodgeMontage);
+				PlayerCharacter->StopAnimMontage(ActiveDodgeMontage);
 			}
 
 			K2_EndAbility();
@@ -376,6 +411,12 @@ void UBlackoutGA_Dodge::CheckCancelInput()
 
 void UBlackoutGA_Dodge::ProcessChainInput()
 {
+	if (bCurrentDodgeIsBackstep)
+	{
+		BO_LOG_GAS(Verbose, "GA_Dodge chain ignored: 현재 백스텝 중");
+		return;
+	}
+
 	if (!DodgeData)
 	{
 		return;
@@ -558,6 +599,14 @@ bool UBlackoutGA_Dodge::StartChainedDodge(const FBlackoutAbilityInputSyncPayload
 		return false;
 	}
 
+	if (bCurrentDodgeIsBackstep)
+	{
+		BO_LOG_GAS(Verbose, "GA_Dodge chain ignored: 백스텝은 체인을 지원하지 않음");
+		bChainInputQueued = false;
+		bHasQueuedChainInputPayload = false;
+		return false;
+	}
+
 	ABlackoutPlayerCharacter* PlayerCharacter = CurrentActorInfo ? Cast<ABlackoutPlayerCharacter>(CurrentActorInfo->AvatarActor.Get()) : nullptr;
 	if (!PlayerCharacter)
 	{
@@ -688,8 +737,14 @@ bool UBlackoutGA_Dodge::StartDodgeInternal(ABlackoutPlayerCharacter* PlayerChara
 		return false;
 	}
 
-	// 현재 백스텝은 임시로 항상 forward roll. 향후 방향 입력 X 시 백스텝 분기 예정.
-	bIsBackstep = false;
+	UAnimMontage* MontageToPlay = ResolveDodgeMontage(bIsBackstep);
+	if (!MontageToPlay)
+	{
+		BO_LOG_GAS(Warning, "GA_Dodge failed: 재생할 회피 몽타주가 없음");
+		return false;
+	}
+
+	const FName StartSectionName = ResolveDodgeStartSection(MontageToPlay, bIsBackstep);
 
 	FName FirstSectionName = NAME_None;
 	if (bIsChainRestart)
@@ -700,12 +755,12 @@ bool UBlackoutGA_Dodge::StartDodgeInternal(ABlackoutPlayerCharacter* PlayerChara
 			return false;
 		}
 
-		FirstSectionName = DodgeData->DodgeMontage->GetSectionName(0);
+		FirstSectionName = MontageToPlay->GetSectionName(0);
 		if (FirstSectionName == NAME_None)
 		{
 			BO_LOG_GAS(Warning,
 				"GA_Dodge chain restart failed: 몽타주 %s 에 named section 이 없어 position 리셋 불가",
-				*GetNameSafe(DodgeData->DodgeMontage));
+				*GetNameSafe(MontageToPlay));
 			return false;
 		}
 
@@ -718,6 +773,8 @@ bool UBlackoutGA_Dodge::StartDodgeInternal(ABlackoutPlayerCharacter* PlayerChara
 
 	ResetChainState();
 	ClearAllChainTimers();
+	bCurrentDodgeIsBackstep = bIsBackstep;
+	ActiveDodgeMontage = MontageToPlay;
 
 	// 체인 재시작 등으로 인해 캔슬 윈도우 상태가 리셋될 경우 행동 차단 태그를 명시적으로 복구합니다.
 	if (UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo())
@@ -728,7 +785,10 @@ bool UBlackoutGA_Dodge::StartDodgeInternal(ABlackoutPlayerCharacter* PlayerChara
 		}
 	}
 
-	const FRotator TargetRotation(0.f, DodgeDirection.Rotation().Yaw, 0.f);
+	const float TargetYaw = bIsBackstep
+		? PlayerCharacter->GetActorRotation().Yaw
+		: DodgeDirection.Rotation().Yaw;
+	const FRotator TargetRotation(0.f, TargetYaw, 0.f);
 	PlayerCharacter->SetActorRotation(TargetRotation);
 	PlayerCharacter->SetDodgeMontagePlaying(true);
 
@@ -750,14 +810,14 @@ bool UBlackoutGA_Dodge::StartDodgeInternal(ABlackoutPlayerCharacter* PlayerChara
 		{
 			// 서버 권위: ASC::CurrentMontageJumpToSection 이 RepAnimMontageInfo Position 을 갱신해 자동 복제.
 			AbilitySystemComponent->CurrentMontageJumpToSection(FirstSectionName);
-			PlayerCharacter->Multicast_SyncDodgeChainRestart(DodgeData->DodgeMontage, FirstSectionName, TargetRotation.Yaw);
-			PlayerCharacter->Client_JumpMontageToSection(DodgeData->DodgeMontage, FirstSectionName, true, TargetRotation.Yaw);
+			PlayerCharacter->Multicast_SyncDodgeChainRestart(MontageToPlay, FirstSectionName, TargetRotation.Yaw);
+			PlayerCharacter->Client_JumpMontageToSection(MontageToPlay, FirstSectionName, true, TargetRotation.Yaw);
 		}
 	}
 	else
 	{
 		// 첫 활성: 새 PlayMontageAndWait 태스크 시작.
-		if (!StartMontageTask())
+		if (!StartMontageTask(MontageToPlay, StartSectionName))
 		{
 			return false;
 		}
@@ -765,13 +825,60 @@ bool UBlackoutGA_Dodge::StartDodgeInternal(ABlackoutPlayerCharacter* PlayerChara
 
 	CurrentDodgeStartedServerTime = GetCurrentServerTimeSeconds();
 
-	// 체인 윈도우/그레이스 타이머 예약. 체인 재시작 시에는 서버 권위 상태만 갱신됩니다.
-	ScheduleChainTimers();
+	// 백스텝은 별도 몽타주를 사용하므로 체인 윈도우를 열지 않습니다.
+	if (!bCurrentDodgeIsBackstep)
+	{
+		// 체인 윈도우/그레이스 타이머 예약. 체인 재시작 시에는 서버 권위 상태만 갱신됩니다.
+		ScheduleChainTimers();
+	}
 
 	// 캔슬 감지 태스크 활성화 (첫 실행 및 체인 재시작 공통)
 	StartCancelableEventTask();
 
 	return true;
+}
+
+UAnimMontage* UBlackoutGA_Dodge::ResolveDodgeMontage(bool bIsBackstep) const
+{
+	if (!DodgeData)
+	{
+		return nullptr;
+	}
+
+	if (bIsBackstep && DodgeData->BackstepMontage)
+	{
+		return DodgeData->BackstepMontage;
+	}
+
+	return DodgeData->DodgeMontage;
+}
+
+FName UBlackoutGA_Dodge::ResolveDodgeStartSection(const UAnimMontage* MontageToPlay, bool bIsBackstep) const
+{
+	if (!MontageToPlay)
+	{
+		return NAME_None;
+	}
+
+	if (!bIsBackstep)
+	{
+		return NAME_None;
+	}
+
+	if (DodgeData && DodgeData->BackstepStartSection != NAME_None)
+	{
+		if (MontageToPlay->GetSectionIndex(DodgeData->BackstepStartSection) != INDEX_NONE)
+		{
+			return DodgeData->BackstepStartSection;
+		}
+
+		BO_LOG_GAS(Warning,
+			"GA_Dodge backstep section invalid: Montage=%s Section=%s",
+			*GetNameSafe(MontageToPlay),
+			*DodgeData->BackstepStartSection.ToString());
+	}
+
+	return NAME_None;
 }
 
 bool UBlackoutGA_Dodge::CanPayStaminaCost() const
@@ -780,6 +887,14 @@ bool UBlackoutGA_Dodge::CanPayStaminaCost() const
 	if (!AbilitySystemComponent || !DodgeData)
 	{
 		return false;
+	}
+
+	if (const ABlackoutPlayerState* BlackoutPlayerState = ResolveOwningBlackoutPlayerState(CurrentActorInfo))
+	{
+		if (BlackoutPlayerState->HasInfiniteStaminaCheat())
+		{
+			return true;
+		}
 	}
 
 	const UBlackoutAbilitySystemComponent* BlackoutASC = Cast<UBlackoutAbilitySystemComponent>(AbilitySystemComponent);
@@ -796,6 +911,14 @@ bool UBlackoutGA_Dodge::ConsumeStamina() const
 	if (!AbilitySystemComponent || !DodgeData)
 	{
 		return false;
+	}
+
+	if (const ABlackoutPlayerState* BlackoutPlayerState = ResolveOwningBlackoutPlayerState(CurrentActorInfo))
+	{
+		if (BlackoutPlayerState->HasInfiniteStaminaCheat())
+		{
+			return true;
+		}
 	}
 
 	const UBlackoutAbilitySystemComponent* BlackoutASC = Cast<UBlackoutAbilitySystemComponent>(AbilitySystemComponent);
@@ -868,19 +991,16 @@ FVector UBlackoutGA_Dodge::CalculateDodgeDirection(const FGameplayAbilityActorIn
 		return FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X).GetSafeNormal2D();
 	}
 
-	const FVector LastMovementDirection = PlayerCharacter->GetLastMovementInputVector().GetSafeNormal2D();
-	if (!LastMovementDirection.IsNearlyZero())
+	const FVector ActorBackwardDirection = (-PlayerCharacter->GetActorForwardVector()).GetSafeNormal2D();
+	if (!ActorBackwardDirection.IsNearlyZero())
 	{
-		return LastMovementDirection;
+		bOutIsBackstep = true;
+		return ActorBackwardDirection;
 	}
 
-	const FVector VelocityDirection = PlayerCharacter->GetVelocity().GetSafeNormal2D();
-	if (!VelocityDirection.IsNearlyZero())
-	{
-		return VelocityDirection;
-	}
-
-	return PlayerCharacter->GetActorForwardVector().GetSafeNormal2D();
+	const FRotator YawRotation(0.f, ControlYaw, 0.f);
+	bOutIsBackstep = true;
+	return -FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X).GetSafeNormal2D();
 }
 
 bool UBlackoutGA_Dodge::IsChainInputPayloadUsable(const FBlackoutAbilityInputSyncPayload& InputPayload) const
@@ -1049,7 +1169,9 @@ void UBlackoutGA_Dodge::ResetChainState()
 	bChainInputQueued = false;
 	bHasQueuedChainInputPayload = false;
 	bCancelWindowOpen = false;
+	bCurrentDodgeIsBackstep = false;
 	ChainWindowOpenedServerTime = 0.f;
 	ChainWindowClosedServerTime = 0.f;
 	ActiveChainGraceDuration = 0.f;
+	ActiveDodgeMontage = nullptr;
 }

@@ -17,9 +17,17 @@ class PROJECTBLACKOUT_API UBODodgeData : public UPrimaryDataAsset
 	GENERATED_BODY()
 
 public:
-	/** 회피 몽타주. 체인 시에도 동일 몽타주를 처음부터 다시 재생합니다. */
+	/** 일반 방향 회피 몽타주. 체인 시에도 동일 몽타주를 처음부터 다시 재생합니다. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Dodge")
 	TObjectPtr<UAnimMontage> DodgeMontage;
+
+	/** 방향 입력이 없을 때 사용할 백스텝 몽타주. 비어 있으면 일반 회피 몽타주를 fallback 으로 사용합니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Dodge|Backstep")
+	TObjectPtr<UAnimMontage> BackstepMontage;
+
+	/** 백스텝 시작 시 재생할 섹션 이름. None 이면 몽타주의 기본 시작 지점을 사용합니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Dodge|Backstep")
+	FName BackstepStartSection = NAME_None;
 
 	/** 스태미나 소모량. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Dodge|Cost", meta = (ClampMin = 0.0))

@@ -67,6 +67,18 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Blackout|PlayerState|State")
 	bool IsBeingRevived() const;
 
+	UFUNCTION(BlueprintPure, Category = "Blackout|PlayerState|Cheat")
+	bool HasInfiniteHealthCheat() const { return bInfiniteHealthCheat; }
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|PlayerState|Cheat")
+	bool HasInfiniteStaminaCheat() const { return bInfiniteStaminaCheat; }
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|PlayerState|Cheat")
+	bool HasInfiniteAmmoCheat() const { return bInfiniteAmmoCheat; }
+
+	/** 개발용 치트 플래그를 갱신하고 필요한 어트리뷰트를 즉시 보정합니다. */
+	void SetDebugCheatFlags(bool bNewInfiniteHealth, bool bNewInfiniteStamina, bool bNewInfiniteAmmo);
+
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Blackout|PlayerState")
 	FGameplayTag SelectedClassTag;
 	
@@ -114,6 +126,9 @@ protected:
 	UFUNCTION()
 	void OnRep_SurrenderVoteState();
 
+	UFUNCTION()
+	void OnRep_DebugCheatFlags();
+
 	void BroadcastConsumableCounts();
 
 	bool HasStateTag(FGameplayTag StateTag) const;
@@ -133,5 +148,18 @@ protected:
 private:
 	void BroadcastReadyStateChanged();
 	void RestoreAtCheckpoint();
+	void ApplyActiveCheatState();
+	void ApplyInfiniteHealthCheat() const;
+	void ApplyInfiniteStaminaCheat() const;
+	void ApplyInfiniteAmmoCheat() const;
+
+	UPROPERTY(ReplicatedUsing = OnRep_DebugCheatFlags)
+	bool bInfiniteHealthCheat = false;
+
+	UPROPERTY(ReplicatedUsing = OnRep_DebugCheatFlags)
+	bool bInfiniteStaminaCheat = false;
+
+	UPROPERTY(ReplicatedUsing = OnRep_DebugCheatFlags)
+	bool bInfiniteAmmoCheat = false;
 
 };

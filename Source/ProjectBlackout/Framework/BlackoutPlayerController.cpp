@@ -168,6 +168,14 @@ void ABlackoutPlayerController::OnPossess(APawn* InPawn)
 {
 	Super::OnPossess(InPawn);
 
+	if (ABlackoutPlayerState* BlackoutPlayerState = GetPlayerState<ABlackoutPlayerState>())
+	{
+		ApplyDebugCheatFlags(
+			BlackoutPlayerState->HasInfiniteHealthCheat(),
+			BlackoutPlayerState->HasInfiniteStaminaCheat(),
+			BlackoutPlayerState->HasInfiniteAmmoCheat());
+	}
+
 	TryInitHUD();
 }
 
@@ -175,6 +183,14 @@ void ABlackoutPlayerController::OnRep_PlayerState()
 {
 	Super::OnRep_PlayerState();
 	SendDisplayNameToServer();
+
+	if (ABlackoutPlayerState* BlackoutPlayerState = GetPlayerState<ABlackoutPlayerState>())
+	{
+		ApplyDebugCheatFlags(
+			BlackoutPlayerState->HasInfiniteHealthCheat(),
+			BlackoutPlayerState->HasInfiniteStaminaCheat(),
+			BlackoutPlayerState->HasInfiniteAmmoCheat());
+	}
 
 	TryInitHUD();
 }
@@ -1058,6 +1074,78 @@ void ABlackoutPlayerController::Server_SetMatchStateCheat_Implementation(EBlacko
 }
 
 bool ABlackoutPlayerController::Server_SetMatchStateCheat_Validate(EBlackoutMatchState NewState)
+{
+#if WITH_EDITOR || UE_BUILD_DEVELOPMENT
+	return true;
+#else
+	return false;
+#endif
+}
+
+void ABlackoutPlayerController::ApplyDebugCheatFlags(bool bNewInfiniteHealth, bool bNewInfiniteStamina, bool bNewInfiniteAmmo)
+{
+	if (ABlackoutPlayerState* BlackoutPlayerState = GetPlayerState<ABlackoutPlayerState>())
+	{
+		BlackoutPlayerState->SetDebugCheatFlags(bNewInfiniteHealth, bNewInfiniteStamina, bNewInfiniteAmmo);
+	}
+	else
+	{
+		BO_LOG_CORE(Warning, TEXT("플레이어 치트 적용 실패: BlackoutPlayerState가 유효하지 않습니다."));
+	}
+}
+
+void ABlackoutPlayerController::BO_InfiniteHealth(bool bEnabled)
+{
+#if WITH_EDITOR || UE_BUILD_DEVELOPMENT
+	const ABlackoutPlayerState* BlackoutPlayerState = GetPlayerState<ABlackoutPlayerState>();
+	const bool bCurrentInfiniteStamina = BlackoutPlayerState && BlackoutPlayerState->HasInfiniteStaminaCheat();
+	const bool bCurrentInfiniteAmmo = BlackoutPlayerState && BlackoutPlayerState->HasInfiniteAmmoCheat();
+
+	ApplyDebugCheatFlags(bEnabled, bCurrentInfiniteStamina, bCurrentInfiniteAmmo);
+	Server_SetDebugCheatFlags(bEnabled, bCurrentInfiniteStamina, bCurrentInfiniteAmmo);
+#else
+	BO_LOG_CORE(Warning, TEXT("개발 빌드가 아닌 환경에서는 체력 무한 치트를 사용할 수 없습니다."));
+#endif
+}
+
+void ABlackoutPlayerController::BO_InfiniteStamina(bool bEnabled)
+{
+#if WITH_EDITOR || UE_BUILD_DEVELOPMENT
+	const ABlackoutPlayerState* BlackoutPlayerState = GetPlayerState<ABlackoutPlayerState>();
+	const bool bCurrentInfiniteHealth = BlackoutPlayerState && BlackoutPlayerState->HasInfiniteHealthCheat();
+	const bool bCurrentInfiniteAmmo = BlackoutPlayerState && BlackoutPlayerState->HasInfiniteAmmoCheat();
+
+	ApplyDebugCheatFlags(bCurrentInfiniteHealth, bEnabled, bCurrentInfiniteAmmo);
+	Server_SetDebugCheatFlags(bCurrentInfiniteHealth, bEnabled, bCurrentInfiniteAmmo);
+#else
+	BO_LOG_CORE(Warning, TEXT("개발 빌드가 아닌 환경에서는 스태미나 무한 치트를 사용할 수 없습니다."));
+#endif
+}
+
+void ABlackoutPlayerController::BO_InfiniteAmmo(bool bEnabled)
+{
+#if WITH_EDITOR || UE_BUILD_DEVELOPMENT
+	const ABlackoutPlayerState* BlackoutPlayerState = GetPlayerState<ABlackoutPlayerState>();
+	const bool bCurrentInfiniteHealth = BlackoutPlayerState && BlackoutPlayerState->HasInfiniteHealthCheat();
+	const bool bCurrentInfiniteStamina = BlackoutPlayerState && BlackoutPlayerState->HasInfiniteStaminaCheat();
+
+	ApplyDebugCheatFlags(bCurrentInfiniteHealth, bCurrentInfiniteStamina, bEnabled);
+	Server_SetDebugCheatFlags(bCurrentInfiniteHealth, bCurrentInfiniteStamina, bEnabled);
+#else
+	BO_LOG_CORE(Warning, TEXT("개발 빌드가 아닌 환경에서는 탄약 무한 치트를 사용할 수 없습니다."));
+#endif
+}
+
+void ABlackoutPlayerController::Server_SetDebugCheatFlags_Implementation(bool bNewInfiniteHealth, bool bNewInfiniteStamina, bool bNewInfiniteAmmo)
+{
+#if WITH_EDITOR || UE_BUILD_DEVELOPMENT
+	ApplyDebugCheatFlags(bNewInfiniteHealth, bNewInfiniteStamina, bNewInfiniteAmmo);
+#else
+	BO_LOG_CORE(Warning, TEXT("개발 빌드가 아닌 환경에서는 플레이어 치트 RPC를 사용할 수 없습니다."));
+#endif
+}
+
+bool ABlackoutPlayerController::Server_SetDebugCheatFlags_Validate(bool bNewInfiniteHealth, bool bNewInfiniteStamina, bool bNewInfiniteAmmo)
 {
 #if WITH_EDITOR || UE_BUILD_DEVELOPMENT
 	return true;
