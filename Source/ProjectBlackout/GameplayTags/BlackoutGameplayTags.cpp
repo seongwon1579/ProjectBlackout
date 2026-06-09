@@ -266,6 +266,9 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_OnEnergyBurst, "Event.Enemy.Attack.OnEnergyBurst");
 	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_OffEnergyBurst, "Event.Enemy.Attack.OffEnergyBurst");
 	
+	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_KickFlash_Start, "Event.Enemy.Attack.KickFlash.Start");
+	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_KickFlash_End, "Event.Enemy.Attack.KickFlash.End");
+	
 	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Shrewd_Attack_FireArrow, "Event.Enemy.Shrewd.Attack.FireArrow");
 	
 	// ─── Montage Events ───────────────────────────────────────────────────
