@@ -21,7 +21,6 @@ ABOEnemyProjectile::ABOEnemyProjectile()
 	
 	CollisionComp = CreateDefaultSubobject<UBoxComponent>(TEXT("Collision"));
 	CollisionComp->SetCollisionProfileName(TEXT("EnemyProjectile"));
-	CollisionComp->SetBoxExtent(FVector(50.f, 150.f, 30.f)); 
 	RootComponent = CollisionComp;
     
 	ProjectileMovement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("Movement"));
@@ -57,6 +56,11 @@ void ABOEnemyProjectile::InitializeProjectile(const FProjectileSpawnData& InSpaw
 void ABOEnemyProjectile::BeginPlay()
 {
 	Super::BeginPlay();
+	
+	if (!HasAuthority() && ProjectileMovement)
+	{
+		ProjectileMovement->SetActive(false);
+	}
 	
 	SetCollisionEvent();
 }
@@ -117,12 +121,6 @@ void ABOEnemyProjectile::SetCollisionEvent()
 	{
 		CollisionComp->OnComponentBeginOverlap.AddDynamic(this, &ABOEnemyProjectile::OnBeginOverlap);
 	}
-	
-	if (!HasAuthority() && ProjectileMovement)
-	{
-		ProjectileMovement->SetActive(false);
-	}
-	
 }
 
 

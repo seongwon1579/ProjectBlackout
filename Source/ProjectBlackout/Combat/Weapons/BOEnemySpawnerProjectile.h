@@ -15,6 +15,7 @@ class PROJECTBLACKOUT_API ABOEnemySpawnerProjectile : public ABOEnemyProjectile
 	GENERATED_BODY()
 
 public:
+	ABOEnemySpawnerProjectile();
 	void SetSpawnerData(const FMinionSpawnData& InData);
 
 protected:

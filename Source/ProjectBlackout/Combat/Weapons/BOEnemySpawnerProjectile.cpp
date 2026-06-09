@@ -8,6 +8,11 @@
 #include "GameFramework/ProjectileMovementComponent.h"
 
 
+ABOEnemySpawnerProjectile::ABOEnemySpawnerProjectile()
+{
+	ProjectileMovement->ProjectileGravityScale = 1.f;
+}
+
 void ABOEnemySpawnerProjectile::SetSpawnerData(const FMinionSpawnData& InData)
 {
 	MinionData = InData;
@@ -40,8 +45,6 @@ void ABOEnemySpawnerProjectile::OnHit(UPrimitiveComponent* HitComp, AActor* Othe
 		CollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
 	
-	// TODO: 추후에 스폰 로직 특정 시점에 스폰되도록 변경
-
 	UWorld* World = GetWorld();
 	if (!World) return;
 

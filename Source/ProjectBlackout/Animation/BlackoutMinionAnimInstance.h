@@ -13,15 +13,20 @@ UCLASS()
 class PROJECTBLACKOUT_API UBlackoutMinionAnimInstance : public UBlackoutEnemyAnimInstance
 {
 	GENERATED_BODY()
-	
+
+public:
+	void OnDeath();
+
 protected:
 	virtual void NativeInitializeAnimation() override;
 	virtual void NativeUpdateAnimation(float DeltaSeconds) override;
-	
+
 	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Animation|BlendSpace")
 	float Speed;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Animation|BlendSpace")
 	float Direction;
-	
+
+	// UPROPERTY(BlueprintReadOnly, Category = "Blackout|Animation|BlendSpace")
+	// float bIsDead = false;
 };
