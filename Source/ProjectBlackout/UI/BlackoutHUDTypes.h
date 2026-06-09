@@ -46,8 +46,6 @@ enum class EBlackoutInteractionPromptState : uint8
 	InProgress
 };
 
-using EBlackoutRevivePromptState = EBlackoutInteractionPromptState;
-
 USTRUCT(BlueprintType)
 struct FBlackoutTrajectoryPointData
 {
@@ -143,8 +141,6 @@ struct FBlackoutInteractionPromptData
 	UPROPERTY(BlueprintReadOnly, Category = "Blackout|HUD")
 	FText StatusText;
 };
-
-using FBlackoutRevivePromptData = FBlackoutInteractionPromptData;
 
 /**
  * 다운 상태 위젯이 화면에 표시할 사망/부활 타이머 데이터입니다.

@@ -17,10 +17,15 @@ classDiagram
     UUserWidget <|-- UBlackoutConsumableSlotsWidget
     UUserWidget <|-- UBlackoutConsumableSlotWidget
     UUserWidget <|-- UBlackoutDownedStateWidget
+    UUserWidget <|-- UBlackoutInteractionPromptWidget
+    UUserWidget <|-- UBlackoutReviveProgressWidget
     UObject <|-- UBlackoutHUDWidgetController
     UPrimaryDataAsset <|-- UBOConsumableData
 
     IAbilitySystemInterface <|.. ABlackoutPlayerState
+    IBlackoutInteractable <|.. ABlackoutDropItem
+    IBlackoutInteractable <|.. ABlackoutAreaGate
+    IBlackoutInteractable <|.. ABlackoutClassSelectStone
 
     class ABlackoutHUD {
         -TSubclassOf~UBlackoutHUDWidget~ HUDWidgetClass
@@ -42,6 +47,8 @@ classDiagram
         -UW_WeaponDisplay* WeaponDisplayWidget
         -UBlackoutConsumableSlotsWidget* ConsumableSlotsWidget
         -UBlackoutDownedStateWidget* DownedStateWidget
+        -UBlackoutInteractionPromptWidget* InteractionPromptWidget
+        -UBlackoutReviveProgressWidget* InteractionProgressWidget
         +SetWidgetController(UBlackoutHUDWidgetController*) void
         +NativeOnInitialized() void
         +NativeTick(FGeometry, float) void
@@ -49,7 +56,21 @@ classDiagram
         -ApplyHUDMode(EBlackoutHUDMode) void
         #ReceiveAimingChanged(bool bIsAiming, int32 CrosshairType) void
         -UpdateImpactIndicator(FBlackoutImpactIndicatorData) void
+        -UpdateInteractionPrompt(FBlackoutInteractionPromptData) void
         -PaintProjectileTrajectory(FPaintContext, TArray~FBlackoutTrajectoryPointData~) void
+    }
+
+    class UBlackoutInteractionPromptWidget {
+        -FBlackoutInteractionPromptData InteractionPromptData
+        +SetInteractionPromptData(FBlackoutInteractionPromptData) void
+        +GetInteractionPromptData() FBlackoutInteractionPromptData
+        #ReceiveInteractionPromptChanged(FBlackoutInteractionPromptData) void
+    }
+
+    class UBlackoutReviveProgressWidget {
+        -FBlackoutInteractionPromptData InteractionPromptData
+        +SetInteractionProgressData(FBlackoutInteractionPromptData) void
+        #ReceiveInteractionProgressChanged(FBlackoutInteractionPromptData) void
     }
 
     class UBlackoutHUDWidgetController {
@@ -66,6 +87,7 @@ classDiagram
         +BindCallbacksToDependencies() void
         +BroadcastInitialValues() void
         +GetImpactIndicatorData(FBlackoutImpactIndicatorData&) bool
+        +GetInteractionPromptData(FBlackoutInteractionPromptData&) bool
         +OnHUDModeChanged(EBlackoutHUDMode)
         +OnDownedTimerChanged(float Remaining, float Duration)
         +OnReviveTimerChanged(float Remaining, float Duration)
@@ -252,6 +274,32 @@ classDiagram
         +bool bUsesAmmo
     }
 
+    class ABlackoutPlayerCharacter {
+        +GetFocusedInteractableActor() AActor*
+        +GetFocusedInteractablePromptWorldLocation() FVector
+        -UpdateFocusedInteractable(float DeltaSeconds) void
+        -RefreshFocusedInteractableActor() void
+    }
+
+    class IBlackoutInteractable {
+        <<Interface>>
+        +CanInteract(AActor* Interactor) bool
+        +OnInteract(AActor* Interactor) void
+        +GetInteractionPrompt() FText
+    }
+
+    class FBlackoutInteractionPromptData {
+        +bool bIsVisible
+        +bool bShowProgress
+        +bool bIsStatusError
+        +float ProgressNormalized
+        +FVector WorldLocation
+        +FVector2D ScreenPosition
+        +EBlackoutInteractionPromptState State
+        +FText PromptText
+        +FText StatusText
+    }
+
     ABlackoutPlayerController --> ABlackoutHUD : owns local HUD
     ABlackoutHUD o-- UBlackoutHUDWidget : creates/adds viewport
     ABlackoutHUD o-- UBlackoutHUDWidgetController : creates
@@ -262,15 +310,22 @@ classDiagram
     UBlackoutHUDWidget o-- UW_WeaponDisplay
     UBlackoutHUDWidget o-- UBlackoutConsumableSlotsWidget
     UBlackoutHUDWidget o-- UBlackoutDownedStateWidget
+    UBlackoutHUDWidget o-- UBlackoutInteractionPromptWidget
+    UBlackoutHUDWidget o-- UBlackoutReviveProgressWidget
     UBlackoutConsumableSlotsWidget o-- UBlackoutConsumableSlotWidget
 
     UBlackoutHUDWidget --> UBlackoutHUDWidgetController : receives display events
     UBlackoutHUDWidget --> FBlackoutTrajectoryPointData : paints projectile path
+    UBlackoutHUDWidget --> FBlackoutInteractionPromptData : forwards prompt data
+    UBlackoutInteractionPromptWidget --> FBlackoutInteractionPromptData : renders via BP event
+    UBlackoutReviveProgressWidget --> FBlackoutInteractionPromptData : renders progress
     UBlackoutHUDWidgetController --> ABlackoutPlayerState : resolves ASC owner
     UBlackoutHUDWidgetController --> ABlackoutPlayerCharacter : resolves pawn
+    UBlackoutHUDWidgetController --> IBlackoutInteractable : reads GetInteractionPrompt
     UBlackoutHUDWidgetController --> UBlackoutCombatComponent : binds weapon events
     UBlackoutHUDWidgetController --> UBlackoutImpactIndicatorComponent : requests impact indicator data
     UBlackoutHUDWidgetController --> FBlackoutTrajectoryPointData : fills ScreenPosition
+    UBlackoutHUDWidgetController --> FBlackoutInteractionPromptData : fills PromptText / StatusText
     UBlackoutHUDWidgetController --> UBlackoutBaseAttributeSet : reads Health
     UBlackoutHUDWidgetController --> UBlackoutPlayerAttributeSet : reads Stamina
     UBlackoutHUDWidgetController --> UBlackoutAmmoAttributeSet : reads Ammo
@@ -312,11 +367,36 @@ sequenceDiagram
     WC-->>Widget: 표시용 이벤트 Broadcast
 ```
 
+## 상호작용 프롬프트 흐름
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant PC as ABlackoutPlayerController
+    participant Pawn as ABlackoutPlayerCharacter
+    participant Target as IBlackoutInteractable
+    participant WC as UBlackoutHUDWidgetController
+    participant HUD as UBlackoutHUDWidget
+    participant Prompt as UBlackoutInteractionPromptWidget
+
+    Pawn->>Pawn: UpdateFocusedInteractable()
+    Pawn->>Target: CanInteract(Pawn)
+    HUD->>WC: GetInteractionPromptData(OutData)
+    WC->>Pawn: GetFocusedInteractableActor()
+    WC->>Pawn: GetFocusedInteractablePromptWorldLocation()
+    WC->>Target: GetInteractionPrompt()
+    WC-->>HUD: FBlackoutInteractionPromptData(PromptText, State, ScreenPosition)
+    HUD->>Prompt: SetInteractionPromptData(Data)
+    Prompt-->>Prompt: ReceiveInteractionPromptChanged(Data)
+```
+
 ## 구현 노트
 
 - **HUD 생성 책임**: `ABlackoutHUD`는 로컬 플레이어용 루트 위젯과 WidgetController 생성만 담당합니다. 체력, 탄약 계산 로직을 직접 넣지 않습니다.
 - **GAS 연결 책임**: `UBlackoutHUDWidgetController`가 ASC, AttributeSet, GameplayTag, CombatComponent 이벤트를 UI 표시 이벤트로 변환합니다.
 - **위젯 책임**: `UBlackoutHUDWidget`과 하위 위젯은 표시 상태만 갱신합니다. AttributeSet이나 ASC를 직접 조회하지 않습니다.
+- **상호작용 프롬프트 텍스트**: 상호작용 대상별 문구는 `IBlackoutInteractable::GetInteractionPrompt()`가 소유합니다. `UBlackoutHUDWidgetController::GetInteractionPromptData()`는 현재 포커스된 대상의 문구를 `FBlackoutInteractionPromptData::PromptText`에 채우고, `UBlackoutInteractionPromptWidget`은 전달받은 데이터만 Blueprint 이벤트로 렌더링합니다.
+- **프롬프트 위젯 구조**: `UBlackoutInteractionPromptWidget` C++ 클래스는 특정 `TextBlock`/`ProgressBar` 바인딩을 강제하지 않습니다. WBP는 `ReceiveInteractionPromptChanged`에서 `PromptText`, `StatusText`, `State`를 사용해 레이아웃을 자유롭게 구성합니다.
 - **Attribute Delegate 대상**: `Health`, `MaxHealth`, `Stamina`, `MaxStamina`, 주/보조 `ClipAmmo`, `MaxClip`, `ReserveAmmo`.
 - **GameplayTag 대상 예시**: `State.Reloading`, `State.Sprinting`, `State.Exhausted`, `Weapon.Primary`, `Weapon.Secondary`.
 - **현재 무기 표시**: 장착 무기 이름, 아이콘, 무기 슬롯은 `UBlackoutCombatComponent::OnEquippedWeaponChanged`에서 갱신합니다.

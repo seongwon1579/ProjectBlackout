@@ -20,17 +20,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|HUD|Interaction")
 	void SetInteractionProgressData(const FBlackoutInteractionPromptData& InInteractionPromptData);
 
-	UFUNCTION(BlueprintCallable, Category = "Blackout|HUD|Revive", meta = (DeprecatedFunction, DeprecationMessage = "SetInteractionProgressData를 사용하세요."))
-	void SetReviveProgressData(const FBlackoutInteractionPromptData& InRevivePromptData)
-	{
-		SetInteractionProgressData(InRevivePromptData);
-	}
-
 	UFUNCTION(BlueprintPure, Category = "Blackout|HUD|Interaction")
 	const FBlackoutInteractionPromptData& GetInteractionPromptData() const { return InteractionPromptData; }
-
-	UFUNCTION(BlueprintPure, Category = "Blackout|HUD|Revive", meta = (DeprecatedFunction, DeprecationMessage = "GetInteractionPromptData를 사용하세요."))
-	const FBlackoutInteractionPromptData& GetRevivePromptData() const { return InteractionPromptData; }
 
 protected:
 	virtual void NativePreConstruct() override;
@@ -55,7 +46,4 @@ protected:
 
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Interaction Progress Changed"), Category = "Blackout|HUD|Interaction")
 	void ReceiveInteractionProgressChanged(const FBlackoutInteractionPromptData& InInteractionPromptData);
-
-	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Revive Progress Changed", DeprecatedFunction, DeprecationMessage = "On Interaction Progress Changed를 사용하세요."), Category = "Blackout|HUD|Revive")
-	void ReceiveReviveProgressChanged(const FBlackoutInteractionPromptData& InRevivePromptData);
 };
