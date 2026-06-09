@@ -5,6 +5,7 @@
 #include "AbilitySystemComponent.h"
 #include "Animation/AnimMontage.h"
 #include "Animation/BlackoutPlayerAnimInstance.h"
+#include "Characters/BlackoutCharacterBase.h"
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "Combat/BlackoutWeaponCueLibrary.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
@@ -65,6 +66,25 @@ namespace
 		DrawDebugLine(World, TraceStart, DebugEnd, DebugColor, false, Duration, 0, Thickness);
 	}
 
+	bool CanShowPredictedDamageNumberForTarget(const AActor* DamageTargetActor)
+	{
+		if (!IsValid(DamageTargetActor) || !Cast<IBlackoutDamageable>(DamageTargetActor))
+		{
+			return false;
+		}
+
+		if (const ABlackoutCharacterBase* TargetCharacter = Cast<ABlackoutCharacterBase>(DamageTargetActor))
+		{
+			if (TargetCharacter->IsDowned() || TargetCharacter->IsDead())
+			{
+				return false;
+			}
+		}
+
+		float TargetHealth = 0.0f;
+		return !BlackoutWeaponDebug::TryGetHealth(DamageTargetActor, TargetHealth) || TargetHealth > 0.0f;
+	}
+
 	bool TryShowPredictedDamageNumber(
 		ABlackoutPlayerCharacter* PlayerCharacter,
 		const FHitResult& PredictedHitResult,
@@ -81,13 +101,17 @@ namespace
 
 		if (UBlackoutHitboxComponent* HitboxComponent = Cast<UBlackoutHitboxComponent>(PredictedHitResult.GetComponent()))
 		{
-			bCanShowDamageNumber = HitboxComponent->GetOwner() && Cast<IBlackoutDamageable>(HitboxComponent->GetOwner());
-			bIsCritical = HitboxComponent->GetPartTag().MatchesTagExact(BlackoutGameplayTags::Body_WeakSpot);
-			PredictedDisplayDamageAmount *= HitboxComponent->GetDamageMultiplier();
+			if (AActor* HitboxOwner = HitboxComponent->GetOwner())
+			{
+				bCanShowDamageNumber = CanShowPredictedDamageNumberForTarget(HitboxOwner);
+				bIsCritical = HitboxComponent->GetPartTag().MatchesTagExact(BlackoutGameplayTags::Body_WeakSpot);
+				PredictedDisplayDamageAmount *= HitboxComponent->GetDamageMultiplier();
+			}
 		}
 		else if (AActor* HitActor = PredictedHitResult.GetActor())
 		{
-			if (IBlackoutDamageable* Damageable = Cast<IBlackoutDamageable>(HitActor))
+			if (IBlackoutDamageable* Damageable = Cast<IBlackoutDamageable>(HitActor);
+				Damageable && CanShowPredictedDamageNumberForTarget(HitActor))
 			{
 				bCanShowDamageNumber = true;
 				bIsCritical = Damageable->GetHitPartTag(PredictedHitResult.BoneName).MatchesTagExact(BlackoutGameplayTags::Body_WeakSpot);
@@ -810,7 +834,10 @@ FGameplayEffectSpecHandle UBlackoutGA_FireWeapon::BuildDamageSpec(const ABOFirea
 		if (SpecHandle.IsValid())
 		{
 			SpecHandle.Data->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Damage, Firearm->GetBaseDamage());
-			SpecHandle.Data->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_DamageNumber_PredictedOnly, 1.0f);
+			if (Firearm->UsesHitscan())
+			{
+				SpecHandle.Data->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_DamageNumber_PredictedOnly, 1.0f);
+			}
 		}
 	}
 	else
