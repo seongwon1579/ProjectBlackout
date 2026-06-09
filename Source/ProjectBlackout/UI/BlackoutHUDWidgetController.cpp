@@ -24,10 +24,23 @@
 
 namespace
 {
+	const FText DefaultInteractionPromptText = FText::FromString(TEXT("상호작용"));
 	const FText RevivePromptText = FText::FromString(TEXT("부활"));
 	const FText MissingRelicText = FText::FromString(TEXT("유물이 없습니다"));
 	const FText ReviveBusyText = FText::FromString(TEXT("부활중입니다"));
 	const FText ReviveInProgressText = FText::FromString(TEXT("소생 중..."));
+
+	FText ResolveInteractionPromptText(AActor* FocusedInteractableActor)
+	{
+		if (!FocusedInteractableActor ||
+			!FocusedInteractableActor->GetClass()->ImplementsInterface(UBlackoutInteractable::StaticClass()))
+		{
+			return DefaultInteractionPromptText;
+		}
+
+		const FText PromptText = IBlackoutInteractable::Execute_GetInteractionPrompt(FocusedInteractableActor);
+		return PromptText.IsEmpty() ? DefaultInteractionPromptText : PromptText;
+	}
 
 	FVector GetRevivePromptWorldLocation(const ABlackoutPlayerCharacter* TargetCharacter)
 	{
@@ -356,9 +369,7 @@ bool UBlackoutHUDWidgetController::GetInteractionPromptData(FBlackoutInteraction
 			OutPromptData.WorldLocation = PromptWorldLocation;
 			OutPromptData.ScreenPosition = PromptScreenPosition;
 			OutPromptData.State = EBlackoutInteractionPromptState::Available;
-			OutPromptData.PromptText = FocusedInteractableActor->GetClass()->ImplementsInterface(UBlackoutInteractable::StaticClass())
-				? IBlackoutInteractable::Execute_GetInteractionPrompt(FocusedInteractableActor)
-				: FText::GetEmpty();
+			OutPromptData.PromptText = ResolveInteractionPromptText(FocusedInteractableActor);
 			return true;
 		}
 

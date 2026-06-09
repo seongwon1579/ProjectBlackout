@@ -290,8 +290,17 @@ void ABlackoutDropItem::OnInteract_Implementation(AActor* Interactor)
 
 FText ABlackoutDropItem::GetInteractionPrompt_Implementation() const
 {
-	// 기획 상 플로팅 UI만 표시하므로 단축키 외 특수 텍스트는 비워둡니다.
-	return FText::GetEmpty();
+	switch (DropItemType)
+	{
+	case EBlackoutDropItemType::PrimaryAmmo:
+		return FText::FromString(TEXT("주무기 탄약 획득"));
+	case EBlackoutDropItemType::SecondaryAmmo:
+		return FText::FromString(TEXT("보조무기 탄약 획득"));
+	case EBlackoutDropItemType::Consumable:
+		return FText::FromString(TEXT("소모품 획득"));
+	default:
+		return FText::FromString(TEXT("획득"));
+	}
 }
 
 void ABlackoutDropItem::OnSpawnFromPool_Implementation()
