@@ -208,9 +208,6 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Interaction Prompt Updated"), Category = "Blackout|HUD|Interaction")
 	void ReceiveInteractionPromptUpdated(const FBlackoutInteractionPromptData& InteractionPromptData);
 
-	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Revive Prompt Updated", DeprecatedFunction, DeprecationMessage = "On Interaction Prompt Updated를 사용하세요."), Category = "Blackout|HUD|Revive")
-	void ReceiveRevivePromptUpdated(const FBlackoutInteractionPromptData& RevivePromptData);
-
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Damage Number Requested"), Category = "Blackout|HUD")
 	void ReceiveDamageNumberRequested(float DamageAmount, FVector2D ScreenPosition, bool bIsCritical);
 

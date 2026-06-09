@@ -35,7 +35,7 @@ void UBlackoutReviveProgressWidget::EnsureDefaultLayout()
 		return;
 	}
 
-	UVerticalBox* RootBox = WidgetTree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass(), TEXT("ReviveProgressRoot"));
+	UVerticalBox* RootBox = WidgetTree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass(), TEXT("InteractionProgressRoot"));
 	if (!RootBox)
 	{
 		return;
@@ -126,5 +126,4 @@ void UBlackoutReviveProgressWidget::SetInteractionProgressData(const FBlackoutIn
 	}
 
 	ReceiveInteractionProgressChanged(InteractionPromptData);
-	ReceiveReviveProgressChanged(InteractionPromptData);
 }

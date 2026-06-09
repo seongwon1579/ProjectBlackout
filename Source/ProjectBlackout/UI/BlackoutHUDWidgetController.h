@@ -74,11 +74,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|HUD|Spectator")
 	bool GetSpectatorTargetName(FText& OutTargetName) const;
 
-	bool GetRevivePromptData(FBlackoutInteractionPromptData& OutPromptData) const
-	{
-		return GetInteractionPromptData(OutPromptData);
-	}
-
 	UPROPERTY(BlueprintAssignable, Category = "Blackout|HUD")
 	FBlackoutHUDValueChangedSignature OnHealthChanged;
 

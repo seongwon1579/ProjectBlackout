@@ -351,7 +351,6 @@ void UBlackoutHUDWidget::UpdateInteractionPrompt(const FBlackoutInteractionPromp
 	}
 
 	ReceiveInteractionPromptUpdated(InteractionPromptData);
-	ReceiveRevivePromptUpdated(InteractionPromptData);
 }
 
 int32 UBlackoutHUDWidget::PaintProjectileTrajectoryDots(
