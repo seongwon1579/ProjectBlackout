@@ -48,6 +48,9 @@ protected:
 	TObjectPtr<ABORavagerBoss> CachedOwner;
 	
 	UPROPERTY(Transient)
+	TWeakObjectPtr<const APawn> CachedTarget;
+	
+	UPROPERTY(Transient)
 	TObjectPtr<UAnimMontage> SelectedMontage;
 	
 	static const FName WarpTargetName;

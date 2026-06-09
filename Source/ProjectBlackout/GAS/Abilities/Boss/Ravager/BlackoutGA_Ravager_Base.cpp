@@ -32,6 +32,11 @@ void UBlackoutGA_Ravager_Base::ActivateAbility(const FGameplayAbilitySpecHandle 
                                                    const FGameplayEventData* TriggerEventData)
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+	
+	if (TriggerEventData)
+	{
+		CachedTarget = Cast<const APawn>(TriggerEventData->Target.Get());
+	}
 
 	if (!CanActivatePattern())
 	{
