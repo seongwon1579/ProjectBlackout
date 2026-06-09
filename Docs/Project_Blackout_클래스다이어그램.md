@@ -678,8 +678,9 @@ classDiagram
 
     class IBlackoutInteractable {
         <<Interface>>
-        +Interact(APlayerController*) void
-        +GetInteractionWidget() UUserWidget*
+        +CanInteract(AActor* Interactor) bool
+        +OnInteract(AActor* Interactor) void
+        +GetInteractionPrompt() FText
     }
 
     ABlackoutBonfire ..|> IBlackoutInteractable : implements
