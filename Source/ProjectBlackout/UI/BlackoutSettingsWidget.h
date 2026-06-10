@@ -10,6 +10,7 @@ class UButton;
 class UComboBoxString;
 class USlider;
 class UTextBlock;
+class UWidgetSwitcher;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnBlackoutSettingsClosed);
 
@@ -80,6 +81,18 @@ protected:
 	TObjectPtr<UTextBlock> RuntimeAvailabilityText;
 
 	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UButton> GraphicsTabButton;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UButton> AudioTabButton;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UButton> InputTabButton;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UWidgetSwitcher> SettingsContentSwitcher;
+
+	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UButton> ApplyButton;
 
 	UPROPERTY(meta = (BindWidgetOptional))
@@ -89,12 +102,21 @@ protected:
 	TObjectPtr<UButton> CloseButton;
 
 private:
+	enum class EBlackoutSettingsTab : uint8
+	{
+		Graphics,
+		Audio,
+		Input
+	};
+
 	void BuildFallbackWidgetTree();
 	void ResolveOptionalBindings();
 	void PopulateStaticOptions();
 	void BindControlEvents();
 	void UpdateControlState();
 	void UpdateValueTexts();
+	void SelectSettingsTab(EBlackoutSettingsTab InTab);
+	void UpdateTabButtonState();
 	void ApplyPendingSettings();
 	void ResetPendingSettingsToDefaults();
 	void SyncControlsFromPendingSettings();
@@ -138,6 +160,15 @@ private:
 	void HandleAimMouseSensitivityChanged(float InValue);
 
 	UFUNCTION()
+	void HandleGraphicsTabClicked();
+
+	UFUNCTION()
+	void HandleAudioTabClicked();
+
+	UFUNCTION()
+	void HandleInputTabClicked();
+
+	UFUNCTION()
 	void HandleApplyClicked();
 
 	UFUNCTION()
@@ -147,6 +178,7 @@ private:
 	void HandleCloseClicked();
 
 	bool bOptionsPopulated = false;
+	EBlackoutSettingsTab ActiveSettingsTab = EBlackoutSettingsTab::Graphics;
 	EBlackoutUpscalerMode PendingUpscalerMode = EBlackoutUpscalerMode::TSR;
 	EBlackoutDLSSQualityMode PendingDLSSMode = EBlackoutDLSSQualityMode::Quality;
 	EBlackoutFrameGenerationMode PendingFrameGenerationMode = EBlackoutFrameGenerationMode::Disabled;
