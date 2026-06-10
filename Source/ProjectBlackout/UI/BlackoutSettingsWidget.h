@@ -30,7 +30,6 @@ public:
 	void RefreshFromCurrentSettings();
 
 protected:
-	virtual TSharedRef<SWidget> RebuildWidget() override;
 	virtual void NativeConstruct() override;
 	virtual void NativeDestruct() override;
 	virtual FReply NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
@@ -109,7 +108,6 @@ private:
 		Input
 	};
 
-	void BuildFallbackWidgetTree();
 	void ResolveOptionalBindings();
 	void PopulateStaticOptions();
 	void BindControlEvents();
