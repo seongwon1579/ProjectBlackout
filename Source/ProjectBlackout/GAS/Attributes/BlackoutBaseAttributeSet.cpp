@@ -1,4 +1,5 @@
 #include "BlackoutBaseAttributeSet.h"
+#include "Framework/BlackoutPlayerState.h"
 #include "Net/UnrealNetwork.h"
 #include "GameplayEffectExtension.h"
 #include "BlackoutLog.h"
@@ -51,9 +52,16 @@ void UBlackoutBaseAttributeSet::PostGameplayEffectExecute(const FGameplayEffectM
 {
 	Super::PostGameplayEffectExecute(Data);
 
+	const ABlackoutPlayerState* OwningPlayerState = Cast<ABlackoutPlayerState>(GetOwningActor());
+
 	if (Data.EvaluatedData.Attribute == GetHealthAttribute())
 	{
-		const float ClampedHealth = FMath::Clamp(GetHealth(), 0.f, GetMaxHealth());
+		float ClampedHealth = FMath::Clamp(GetHealth(), 0.f, GetMaxHealth());
+		if (OwningPlayerState && OwningPlayerState->HasInfiniteHealthCheat())
+		{
+			ClampedHealth = GetMaxHealth();
+		}
+
 		SetHealth(ClampedHealth);
 
 		if (ClampedHealth <= 0.f)
@@ -61,6 +69,13 @@ void UBlackoutBaseAttributeSet::PostGameplayEffectExecute(const FGameplayEffectM
 			BO_LOG_GAS(Log, "Health reached zero: %s", *GetOwningActor()->GetName());
 			// 실제 Downed/Death 분기는 ABlackoutCharacterBase::ApplyIncomingDamageSpec()에서 처리합니다.
 		}
+	}
+	else if (Data.EvaluatedData.Attribute == GetMaxHealthAttribute())
+	{
+		SetMaxHealth(FMath::Max(GetMaxHealth(), 0.f));
+		SetHealth((OwningPlayerState && OwningPlayerState->HasInfiniteHealthCheat())
+			? GetMaxHealth()
+			: FMath::Clamp(GetHealth(), 0.f, GetMaxHealth()));
 	}
 }
 

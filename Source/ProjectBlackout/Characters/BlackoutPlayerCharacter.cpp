@@ -34,8 +34,12 @@
 #include "Combat/Weapons/BOFirearm.h"
 #include "Highlight/BOHighlightComponent.h"
 
-ABlackoutPlayerCharacter::ABlackoutPlayerCharacter(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer.SetDefaultSubobjectClass<UBlackoutPlayerMovementComponent>(ACharacter::CharacterMovementComponentName))
+ABlackoutPlayerCharacter::ABlackoutPlayerCharacter(
+	const FObjectInitializer& ObjectInitializer)
+	: Super(
+		ObjectInitializer.SetDefaultSubobjectClass<
+			UBlackoutPlayerMovementComponent>(
+			ACharacter::CharacterMovementComponentName))
 {
 	PrimaryActorTick.bCanEverTick = true;
 
@@ -52,12 +56,16 @@ ABlackoutPlayerCharacter::ABlackoutPlayerCharacter(const FObjectInitializer& Obj
 	SpringArm->CameraLagSpeed = 10.0f;
 	SpringArm->CameraLagMaxDistance = 50.0f;
 
+	SpringArm->bDoCollisionTest = false;
+
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	Camera->SetupAttachment(SpringArm, USpringArmComponent::SocketName);
 	Camera->bUsePawnControlRotation = false;
 
-	CombatComponent = CreateDefaultSubobject<UBlackoutCombatComponent>(TEXT("CombatComponent"));
-	ImpactIndicatorComponent = CreateDefaultSubobject<UBlackoutImpactIndicatorComponent>(TEXT("ImpactIndicatorComponent"));
+	CombatComponent = CreateDefaultSubobject<UBlackoutCombatComponent>(
+		TEXT("CombatComponent"));
+	ImpactIndicatorComponent = CreateDefaultSubobject<
+		UBlackoutImpactIndicatorComponent>(TEXT("ImpactIndicatorComponent"));
 	ImpactIndicatorComponent->Initialize(CombatComponent);
 
 	// TPS: 컨트롤러 회전은 카메라에만 적용하고, 기본 이동 회전은 CharacterMovement가 담당
@@ -70,11 +78,12 @@ ABlackoutPlayerCharacter::ABlackoutPlayerCharacter(const FObjectInitializer& Obj
 	DefaultMaxWalkSpeed = 600.f;
 	AimMaxWalkSpeed = 420.f;
 	DownedMaxWalkSpeed = 150.f;
-	
+
 	// 외곽선
-	UBOHighlightComponent* HighlightComponent = CreateDefaultSubobject<UBOHighlightComponent>(TEXT("HighlightComponent"));
+	UBOHighlightComponent* HighlightComponent = CreateDefaultSubobject<
+		UBOHighlightComponent>(TEXT("HighlightComponent"));
 	HighlightComponent->BaseStencil = EBlackoutStencil::Player;
-	HighlightComponent->bSuppressForLocalViewer =true;
+	HighlightComponent->bSuppressForLocalViewer = true;
 }
 
 void ABlackoutPlayerCharacter::BeginPlay()
@@ -84,11 +93,13 @@ void ABlackoutPlayerCharacter::BeginPlay()
 	UpdateAimMovementMode();
 }
 
-void ABlackoutPlayerCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+void ABlackoutPlayerCharacter::GetLifetimeReplicatedProps(
+	TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME_CONDITION(ABlackoutPlayerCharacter, ReplicatedAimOffset, COND_SkipOwner);
+	DOREPLIFETIME_CONDITION(ABlackoutPlayerCharacter, ReplicatedAimOffset,
+	                        COND_SkipOwner);
 	DOREPLIFETIME(ABlackoutPlayerCharacter, bIsReviveInteractionActive);
 	DOREPLIFETIME(ABlackoutPlayerCharacter, ActiveReviveTarget);
 	DOREPLIFETIME(ABlackoutPlayerCharacter, DownedDeathServerEndTimeSeconds);
@@ -98,10 +109,128 @@ void ABlackoutPlayerCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProper
 	DOREPLIFETIME(ABlackoutPlayerCharacter, ReviveDuration);
 }
 
+void ABlackoutPlayerCharacter::UpdateOwnerMeshVisibility()
+{
+	const bool bShouldHide = Camera && SpringArm &&
+		FVector::Dist(Camera->GetComponentLocation(),
+			SpringArm->GetComponentLocation() + SpringArm->TargetOffset) <= HideMeshArmLength;
+
+	if (bShouldHide == bOwnMeshHidden)
+	{
+		return;
+	}
+	bOwnMeshHidden = bShouldHide;
+
+	TArray<UMeshComponent*> MeshComponents;
+	GetComponents<UMeshComponent>(MeshComponents);
+	for (UMeshComponent* MeshComp : MeshComponents)
+	{
+		MeshComp->SetOwnerNoSee(bShouldHide);
+	}
+
+	// 부착된 무기 메시 숨김
+	TArray<AActor*> AttachedActors;
+	GetAttachedActors(AttachedActors, true, true);
+	for (AActor* Attached : AttachedActors)
+	{
+		if (!Attached)
+		{
+			continue;
+		}
+		TArray<UMeshComponent*> AttachedMeshes;
+		Attached->GetComponents<UMeshComponent>(AttachedMeshes);
+		for (UMeshComponent* MeshComp : AttachedMeshes)
+		{
+			MeshComp->SetOwnerNoSee(bShouldHide);
+		}
+	}
+}
+
+void ABlackoutPlayerCharacter::UpdateCameraCollision(float DeltaSeconds)
+{
+	if (!SpringArm)
+	{
+		return;
+	}
+
+	const FRotator ArmRotation = GetControlRotation();
+	const FVector SocketWorldOffset = ArmRotation.RotateVector(
+		SpringArm->SocketOffset);
+	const FVector CameraDir = ArmRotation.Vector();
+
+	// 시작점은 캐릭터 중앙 피벗 — 캡슐이 벽을 못 뚫어 항상 벽 밖이라 trace가 벽 안에서 시작(관통)하지 않음.
+	const FVector PivotLocation = SpringArm->GetComponentLocation() + SpringArm
+		->TargetOffset;
+	// 끝점만 어깨 오프셋 포함한 실제 카메라 위치 → 측면 카메라의 벽 충돌은 계속 검사.
+	const FVector DesiredCameraPos = PivotLocation - CameraDir *
+		DesiredArmLength + SocketWorldOffset;
+
+	// 월드 지오메트리만 
+	FCollisionObjectQueryParams ObjectQueryParams;
+	ObjectQueryParams.AddObjectTypesToQuery(ECC_WorldStatic);
+	ObjectQueryParams.AddObjectTypesToQuery(ECC_WorldDynamic);
+	FCollisionQueryParams QueryParams(
+		SCENE_QUERY_STAT(CameraCollision), false, this);
+
+	float TargetLength = DesiredArmLength;
+	FHitResult Hit;
+	if (GetWorld()->SweepSingleByObjectType(
+		Hit, PivotLocation, DesiredCameraPos, FQuat::Identity,
+		ObjectQueryParams, FCollisionShape::MakeSphere(CameraProbeRadius),
+		QueryParams
+	))
+	{
+		const float ForwardDist = FVector::DotProduct(
+			Hit.Location - PivotLocation, -CameraDir);
+		const float TotalDist = FVector::Dist(Hit.Location, PivotLocation);
+		// 후방 성분이 충분할 때(=진짜 뒤쪽 벽)만 당김. 측면 위주 막힘(어깨 옆 벽)은 무시 → 캐릭터 안 사라짐. Type B는 후속.
+		if (ForwardDist > TotalDist * 0.5f)
+		{
+			TargetLength = FMath::Max(ForwardDist - CameraCollisionBuffer,
+			                          MinCameraArmLength);
+		}
+	}
+
+	if (FMath::Abs(TargetLength - StabilizedArmLength) > CameraTargetDeadband)
+	{
+		StabilizedArmLength = TargetLength;
+	}
+
+
+	const float InterpSpeed = (StabilizedArmLength < SpringArm->TargetArmLength)
+		                          ? CameraBlockInterpSpeed
+		                          : CameraReturnInterpSpeed;
+
+	SpringArm->TargetArmLength = FMath::FInterpTo(
+		SpringArm->TargetArmLength, StabilizedArmLength, DeltaSeconds,
+		InterpSpeed);
+
+	const FVector RightDir = ArmRotation.RotateVector(FVector::RightVector);
+	const float DesiredShoulderY = DesiredSocketOffset.Y;
+	const FVector CameraBase = PivotLocation - CameraDir * SpringArm->
+		TargetArmLength;
+
+	float TargetShoulderY = DesiredShoulderY;
+	FHitResult SideHit;
+	if (DesiredShoulderY > KINDA_SMALL_NUMBER && GetWorld()->
+		SweepSingleByObjectType(SideHit, CameraBase,
+		                        CameraBase + RightDir * DesiredShoulderY,
+		                        FQuat::Identity, ObjectQueryParams,
+		                        FCollisionShape::MakeSphere(CameraProbeRadius),
+		                        QueryParams))
+	{
+		TargetShoulderY = FMath::Max(SideHit.Distance - CameraCollisionBuffer , 0.0f);
+	}
+	
+	const float ShoulderInterp = (TargetShoulderY < StabilizedShoulderY ) ?CameraBlockInterpSpeed  : CameraReturnInterpSpeed;
+	StabilizedShoulderY = FMath::FInterpTo(StabilizedShoulderY , TargetShoulderY , DeltaSeconds, ShoulderInterp);
+	SpringArm->SocketOffset.Y = StabilizedShoulderY;
+}
+
 void ABlackoutPlayerCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
-	
+
 	// aim 모드  틱 로컬 플레이어 카메라 갱신 
 	if (!IsLocallyControlled())
 	{
@@ -110,14 +239,18 @@ void ABlackoutPlayerCharacter::Tick(float DeltaSeconds)
 
 	UpdateFocusedInteractable(DeltaSeconds);
 	UpdateAimCamera(DeltaSeconds);
+	UpdateCameraCollision(DeltaSeconds);
+	UpdateOwnerMeshVisibility();
 }
 
 
-void ABlackoutPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+void ABlackoutPlayerCharacter::SetupPlayerInputComponent(
+	UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
-	
-	UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent);
+
+	UEnhancedInputComponent* EnhancedInputComponent = Cast<
+		UEnhancedInputComponent>(PlayerInputComponent);
 	if (!EnhancedInputComponent)
 	{
 		return;
@@ -126,39 +259,54 @@ void ABlackoutPlayerCharacter::SetupPlayerInputComponent(UInputComponent* Player
 	if (MoveAction)
 	{
 		// 회피시 입력했던 방향을 기억하기 위한 바인딩 
-		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ABlackoutPlayerCharacter::Move);
-		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Completed, this, &ABlackoutPlayerCharacter::Move);
-		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Canceled, this, &ABlackoutPlayerCharacter::Move);
+		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered,
+		                                   this,
+		                                   &ABlackoutPlayerCharacter::Move);
+		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Completed,
+		                                   this,
+		                                   &ABlackoutPlayerCharacter::Move);
+		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Canceled,
+		                                   this,
+		                                   &ABlackoutPlayerCharacter::Move);
 	}
 
 	if (LookAction)
 	{
-		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &ABlackoutPlayerCharacter::Look);
+		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered,
+		                                   this,
+		                                   &ABlackoutPlayerCharacter::Look);
 	}
 
 	if (MouseLookAction)
 	{
-		EnhancedInputComponent->BindAction(MouseLookAction, ETriggerEvent::Triggered, this, &ABlackoutPlayerCharacter::Look);
+		EnhancedInputComponent->BindAction(MouseLookAction,
+		                                   ETriggerEvent::Triggered, this,
+		                                   &ABlackoutPlayerCharacter::Look);
 	}
 
 	if (ToggleFlashlightAction)
 	{
-		EnhancedInputComponent->BindAction(ToggleFlashlightAction, ETriggerEvent::Started, this, &ABlackoutPlayerCharacter::ToggleFlashlight);
+		EnhancedInputComponent->BindAction(ToggleFlashlightAction,
+		                                   ETriggerEvent::Started, this,
+		                                   &ABlackoutPlayerCharacter::ToggleFlashlight);
 	}
 }
+
 void ABlackoutPlayerCharacter::PossessedBy(AController* NewController)
 {
 	Super::PossessedBy(NewController);
 
 	// Server: InitAbilityActorInfo
-	if (IAbilitySystemInterface* ASCInterface = Cast<IAbilitySystemInterface>(GetPlayerState()))
+	if (IAbilitySystemInterface* ASCInterface = Cast<IAbilitySystemInterface>(
+		GetPlayerState()))
 	{
 		AbilitySystemComponent = Cast<UBlackoutAbilitySystemComponent>(
 			ASCInterface->GetAbilitySystemComponent());
 
 		if (AbilitySystemComponent)
 		{
-			AbilitySystemComponent->InitAbilityActorInfo(GetPlayerState(), this);
+			AbilitySystemComponent->
+				InitAbilityActorInfo(GetPlayerState(), this);
 			BindDownedStateTagEvent();
 			ApplyReplicatedReviveInteractionStateTag();
 			BindReadyStateChangedDelegate();
@@ -168,17 +316,22 @@ void ABlackoutPlayerCharacter::PossessedBy(AController* NewController)
 
 			if (CharacterData)
 			{
-				if (ABlackoutPlayerState* BlackoutPlayerState = GetPlayerState<ABlackoutPlayerState>())
+				if (ABlackoutPlayerState* BlackoutPlayerState = GetPlayerState<
+					ABlackoutPlayerState>())
 				{
-					BlackoutPlayerState->InitializeConsumablesFromCharacterData(CharacterData);
+					BlackoutPlayerState->InitializeConsumablesFromCharacterData(
+						CharacterData);
 				}
 
-				AbilitySystemComponent->GiveDefaultAbilities(CharacterData->GrantedAbilities);
-				AbilitySystemComponent->GiveConsumableAbilities(CharacterData->ConsumableSlots);
+				AbilitySystemComponent->GiveDefaultAbilities(
+					CharacterData->GrantedAbilities);
+				AbilitySystemComponent->GiveConsumableAbilities(
+					CharacterData->ConsumableSlots);
 
 				if (CombatComponent)
 				{
-					CombatComponent->InitializeLoadoutFromCharacterData(CharacterData);
+					CombatComponent->InitializeLoadoutFromCharacterData(
+						CharacterData);
 				}
 
 				BO_LOG_GAS(Log, "Abilities granted to %s", *GetName());
@@ -191,15 +344,17 @@ void ABlackoutPlayerCharacter::OnRep_PlayerState()
 {
 	Super::OnRep_PlayerState();
 
-	
-	if (IAbilitySystemInterface* ASCInterface = Cast<IAbilitySystemInterface>(GetPlayerState()))
+
+	if (IAbilitySystemInterface* ASCInterface = Cast<IAbilitySystemInterface>(
+		GetPlayerState()))
 	{
 		AbilitySystemComponent = Cast<UBlackoutAbilitySystemComponent>(
 			ASCInterface->GetAbilitySystemComponent());
 
 		if (AbilitySystemComponent)
 		{
-			AbilitySystemComponent->InitAbilityActorInfo(GetPlayerState(), this);
+			AbilitySystemComponent->
+				InitAbilityActorInfo(GetPlayerState(), this);
 			BindDownedStateTagEvent();
 			ApplyReplicatedReviveInteractionStateTag();
 			BindReadyStateChangedDelegate();
@@ -214,22 +369,25 @@ void ABlackoutPlayerCharacter::ApplyPull(const FPullData& PullData)
 {
 	if (UAbilitySystemComponent* ASC = GetAbilitySystemComponent())
 	{
-		static const FGameplayTagContainer PullImmuneTags = FGameplayTagContainer::CreateFromArray(TArray<FGameplayTag>{
-			BlackoutGameplayTags::State_Downed,
-			BlackoutGameplayTags::State_Dead
-		});
-		
+		static const FGameplayTagContainer PullImmuneTags =
+			FGameplayTagContainer::CreateFromArray(TArray<FGameplayTag>{
+				BlackoutGameplayTags::State_Downed,
+				BlackoutGameplayTags::State_Dead
+			});
+
 		if (ASC->HasAnyMatchingGameplayTags(PullImmuneTags)) return;
 	}
-	
+
 	UCharacterMovementComponent* MoveComp = GetCharacterMovement();
 	if (!MoveComp) return;
-	
-	const FVector LaunchVelocity = PullData.PullDirection * PullData.PullStrength;
+
+	const FVector LaunchVelocity = PullData.PullDirection * PullData.
+		PullStrength;
 	LaunchCharacter(LaunchVelocity, true, true);
 }
 
-void ABlackoutPlayerCharacter::Server_RequestDebugSelfDamage_Implementation(float DamageAmount)
+void ABlackoutPlayerCharacter::Server_RequestDebugSelfDamage_Implementation(
+	float DamageAmount)
 {
 	if (!HasAuthority())
 	{
@@ -238,50 +396,59 @@ void ABlackoutPlayerCharacter::Server_RequestDebugSelfDamage_Implementation(floa
 
 	if (DamageAmount <= 0.f)
 	{
-		BO_LOG_GAS(Warning, "Server_RequestDebugSelfDamage failed: DamageAmount가 0 이하임");
+		BO_LOG_GAS(Warning,
+		           "Server_RequestDebugSelfDamage failed: DamageAmount가 0 이하임");
 		return;
 	}
 
 	if (!AbilitySystemComponent)
 	{
-		BO_LOG_GAS(Warning, "Server_RequestDebugSelfDamage failed: AbilitySystemComponent가 비어 있음");
+		BO_LOG_GAS(Warning,
+		           "Server_RequestDebugSelfDamage failed: AbilitySystemComponent가 비어 있음");
 		return;
 	}
 
 	if (!DebugSelfDamageEffect)
 	{
-		BO_LOG_GAS(Warning, "Server_RequestDebugSelfDamage failed: DebugSelfDamageEffect가 비어 있음");
+		BO_LOG_GAS(Warning,
+		           "Server_RequestDebugSelfDamage failed: DebugSelfDamageEffect가 비어 있음");
 		return;
 	}
 
-	FGameplayEffectContextHandle ContextHandle = AbilitySystemComponent->MakeEffectContext();
+	FGameplayEffectContextHandle ContextHandle = AbilitySystemComponent->
+		MakeEffectContext();
 	ContextHandle.AddSourceObject(this);
 
-	const FGameplayEffectSpecHandle SpecHandle = AbilitySystemComponent->MakeOutgoingSpec(DebugSelfDamageEffect, 1.f, ContextHandle);
+	const FGameplayEffectSpecHandle SpecHandle = AbilitySystemComponent->
+		MakeOutgoingSpec(DebugSelfDamageEffect, 1.f, ContextHandle);
 	if (!SpecHandle.IsValid())
 	{
-		BO_LOG_GAS(Warning, "Server_RequestDebugSelfDamage failed: Damage Spec 생성에 실패함");
+		BO_LOG_GAS(Warning,
+		           "Server_RequestDebugSelfDamage failed: Damage Spec 생성에 실패함");
 		return;
 	}
 
-	SpecHandle.Data.Get()->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Damage, DamageAmount);
+	SpecHandle.Data.Get()->SetSetByCallerMagnitude(
+		BlackoutGameplayTags::Data_Damage, DamageAmount);
 
 	const bool bApplied = ApplyIncomingDamageSpec(SpecHandle, NAME_None);
 	BO_LOG_GAS(Log,
-		"Server_RequestDebugSelfDamage: Target=%s Damage=%.1f Applied=%s",
-		*GetName(),
-		DamageAmount,
-		bApplied ? TEXT("true") : TEXT("false"));
+	           "Server_RequestDebugSelfDamage: Target=%s Damage=%.1f Applied=%s",
+	           *GetName(),
+	           DamageAmount,
+	           bApplied ? TEXT("true") : TEXT("false"));
 }
 
-void ABlackoutPlayerCharacter::Server_SetAimOffset_Implementation(FVector2D NewAimOffset)
+void ABlackoutPlayerCharacter::Server_SetAimOffset_Implementation(
+	FVector2D NewAimOffset)
 {
 	ReplicatedAimOffset = FVector2D(
 		FMath::Clamp(NewAimOffset.X, -180.f, 180.f),
 		FMath::Clamp(NewAimOffset.Y, -90.f, 90.f));
 }
 
-FVector ABlackoutPlayerCharacter::GetFocusedInteractablePromptWorldLocation() const
+FVector
+ABlackoutPlayerCharacter::GetFocusedInteractablePromptWorldLocation() const
 {
 	AActor* TargetActor = FocusedInteractableActor.Get();
 	if (!IsValid(TargetActor))
@@ -295,7 +462,9 @@ FVector ABlackoutPlayerCharacter::GetFocusedInteractablePromptWorldLocation() co
 	// false로 넘기면 Niagara emit particle 등 비콜리전 컴포넌트의 가변 bounds가 함께 잡혀
 	// 프롬프트 위치가 시뮬레이션 진행에 따라 화면 위쪽으로 끌려가는 버그가 발생합니다.
 	TargetActor->GetActorBounds(true, BoundsOrigin, BoundsExtent);
-	return BoundsOrigin + FVector(0.0f, 0.0f, BoundsExtent.Z + InteractionPromptHeightOffset);
+	return BoundsOrigin + FVector(0.0f, 0.0f,
+	                              BoundsExtent.Z +
+	                              InteractionPromptHeightOffset);
 }
 
 bool ABlackoutPlayerCharacter::TryInteractWithFocusedActor()
@@ -312,12 +481,14 @@ bool ABlackoutPlayerCharacter::TryInteractWithFocusedActor()
 	if (ABlackoutDropItem* DropItem = Cast<ABlackoutDropItem>(TargetActor))
 	{
 		DropItem->SetActorHiddenInGame(true);
-		if (UWidgetComponent* Widget = DropItem->FindComponentByClass<UWidgetComponent>())
+		if (UWidgetComponent* Widget = DropItem->FindComponentByClass<
+			UWidgetComponent>())
 		{
 			Widget->SetHiddenInGame(true);
 			Widget->SetVisibility(false, true);
 		}
-		if (USphereComponent* Sphere = DropItem->FindComponentByClass<USphereComponent>())
+		if (USphereComponent* Sphere = DropItem->FindComponentByClass<
+			USphereComponent>())
 		{
 			Sphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		}
@@ -357,12 +528,14 @@ bool ABlackoutPlayerCharacter::HasNearbyReviveTarget() const
 	for (TActorIterator<ABlackoutPlayerCharacter> It(World); It; ++It)
 	{
 		ABlackoutPlayerCharacter* Candidate = *It;
-		if (!Candidate || Candidate == this || Candidate->IsDead() || !Candidate->IsDowned())
+		if (!Candidate || Candidate == this || Candidate->IsDead() || !Candidate
+			->IsDowned())
 		{
 			continue;
 		}
 
-		if (FVector::DistSquared(Candidate->GetActorLocation(), GetActorLocation()) <= ReviveRangeSquared)
+		if (FVector::DistSquared(Candidate->GetActorLocation(),
+		                         GetActorLocation()) <= ReviveRangeSquared)
 		{
 			return true;
 		}
@@ -381,7 +554,8 @@ void ABlackoutPlayerCharacter::UpdateFocusedInteractable(float DeltaSeconds)
 	}
 
 	InteractionScanElapsed += DeltaSeconds;
-	if (InteractionScanInterval > 0.0f && InteractionScanElapsed < InteractionScanInterval)
+	if (InteractionScanInterval > 0.0f && InteractionScanElapsed <
+		InteractionScanInterval)
 	{
 		return;
 	}
@@ -411,7 +585,8 @@ void ABlackoutPlayerCharacter::RefreshFocusedInteractableActor()
 	ObjectQueryParams.AddObjectTypesToQuery(ECC_WorldDynamic);
 	ObjectQueryParams.AddObjectTypesToQuery(ECC_WorldStatic);
 
-	FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(BlackoutFocusedInteractable), false, this);
+	FCollisionQueryParams QueryParams(
+		SCENE_QUERY_STAT(BlackoutFocusedInteractable), false, this);
 	const bool bHasOverlap = World->OverlapMultiByObjectType(
 		OverlapResults,
 		GetActorLocation(),
@@ -437,7 +612,8 @@ void ABlackoutPlayerCharacter::RefreshFocusedInteractableActor()
 			continue;
 		}
 
-		const float DistanceSquared = FVector::DistSquared(CandidateActor->GetActorLocation(), GetActorLocation());
+		const float DistanceSquared = FVector::DistSquared(
+			CandidateActor->GetActorLocation(), GetActorLocation());
 		if (DistanceSquared < BestDistanceSquared)
 		{
 			BestDistanceSquared = DistanceSquared;
@@ -448,26 +624,31 @@ void ABlackoutPlayerCharacter::RefreshFocusedInteractableActor()
 	FocusedInteractableActor = BestCandidate;
 }
 
-bool ABlackoutPlayerCharacter::IsValidFocusedInteractable(AActor* CandidateActor) const
+bool ABlackoutPlayerCharacter::IsValidFocusedInteractable(
+	AActor* CandidateActor) const
 {
 	if (!IsValid(CandidateActor) || CandidateActor == this)
 	{
 		return false;
 	}
 
-	if (!CandidateActor->GetClass()->ImplementsInterface(UBlackoutInteractable::StaticClass()))
+	if (!CandidateActor->GetClass()->ImplementsInterface(
+		UBlackoutInteractable::StaticClass()))
 	{
 		return false;
 	}
 
-	return IBlackoutInteractable::Execute_CanInteract(CandidateActor, const_cast<ABlackoutPlayerCharacter*>(this));
+	return IBlackoutInteractable::Execute_CanInteract(
+		CandidateActor, const_cast<ABlackoutPlayerCharacter*>(this));
 }
 
-void ABlackoutPlayerCharacter::Server_InteractWithActor_Implementation(AActor* TargetActor)
+void ABlackoutPlayerCharacter::Server_InteractWithActor_Implementation(
+	AActor* TargetActor)
 {
 	if (!IsValidFocusedInteractable(TargetActor))
 	{
-		BO_LOG_CORE(Verbose, "상호작용 무시: 서버에서 유효한 대상이 아닙니다. Player=%s Target=%s", *GetName(), *GetNameSafe(TargetActor));
+		BO_LOG_CORE(Verbose, "상호작용 무시: 서버에서 유효한 대상이 아닙니다. Player=%s Target=%s",
+		            *GetName(), *GetNameSafe(TargetActor));
 		return;
 	}
 
@@ -477,23 +658,27 @@ void ABlackoutPlayerCharacter::Server_InteractWithActor_Implementation(AActor* T
 
 // 회피 몽타주 재생은 GAS 표준 PlayMontageAndWait → ASC::PlayMontage 경로로 처리됩니다.
 
-void ABlackoutPlayerCharacter::Multicast_PlayHitReactMontage_Implementation(UAnimMontage* Montage, float PlayRate,
+void ABlackoutPlayerCharacter::Multicast_PlayHitReactMontage_Implementation(
+	UAnimMontage* Montage, float PlayRate,
 	bool bAllowMovementDuringHitReact)
 {
 	PlayHitReactMontage(Montage, PlayRate, bAllowMovementDuringHitReact);
 }
 
-void ABlackoutPlayerCharacter::Multicast_PlayFireMontage_Implementation(UAnimMontage* Montage, float PlayRate, bool bRestartIfPlaying)
+void ABlackoutPlayerCharacter::Multicast_PlayFireMontage_Implementation(
+	UAnimMontage* Montage, float PlayRate, bool bRestartIfPlaying)
 {
 	PlayFireMontage(Montage, PlayRate, bRestartIfPlaying);
 }
 
-void ABlackoutPlayerCharacter::Multicast_PlayReloadMontage_Implementation(UAnimMontage* Montage, float PlayRate)
+void ABlackoutPlayerCharacter::Multicast_PlayReloadMontage_Implementation(
+	UAnimMontage* Montage, float PlayRate)
 {
 	PlayReloadMontage(Montage, PlayRate);
 }
 
-void ABlackoutPlayerCharacter::Multicast_StopFireMontage_Implementation(UAnimMontage* Montage, float BlendOutTime)
+void ABlackoutPlayerCharacter::Multicast_StopFireMontage_Implementation(
+	UAnimMontage* Montage, float BlendOutTime)
 {
 	StopFireMontage(Montage, BlendOutTime);
 }
@@ -502,7 +687,9 @@ void ABlackoutPlayerCharacter::Multicast_StopFireMontage_Implementation(UAnimMon
 // GA_Dodge 는 UAbilityTask_PlayMontageAndWait 로 직접 재생하며,
 // 회피 진행 상태는 SetDodgeMontagePlaying setter 로 외부에 알립니다.
 
-bool ABlackoutPlayerCharacter::PlayFireMontage(UAnimMontage* Montage, float PlayRate, bool bRestartIfPlaying)
+bool ABlackoutPlayerCharacter::PlayFireMontage(UAnimMontage* Montage,
+                                               float PlayRate,
+                                               bool bRestartIfPlaying)
 {
 	if (!Montage)
 	{
@@ -523,7 +710,8 @@ bool ABlackoutPlayerCharacter::PlayFireMontage(UAnimMontage* Montage, float Play
 		return false;
 	}
 
-	if (AnimInstance->GetCurrentActiveMontage() == Montage && AnimInstance->Montage_IsPlaying(Montage))
+	if (AnimInstance->GetCurrentActiveMontage() == Montage && AnimInstance->
+		Montage_IsPlaying(Montage))
 	{
 		if (!bRestartIfPlaying)
 		{
@@ -539,7 +727,8 @@ bool ABlackoutPlayerCharacter::PlayFireMontage(UAnimMontage* Montage, float Play
 	return PlayResult > 0.f;
 }
 
-bool ABlackoutPlayerCharacter::StopFireMontage(UAnimMontage* Montage, float BlendOutTime)
+bool ABlackoutPlayerCharacter::StopFireMontage(UAnimMontage* Montage,
+                                               float BlendOutTime)
 {
 	if (!Montage)
 	{
@@ -562,7 +751,8 @@ bool ABlackoutPlayerCharacter::StopFireMontage(UAnimMontage* Montage, float Blen
 	return true;
 }
 
-bool ABlackoutPlayerCharacter::PlayReloadMontage(UAnimMontage* Montage, float PlayRate)
+bool ABlackoutPlayerCharacter::PlayReloadMontage(
+	UAnimMontage* Montage, float PlayRate)
 {
 	if (!Montage)
 	{
@@ -584,7 +774,8 @@ bool ABlackoutPlayerCharacter::PlayReloadMontage(UAnimMontage* Montage, float Pl
 		return false;
 	}
 
-	if (AnimInstance->GetCurrentActiveMontage() == Montage && AnimInstance->Montage_IsPlaying(Montage))
+	if (AnimInstance->GetCurrentActiveMontage() == Montage && AnimInstance->
+		Montage_IsPlaying(Montage))
 	{
 		BO_LOG_GAS(Verbose, "PlayReloadMontage skipped: 이미 같은 장전 몽타주가 재생 중임");
 		return true;
@@ -592,16 +783,17 @@ bool ABlackoutPlayerCharacter::PlayReloadMontage(UAnimMontage* Montage, float Pl
 
 	const float PlayResult = PlayAnimMontage(Montage, PlayRate);
 	BO_LOG_GAS(Log,
-		"PlayReloadMontage result=%.2f Local=%s Authority=%s Montage=%s",
-		PlayResult,
-		IsLocallyControlled() ? TEXT("true") : TEXT("false"),
-		HasAuthority() ? TEXT("true") : TEXT("false"),
-		*GetNameSafe(Montage));
+	           "PlayReloadMontage result=%.2f Local=%s Authority=%s Montage=%s",
+	           PlayResult,
+	           IsLocallyControlled() ? TEXT("true") : TEXT("false"),
+	           HasAuthority() ? TEXT("true") : TEXT("false"),
+	           *GetNameSafe(Montage));
 
 	return PlayResult > 0.f;
 }
 
-UAnimMontage* ABlackoutPlayerCharacter::GetFireMontageForTag(FGameplayTag FireAnimTag) const
+UAnimMontage* ABlackoutPlayerCharacter::GetFireMontageForTag(
+	FGameplayTag FireAnimTag) const
 {
 	for (const FBlackoutFireMontageEntry& Entry : FireMontageEntries)
 	{
@@ -614,7 +806,8 @@ UAnimMontage* ABlackoutPlayerCharacter::GetFireMontageForTag(FGameplayTag FireAn
 	return nullptr;
 }
 
-UAnimMontage* ABlackoutPlayerCharacter::GetReloadMontageForTag(FGameplayTag ReloadAnimTag, bool bIsTwoHanded) const
+UAnimMontage* ABlackoutPlayerCharacter::GetReloadMontageForTag(
+	FGameplayTag ReloadAnimTag, bool bIsTwoHanded) const
 {
 	for (const FBlackoutReloadMontageEntry& Entry : ReloadMontageEntries)
 	{
@@ -627,12 +820,14 @@ UAnimMontage* ABlackoutPlayerCharacter::GetReloadMontageForTag(FGameplayTag Relo
 	return bIsTwoHanded ? ReloadFallbackMontage2R : ReloadFallbackMontage1R;
 }
 
-void ABlackoutPlayerCharacter::Multicast_StopReloadMontage_Implementation(UAnimMontage* Montage, float BlendOutTime)
+void ABlackoutPlayerCharacter::Multicast_StopReloadMontage_Implementation(
+	UAnimMontage* Montage, float BlendOutTime)
 {
 	StopReloadMontage(Montage, BlendOutTime);
 }
 
-bool ABlackoutPlayerCharacter::StopReloadMontage(UAnimMontage* Montage, float BlendOutTime)
+bool ABlackoutPlayerCharacter::StopReloadMontage(
+	UAnimMontage* Montage, float BlendOutTime)
 {
 	if (!Montage)
 	{
@@ -655,7 +850,8 @@ bool ABlackoutPlayerCharacter::StopReloadMontage(UAnimMontage* Montage, float Bl
 	return true;
 }
 
-bool ABlackoutPlayerCharacter::PlayHitReactMontage(UAnimMontage* Montage, float PlayRate, bool bAllowMovementDuringHitReact)
+bool ABlackoutPlayerCharacter::PlayHitReactMontage(
+	UAnimMontage* Montage, float PlayRate, bool bAllowMovementDuringHitReact)
 {
 	if (!Montage)
 	{
@@ -683,13 +879,14 @@ bool ABlackoutPlayerCharacter::PlayHitReactMontage(UAnimMontage* Montage, float 
 		return false;
 	}
 
-	if (AnimInstance->GetCurrentActiveMontage() == Montage && AnimInstance->Montage_IsPlaying(Montage))
+	if (AnimInstance->GetCurrentActiveMontage() == Montage && AnimInstance->
+		Montage_IsPlaying(Montage))
 	{
 		bIsHitReactMontagePlaying = true;
 		bCanMoveDuringHitReact = bAllowMovementDuringHitReact;
 		BO_LOG_GAS(Verbose,
-			"PlayHitReactMontage skipped: 이미 같은 히트 몽타주가 재생 중임 AllowMove=%s",
-			bCanMoveDuringHitReact ? TEXT("true") : TEXT("false"));
+		           "PlayHitReactMontage skipped: 이미 같은 히트 몽타주가 재생 중임 AllowMove=%s",
+		           bCanMoveDuringHitReact ? TEXT("true") : TEXT("false"));
 		return true;
 	}
 
@@ -697,7 +894,8 @@ bool ABlackoutPlayerCharacter::PlayHitReactMontage(UAnimMontage* Montage, float 
 	if (PlayResult > 0.f)
 	{
 		FOnMontageEnded MontageEndedDelegate;
-		MontageEndedDelegate.BindUObject(this, &ABlackoutPlayerCharacter::HandleHitReactMontageEnded);
+		MontageEndedDelegate.BindUObject(
+			this, &ABlackoutPlayerCharacter::HandleHitReactMontageEnded);
 		AnimInstance->Montage_SetEndDelegate(MontageEndedDelegate, Montage);
 		bIsHitReactMontagePlaying = true;
 		bCanMoveDuringHitReact = bAllowMovementDuringHitReact;
@@ -709,22 +907,26 @@ bool ABlackoutPlayerCharacter::PlayHitReactMontage(UAnimMontage* Montage, float 
 	}
 
 	BO_LOG_GAS(Log,
-		"PlayHitReactMontage result=%.2f Local=%s Authority=%s AllowMove=%s Montage=%s",
-		PlayResult,
-		IsLocallyControlled() ? TEXT("true") : TEXT("false"),
-		HasAuthority() ? TEXT("true") : TEXT("false"),
-		bCanMoveDuringHitReact ? TEXT("true") : TEXT("false"),
-		*GetNameSafe(Montage));
+	           "PlayHitReactMontage result=%.2f Local=%s Authority=%s AllowMove=%s Montage=%s",
+	           PlayResult,
+	           IsLocallyControlled() ? TEXT("true") : TEXT("false"),
+	           HasAuthority() ? TEXT("true") : TEXT("false"),
+	           bCanMoveDuringHitReact ? TEXT("true") : TEXT("false"),
+	           *GetNameSafe(Montage));
 
 	return PlayResult > 0.f;
 }
 
-void ABlackoutPlayerCharacter::Multicast_PlayWeaponSwapMontage_Implementation(FGameplayTag TargetWeaponSlotTag, float PlayRate)
+void ABlackoutPlayerCharacter::Multicast_PlayWeaponSwapMontage_Implementation(
+	FGameplayTag TargetWeaponSlotTag, float PlayRate)
 {
 	PlayWeaponSwapMontage(TargetWeaponSlotTag, PlayRate);
 }
 
-void ABlackoutPlayerCharacter::Multicast_ExecuteWeaponGameplayCue_Implementation(FGameplayTag CueTag, FGameplayCueParameters CueParameters, bool bSkipLocallyControlled)
+void
+ABlackoutPlayerCharacter::Multicast_ExecuteWeaponGameplayCue_Implementation(
+	FGameplayTag CueTag, FGameplayCueParameters CueParameters,
+	bool bSkipLocallyControlled)
 {
 	if (GetNetMode() == NM_DedicatedServer)
 	{
@@ -741,20 +943,29 @@ void ABlackoutPlayerCharacter::Multicast_ExecuteWeaponGameplayCue_Implementation
 
 	if (!CueTag.IsValid())
 	{
-		BO_LOG_GAS(Warning, "Multicast_ExecuteWeaponGameplayCue skipped: CueTag가 유효하지 않음");
+		BO_LOG_GAS(Warning,
+		           "Multicast_ExecuteWeaponGameplayCue skipped: CueTag가 유효하지 않음");
 		return;
 	}
 
-	if (UGameplayCueManager* CueManager = UAbilitySystemGlobals::Get().GetGameplayCueManager())
+	if (UGameplayCueManager* CueManager = UAbilitySystemGlobals::Get().
+		GetGameplayCueManager())
 	{
-		CueManager->HandleGameplayCue(this, CueTag, EGameplayCueEvent::Executed, CueParameters);
+		CueManager->HandleGameplayCue(this, CueTag, EGameplayCueEvent::Executed,
+		                              CueParameters);
 		return;
 	}
 
-	BO_LOG_GAS(Error, "Multicast_ExecuteWeaponGameplayCue failed: GameplayCueManager가 유효하지 않음 (Cue=%s)", *CueTag.ToString());
+	BO_LOG_GAS(
+		Error,
+		"Multicast_ExecuteWeaponGameplayCue failed: GameplayCueManager가 유효하지 않음 (Cue=%s)",
+		*CueTag.ToString());
 }
 
-void ABlackoutPlayerCharacter::Multicast_ExecuteWeaponGameplayCueBatch_Implementation(const TArray<FBlackoutWeaponGameplayCueEntry>& CueEntries, bool bSkipLocallyControlled)
+void
+ABlackoutPlayerCharacter::Multicast_ExecuteWeaponGameplayCueBatch_Implementation(
+	const TArray<FBlackoutWeaponGameplayCueEntry>& CueEntries,
+	bool bSkipLocallyControlled)
 {
 	if (GetNetMode() == NM_DedicatedServer)
 	{
@@ -774,10 +985,14 @@ void ABlackoutPlayerCharacter::Multicast_ExecuteWeaponGameplayCueBatch_Implement
 		return;
 	}
 
-	UGameplayCueManager* CueManager = UAbilitySystemGlobals::Get().GetGameplayCueManager();
+	UGameplayCueManager* CueManager = UAbilitySystemGlobals::Get().
+		GetGameplayCueManager();
 	if (!CueManager)
 	{
-		BO_LOG_GAS(Error, "Multicast_ExecuteWeaponGameplayCueBatch failed: GameplayCueManager가 유효하지 않음 (Count=%d)", CueEntries.Num());
+		BO_LOG_GAS(
+			Error,
+			"Multicast_ExecuteWeaponGameplayCueBatch failed: GameplayCueManager가 유효하지 않음 (Count=%d)",
+			CueEntries.Num());
 		return;
 	}
 
@@ -785,20 +1000,26 @@ void ABlackoutPlayerCharacter::Multicast_ExecuteWeaponGameplayCueBatch_Implement
 	{
 		if (!CueEntry.CueTag.IsValid())
 		{
-			BO_LOG_GAS(Warning, "Multicast_ExecuteWeaponGameplayCueBatch skipped: CueTag가 유효하지 않음");
+			BO_LOG_GAS(Warning,
+			           "Multicast_ExecuteWeaponGameplayCueBatch skipped: CueTag가 유효하지 않음");
 			continue;
 		}
 
-		CueManager->HandleGameplayCue(this, CueEntry.CueTag, EGameplayCueEvent::Executed, CueEntry.CueParameters);
+		CueManager->HandleGameplayCue(this, CueEntry.CueTag,
+		                              EGameplayCueEvent::Executed,
+		                              CueEntry.CueParameters);
 	}
 }
 
-bool ABlackoutPlayerCharacter::PlayWeaponSwapMontage(FGameplayTag TargetWeaponSlotTag, float PlayRate)
+bool ABlackoutPlayerCharacter::PlayWeaponSwapMontage(
+	FGameplayTag TargetWeaponSlotTag, float PlayRate)
 {
 	UAnimMontage* Montage = GetWeaponSwapMontageForSlot(TargetWeaponSlotTag);
 	if (!Montage)
 	{
-		BO_LOG_GAS(Warning, "PlayWeaponSwapMontage failed: 슬롯 %s 에 대응하는 몽타주가 비어 있음", *TargetWeaponSlotTag.ToString());
+		BO_LOG_GAS(Warning,
+		           "PlayWeaponSwapMontage failed: 슬롯 %s 에 대응하는 몽타주가 비어 있음",
+		           *TargetWeaponSlotTag.ToString());
 		bIsWeaponSwapMontagePlaying = false;
 		return false;
 	}
@@ -806,7 +1027,8 @@ bool ABlackoutPlayerCharacter::PlayWeaponSwapMontage(FGameplayTag TargetWeaponSl
 	USkeletalMeshComponent* MeshComponent = GetMesh();
 	if (!MeshComponent)
 	{
-		BO_LOG_GAS(Warning, "PlayWeaponSwapMontage failed: MeshComponent가 비어 있음");
+		BO_LOG_GAS(Warning,
+		           "PlayWeaponSwapMontage failed: MeshComponent가 비어 있음");
 		bIsWeaponSwapMontagePlaying = false;
 		return false;
 	}
@@ -814,13 +1036,15 @@ bool ABlackoutPlayerCharacter::PlayWeaponSwapMontage(FGameplayTag TargetWeaponSl
 	UAnimInstance* AnimInstance = MeshComponent->GetAnimInstance();
 	if (!AnimInstance)
 	{
-		BO_LOG_GAS(Warning, "PlayWeaponSwapMontage failed: AnimInstance가 비어 있음");
+		BO_LOG_GAS(Warning,
+		           "PlayWeaponSwapMontage failed: AnimInstance가 비어 있음");
 		bIsWeaponSwapMontagePlaying = false;
 		return false;
 	}
 
 	// 로컬 예측 재생 후 멀티캐스트가 도착해도 같은 몽타주를 다시 시작하지 않도록 방지
-	if (AnimInstance->GetCurrentActiveMontage() == Montage && AnimInstance->Montage_IsPlaying(Montage))
+	if (AnimInstance->GetCurrentActiveMontage() == Montage && AnimInstance->
+		Montage_IsPlaying(Montage))
 	{
 		bIsWeaponSwapMontagePlaying = true;
 		return true;
@@ -830,7 +1054,8 @@ bool ABlackoutPlayerCharacter::PlayWeaponSwapMontage(FGameplayTag TargetWeaponSl
 	if (PlayResult > 0.f)
 	{
 		FOnMontageEnded MontageEndedDelegate;
-		MontageEndedDelegate.BindUObject(this, &ABlackoutPlayerCharacter::HandleWeaponSwapMontageEnded);
+		MontageEndedDelegate.BindUObject(
+			this, &ABlackoutPlayerCharacter::HandleWeaponSwapMontageEnded);
 		AnimInstance->Montage_SetEndDelegate(MontageEndedDelegate, Montage);
 		bIsWeaponSwapMontagePlaying = true;
 		return true;
@@ -840,7 +1065,8 @@ bool ABlackoutPlayerCharacter::PlayWeaponSwapMontage(FGameplayTag TargetWeaponSl
 	return false;
 }
 
-UAnimMontage* ABlackoutPlayerCharacter::GetWeaponSwapMontageForSlot(FGameplayTag TargetWeaponSlotTag) const
+UAnimMontage* ABlackoutPlayerCharacter::GetWeaponSwapMontageForSlot(
+	FGameplayTag TargetWeaponSlotTag) const
 {
 	if (TargetWeaponSlotTag == BlackoutGameplayTags::Weapon_Primary)
 	{
@@ -859,9 +1085,12 @@ UAnimMontage* ABlackoutPlayerCharacter::GetWeaponSwapMontageForSlot(FGameplayTag
 // 재생: UAbilityTask_PlayMontageAndWait → ASC::PlayMontage → FRepAnimMontageInfo 자동 복제
 // 섹션 점프: 서버에서 ASC::CurrentMontageJumpToSection 호출 → RepAnimMontageInfo 로 클라이언트 자동 따라잡음
 
-void ABlackoutPlayerCharacter::Client_JumpMontageToSection_Implementation(UAnimMontage* Montage, FName SectionName, bool bApplyControlYaw, float ControlYawDegrees)
+void ABlackoutPlayerCharacter::Client_JumpMontageToSection_Implementation(
+	UAnimMontage* Montage, FName SectionName, bool bApplyControlYaw,
+	float ControlYawDegrees)
 {
-	if (!Montage || SectionName == NAME_None || HasAuthority() || !IsLocallyControlled())
+	if (!Montage || SectionName == NAME_None || HasAuthority() || !
+		IsLocallyControlled())
 	{
 		return;
 	}
@@ -871,13 +1100,15 @@ void ABlackoutPlayerCharacter::Client_JumpMontageToSection_Implementation(UAnimM
 		SetActorRotation(FRotator(0.f, ControlYawDegrees, 0.f));
 	}
 
-	UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+	UAnimInstance* AnimInstance = GetMesh()
+		                              ? GetMesh()->GetAnimInstance()
+		                              : nullptr;
 	if (!AnimInstance || !AnimInstance->Montage_IsPlaying(Montage))
 	{
 		BO_LOG_GAS(Verbose,
-			"Client_JumpMontageToSection skipped: Montage=%s Section=%s",
-			*GetNameSafe(Montage),
-			*SectionName.ToString());
+		           "Client_JumpMontageToSection skipped: Montage=%s Section=%s",
+		           *GetNameSafe(Montage),
+		           *SectionName.ToString());
 		return;
 	}
 
@@ -885,9 +1116,11 @@ void ABlackoutPlayerCharacter::Client_JumpMontageToSection_Implementation(UAnimM
 	AnimInstance->Montage_JumpToSection(SectionName, Montage);
 }
 
-void ABlackoutPlayerCharacter::Multicast_SyncDodgeChainRestart_Implementation(UAnimMontage* Montage, FName SectionName, float ServerYawDegrees)
+void ABlackoutPlayerCharacter::Multicast_SyncDodgeChainRestart_Implementation(
+	UAnimMontage* Montage, FName SectionName, float ServerYawDegrees)
 {
-	if (!Montage || SectionName == NAME_None || HasAuthority() || IsLocallyControlled())
+	if (!Montage || SectionName == NAME_None || HasAuthority() ||
+		IsLocallyControlled())
 	{
 		return;
 	}
@@ -900,10 +1133,13 @@ void ABlackoutPlayerCharacter::Multicast_SyncDodgeChainRestart_Implementation(UA
 		MoveComp->StopMovementImmediately();
 	}
 
-	UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+	UAnimInstance* AnimInstance = GetMesh()
+		                              ? GetMesh()->GetAnimInstance()
+		                              : nullptr;
 	if (!AnimInstance)
 	{
-		BO_LOG_GAS(Warning, "Multicast_SyncDodgeChainRestart failed: AnimInstance가 비어 있음");
+		BO_LOG_GAS(Warning,
+		           "Multicast_SyncDodgeChainRestart failed: AnimInstance가 비어 있음");
 		return;
 	}
 
@@ -913,8 +1149,8 @@ void ABlackoutPlayerCharacter::Multicast_SyncDodgeChainRestart_Implementation(UA
 		if (PlayResult <= 0.f)
 		{
 			BO_LOG_GAS(Warning,
-				"Multicast_SyncDodgeChainRestart failed: 회피 몽타주 재생 실패 Montage=%s",
-				*GetNameSafe(Montage));
+			           "Multicast_SyncDodgeChainRestart failed: 회피 몽타주 재생 실패 Montage=%s",
+			           *GetNameSafe(Montage));
 			return;
 		}
 	}
@@ -922,7 +1158,8 @@ void ABlackoutPlayerCharacter::Multicast_SyncDodgeChainRestart_Implementation(UA
 	AnimInstance->Montage_JumpToSection(SectionName, Montage);
 }
 
-void ABlackoutPlayerCharacter::Multicast_PlayConsumableMontage_Implementation(UAnimMontage* Montage, float PlayRate)
+void ABlackoutPlayerCharacter::Multicast_PlayConsumableMontage_Implementation(
+	UAnimMontage* Montage, float PlayRate)
 {
 	if (!Montage)
 	{
@@ -938,21 +1175,26 @@ void ABlackoutPlayerCharacter::Multicast_PlayConsumableMontage_Implementation(UA
 	PlayAnimMontage(Montage, PlayRate);
 }
 
-void ABlackoutPlayerCharacter::Multicast_StopConsumableMontage_Implementation(UAnimMontage* Montage, float BlendOutTime)
+void ABlackoutPlayerCharacter::Multicast_StopConsumableMontage_Implementation(
+	UAnimMontage* Montage, float BlendOutTime)
 {
 	if (!Montage)
 	{
 		return;
 	}
 
-	UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+	UAnimInstance* AnimInstance = GetMesh()
+		                              ? GetMesh()->GetAnimInstance()
+		                              : nullptr;
 	if (AnimInstance && AnimInstance->Montage_IsPlaying(Montage))
 	{
 		AnimInstance->Montage_Stop(BlendOutTime, Montage);
 	}
 }
 
-void ABlackoutPlayerCharacter::Client_BeginAbilityMovementOverride_Implementation(float SpeedMultiplier, bool bStopMovementImmediately, bool bAddLockedTag)
+void
+ABlackoutPlayerCharacter::Client_BeginAbilityMovementOverride_Implementation(
+	float SpeedMultiplier, bool bStopMovementImmediately, bool bAddLockedTag)
 {
 	if (!IsLocallyControlled() || HasAuthority())
 	{
@@ -962,7 +1204,8 @@ void ABlackoutPlayerCharacter::Client_BeginAbilityMovementOverride_Implementatio
 	UCharacterMovementComponent* MoveComp = GetCharacterMovement();
 	if (!MoveComp)
 	{
-		BO_LOG_GAS(Warning, "Client_BeginAbilityMovementOverride failed: MovementComponent가 비어 있음");
+		BO_LOG_GAS(Warning,
+		           "Client_BeginAbilityMovementOverride failed: MovementComponent가 비어 있음");
 		return;
 	}
 
@@ -976,17 +1219,21 @@ void ABlackoutPlayerCharacter::Client_BeginAbilityMovementOverride_Implementatio
 		MoveComp->StopMovementImmediately();
 	}
 
-	MoveComp->MaxWalkSpeed = CachedAbilityOverrideMaxWalkSpeed * FMath::Clamp(SpeedMultiplier, 0.0f, 1.0f);
+	MoveComp->MaxWalkSpeed = CachedAbilityOverrideMaxWalkSpeed * FMath::Clamp(
+		SpeedMultiplier, 0.0f, 1.0f);
 
-	if (bAddLockedTag && AbilitySystemComponent && !bAppliedLocalAbilityLockedTag)
+	if (bAddLockedTag && AbilitySystemComponent && !
+		bAppliedLocalAbilityLockedTag)
 	{
 		// 서버 태그 복제 전까지 소유 클라이언트 입력을 같은 프레임 규칙으로 막습니다.
-		AbilitySystemComponent->AddLooseGameplayTag(BlackoutGameplayTags::State_Locked);
+		AbilitySystemComponent->AddLooseGameplayTag(
+			BlackoutGameplayTags::State_Locked);
 		bAppliedLocalAbilityLockedTag = true;
 	}
 }
 
-void ABlackoutPlayerCharacter::Client_EndAbilityMovementOverride_Implementation()
+void
+ABlackoutPlayerCharacter::Client_EndAbilityMovementOverride_Implementation()
 {
 	if (!IsLocallyControlled() || HasAuthority())
 	{
@@ -1003,7 +1250,8 @@ void ABlackoutPlayerCharacter::Client_EndAbilityMovementOverride_Implementation(
 
 	if (AbilitySystemComponent && bAppliedLocalAbilityLockedTag)
 	{
-		AbilitySystemComponent->RemoveLooseGameplayTag(BlackoutGameplayTags::State_Locked);
+		AbilitySystemComponent->RemoveLooseGameplayTag(
+			BlackoutGameplayTags::State_Locked);
 	}
 
 	CachedAbilityOverrideMaxWalkSpeed = 0.0f;
@@ -1021,26 +1269,29 @@ void ABlackoutPlayerCharacter::CommitPendingWeaponSwap()
 // HandleDodgeMontageEnded 는 TDD §4.1 v2 에서 폐기되었습니다.
 // 회피 진행 플래그는 GA_Dodge 가 SetDodgeMontagePlaying setter 로 직접 관리합니다.
 
-void ABlackoutPlayerCharacter::HandleHitReactMontageEnded(UAnimMontage* Montage, bool bInterrupted)
+void ABlackoutPlayerCharacter::HandleHitReactMontageEnded(
+	UAnimMontage* Montage, bool bInterrupted)
 {
 	bIsHitReactMontagePlaying = false;
 	bCanMoveDuringHitReact = false;
 	BO_LOG_GAS(Log,
-		"Hit react montage ended: Interrupted=%s Montage=%s",
-		bInterrupted ? TEXT("true") : TEXT("false"),
-		*GetNameSafe(Montage));
+	           "Hit react montage ended: Interrupted=%s Montage=%s",
+	           bInterrupted ? TEXT("true") : TEXT("false"),
+	           *GetNameSafe(Montage));
 }
 
-void ABlackoutPlayerCharacter::HandleDeathMontageEnded(UAnimMontage* Montage, bool bInterrupted)
+void ABlackoutPlayerCharacter::HandleDeathMontageEnded(
+	UAnimMontage* Montage, bool bInterrupted)
 {
 	bIsDeathMontagePlaying = false;
 	BO_LOG_GAS(Log,
-		"Death montage ended: Interrupted=%s Montage=%s",
-		bInterrupted ? TEXT("true") : TEXT("false"),
-		*GetNameSafe(Montage));
+	           "Death montage ended: Interrupted=%s Montage=%s",
+	           bInterrupted ? TEXT("true") : TEXT("false"),
+	           *GetNameSafe(Montage));
 }
 
-void ABlackoutPlayerCharacter::HandleWeaponSwapMontageEnded(UAnimMontage* Montage, bool bInterrupted)
+void ABlackoutPlayerCharacter::HandleWeaponSwapMontageEnded(
+	UAnimMontage* Montage, bool bInterrupted)
 {
 	bIsWeaponSwapMontagePlaying = false;
 
@@ -1050,9 +1301,9 @@ void ABlackoutPlayerCharacter::HandleWeaponSwapMontageEnded(UAnimMontage* Montag
 	}
 
 	BO_LOG_GAS(Log,
-		"Weapon swap montage ended: Interrupted=%s Montage=%s",
-		bInterrupted ? TEXT("true") : TEXT("false"),
-		*GetNameSafe(Montage));
+	           "Weapon swap montage ended: Interrupted=%s Montage=%s",
+	           bInterrupted ? TEXT("true") : TEXT("false"),
+	           *GetNameSafe(Montage));
 }
 
 void ABlackoutPlayerCharacter::HandleAimStateChanged(bool bNewAiming)
@@ -1063,17 +1314,20 @@ void ABlackoutPlayerCharacter::HandleAimStateChanged(bool bNewAiming)
 bool ABlackoutPlayerCharacter::IsReviving() const
 {
 	return AbilitySystemComponent
-		&& AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Reviving);
+		&& AbilitySystemComponent->HasMatchingGameplayTag(
+			BlackoutGameplayTags::State_Reviving);
 }
 
 bool ABlackoutPlayerCharacter::IsBeingRevived() const
 {
 	return AbilitySystemComponent
-		? AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_BeingRevived)
-		: bIsReviveInteractionActive;
+		       ? AbilitySystemComponent->HasMatchingGameplayTag(
+			       BlackoutGameplayTags::State_BeingRevived)
+		       : bIsReviveInteractionActive;
 }
 
-bool ABlackoutPlayerCharacter::TryBeginReviveInteraction(ABlackoutPlayerCharacter* Reviver, float InReviveDuration)
+bool ABlackoutPlayerCharacter::TryBeginReviveInteraction(
+	ABlackoutPlayerCharacter* Reviver, float InReviveDuration)
 {
 	if (!HasAuthority() || !Reviver || IsDead() || !IsDowned())
 	{
@@ -1106,7 +1360,8 @@ bool ABlackoutPlayerCharacter::TryBeginReviveInteraction(ABlackoutPlayerCharacte
 	return true;
 }
 
-void ABlackoutPlayerCharacter::EndReviveInteraction(ABlackoutPlayerCharacter* Reviver)
+void ABlackoutPlayerCharacter::EndReviveInteraction(
+	ABlackoutPlayerCharacter* Reviver)
 {
 	if (!HasAuthority() || !IsBeingRevived())
 	{
@@ -1145,7 +1400,8 @@ void ABlackoutPlayerCharacter::BroadcastReviveInteractionStateChanged()
 	OnReviveInteractionStateChangedNative.Broadcast(this, IsBeingRevived());
 }
 
-UAnimMontage* ABlackoutPlayerCharacter::SelectDirectionalHitReactMontage(UAnimMontage* FrontMontage, UAnimMontage* BackMontage,
+UAnimMontage* ABlackoutPlayerCharacter::SelectDirectionalHitReactMontage(
+	UAnimMontage* FrontMontage, UAnimMontage* BackMontage,
 	UAnimMontage* DefaultMontage, bool bIsBackHitReact) const
 {
 	if (bIsBackHitReact)
@@ -1176,9 +1432,11 @@ UAnimMontage* ABlackoutPlayerCharacter::SelectDirectionalHitReactMontage(UAnimMo
 	return BackMontage;
 }
 
-bool ABlackoutPlayerCharacter::IsBackHitReact(const FVector& DamageSourceLocation) const
+bool ABlackoutPlayerCharacter::IsBackHitReact(
+	const FVector& DamageSourceLocation) const
 {
-	const FVector ToDamageSource = (DamageSourceLocation - GetActorLocation()).GetSafeNormal2D();
+	const FVector ToDamageSource = (DamageSourceLocation - GetActorLocation()).
+		GetSafeNormal2D();
 	if (ToDamageSource.IsNearlyZero())
 	{
 		return false;
@@ -1194,7 +1452,8 @@ bool ABlackoutPlayerCharacter::IsBackHitReact(const FVector& DamageSourceLocatio
 	return ForwardDot <= BackHitReactDirectionDotThreshold;
 }
 
-UAnimMontage* ABlackoutPlayerCharacter::SelectHitReactMontage(float AppliedDamage, bool bIsBackHitReact) const
+UAnimMontage* ABlackoutPlayerCharacter::SelectHitReactMontage(
+	float AppliedDamage, bool bIsBackHitReact) const
 {
 	const bool bUseHeavyHitReact = AppliedDamage > HeavyHitReactDamageThreshold;
 	const bool bIsAimingHitReact = !bUseHeavyHitReact
@@ -1207,7 +1466,8 @@ UAnimMontage* ABlackoutPlayerCharacter::SelectHitReactMontage(float AppliedDamag
 	if (bUseHeavyHitReact)
 	{
 		if (UAnimMontage* SelectedMontage = SelectDirectionalHitReactMontage(
-			HeavyFrontHitReactMontage, HeavyBackHitReactMontage, HeavyHitReactMontage, bIsBackHitReact))
+			HeavyFrontHitReactMontage, HeavyBackHitReactMontage,
+			HeavyHitReactMontage, bIsBackHitReact))
 		{
 			return SelectedMontage;
 		}
@@ -1218,19 +1478,22 @@ UAnimMontage* ABlackoutPlayerCharacter::SelectHitReactMontage(float AppliedDamag
 		}
 
 		return SelectDirectionalHitReactMontage(
-			LightFrontHitReactMontage, LightBackHitReactMontage, LightHitReactMontage, bIsBackHitReact);
+			LightFrontHitReactMontage, LightBackHitReactMontage,
+			LightHitReactMontage, bIsBackHitReact);
 	}
 
 	if (bIsAimingHitReact)
 	{
 		if (UAnimMontage* SelectedMontage = SelectDirectionalHitReactMontage(
-			AimedLightFrontHitReactMontage, AimedLightBackHitReactMontage, AimedLightHitReactMontage, bIsBackHitReact))
+			AimedLightFrontHitReactMontage, AimedLightBackHitReactMontage,
+			AimedLightHitReactMontage, bIsBackHitReact))
 		{
 			return SelectedMontage;
 		}
 
 		if (UAnimMontage* SelectedMontage = SelectDirectionalHitReactMontage(
-			LightFrontHitReactMontage, LightBackHitReactMontage, LightHitReactMontage, bIsBackHitReact))
+			LightFrontHitReactMontage, LightBackHitReactMontage,
+			LightHitReactMontage, bIsBackHitReact))
 		{
 			return SelectedMontage;
 		}
@@ -1244,7 +1507,8 @@ UAnimMontage* ABlackoutPlayerCharacter::SelectHitReactMontage(float AppliedDamag
 	}
 
 	if (UAnimMontage* SelectedMontage = SelectDirectionalHitReactMontage(
-		LightFrontHitReactMontage, LightBackHitReactMontage, LightHitReactMontage, bIsBackHitReact))
+		LightFrontHitReactMontage, LightBackHitReactMontage,
+		LightHitReactMontage, bIsBackHitReact))
 	{
 		return SelectedMontage;
 	}
@@ -1255,10 +1519,12 @@ UAnimMontage* ABlackoutPlayerCharacter::SelectHitReactMontage(float AppliedDamag
 	}
 
 	return SelectDirectionalHitReactMontage(
-		HeavyFrontHitReactMontage, HeavyBackHitReactMontage, HeavyHitReactMontage, bIsBackHitReact);
+		HeavyFrontHitReactMontage, HeavyBackHitReactMontage,
+		HeavyHitReactMontage, bIsBackHitReact);
 }
 
-void ABlackoutPlayerCharacter::OnHitReact(float AppliedDamage, const FVector& DamageSourceLocation)
+void ABlackoutPlayerCharacter::OnHitReact(float AppliedDamage,
+                                          const FVector& DamageSourceLocation)
 {
 	Super::OnHitReact(AppliedDamage, DamageSourceLocation);
 
@@ -1268,34 +1534,39 @@ void ABlackoutPlayerCharacter::OnHitReact(float AppliedDamage, const FVector& Da
 	}
 
 	const bool bIsBackHitReact = IsBackHitReact(DamageSourceLocation);
-	UAnimMontage* SelectedHitReactMontage = SelectHitReactMontage(AppliedDamage, bIsBackHitReact);
-	const bool bIsAimingLightHitReact = AppliedDamage <= HeavyHitReactDamageThreshold
+	UAnimMontage* SelectedHitReactMontage = SelectHitReactMontage(
+		AppliedDamage, bIsBackHitReact);
+	const bool bIsAimingLightHitReact = AppliedDamage <=
+		HeavyHitReactDamageThreshold
 		&& CombatComponent
 		&& CombatComponent->IsAiming()
 		&& !IsDowned()
 		&& !IsDead();
 	if (!SelectedHitReactMontage)
 	{
-		BO_LOG_GAS(Verbose, "OnHitReact skipped: 사용할 히트 몽타주가 비어 있음 Damage=%.1f", AppliedDamage);
+		BO_LOG_GAS(Verbose, "OnHitReact skipped: 사용할 히트 몽타주가 비어 있음 Damage=%.1f",
+		           AppliedDamage);
 		return;
 	}
 
 	BO_LOG_GAS(Log,
-		"OnHitReact selected montage: Damage=%.1f Threshold=%.1f Type=%s Direction=%s Aiming=%s AllowMove=%s Montage=%s",
-		AppliedDamage,
-		HeavyHitReactDamageThreshold,
-		AppliedDamage > HeavyHitReactDamageThreshold
-			? TEXT("Heavy")
-			: (bIsAimingLightHitReact ? TEXT("AimedLight") : TEXT("Light")),
-		bIsBackHitReact ? TEXT("Back") : TEXT("Front"),
-		bIsAimingLightHitReact ? TEXT("true") : TEXT("false"),
-		bIsAimingLightHitReact ? TEXT("true") : TEXT("false"),
-		*GetNameSafe(SelectedHitReactMontage));
+	           "OnHitReact selected montage: Damage=%.1f Threshold=%.1f Type=%s Direction=%s Aiming=%s AllowMove=%s Montage=%s",
+	           AppliedDamage,
+	           HeavyHitReactDamageThreshold,
+	           AppliedDamage > HeavyHitReactDamageThreshold
+	           ? TEXT("Heavy")
+	           : (bIsAimingLightHitReact ? TEXT("AimedLight") : TEXT("Light")),
+	           bIsBackHitReact ? TEXT("Back") : TEXT("Front"),
+	           bIsAimingLightHitReact ? TEXT("true") : TEXT("false"),
+	           bIsAimingLightHitReact ? TEXT("true") : TEXT("false"),
+	           *GetNameSafe(SelectedHitReactMontage));
 
-	Multicast_PlayHitReactMontage(SelectedHitReactMontage, 1.f, bIsAimingLightHitReact);
+	Multicast_PlayHitReactMontage(SelectedHitReactMontage, 1.f,
+	                              bIsAimingLightHitReact);
 }
 
-void ABlackoutPlayerCharacter::HandleDownedStateChanged(bool bWasDowned, bool bIsCurrentlyDowned)
+void ABlackoutPlayerCharacter::HandleDownedStateChanged(
+	bool bWasDowned, bool bIsCurrentlyDowned)
 {
 	if (bIsCurrentlyDowned)
 	{
@@ -1454,28 +1725,33 @@ void ABlackoutPlayerCharacter::OnDeath()
 	}
 	else
 	{
-		BO_LOG_GAS(Warning, "OnDeath: 재생할 사망 몽타주가 설정되지 않았습니다. Player=%s", *GetNameSafe(this));
+		BO_LOG_GAS(Warning, "OnDeath: 재생할 사망 몽타주가 설정되지 않았습니다. Player=%s",
+		           *GetNameSafe(this));
 	}
 
 	NotifyBattleGameModePlayerFullyDead();
 }
 
-void ABlackoutPlayerCharacter::Server_ReviveFromDowned_Implementation(float RevivedHealth)
+void ABlackoutPlayerCharacter::Server_ReviveFromDowned_Implementation(
+	float RevivedHealth)
 {
 	if (!HasAuthority() || !AbilitySystemComponent || !IsDowned() || IsDead())
 	{
 		return;
 	}
 
-	const float MaxHealth = AbilitySystemComponent->GetNumericAttribute(UBlackoutBaseAttributeSet::GetMaxHealthAttribute());
+	const float MaxHealth = AbilitySystemComponent->GetNumericAttribute(
+		UBlackoutBaseAttributeSet::GetMaxHealthAttribute());
 	const float ClampedHealth = FMath::Clamp(RevivedHealth, 1.f, MaxHealth);
 
 	ClearDownedDeathTimer();
 	SetDownedStateActive(false);
 	EndReviveInteraction(nullptr);
-	AbilitySystemComponent->SetNumericAttributeBase(UBlackoutBaseAttributeSet::GetHealthAttribute(), ClampedHealth);
+	AbilitySystemComponent->SetNumericAttributeBase(
+		UBlackoutBaseAttributeSet::GetHealthAttribute(), ClampedHealth);
 	ScheduleWeaponVisibilityRestoreAfterRevive();
-	BO_LOG_GAS(Log, "ReviveFromDowned: Target=%s Health=%.1f", *GetName(), ClampedHealth);
+	BO_LOG_GAS(Log, "ReviveFromDowned: Target=%s Health=%.1f", *GetName(),
+	           ClampedHealth);
 }
 
 void ABlackoutPlayerCharacter::RestoreToFullState()
@@ -1522,19 +1798,26 @@ void ABlackoutPlayerCharacter::RestoreToFullState()
 
 	if (AbilitySystemComponent)
 	{
-		const float MaxHealth = AbilitySystemComponent->GetNumericAttribute(UBlackoutBaseAttributeSet::GetMaxHealthAttribute());
+		const float MaxHealth = AbilitySystemComponent->GetNumericAttribute(
+			UBlackoutBaseAttributeSet::GetMaxHealthAttribute());
 		if (MaxHealth <= 0.0f)
 		{
-			BO_LOG_GAS(Error, "PartyWipeRestart 복구 실패: MaxHealth가 0 이하입니다. Player=%s", *GetNameSafe(this));
+			BO_LOG_GAS(
+				Error, "PartyWipeRestart 복구 실패: MaxHealth가 0 이하입니다. Player=%s",
+				*GetNameSafe(this));
 		}
 		else
 		{
-			AbilitySystemComponent->SetNumericAttributeBase(UBlackoutBaseAttributeSet::GetHealthAttribute(), MaxHealth);
+			AbilitySystemComponent->SetNumericAttributeBase(
+				UBlackoutBaseAttributeSet::GetHealthAttribute(), MaxHealth);
 		}
 	}
 	else
 	{
-		BO_LOG_GAS(Error, "PartyWipeRestart 복구 실패: AbilitySystemComponent가 비어 있습니다. Player=%s", *GetNameSafe(this));
+		BO_LOG_GAS(
+			Error,
+			"PartyWipeRestart 복구 실패: AbilitySystemComponent가 비어 있습니다. Player=%s",
+			*GetNameSafe(this));
 	}
 
 	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
@@ -1570,14 +1853,16 @@ UAnimMontage* ABlackoutPlayerCharacter::SelectDeathMontage() const
 
 	if (ValidMontages.Num() > 0)
 	{
-		const int32 SelectedIndex = FMath::RandRange(0, ValidMontages.Num() - 1);
+		const int32 SelectedIndex =
+			FMath::RandRange(0, ValidMontages.Num() - 1);
 		return ValidMontages[SelectedIndex];
 	}
 
 	return nullptr;
 }
 
-bool ABlackoutPlayerCharacter::PlayDeathMontage(UAnimMontage* Montage, float PlayRate)
+bool ABlackoutPlayerCharacter::PlayDeathMontage(UAnimMontage* Montage,
+                                                float PlayRate)
 {
 	if (!Montage)
 	{
@@ -1614,26 +1899,29 @@ bool ABlackoutPlayerCharacter::PlayDeathMontage(UAnimMontage* Montage, float Pla
 		bIsDeathMontagePlaying = true;
 
 		FOnMontageEnded MontageEndedDelegate;
-		MontageEndedDelegate.BindUObject(this, &ABlackoutPlayerCharacter::HandleDeathMontageEnded);
+		MontageEndedDelegate.BindUObject(
+			this, &ABlackoutPlayerCharacter::HandleDeathMontageEnded);
 		AnimInstance->Montage_SetEndDelegate(MontageEndedDelegate, Montage);
 	}
 
 	BO_LOG_GAS(Log,
-		"PlayDeathMontage result=%.2f Local=%s Authority=%s Montage=%s",
-		PlayResult,
-		IsLocallyControlled() ? TEXT("true") : TEXT("false"),
-		HasAuthority() ? TEXT("true") : TEXT("false"),
-		*GetNameSafe(Montage));
+	           "PlayDeathMontage result=%.2f Local=%s Authority=%s Montage=%s",
+	           PlayResult,
+	           IsLocallyControlled() ? TEXT("true") : TEXT("false"),
+	           HasAuthority() ? TEXT("true") : TEXT("false"),
+	           *GetNameSafe(Montage));
 
 	return PlayResult > 0.f;
 }
 
-void ABlackoutPlayerCharacter::Multicast_PlayDeathMontage_Implementation(UAnimMontage* Montage, float PlayRate)
+void ABlackoutPlayerCharacter::Multicast_PlayDeathMontage_Implementation(
+	UAnimMontage* Montage, float PlayRate)
 {
 	PlayDeathMontage(Montage, PlayRate);
 }
 
-bool ABlackoutPlayerCharacter::PlayDownedEnterMontage(UAnimMontage* Montage, float PlayRate)
+bool ABlackoutPlayerCharacter::PlayDownedEnterMontage(
+	UAnimMontage* Montage, float PlayRate)
 {
 	if (!Montage)
 	{
@@ -1644,34 +1932,38 @@ bool ABlackoutPlayerCharacter::PlayDownedEnterMontage(UAnimMontage* Montage, flo
 	USkeletalMeshComponent* MeshComponent = GetMesh();
 	if (!MeshComponent)
 	{
-		BO_LOG_GAS(Warning, "PlayDownedEnterMontage failed: MeshComponent가 비어 있음");
+		BO_LOG_GAS(Warning,
+		           "PlayDownedEnterMontage failed: MeshComponent가 비어 있음");
 		return false;
 	}
 
 	UAnimInstance* AnimInstance = MeshComponent->GetAnimInstance();
 	if (!AnimInstance)
 	{
-		BO_LOG_GAS(Warning, "PlayDownedEnterMontage failed: AnimInstance가 비어 있음");
+		BO_LOG_GAS(Warning,
+		           "PlayDownedEnterMontage failed: AnimInstance가 비어 있음");
 		return false;
 	}
 
 	const float PlayResult = PlayAnimMontage(Montage, PlayRate);
 	BO_LOG_GAS(Log,
-		"PlayDownedEnterMontage result=%.2f Local=%s Authority=%s Montage=%s",
-		PlayResult,
-		IsLocallyControlled() ? TEXT("true") : TEXT("false"),
-		HasAuthority() ? TEXT("true") : TEXT("false"),
-		*GetNameSafe(Montage));
+	           "PlayDownedEnterMontage result=%.2f Local=%s Authority=%s Montage=%s",
+	           PlayResult,
+	           IsLocallyControlled() ? TEXT("true") : TEXT("false"),
+	           HasAuthority() ? TEXT("true") : TEXT("false"),
+	           *GetNameSafe(Montage));
 
 	return PlayResult > 0.f;
 }
 
-void ABlackoutPlayerCharacter::Multicast_PlayDownedEnterMontage_Implementation(UAnimMontage* Montage, float PlayRate)
+void ABlackoutPlayerCharacter::Multicast_PlayDownedEnterMontage_Implementation(
+	UAnimMontage* Montage, float PlayRate)
 {
 	PlayDownedEnterMontage(Montage, PlayRate);
 }
 
-bool ABlackoutPlayerCharacter::PlayReviveMontage(UAnimMontage* Montage, float PlayRate)
+bool ABlackoutPlayerCharacter::PlayReviveMontage(
+	UAnimMontage* Montage, float PlayRate)
 {
 	if (!Montage)
 	{
@@ -1704,28 +1996,30 @@ bool ABlackoutPlayerCharacter::PlayReviveMontage(UAnimMontage* Montage, float Pl
 		}
 
 		FOnMontageEnded MontageEndedDelegate;
-		MontageEndedDelegate.BindUObject(this, &ABlackoutPlayerCharacter::HandleReviveMontageEnded);
+		MontageEndedDelegate.BindUObject(
+			this, &ABlackoutPlayerCharacter::HandleReviveMontageEnded);
 		AnimInstance->Montage_SetEndDelegate(MontageEndedDelegate, Montage);
 	}
 	BO_LOG_GAS(Log,
-		"PlayReviveMontage result=%.2f Local=%s Authority=%s Montage=%s",
-		PlayResult,
-		IsLocallyControlled() ? TEXT("true") : TEXT("false"),
-		HasAuthority() ? TEXT("true") : TEXT("false"),
-		*GetNameSafe(Montage));
+	           "PlayReviveMontage result=%.2f Local=%s Authority=%s Montage=%s",
+	           PlayResult,
+	           IsLocallyControlled() ? TEXT("true") : TEXT("false"),
+	           HasAuthority() ? TEXT("true") : TEXT("false"),
+	           *GetNameSafe(Montage));
 
 	return PlayResult > 0.f;
 }
 
-void ABlackoutPlayerCharacter::Multicast_PlayRevivePerformMontage_Implementation(UAnimMontage* Montage, float PlayRate)
+void
+ABlackoutPlayerCharacter::Multicast_PlayRevivePerformMontage_Implementation(
+	UAnimMontage* Montage, float PlayRate)
 {
 	PlayRevivePerformMontage(Montage, PlayRate);
-	
 }
 
-bool ABlackoutPlayerCharacter::PlayRevivePerformMontage(UAnimMontage* Montage, float PlayRate)
+bool ABlackoutPlayerCharacter::PlayRevivePerformMontage(
+	UAnimMontage* Montage, float PlayRate)
 {
-	
 	if (!Montage)
 	{
 		BO_LOG_GAS(Warning, "PlayRevivePerformMontage failed: Montage가 비어 있음");
@@ -1735,41 +2029,47 @@ bool ABlackoutPlayerCharacter::PlayRevivePerformMontage(UAnimMontage* Montage, f
 	USkeletalMeshComponent* MeshComponent = GetMesh();
 	if (!MeshComponent)
 	{
-		BO_LOG_GAS(Warning, "PlayRevivePerformMontage failed: MeshComponent가 비어 있음");
+		BO_LOG_GAS(Warning,
+		           "PlayRevivePerformMontage failed: MeshComponent가 비어 있음");
 		return false;
 	}
 
 	UAnimInstance* AnimInstance = MeshComponent->GetAnimInstance();
 	if (!AnimInstance)
 	{
-		BO_LOG_GAS(Warning, "PlayRevivePerformMontage failed: AnimInstance가 비어 있음");
+		BO_LOG_GAS(Warning,
+		           "PlayRevivePerformMontage failed: AnimInstance가 비어 있음");
 		return false;
 	}
 
 	// 로컬 예측 재생 후 멀티캐스트가 와도 같은 몽타주를 다시 시작하지 않도록 방지
-	if (AnimInstance->GetCurrentActiveMontage() == Montage && AnimInstance->Montage_IsPlaying(Montage))
+	if (AnimInstance->GetCurrentActiveMontage() == Montage && AnimInstance->
+		Montage_IsPlaying(Montage))
 	{
 		return true;
 	}
 
 	const float PlayResult = PlayAnimMontage(Montage, PlayRate);
 	BO_LOG_GAS(Log,
-		"PlayRevivePerformMontage result=%.2f Local=%s Authority=%s Montage=%s",
-		PlayResult,
-		IsLocallyControlled() ? TEXT("true") : TEXT("false"),
-		HasAuthority() ? TEXT("true") : TEXT("false"),
-		*GetNameSafe(Montage));
+	           "PlayRevivePerformMontage result=%.2f Local=%s Authority=%s Montage=%s",
+	           PlayResult,
+	           IsLocallyControlled() ? TEXT("true") : TEXT("false"),
+	           HasAuthority() ? TEXT("true") : TEXT("false"),
+	           *GetNameSafe(Montage));
 
 	return PlayResult > 0.f;
 }
 
-void ABlackoutPlayerCharacter::Multicast_StopRevivePerformMontage_Implementation(UAnimMontage* Montage,
+void
+ABlackoutPlayerCharacter::Multicast_StopRevivePerformMontage_Implementation(
+	UAnimMontage* Montage,
 	float BlendOutTime)
 {
-	StopRevivePerformMontage(Montage , BlendOutTime);
+	StopRevivePerformMontage(Montage, BlendOutTime);
 }
 
-bool ABlackoutPlayerCharacter::StopRevivePerformMontage(UAnimMontage* Montage, float BlendOutTime)
+bool ABlackoutPlayerCharacter::StopRevivePerformMontage(
+	UAnimMontage* Montage, float BlendOutTime)
 {
 	if (!Montage)
 	{
@@ -1792,25 +2092,29 @@ bool ABlackoutPlayerCharacter::StopRevivePerformMontage(UAnimMontage* Montage, f
 	return true;
 }
 
-bool ABlackoutPlayerCharacter::PlayReadyCheckStartMontage(UAnimMontage* Montage, float PlayRate)
+bool ABlackoutPlayerCharacter::PlayReadyCheckStartMontage(
+	UAnimMontage* Montage, float PlayRate)
 {
 	if (!Montage)
 	{
-		BO_LOG_GAS(Warning, "PlayReadyCheckStartMontage failed: Montage가 비어 있음");
+		BO_LOG_GAS(Warning,
+		           "PlayReadyCheckStartMontage failed: Montage가 비어 있음");
 		return false;
 	}
 
 	USkeletalMeshComponent* MeshComponent = GetMesh();
 	if (!MeshComponent)
 	{
-		BO_LOG_GAS(Warning, "PlayReadyCheckStartMontage failed: MeshComponent가 비어 있음");
+		BO_LOG_GAS(Warning,
+		           "PlayReadyCheckStartMontage failed: MeshComponent가 비어 있음");
 		return false;
 	}
 
 	UAnimInstance* AnimInstance = MeshComponent->GetAnimInstance();
 	if (!AnimInstance)
 	{
-		BO_LOG_GAS(Warning, "PlayReadyCheckStartMontage failed: AnimInstance가 비어 있음");
+		BO_LOG_GAS(Warning,
+		           "PlayReadyCheckStartMontage failed: AnimInstance가 비어 있음");
 		return false;
 	}
 
@@ -1818,7 +2122,8 @@ bool ABlackoutPlayerCharacter::PlayReadyCheckStartMontage(UAnimMontage* Montage,
 	if (PlayResult > 0.f)
 	{
 		FOnMontageEnded MontageEndedDelegate;
-		MontageEndedDelegate.BindUObject(this, &ABlackoutPlayerCharacter::HandleReadyCheckStartMontageEnded);
+		MontageEndedDelegate.BindUObject(
+			this, &ABlackoutPlayerCharacter::HandleReadyCheckStartMontageEnded);
 		AnimInstance->Montage_SetEndDelegate(MontageEndedDelegate, Montage);
 	}
 
@@ -1829,21 +2134,24 @@ bool ABlackoutPlayerCharacter::PlayReadyCheckStartLoopMontage(float PlayRate)
 {
 	if (!ReadyCheckStartLoopMontage)
 	{
-		BO_LOG_GAS(Warning, "PlayReadyCheckStartLoopMontage failed: Montage가 비어 있음");
+		BO_LOG_GAS(Warning,
+		           "PlayReadyCheckStartLoopMontage failed: Montage가 비어 있음");
 		return false;
 	}
 
 	USkeletalMeshComponent* MeshComponent = GetMesh();
 	if (!MeshComponent)
 	{
-		BO_LOG_GAS(Warning, "PlayReadyCheckStartLoopMontage failed: MeshComponent가 비어 있음");
+		BO_LOG_GAS(Warning,
+		           "PlayReadyCheckStartLoopMontage failed: MeshComponent가 비어 있음");
 		return false;
 	}
 
 	UAnimInstance* AnimInstance = MeshComponent->GetAnimInstance();
 	if (!AnimInstance)
 	{
-		BO_LOG_GAS(Warning, "PlayReadyCheckStartLoopMontage failed: AnimInstance가 비어 있음");
+		BO_LOG_GAS(Warning,
+		           "PlayReadyCheckStartLoopMontage failed: AnimInstance가 비어 있음");
 		return false;
 	}
 
@@ -1873,7 +2181,8 @@ bool ABlackoutPlayerCharacter::PlayReadyCheckStartLoopMontage(float PlayRate)
 	{
 		ConfigureReadyCheckSectionFlow();
 
-		const FName CurrentSectionName = AnimInstance->Montage_GetCurrentSection(ReadyCheckStartLoopMontage);
+		const FName CurrentSectionName = AnimInstance->
+			Montage_GetCurrentSection(ReadyCheckStartLoopMontage);
 		if (CurrentSectionName == ReadyCheckStartSectionName
 			|| CurrentSectionName == ReadyCheckLoopSectionName
 			|| ReadyCheckStartSectionName == NAME_None)
@@ -1884,8 +2193,11 @@ bool ABlackoutPlayerCharacter::PlayReadyCheckStartLoopMontage(float PlayRate)
 	}
 
 	const float PlayResult = (ReadyCheckStartSectionName != NAME_None)
-		? PlayAnimMontage(ReadyCheckStartLoopMontage, PlayRate, ReadyCheckStartSectionName)
-		: PlayAnimMontage(ReadyCheckStartLoopMontage, PlayRate);
+		                         ? PlayAnimMontage(
+			                         ReadyCheckStartLoopMontage, PlayRate,
+			                         ReadyCheckStartSectionName)
+		                         : PlayAnimMontage(
+			                         ReadyCheckStartLoopMontage, PlayRate);
 
 	if (PlayResult > 0.f)
 	{
@@ -1896,7 +2208,8 @@ bool ABlackoutPlayerCharacter::PlayReadyCheckStartLoopMontage(float PlayRate)
 	return PlayResult > 0.f;
 }
 
-bool ABlackoutPlayerCharacter::PlayReadyCheckLoopMontage(UAnimMontage* Montage, float PlayRate)
+bool ABlackoutPlayerCharacter::PlayReadyCheckLoopMontage(
+	UAnimMontage* Montage, float PlayRate)
 {
 	if (!Montage)
 	{
@@ -1907,22 +2220,26 @@ bool ABlackoutPlayerCharacter::PlayReadyCheckLoopMontage(UAnimMontage* Montage, 
 	USkeletalMeshComponent* MeshComponent = GetMesh();
 	if (!MeshComponent)
 	{
-		BO_LOG_GAS(Warning, "PlayReadyCheckLoopMontage failed: MeshComponent가 비어 있음");
+		BO_LOG_GAS(Warning,
+		           "PlayReadyCheckLoopMontage failed: MeshComponent가 비어 있음");
 		return false;
 	}
 
 	UAnimInstance* AnimInstance = MeshComponent->GetAnimInstance();
 	if (!AnimInstance)
 	{
-		BO_LOG_GAS(Warning, "PlayReadyCheckLoopMontage failed: AnimInstance가 비어 있음");
+		BO_LOG_GAS(Warning,
+		           "PlayReadyCheckLoopMontage failed: AnimInstance가 비어 있음");
 		return false;
 	}
 
 	FOnMontageEnded MontageEndedDelegate;
-	MontageEndedDelegate.BindUObject(this, &ABlackoutPlayerCharacter::HandleReadyCheckLoopMontageEnded);
+	MontageEndedDelegate.BindUObject(
+		this, &ABlackoutPlayerCharacter::HandleReadyCheckLoopMontageEnded);
 	AnimInstance->Montage_SetEndDelegate(MontageEndedDelegate, Montage);
 
-	if (AnimInstance->GetCurrentActiveMontage() == Montage && AnimInstance->Montage_IsPlaying(Montage))
+	if (AnimInstance->GetCurrentActiveMontage() == Montage && AnimInstance->
+		Montage_IsPlaying(Montage))
 	{
 		bIsReadyCheckLoopMontagePlaying = true;
 		return true;
@@ -1933,7 +2250,8 @@ bool ABlackoutPlayerCharacter::PlayReadyCheckLoopMontage(UAnimMontage* Montage, 
 	return PlayResult > 0.f;
 }
 
-bool ABlackoutPlayerCharacter::StopReadyCheckLoopMontage(UAnimMontage* Montage, float BlendOutTime)
+bool ABlackoutPlayerCharacter::StopReadyCheckLoopMontage(
+	UAnimMontage* Montage, float BlendOutTime)
 {
 	if (!Montage)
 	{
@@ -1957,7 +2275,8 @@ bool ABlackoutPlayerCharacter::StopReadyCheckLoopMontage(UAnimMontage* Montage, 
 	return true;
 }
 
-bool ABlackoutPlayerCharacter::PlayReadyCheckEndMontage(UAnimMontage* Montage, float PlayRate)
+bool ABlackoutPlayerCharacter::PlayReadyCheckEndMontage(
+	UAnimMontage* Montage, float PlayRate)
 {
 	if (!Montage)
 	{
@@ -1968,14 +2287,16 @@ bool ABlackoutPlayerCharacter::PlayReadyCheckEndMontage(UAnimMontage* Montage, f
 	USkeletalMeshComponent* MeshComponent = GetMesh();
 	if (!MeshComponent)
 	{
-		BO_LOG_GAS(Warning, "PlayReadyCheckEndMontage failed: MeshComponent가 비어 있음");
+		BO_LOG_GAS(Warning,
+		           "PlayReadyCheckEndMontage failed: MeshComponent가 비어 있음");
 		return false;
 	}
 
 	UAnimInstance* AnimInstance = MeshComponent->GetAnimInstance();
 	if (!AnimInstance)
 	{
-		BO_LOG_GAS(Warning, "PlayReadyCheckEndMontage failed: AnimInstance가 비어 있음");
+		BO_LOG_GAS(Warning,
+		           "PlayReadyCheckEndMontage failed: AnimInstance가 비어 있음");
 		return false;
 	}
 
@@ -1983,14 +2304,16 @@ bool ABlackoutPlayerCharacter::PlayReadyCheckEndMontage(UAnimMontage* Montage, f
 	if (PlayResult > 0.f)
 	{
 		FOnMontageEnded MontageEndedDelegate;
-		MontageEndedDelegate.BindUObject(this, &ABlackoutPlayerCharacter::HandleReadyCheckEndMontageEnded);
+		MontageEndedDelegate.BindUObject(
+			this, &ABlackoutPlayerCharacter::HandleReadyCheckEndMontageEnded);
 		AnimInstance->Montage_SetEndDelegate(MontageEndedDelegate, Montage);
 	}
 
 	return PlayResult > 0.f;
 }
 
-void ABlackoutPlayerCharacter::Multicast_PlayReviveMontage_Implementation(UAnimMontage* Montage, float PlayRate)
+void ABlackoutPlayerCharacter::Multicast_PlayReviveMontage_Implementation(
+	UAnimMontage* Montage, float PlayRate)
 {
 	PlayReviveMontage(Montage, PlayRate);
 }
@@ -2019,7 +2342,10 @@ void ABlackoutPlayerCharacter::ScheduleWeaponVisibilityRestoreAfterRevive()
 	{
 		World->GetTimerManager().ClearTimer(ReviveWeaponRestoreTimerHandle);
 
-		const float RestoreDelay = ReviveMontage ? FMath::Max(ReviveMontage->GetPlayLength(), 0.0f) : 0.0f;
+		const float RestoreDelay = ReviveMontage
+			                           ? FMath::Max(
+				                           ReviveMontage->GetPlayLength(), 0.0f)
+			                           : 0.0f;
 		if (RestoreDelay <= 0.0f)
 		{
 			RestoreWeaponVisibilityAfterRevive();
@@ -2035,7 +2361,8 @@ void ABlackoutPlayerCharacter::ScheduleWeaponVisibilityRestoreAfterRevive()
 	}
 }
 
-void ABlackoutPlayerCharacter::HandleReviveMontageEnded(UAnimMontage* Montage, bool bInterrupted)
+void ABlackoutPlayerCharacter::HandleReviveMontageEnded(
+	UAnimMontage* Montage, bool bInterrupted)
 {
 	bIsReviveMontagePlaying = false;
 
@@ -2045,14 +2372,16 @@ void ABlackoutPlayerCharacter::HandleReviveMontageEnded(UAnimMontage* Montage, b
 	}
 }
 
-void ABlackoutPlayerCharacter::HandleReadyCheckStartMontageEnded(UAnimMontage* Montage, bool bInterrupted)
+void ABlackoutPlayerCharacter::HandleReadyCheckStartMontageEnded(
+	UAnimMontage* Montage, bool bInterrupted)
 {
 	if (bInterrupted || Montage != ReadyCheckStartMontage)
 	{
 		return;
 	}
 
-	const ABlackoutPlayerState* BlackoutPlayerState = GetPlayerState<ABlackoutPlayerState>();
+	const ABlackoutPlayerState* BlackoutPlayerState = GetPlayerState<
+		ABlackoutPlayerState>();
 	if (!BlackoutPlayerState || !BlackoutPlayerState->IsReady())
 	{
 		return;
@@ -2064,7 +2393,8 @@ void ABlackoutPlayerCharacter::HandleReadyCheckStartMontageEnded(UAnimMontage* M
 	}
 }
 
-void ABlackoutPlayerCharacter::HandleReadyCheckLoopMontageEnded(UAnimMontage* Montage, bool bInterrupted)
+void ABlackoutPlayerCharacter::HandleReadyCheckLoopMontageEnded(
+	UAnimMontage* Montage, bool bInterrupted)
 {
 	bIsReadyCheckLoopMontagePlaying = false;
 
@@ -2073,7 +2403,8 @@ void ABlackoutPlayerCharacter::HandleReadyCheckLoopMontageEnded(UAnimMontage* Mo
 		return;
 	}
 
-	const ABlackoutPlayerState* BlackoutPlayerState = GetPlayerState<ABlackoutPlayerState>();
+	const ABlackoutPlayerState* BlackoutPlayerState = GetPlayerState<
+		ABlackoutPlayerState>();
 	if (!BlackoutPlayerState || !BlackoutPlayerState->IsReady())
 	{
 		return;
@@ -2083,14 +2414,16 @@ void ABlackoutPlayerCharacter::HandleReadyCheckLoopMontageEnded(UAnimMontage* Mo
 	PlayReadyCheckLoopMontage(ReadyCheckLoopMontage);
 }
 
-void ABlackoutPlayerCharacter::HandleReadyCheckEndMontageEnded(UAnimMontage* Montage, bool bInterrupted)
+void ABlackoutPlayerCharacter::HandleReadyCheckEndMontageEnded(
+	UAnimMontage* Montage, bool bInterrupted)
 {
 	if (Montage != ReadyCheckEndMontage)
 	{
 		return;
 	}
 
-	const ABlackoutPlayerState* BlackoutPlayerState = GetPlayerState<ABlackoutPlayerState>();
+	const ABlackoutPlayerState* BlackoutPlayerState = GetPlayerState<
+		ABlackoutPlayerState>();
 	if (BlackoutPlayerState && BlackoutPlayerState->IsReady())
 	{
 		return;
@@ -2107,8 +2440,11 @@ void ABlackoutPlayerCharacter::HandleReadyStateChanged(bool bIsReadyNow)
 		SetReadyInteractionWeaponHolstered(true);
 		SetReadyInteractionMovementLocked(true, true);
 
-		UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
-		if (AnimInstance && ReadyCheckEndMontage && AnimInstance->Montage_IsPlaying(ReadyCheckEndMontage))
+		UAnimInstance* AnimInstance = GetMesh()
+			                              ? GetMesh()->GetAnimInstance()
+			                              : nullptr;
+		if (AnimInstance && ReadyCheckEndMontage && AnimInstance->
+			Montage_IsPlaying(ReadyCheckEndMontage))
 		{
 			// Ready 해제 종료 몽타주가 남아 있으면 즉시 정리하고 Ready 진입 몽타주로 전환합니다.
 			StopActiveReadyCheckMontages(0.1f);
@@ -2141,7 +2477,8 @@ void ABlackoutPlayerCharacter::HandleReadyStateChanged(bool bIsReadyNow)
 
 void ABlackoutPlayerCharacter::BindReadyStateChangedDelegate()
 {
-	ABlackoutPlayerState* NewPlayerState = GetPlayerState<ABlackoutPlayerState>();
+	ABlackoutPlayerState* NewPlayerState = GetPlayerState<
+		ABlackoutPlayerState>();
 	if (BoundReadyStatePlayerState.Get() == NewPlayerState)
 	{
 		SyncReadyStateAnimation();
@@ -2153,7 +2490,8 @@ void ABlackoutPlayerCharacter::BindReadyStateChangedDelegate()
 
 	if (NewPlayerState)
 	{
-		NewPlayerState->OnReadyStateChangedNative.AddUObject(this, &ABlackoutPlayerCharacter::HandleReadyStateChanged);
+		NewPlayerState->OnReadyStateChangedNative.AddUObject(
+			this, &ABlackoutPlayerCharacter::HandleReadyStateChanged);
 	}
 
 	SyncReadyStateAnimation();
@@ -2161,7 +2499,8 @@ void ABlackoutPlayerCharacter::BindReadyStateChangedDelegate()
 
 void ABlackoutPlayerCharacter::UnbindReadyStateChangedDelegate()
 {
-	if (ABlackoutPlayerState* CurrentPlayerState = BoundReadyStatePlayerState.Get())
+	if (ABlackoutPlayerState* CurrentPlayerState = BoundReadyStatePlayerState.
+		Get())
 	{
 		CurrentPlayerState->OnReadyStateChangedNative.RemoveAll(this);
 	}
@@ -2171,7 +2510,8 @@ void ABlackoutPlayerCharacter::UnbindReadyStateChangedDelegate()
 
 void ABlackoutPlayerCharacter::SyncReadyStateAnimation()
 {
-	if (const ABlackoutPlayerState* BlackoutPlayerState = BoundReadyStatePlayerState.Get())
+	if (const ABlackoutPlayerState* BlackoutPlayerState =
+		BoundReadyStatePlayerState.Get())
 	{
 		if (BlackoutPlayerState->IsReady())
 		{
@@ -2208,19 +2548,22 @@ void ABlackoutPlayerCharacter::StopActiveReadyCheckMontages(float BlendOutTime)
 	if (ReadyCheckStartMontage)
 	{
 		FOnMontageEnded EmptyMontageEndedDelegate;
-		AnimInstance->Montage_SetEndDelegate(EmptyMontageEndedDelegate, ReadyCheckStartMontage);
+		AnimInstance->Montage_SetEndDelegate(EmptyMontageEndedDelegate,
+		                                     ReadyCheckStartMontage);
 		if (AnimInstance->Montage_IsPlaying(ReadyCheckStartMontage))
 		{
 			AnimInstance->Montage_Stop(BlendOutTime, ReadyCheckStartMontage);
 		}
 	}
 
-	if (ReadyCheckStartLoopMontage && AnimInstance->Montage_IsPlaying(ReadyCheckStartLoopMontage))
+	if (ReadyCheckStartLoopMontage && AnimInstance->Montage_IsPlaying(
+		ReadyCheckStartLoopMontage))
 	{
 		AnimInstance->Montage_Stop(BlendOutTime, ReadyCheckStartLoopMontage);
 	}
 
-	if (ReadyCheckLoopMontage && AnimInstance->Montage_IsPlaying(ReadyCheckLoopMontage))
+	if (ReadyCheckLoopMontage && AnimInstance->Montage_IsPlaying(
+		ReadyCheckLoopMontage))
 	{
 		AnimInstance->Montage_Stop(BlendOutTime, ReadyCheckLoopMontage);
 	}
@@ -2228,7 +2571,8 @@ void ABlackoutPlayerCharacter::StopActiveReadyCheckMontages(float BlendOutTime)
 	if (ReadyCheckEndMontage)
 	{
 		FOnMontageEnded EmptyMontageEndedDelegate;
-		AnimInstance->Montage_SetEndDelegate(EmptyMontageEndedDelegate, ReadyCheckEndMontage);
+		AnimInstance->Montage_SetEndDelegate(EmptyMontageEndedDelegate,
+		                                     ReadyCheckEndMontage);
 		if (AnimInstance->Montage_IsPlaying(ReadyCheckEndMontage))
 		{
 			AnimInstance->Montage_Stop(BlendOutTime, ReadyCheckEndMontage);
@@ -2238,7 +2582,8 @@ void ABlackoutPlayerCharacter::StopActiveReadyCheckMontages(float BlendOutTime)
 	bIsReadyCheckLoopMontagePlaying = false;
 }
 
-void ABlackoutPlayerCharacter::SetReadyInteractionWeaponHolstered(bool bNewHolstered)
+void ABlackoutPlayerCharacter::SetReadyInteractionWeaponHolstered(
+	bool bNewHolstered)
 {
 	if (!CombatComponent)
 	{
@@ -2257,7 +2602,8 @@ void ABlackoutPlayerCharacter::SetReadyInteractionWeaponHolstered(bool bNewHolst
 	CombatComponent->EndEquippedWeaponHolsterOverride();
 }
 
-void ABlackoutPlayerCharacter::SetReadyInteractionMovementLocked(bool bNewLocked, bool bStopMovementImmediately)
+void ABlackoutPlayerCharacter::SetReadyInteractionMovementLocked(
+	bool bNewLocked, bool bStopMovementImmediately)
 {
 	bIsReadyInteractionMovementLocked = bNewLocked;
 
@@ -2269,7 +2615,9 @@ void ABlackoutPlayerCharacter::SetReadyInteractionMovementLocked(bool bNewLocked
 		}
 		else
 		{
-			BO_LOG_GAS(Warning, "Ready 이동 잠금 실패: MovementComponent가 비어 있음 Player=%s", *GetNameSafe(this));
+			BO_LOG_GAS(Warning,
+			           "Ready 이동 잠금 실패: MovementComponent가 비어 있음 Player=%s",
+			           *GetNameSafe(this));
 		}
 	}
 
@@ -2286,9 +2634,9 @@ void ABlackoutPlayerCharacter::SetReadyInteractionMovementLocked(bool bNewLocked
 		}
 
 		BO_LOG_GAS(Warning,
-			"Ready 이동 잠금 태그 변경 실패: AbilitySystemComponent가 비어 있음 Player=%s Lock=%s",
-			*GetNameSafe(this),
-			bNewLocked ? TEXT("true") : TEXT("false"));
+		           "Ready 이동 잠금 태그 변경 실패: AbilitySystemComponent가 비어 있음 Player=%s Lock=%s",
+		           *GetNameSafe(this),
+		           bNewLocked ? TEXT("true") : TEXT("false"));
 		return;
 	}
 
@@ -2296,7 +2644,8 @@ void ABlackoutPlayerCharacter::SetReadyInteractionMovementLocked(bool bNewLocked
 	{
 		if (!bAppliedReadyInteractionLockedTag)
 		{
-			AbilitySystemComponent->AddLooseGameplayTag(BlackoutGameplayTags::State_Locked);
+			AbilitySystemComponent->AddLooseGameplayTag(
+				BlackoutGameplayTags::State_Locked);
 			bAppliedReadyInteractionLockedTag = true;
 		}
 
@@ -2305,7 +2654,8 @@ void ABlackoutPlayerCharacter::SetReadyInteractionMovementLocked(bool bNewLocked
 
 	if (bAppliedReadyInteractionLockedTag)
 	{
-		AbilitySystemComponent->RemoveLooseGameplayTag(BlackoutGameplayTags::State_Locked);
+		AbilitySystemComponent->RemoveLooseGameplayTag(
+			BlackoutGameplayTags::State_Locked);
 		bAppliedReadyInteractionLockedTag = false;
 	}
 }
@@ -2320,7 +2670,8 @@ void ABlackoutPlayerCharacter::StartDownedDeathTimer()
 	UWorld* World = GetWorld();
 	if (!World)
 	{
-		BO_LOG_GAS(Error, "다운 사망 타이머 시작 실패: World가 비어 있습니다. Player=%s", *GetNameSafe(this));
+		BO_LOG_GAS(Error, "다운 사망 타이머 시작 실패: World가 비어 있습니다. Player=%s",
+		           *GetNameSafe(this));
 		return;
 	}
 
@@ -2338,7 +2689,8 @@ void ABlackoutPlayerCharacter::StartDownedDeathTimer()
 	DownedDeathPausedRemainingTime = 0.0f;
 	bDownedDeathTimerPaused = false;
 
-	BO_LOG_GAS(Log, "다운 사망 타이머 시작: Player=%s Duration=%.1f", *GetNameSafe(this), SafeDuration);
+	BO_LOG_GAS(Log, "다운 사망 타이머 시작: Player=%s Duration=%.1f", *GetNameSafe(this),
+	           SafeDuration);
 }
 
 void ABlackoutPlayerCharacter::ClearDownedDeathTimer()
@@ -2371,7 +2723,9 @@ void ABlackoutPlayerCharacter::PauseDownedDeathTimer()
 	}
 
 	// 부활 시도 중에는 완전 사망 카운트다운을 멈춰 남은 시간을 유지합니다.
-	const float RemainingAtPause = FMath::Max(0.0f, World->GetTimerManager().GetTimerRemaining(DownedDeathTimerHandle));
+	const float RemainingAtPause = FMath::Max(
+		0.0f, World->GetTimerManager().
+		             GetTimerRemaining(DownedDeathTimerHandle));
 	World->GetTimerManager().PauseTimer(DownedDeathTimerHandle);
 
 	DownedDeathPausedRemainingTime = RemainingAtPause;
@@ -2395,7 +2749,9 @@ void ABlackoutPlayerCharacter::ResumeDownedDeathTimer()
 	// 부활이 취소되면 정지 시점의 남은 시간으로 사망 타이머를 재개합니다.
 	World->GetTimerManager().UnPauseTimer(DownedDeathTimerHandle);
 
-	const float NewRemaining = FMath::Max(0.0f, World->GetTimerManager().GetTimerRemaining(DownedDeathTimerHandle));
+	const float NewRemaining = FMath::Max(
+		0.0f, World->GetTimerManager().
+		             GetTimerRemaining(DownedDeathTimerHandle));
 	DownedDeathServerEndTimeSeconds = World->GetTimeSeconds() + NewRemaining;
 	DownedDeathPausedRemainingTime = 0.0f;
 	bDownedDeathTimerPaused = false;
@@ -2460,7 +2816,8 @@ float ABlackoutPlayerCharacter::GetReviveRemainingTime() const
 		ServerNowSeconds = GameStateBase->GetServerWorldTimeSeconds();
 	}
 
-	const float Elapsed = FMath::Max(0.0f, ServerNowSeconds - ReviveServerStartTimeSeconds);
+	const float Elapsed = FMath::Max(
+		0.0f, ServerNowSeconds - ReviveServerStartTimeSeconds);
 	return FMath::Clamp(ReviveDuration - Elapsed, 0.0f, ReviveDuration);
 }
 
@@ -2484,7 +2841,8 @@ void ABlackoutPlayerCharacter::HandleDownedDeathTimerExpired()
 
 	if (!IsDowned())
 	{
-		BO_LOG_GAS(Warning, "다운 사망 타이머 만료 무시: 이미 다운 상태가 아닙니다. Player=%s", *GetNameSafe(this));
+		BO_LOG_GAS(Warning, "다운 사망 타이머 만료 무시: 이미 다운 상태가 아닙니다. Player=%s",
+		           *GetNameSafe(this));
 		return;
 	}
 
@@ -2502,14 +2860,17 @@ void ABlackoutPlayerCharacter::NotifyBattleGameModePlayerFullyDead()
 	UWorld* World = GetWorld();
 	if (!World)
 	{
-		BO_LOG_GAS(Error, "완전 사망 알림 실패: World가 비어 있습니다. Player=%s", *GetNameSafe(this));
+		BO_LOG_GAS(Error, "완전 사망 알림 실패: World가 비어 있습니다. Player=%s",
+		           *GetNameSafe(this));
 		return;
 	}
 
-	ABlackoutBattleGameMode* BattleGameMode = World->GetAuthGameMode<ABlackoutBattleGameMode>();
+	ABlackoutBattleGameMode* BattleGameMode = World->GetAuthGameMode<
+		ABlackoutBattleGameMode>();
 	if (!BattleGameMode)
 	{
-		BO_LOG_GAS(Warning, "완전 사망 알림 실패: BattleGameMode가 아닙니다. Player=%s", *GetNameSafe(this));
+		BO_LOG_GAS(Warning, "완전 사망 알림 실패: BattleGameMode가 아닙니다. Player=%s",
+		           *GetNameSafe(this));
 		return;
 	}
 
@@ -2530,14 +2891,17 @@ void ABlackoutPlayerCharacter::SetRevivingStateActive(bool bNewReviving)
 
 	if (bNewReviving)
 	{
-		if (!AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Reviving))
+		if (!AbilitySystemComponent->HasMatchingGameplayTag(
+			BlackoutGameplayTags::State_Reviving))
 		{
-			AbilitySystemComponent->AddLooseGameplayTag(BlackoutGameplayTags::State_Reviving);
+			AbilitySystemComponent->AddLooseGameplayTag(
+				BlackoutGameplayTags::State_Reviving);
 		}
 	}
 	else
 	{
-		AbilitySystemComponent->RemoveLooseGameplayTag(BlackoutGameplayTags::State_Reviving);
+		AbilitySystemComponent->RemoveLooseGameplayTag(
+			BlackoutGameplayTags::State_Reviving);
 	}
 }
 
@@ -2565,14 +2929,17 @@ void ABlackoutPlayerCharacter::SetBeingRevivedStateActive(bool bNewBeingRevived)
 
 	if (bNewBeingRevived)
 	{
-		if (!AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_BeingRevived))
+		if (!AbilitySystemComponent->HasMatchingGameplayTag(
+			BlackoutGameplayTags::State_BeingRevived))
 		{
-			AbilitySystemComponent->AddLooseGameplayTag(BlackoutGameplayTags::State_BeingRevived);
+			AbilitySystemComponent->AddLooseGameplayTag(
+				BlackoutGameplayTags::State_BeingRevived);
 		}
 	}
 	else
 	{
-		AbilitySystemComponent->RemoveLooseGameplayTag(BlackoutGameplayTags::State_BeingRevived);
+		AbilitySystemComponent->RemoveLooseGameplayTag(
+			BlackoutGameplayTags::State_BeingRevived);
 	}
 }
 
@@ -2585,14 +2952,17 @@ void ABlackoutPlayerCharacter::ApplyReplicatedReviveInteractionStateTag()
 
 	if (bIsReviveInteractionActive)
 	{
-		if (!AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_BeingRevived))
+		if (!AbilitySystemComponent->HasMatchingGameplayTag(
+			BlackoutGameplayTags::State_BeingRevived))
 		{
-			AbilitySystemComponent->AddLooseGameplayTag(BlackoutGameplayTags::State_BeingRevived);
+			AbilitySystemComponent->AddLooseGameplayTag(
+				BlackoutGameplayTags::State_BeingRevived);
 		}
 	}
 	else
 	{
-		AbilitySystemComponent->RemoveLooseGameplayTag(BlackoutGameplayTags::State_BeingRevived);
+		AbilitySystemComponent->RemoveLooseGameplayTag(
+			BlackoutGameplayTags::State_BeingRevived);
 	}
 }
 
@@ -2601,7 +2971,11 @@ void ABlackoutPlayerCharacter::CacheAimDefaults()
 	if (SpringArm)
 	{
 		DefaultArmLength = SpringArm->TargetArmLength;
+		DesiredArmLength = DefaultArmLength;
+		StabilizedArmLength = DefaultArmLength;
 		DefaultSocketOffset = SpringArm->SocketOffset;
+		DesiredSocketOffset = DefaultSocketOffset;
+		StabilizedShoulderY = DefaultSocketOffset.Y;
 	}
 
 	if (Camera)
@@ -2622,25 +2996,30 @@ void ABlackoutPlayerCharacter::UpdateAimCamera(float DeltaSeconds)
 		return;
 	}
 
-	const bool bIsAiming = CombatComponent->IsAiming() && !IsDowned() && !IsDead();
+	const bool bIsAiming = CombatComponent->IsAiming() && !IsDowned() && !
+		IsDead();
 
 	const float TargetArmLength = bIsAiming ? AimArmLength : DefaultArmLength;
-	const FVector TargetSocketOffset = bIsAiming ? AimSocketOffset : DefaultSocketOffset;
+	const FVector TargetSocketOffset = bIsAiming
+		                                   ? AimSocketOffset
+		                                   : DefaultSocketOffset;
 	const float TargetFOV = ResolveTargetCameraFOV(bIsAiming);
 
-	
+
 	//aim 모드 카메라 숄더에 고정 
-	SpringArm->TargetArmLength = FMath::FInterpTo(
-		SpringArm->TargetArmLength,
+	DesiredArmLength = FMath::FInterpTo(
+		DesiredArmLength,
 		TargetArmLength,
 		DeltaSeconds,
 		AimCameraInterpSpeed);
 
-	SpringArm->SocketOffset = FMath::VInterpTo(
-		SpringArm->SocketOffset,
+	DesiredSocketOffset = FMath::VInterpTo(
+		DesiredSocketOffset,
 		TargetSocketOffset,
 		DeltaSeconds,
 		AimCameraInterpSpeed);
+
+	SpringArm->SocketOffset = DesiredSocketOffset;
 
 	Camera->SetFieldOfView(FMath::FInterpTo(
 		Camera->FieldOfView,
@@ -2693,7 +3072,9 @@ void ABlackoutPlayerCharacter::ApplyAimMovementMode(bool bIsAiming)
 
 		MoveComp->bOrientRotationToMovement = !bIsAiming;
 		MoveComp->bUseControllerDesiredRotation = bIsAiming;
-		MoveComp->MaxWalkSpeed = bIsAiming ? AimMaxWalkSpeed : DefaultMaxWalkSpeed;
+		MoveComp->MaxWalkSpeed = bIsAiming
+			                         ? AimMaxWalkSpeed
+			                         : DefaultMaxWalkSpeed;
 	}
 }
 
@@ -2706,7 +3087,8 @@ void ABlackoutPlayerCharacter::InitializeAttributes()
 
 	if (!DefaultAttributeEffect)
 	{
-		BO_LOG_GAS(Warning, "DefaultAttributeEffect is not set in %s", *GetName());
+		BO_LOG_GAS(Warning, "DefaultAttributeEffect is not set in %s",
+		           *GetName());
 		return;
 	}
 
@@ -2716,20 +3098,30 @@ void ABlackoutPlayerCharacter::InitializeAttributes()
 		return;
 	}
 
-	FGameplayEffectContextHandle ContextHandle = AbilitySystemComponent->MakeEffectContext();
+	FGameplayEffectContextHandle ContextHandle = AbilitySystemComponent->
+		MakeEffectContext();
 	ContextHandle.AddSourceObject(this);
 
-	const FGameplayEffectSpecHandle SpecHandle = AbilitySystemComponent->MakeOutgoingSpec(DefaultAttributeEffect, 1.f, ContextHandle);
+	const FGameplayEffectSpecHandle SpecHandle = AbilitySystemComponent->
+		MakeOutgoingSpec(DefaultAttributeEffect, 1.f, ContextHandle);
 	if (SpecHandle.IsValid())
 	{
 		// CharacterData의 값을 SetByCaller 태그를 통해 GE로 전달
-		SpecHandle.Data.Get()->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_MaxHealth, CharacterData->BaseMaxHealth);
-		SpecHandle.Data.Get()->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Health, CharacterData->BaseMaxHealth);
-		SpecHandle.Data.Get()->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_MaxStamina, CharacterData->BaseMaxStamina);
-		SpecHandle.Data.Get()->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Stamina, CharacterData->BaseMaxStamina);
-		SpecHandle.Data.Get()->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_MovementSpeed, CharacterData->BaseMovementSpeed);
+		SpecHandle.Data.Get()->SetSetByCallerMagnitude(
+			BlackoutGameplayTags::Data_MaxHealth, CharacterData->BaseMaxHealth);
+		SpecHandle.Data.Get()->SetSetByCallerMagnitude(
+			BlackoutGameplayTags::Data_Health, CharacterData->BaseMaxHealth);
+		SpecHandle.Data.Get()->SetSetByCallerMagnitude(
+			BlackoutGameplayTags::Data_MaxStamina,
+			CharacterData->BaseMaxStamina);
+		SpecHandle.Data.Get()->SetSetByCallerMagnitude(
+			BlackoutGameplayTags::Data_Stamina, CharacterData->BaseMaxStamina);
+		SpecHandle.Data.Get()->SetSetByCallerMagnitude(
+			BlackoutGameplayTags::Data_MovementSpeed,
+			CharacterData->BaseMovementSpeed);
 
-		AbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
+		AbilitySystemComponent->ApplyGameplayEffectSpecToSelf(
+			*SpecHandle.Data.Get());
 		BO_LOG_GAS(Log, "Attributes initialized for %s using GE", *GetName());
 
 		// UBOCharacterData에 설정된 이동 속도 데이터를 로컬 Transient 변수에 동적으로 로드합니다.
@@ -2748,10 +3140,10 @@ void ABlackoutPlayerCharacter::InitializeAttributes()
 void ABlackoutPlayerCharacter::Move(const FInputActionValue& Value)
 {
 	const FVector2D MovementVector = Value.Get<FVector2D>();
-	
+
 	//* 입력방향 기억 
 	CachedMoveInput = MovementVector;
-	
+
 	DoMove(MovementVector.X, MovementVector.Y);
 }
 
@@ -2773,7 +3165,8 @@ void ABlackoutPlayerCharacter::DoMove(float Right, float Forward)
 		return;
 	}
 
-	if (AbilitySystemComponent && AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Locked))
+	if (AbilitySystemComponent && AbilitySystemComponent->
+		HasMatchingGameplayTag(BlackoutGameplayTags::State_Locked))
 	{
 		return;
 	}
@@ -2801,8 +3194,10 @@ void ABlackoutPlayerCharacter::DoMove(float Right, float Forward)
 	const FRotator ControlRotation = GetController()->GetControlRotation();
 	const FRotator YawRotation(0.f, ControlRotation.Yaw, 0.f);
 
-	const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
-	const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+	const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(
+		EAxis::X);
+	const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(
+		EAxis::Y);
 
 	AddMovementInput(ForwardDirection, Forward);
 	AddMovementInput(RightDirection, Right);
@@ -2822,15 +3217,19 @@ void ABlackoutPlayerCharacter::DoLook(float Yaw, float Pitch)
 
 	if (GetController() != nullptr)
 	{
-		const UBlackoutGraphicsUserSettings* GraphicsUserSettings = Cast<UBlackoutGraphicsUserSettings>(
+		const UBlackoutGraphicsUserSettings* GraphicsUserSettings = Cast<
+			UBlackoutGraphicsUserSettings>(
 			UGameUserSettings::GetGameUserSettings());
 		float AppliedMouseSensitivity = 1.0f;
 		if (GraphicsUserSettings)
 		{
 			// 일반 상태와 조준 상태가 서로 독립적인 감도 값을 사용하도록 분리합니다.
-			AppliedMouseSensitivity = (CombatComponent && CombatComponent->IsAiming())
-				? GraphicsUserSettings->GetAimMouseSensitivityMultiplier()
-				: GraphicsUserSettings->GetMouseSensitivity();
+			AppliedMouseSensitivity = (CombatComponent && CombatComponent->
+				                          IsAiming())
+				                          ? GraphicsUserSettings->
+				                          GetAimMouseSensitivityMultiplier()
+				                          : GraphicsUserSettings->
+				                          GetMouseSensitivity();
 		}
 
 		AddControllerYawInput(Yaw * AppliedMouseSensitivity);
@@ -2854,4 +3253,4 @@ void ABlackoutPlayerCharacter::ToggleFlashlight()
 	}
 }
 
-#pragma endregion 
+#pragma endregion

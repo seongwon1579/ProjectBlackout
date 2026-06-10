@@ -655,11 +655,44 @@ protected:
 #pragma region Aim
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Camera")
-	float DefaultArmLength = 350.f;
+	float DefaultArmLength = 200.f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Camera")
-	float AimArmLength = 230.f;
+	float AimArmLength = 100.f;
+	
+	// 카메라 충돌 trace 설정
+	UPROPERTY(EditDefaultsOnly , Category="Blackout|Camera")
+	float CameraProbeRadius = 12.0f;
+	
+	UPROPERTY(EditDefaultsOnly , Category="Blackout|Camera")
+	float CameraCollisionBuffer = 8.0f;
+	
+	UPROPERTY(EditDefaultsOnly , Category="Blackout|Camera")
+	float MinCameraArmLength  = 40.0f;
+	
+	UPROPERTY(EditDefaultsOnly , Category="Blackout|Camera")
+	float CameraBlockInterpSpeed =25.0f;
+	
+	UPROPERTY(EditDefaultsOnly , Category="Blackout|Camera")
+	float CameraReturnInterpSpeed = 8.0f;
 
+	UPROPERTY(EditDefaultsOnly , Category="Blackout|Camera")
+	float CameraTargetDeadband = 6.0f;
+
+	float StabilizedArmLength = 350.f;
+
+	float DesiredArmLength = 350.f;
+	
+	FVector DesiredSocketOffset = FVector::ZeroVector;
+	
+	float StabilizedShoulderY =0.0f;
+	
+	UPROPERTY(EditDefaultsOnly, Category="Blackout|Camera")
+	float HideMeshArmLength = 67.0f;
+	
+	bool bOwnMeshHidden = false;
+	void UpdateOwnerMeshVisibility();
+	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Camera")
 	FVector DefaultSocketOffset = FVector::ZeroVector;
 
@@ -683,6 +716,8 @@ protected:
 
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Movement")
 	float DefaultMaxWalkSpeed;
+	
+	void UpdateCameraCollision(float DeltaSeconds);
 
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Movement")
 	float AimMaxWalkSpeed;

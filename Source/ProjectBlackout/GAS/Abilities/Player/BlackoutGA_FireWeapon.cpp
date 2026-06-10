@@ -3,6 +3,7 @@
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "AbilitySystemGlobals.h"
 #include "AbilitySystemComponent.h"
+#include "BlackoutAbilityActorInfoUtils.h"
 #include "Animation/AnimMontage.h"
 #include "Animation/BlackoutPlayerAnimInstance.h"
 #include "Characters/BlackoutCharacterBase.h"
@@ -26,12 +27,13 @@
 #include "Engine/World.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/PlayerController.h"
+#include "Framework/BlackoutPlayerState.h"
 #include "UI/BlackoutHUD.h"
 
 namespace
 {
 	constexpr float PredictedFireDebugTraceDistance = 10000.0f;
-
+	
 	void DrawPredictedFireDebugLine(
 		UWorld* World,
 		const FVector& TraceStart,
@@ -886,6 +888,14 @@ bool UBlackoutGA_FireWeapon::ApplyAmmoCost()
 	if (!CombatComponent || !AbilitySystemComponent)
 	{
 		return false;
+	}
+
+	if (const ABlackoutPlayerState* BlackoutPlayerState = BlackoutAbilityUtils::ResolveOwningBlackoutPlayerState(CurrentActorInfo))
+	{
+		if (BlackoutPlayerState->HasInfiniteAmmoCheat())
+		{
+			return true;
+		}
 	}
 
 	const FGameplayTag WeaponSlotTag = CombatComponent->GetEquippedWeaponSlotTag();

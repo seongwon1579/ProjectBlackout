@@ -111,6 +111,9 @@ private:
 	
 	/** 오너 클라이언트가 로그인 닉네임을 서버 PlayerState에 반영하도록 송신 */
 	void SendDisplayNameToServer();
+
+	/** 로컬 미리보기/서버 권위 공용 치트 플래그 적용 경로입니다. */
+	void ApplyDebugCheatFlags(bool bNewInfiniteHealth, bool bNewInfiniteStamina, bool bNewInfiniteAmmo);
 	
 
 public:
@@ -118,8 +121,20 @@ public:
 	UFUNCTION(Exec, Category = "Blackout|Cheat")
 	void BO_SetMatchState(const FString& NewStateStr);
 
+	UFUNCTION(Exec, Category = "Blackout|Cheat")
+	void BO_InfiniteHealth(bool bEnabled = true);
+
+	UFUNCTION(Exec, Category = "Blackout|Cheat")
+	void BO_InfiniteStamina(bool bEnabled = true);
+
+	UFUNCTION(Exec, Category = "Blackout|Cheat")
+	void BO_InfiniteAmmo(bool bEnabled = true);
+
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_SetMatchStateCheat(EBlackoutMatchState NewState);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_SetDebugCheatFlags(bool bNewInfiniteHealth, bool bNewInfiniteStamina, bool bNewInfiniteAmmo);
 
 #pragma region InputSetup
 protected:
