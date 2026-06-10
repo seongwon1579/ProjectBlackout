@@ -17,7 +17,15 @@ public:
 	UFUNCTION()
 	UBORavagerPatternData* GetPatternData(FGameplayTag AbilityTag) const;
 	
+	void SetCollisionState(bool bIgnore);
+
 protected:
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_SetCollisionState(bool bIgnore);
+	
+	UFUNCTION(BlueprintImplementableEvent, Category = "Blackout|Collision")
+	void BP_OnCollisionStateChanged(bool bEnable);
+	
 	virtual void OnDeath() override;
 	
 	virtual void SetData() override;

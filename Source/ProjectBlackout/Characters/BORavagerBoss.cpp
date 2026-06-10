@@ -18,6 +18,19 @@ UBORavagerPatternData* ABORavagerBoss::GetPatternData(FGameplayTag AbilityTag) c
 	return Found ? Found->Get() : nullptr;
 }
 
+void ABORavagerBoss::SetCollisionState(bool bIgnore)
+{
+	if (HasAuthority())
+	{
+		Multicast_SetCollisionState(bIgnore);
+	}
+}
+
+void ABORavagerBoss::Multicast_SetCollisionState_Implementation(bool bIgnore)
+{
+	BP_OnCollisionStateChanged(bIgnore);
+}
+
 void ABORavagerBoss::OnDeath()
 {
 	Super::OnDeath();
