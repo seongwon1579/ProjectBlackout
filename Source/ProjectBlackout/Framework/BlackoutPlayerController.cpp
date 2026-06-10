@@ -45,7 +45,7 @@ void ABlackoutPlayerController::AcknowledgePossession(APawn* P)
 		}
 	}
 	
-	// seamless travel 도착 후 폰빙의시 화면 복귀
+	// seamless travel 도착 후 폰 빙의 시 화면 복귀
 	if (bScreenFadePending)
 	{
 		bScreenFadePending = false;

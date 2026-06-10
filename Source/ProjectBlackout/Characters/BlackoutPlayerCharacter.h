@@ -655,12 +655,12 @@ protected:
 #pragma region Aim
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Camera")
-	float DefaultArmLength = 350.f;
+	float DefaultArmLength = 200.f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Camera")
-	float AimArmLength = 230.f;
+	float AimArmLength = 100.f;
 	
-	// 카메라 충졸 trace 설정 
+	// 카메라 충돌 trace 설정
 	UPROPERTY(EditDefaultsOnly , Category="Blackout|Camera")
 	float CameraProbeRadius = 12.0f;
 	
@@ -688,7 +688,7 @@ protected:
 	float StabilizedShoulderY =0.0f;
 	
 	UPROPERTY(EditDefaultsOnly, Category="Blackout|Camera")
-	float HideMeshArmLength = 90.0f;
+	float HideMeshArmLength = 67.0f;
 	
 	bool bOwnMeshHidden = false;
 	void UpdateOwnerMeshVisibility();
