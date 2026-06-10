@@ -3,6 +3,7 @@
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "AbilitySystemGlobals.h"
 #include "AbilitySystemComponent.h"
+#include "BlackoutAbilityActorInfoUtils.h"
 #include "Animation/AnimMontage.h"
 #include "Animation/BlackoutPlayerAnimInstance.h"
 #include "Characters/BlackoutCharacterBase.h"
@@ -32,27 +33,7 @@
 namespace
 {
 	constexpr float PredictedFireDebugTraceDistance = 10000.0f;
-
-	const ABlackoutPlayerState* ResolveOwningBlackoutPlayerState(const FGameplayAbilityActorInfo* ActorInfo)
-	{
-		if (!ActorInfo)
-		{
-			return nullptr;
-		}
-
-		if (const ABlackoutPlayerState* PlayerState = Cast<ABlackoutPlayerState>(ActorInfo->OwnerActor.Get()))
-		{
-			return PlayerState;
-		}
-
-		if (const ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()))
-		{
-			return PlayerCharacter->GetPlayerState<ABlackoutPlayerState>();
-		}
-
-		return nullptr;
-	}
-
+	
 	void DrawPredictedFireDebugLine(
 		UWorld* World,
 		const FVector& TraceStart,
@@ -909,7 +890,7 @@ bool UBlackoutGA_FireWeapon::ApplyAmmoCost()
 		return false;
 	}
 
-	if (const ABlackoutPlayerState* BlackoutPlayerState = ResolveOwningBlackoutPlayerState(CurrentActorInfo))
+	if (const ABlackoutPlayerState* BlackoutPlayerState = BlackoutAbilityUtils::ResolveOwningBlackoutPlayerState(CurrentActorInfo))
 	{
 		if (BlackoutPlayerState->HasInfiniteAmmoCheat())
 		{
