@@ -1,6 +1,7 @@
 #include "GAS/Abilities/Player/BlackoutGA_Sprint.h"
 
 #include "AbilitySystemComponent.h"
+#include "BlackoutAbilityActorInfoUtils.h"
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "Characters/BlackoutPlayerMovementComponent.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
@@ -11,29 +12,6 @@
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "GAS/Attributes/BlackoutPlayerAttributeSet.h"
 #include "TimerManager.h"
-
-namespace
-{
-	const ABlackoutPlayerState* ResolveOwningBlackoutPlayerState(const FGameplayAbilityActorInfo* ActorInfo)
-	{
-		if (!ActorInfo)
-		{
-			return nullptr;
-		}
-
-		if (const ABlackoutPlayerState* PlayerState = Cast<ABlackoutPlayerState>(ActorInfo->OwnerActor.Get()))
-		{
-			return PlayerState;
-		}
-
-		if (const ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(ActorInfo->AvatarActor.Get()))
-		{
-			return PlayerCharacter->GetPlayerState<ABlackoutPlayerState>();
-		}
-
-		return nullptr;
-	}
-}
 
 UBlackoutGA_Sprint::UBlackoutGA_Sprint()
 {
@@ -68,7 +46,7 @@ void UBlackoutGA_Sprint::ActivateAbility(const FGameplayAbilitySpecHandle Handle
 	const UBlackoutAbilitySystemComponent* BlackoutASC = Cast<UBlackoutAbilitySystemComponent>(AbilitySystemComponent);
 	const bool bHasInfiniteStaminaCheat = [&]()
 	{
-		if (const ABlackoutPlayerState* BlackoutPlayerState = ResolveOwningBlackoutPlayerState(ActorInfo))
+		if (const ABlackoutPlayerState* BlackoutPlayerState = BlackoutAbilityUtils::ResolveOwningBlackoutPlayerState(ActorInfo))
 		{
 			return BlackoutPlayerState->HasInfiniteStaminaCheat();
 		}
@@ -211,7 +189,7 @@ bool UBlackoutGA_Sprint::ConsumeSprintStamina() const
 	}
 
 	const UBlackoutAbilitySystemComponent* BlackoutAbilitySystemComponent = Cast<UBlackoutAbilitySystemComponent>(AbilitySystemComponent);
-	if (const ABlackoutPlayerState* BlackoutPlayerState = ResolveOwningBlackoutPlayerState(CurrentActorInfo))
+	if (const ABlackoutPlayerState* BlackoutPlayerState = BlackoutAbilityUtils::ResolveOwningBlackoutPlayerState(CurrentActorInfo))
 	{
 		if (BlackoutPlayerState->HasInfiniteStaminaCheat())
 		{
