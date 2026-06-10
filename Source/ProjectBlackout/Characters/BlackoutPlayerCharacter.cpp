@@ -2972,6 +2972,7 @@ void ABlackoutPlayerCharacter::CacheAimDefaults()
 	{
 		DefaultArmLength = SpringArm->TargetArmLength;
 		DesiredArmLength = DefaultArmLength;
+		StabilizedArmLength = DefaultArmLength;
 		DefaultSocketOffset = SpringArm->SocketOffset;
 		DesiredSocketOffset = DefaultSocketOffset;
 		StabilizedShoulderY = DefaultSocketOffset.Y;
