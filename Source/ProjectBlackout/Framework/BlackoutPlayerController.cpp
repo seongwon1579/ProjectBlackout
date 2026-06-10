@@ -35,6 +35,14 @@ void ABlackoutPlayerController::AcknowledgePossession(APawn* P)
 		FInputModeGameOnly InputMode;
 		SetInputMode(InputMode);
 		bShowMouseCursor = false;
+
+		// 카메라 pitch 제한 — 위로 과하게 꺾으면 TPS 카메라가 뒤+아래로 swing 해 바닥을 박고 팅긴다.
+		// 각도 제한으로 floor hit 자체를 막음. (값은 조준 각 필요에 맞춰 조정)
+		if (PlayerCameraManager)
+		{
+			PlayerCameraManager->ViewPitchMin = -70.f;
+			PlayerCameraManager->ViewPitchMax = 70.f;
+		}
 	}
 	
 	// seamless travel 도착 후 폰빙의시 화면 복귀

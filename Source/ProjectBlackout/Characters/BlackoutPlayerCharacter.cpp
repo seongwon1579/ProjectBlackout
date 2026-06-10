@@ -51,6 +51,8 @@ ABlackoutPlayerCharacter::ABlackoutPlayerCharacter(const FObjectInitializer& Obj
 	SpringArm->bEnableCameraLag = true;
 	SpringArm->CameraLagSpeed = 10.0f;
 	SpringArm->CameraLagMaxDistance = 50.0f;
+	
+	SpringArm->bDoCollisionTest = false;
 
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	Camera->SetupAttachment(SpringArm, USpringArmComponent::SocketName);
@@ -98,6 +100,92 @@ void ABlackoutPlayerCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProper
 	DOREPLIFETIME(ABlackoutPlayerCharacter, ReviveDuration);
 }
 
+void ABlackoutPlayerCharacter::UpdateOwnerMeshVisibility()
+{
+	const float ArmLen = SpringArm ? SpringArm->TargetArmLength : -1.f;
+	const bool bShouldHide = SpringArm && ArmLen <= HideMeshArmLength;
+
+	if (bShouldHide == bOwnMeshHidden)
+	{
+		return;
+	}
+	bOwnMeshHidden = bShouldHide;
+
+	TArray<UMeshComponent*> MeshComponents;
+	GetComponents<UMeshComponent>(MeshComponents);
+	for (UMeshComponent* MeshComp : MeshComponents)
+	{
+		MeshComp->SetOwnerNoSee(bShouldHide);
+	}
+	
+	// 부착된 무기 메시 숨김
+	TArray<AActor*> AttachedActors;
+	GetAttachedActors(AttachedActors , true, true);
+	for (AActor* Attached :AttachedActors)
+	{
+		if (!Attached)
+		{
+			continue;
+		}
+		TArray<UMeshComponent*> AttachedMeshes;
+		Attached->GetComponents<UMeshComponent>(AttachedMeshes);
+		for (UMeshComponent* MeshComp : AttachedMeshes)
+		{
+			MeshComp->SetOwnerNoSee(bShouldHide);
+		}
+
+	}
+}
+
+void ABlackoutPlayerCharacter::UpdateCameraCollision(float DeltaSeconds)
+{
+	if (!SpringArm)
+	{
+		return;
+	}
+	
+	const FRotator ArmRotation = GetControlRotation();
+	const FVector SocketWorldOffset = ArmRotation.RotateVector(SpringArm->SocketOffset);
+	const FVector CameraDir = ArmRotation.Vector();
+
+	// 시작점은 캐릭터 중앙 피벗 — 캡슐이 벽을 못 뚫어 항상 벽 밖이라 trace가 벽 안에서 시작(관통)하지 않음.
+	const FVector PivotLocation = SpringArm->GetComponentLocation() + SpringArm->TargetOffset;
+	// 끝점만 어깨 오프셋 포함한 실제 카메라 위치 → 측면 카메라의 벽 충돌은 계속 검사.
+	const FVector DesiredCameraPos = PivotLocation - CameraDir * DesiredArmLength + SocketWorldOffset;
+	
+	// 월드 지오메트리만 
+	FCollisionObjectQueryParams ObjectQueryParams;
+	ObjectQueryParams.AddObjectTypesToQuery(ECC_WorldStatic);
+	ObjectQueryParams.AddObjectTypesToQuery(ECC_WorldDynamic);
+	FCollisionQueryParams  QueryParams(SCENE_QUERY_STAT(CameraCollision) , false , this);
+	
+	float TargetLength = DesiredArmLength;
+	FHitResult Hit;
+	if (GetWorld()->SweepSingleByObjectType(
+	Hit, PivotLocation, DesiredCameraPos ,FQuat::Identity, ObjectQueryParams, FCollisionShape::MakeSphere(CameraProbeRadius),QueryParams	
+	))
+	{
+		const float ForwardDist = FVector::DotProduct(Hit.Location - PivotLocation, -CameraDir);
+		const float TotalDist = FVector::Dist(Hit.Location, PivotLocation);
+		// 후방 성분이 충분할 때(=진짜 뒤쪽 벽)만 당김. 측면 위주 막힘(어깨 옆 벽)은 무시 → 캐릭터 안 사라짐. Type B는 후속.
+		if (ForwardDist > TotalDist * 0.5f)
+		{
+			TargetLength = FMath::Max(ForwardDist - CameraCollisionBuffer , MinCameraArmLength);
+		}
+	}
+	
+	if (FMath::Abs(TargetLength - StabilizedArmLength) > CameraTargetDeadband)
+	{
+		StabilizedArmLength = TargetLength;
+	}
+	
+	
+	const float InterpSpeed = (StabilizedArmLength < SpringArm -> TargetArmLength) ? CameraBlockInterpSpeed : CameraReturnInterpSpeed;
+
+	SpringArm->TargetArmLength = FMath::FInterpTo(SpringArm->TargetArmLength, StabilizedArmLength , DeltaSeconds , InterpSpeed);
+
+}
+
 void ABlackoutPlayerCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
@@ -110,6 +198,8 @@ void ABlackoutPlayerCharacter::Tick(float DeltaSeconds)
 
 	UpdateFocusedInteractable(DeltaSeconds);
 	UpdateAimCamera(DeltaSeconds);
+	UpdateCameraCollision(DeltaSeconds);
+	UpdateOwnerMeshVisibility();
 }
 
 
@@ -2601,6 +2691,7 @@ void ABlackoutPlayerCharacter::CacheAimDefaults()
 	if (SpringArm)
 	{
 		DefaultArmLength = SpringArm->TargetArmLength;
+		DesiredArmLength = DefaultArmLength;
 		DefaultSocketOffset = SpringArm->SocketOffset;
 	}
 
@@ -2630,8 +2721,8 @@ void ABlackoutPlayerCharacter::UpdateAimCamera(float DeltaSeconds)
 
 	
 	//aim 모드 카메라 숄더에 고정 
-	SpringArm->TargetArmLength = FMath::FInterpTo(
-		SpringArm->TargetArmLength,
+	DesiredArmLength = FMath::FInterpTo(
+		DesiredArmLength,
 		TargetArmLength,
 		DeltaSeconds,
 		AimCameraInterpSpeed);
