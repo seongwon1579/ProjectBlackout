@@ -75,7 +75,7 @@ private:
 	UFUNCTION()
 	void OnDodgeMontageBlendOut();
 
-	bool StartMontageTask();
+	bool StartMontageTask(UAnimMontage* MontageToPlay, FName StartSectionName);
 
 	void StartChainInputTask();
 
@@ -132,6 +132,8 @@ private:
 	bool CanPayStaminaCost() const;
 	bool ConsumeStamina() const;
 
+	UAnimMontage* ResolveDodgeMontage(bool bIsBackstep) const;
+	FName ResolveDodgeStartSection(const UAnimMontage* MontageToPlay, bool bIsBackstep) const;
 	FVector CalculateDodgeDirection(const FGameplayAbilityActorInfo* ActorInfo, bool& bOutIsBackstep, bool bPreferControlForwardWhenNoInput = false, const FBlackoutAbilityInputSyncPayload* InputPayload = nullptr) const;
 
 	void ClearAllChainTimers();
@@ -145,6 +147,9 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UAbilityTask_WaitGameplayEvent> CancelableEventTask;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UAnimMontage> ActiveDodgeMontage;
 
 	// DodgeEndTimerHandle 는 v2 에서 제거. PlayMontageAndWait 의 OnCompleted/OnInterrupted 콜백이 GA 종료를 담당합니다.
 	FTimerHandle ChainWindowOpenTimerHandle;
@@ -164,5 +169,6 @@ private:
 	bool bChainInputQueued = false;
 	bool bHasQueuedChainInputPayload = false;
 	bool bCancelWindowOpen = false;
+	bool bCurrentDodgeIsBackstep = false;
 	uint16 LastProcessedChainInputSequenceId = 0;
 };

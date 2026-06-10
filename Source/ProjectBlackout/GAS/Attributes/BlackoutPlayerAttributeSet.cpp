@@ -5,6 +5,7 @@
 
 
 #include "GAS/Attributes/BlackoutPlayerAttributeSet.h"
+#include "Framework/BlackoutPlayerState.h"
 #include "Net/UnrealNetwork.h"
 #include "GameplayEffectExtension.h"
 
@@ -66,14 +67,21 @@ void UBlackoutPlayerAttributeSet::PostGameplayEffectExecute(const FGameplayEffec
 {
 	Super::PostGameplayEffectExecute(Data);
 
+	const ABlackoutPlayerState* OwningPlayerState = Cast<ABlackoutPlayerState>(GetOwningActor());
+
 	if (Data.EvaluatedData.Attribute == GetStaminaAttribute())
 	{
-		SetStamina(FMath::Clamp(GetStamina(), 0.0f, GetMaxStamina()));
+		const float TargetStamina = (OwningPlayerState && OwningPlayerState->HasInfiniteStaminaCheat())
+			? GetMaxStamina()
+			: FMath::Clamp(GetStamina(), 0.0f, GetMaxStamina());
+		SetStamina(TargetStamina);
 	}
 	else if (Data.EvaluatedData.Attribute == GetMaxStaminaAttribute())
 	{
 		SetMaxStamina(FMath::Max(GetMaxStamina(), 0.0f));
-		SetStamina(FMath::Clamp(GetStamina(), 0.0f, GetMaxStamina()));
+		SetStamina((OwningPlayerState && OwningPlayerState->HasInfiniteStaminaCheat())
+			? GetMaxStamina()
+			: FMath::Clamp(GetStamina(), 0.0f, GetMaxStamina()));
 	}
 	else if (Data.EvaluatedData.Attribute == GetCriticalHitChanceAttribute())
 	{

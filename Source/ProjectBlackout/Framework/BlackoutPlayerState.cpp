@@ -46,6 +46,9 @@ void ABlackoutPlayerState::CopyProperties(APlayerState* NewPlayerState)
 	if (ABlackoutPlayerState* NewPS = Cast<ABlackoutPlayerState>(NewPlayerState))
 	{
 		NewPS->SelectedClassTag = SelectedClassTag;
+		NewPS->bInfiniteHealthCheat = bInfiniteHealthCheat;
+		NewPS->bInfiniteStaminaCheat = bInfiniteStaminaCheat;
+		NewPS->bInfiniteAmmoCheat = bInfiniteAmmoCheat;
 	}
 }
 
@@ -60,6 +63,33 @@ void ABlackoutPlayerState::GetLifetimeReplicatedProps(
 	DOREPLIFETIME(ABlackoutPlayerState, bIsReady);
 	DOREPLIFETIME(ABlackoutPlayerState, bRequestedSurrender);
 	DOREPLIFETIME(ABlackoutPlayerState, bVotedAgainstSurrender);
+	DOREPLIFETIME_CONDITION(ABlackoutPlayerState, bInfiniteHealthCheat, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(ABlackoutPlayerState, bInfiniteStaminaCheat, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(ABlackoutPlayerState, bInfiniteAmmoCheat, COND_OwnerOnly);
+}
+
+void ABlackoutPlayerState::SetDebugCheatFlags(bool bNewInfiniteHealth, bool bNewInfiniteStamina, bool bNewInfiniteAmmo)
+{
+	const bool bFlagsChanged =
+		bInfiniteHealthCheat != bNewInfiniteHealth
+		|| bInfiniteStaminaCheat != bNewInfiniteStamina
+		|| bInfiniteAmmoCheat != bNewInfiniteAmmo;
+
+	bInfiniteHealthCheat = bNewInfiniteHealth;
+	bInfiniteStaminaCheat = bNewInfiniteStamina;
+	bInfiniteAmmoCheat = bNewInfiniteAmmo;
+
+	ApplyActiveCheatState();
+
+	if (bFlagsChanged)
+	{
+		BO_LOG_CORE(Log,
+			"플레이어 치트 상태 갱신: Player=%s Health=%s Stamina=%s Ammo=%s",
+			*GetPlayerName(),
+			bInfiniteHealthCheat ? TEXT("On") : TEXT("Off"),
+			bInfiniteStaminaCheat ? TEXT("On") : TEXT("Off"),
+			bInfiniteAmmoCheat ? TEXT("On") : TEXT("Off"));
+	}
 }
 
 void ABlackoutPlayerState::SetReadyState(bool bNewReady)
@@ -390,5 +420,101 @@ void ABlackoutPlayerState::OnRep_SurrenderVoteState()
 			GS->SurrenderVoteNoCount,
 			GS->SurrenderVoteEndTimeSeconds
 		);
+	}
+}
+
+void ABlackoutPlayerState::OnRep_DebugCheatFlags()
+{
+	ApplyActiveCheatState();
+}
+
+void ABlackoutPlayerState::ApplyActiveCheatState()
+{
+	if (bInfiniteHealthCheat)
+	{
+		ApplyInfiniteHealthCheat();
+	}
+
+	if (bInfiniteStaminaCheat)
+	{
+		ApplyInfiniteStaminaCheat();
+	}
+
+	if (bInfiniteAmmoCheat)
+	{
+		ApplyInfiniteAmmoCheat();
+	}
+}
+
+void ABlackoutPlayerState::ApplyInfiniteHealthCheat() const
+{
+	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
+	if (!ASC)
+	{
+		return;
+	}
+
+	const float MaxHealth = ASC->GetNumericAttribute(UBlackoutBaseAttributeSet::GetMaxHealthAttribute());
+	if (MaxHealth > 0.0f)
+	{
+		ASC->SetNumericAttributeBase(UBlackoutBaseAttributeSet::GetHealthAttribute(), MaxHealth);
+	}
+}
+
+void ABlackoutPlayerState::ApplyInfiniteStaminaCheat() const
+{
+	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
+	if (!ASC)
+	{
+		return;
+	}
+
+	const float MaxStamina = ASC->GetNumericAttribute(UBlackoutPlayerAttributeSet::GetMaxStaminaAttribute());
+	if (MaxStamina > 0.0f)
+	{
+		ASC->SetNumericAttributeBase(UBlackoutPlayerAttributeSet::GetStaminaAttribute(), MaxStamina);
+	}
+}
+
+void ABlackoutPlayerState::ApplyInfiniteAmmoCheat() const
+{
+	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
+	if (!ASC)
+	{
+		return;
+	}
+
+	const float PrimaryMaxClip = ASC->GetNumericAttribute(UBlackoutAmmoAttributeSet::GetPrimaryMaxClipAttribute());
+	if (PrimaryMaxClip > 0.0f)
+	{
+		ASC->SetNumericAttributeBase(UBlackoutAmmoAttributeSet::GetPrimaryClipAmmoAttribute(), PrimaryMaxClip);
+	}
+
+	const float SecondaryMaxClip = ASC->GetNumericAttribute(UBlackoutAmmoAttributeSet::GetSecondaryMaxClipAttribute());
+	if (SecondaryMaxClip > 0.0f)
+	{
+		ASC->SetNumericAttributeBase(UBlackoutAmmoAttributeSet::GetSecondaryClipAmmoAttribute(), SecondaryMaxClip);
+	}
+
+	const APawn* OwnedPawn = GetPawn();
+	const ABlackoutPlayerCharacter* PlayerCharacter = OwnedPawn ? Cast<ABlackoutPlayerCharacter>(OwnedPawn) : nullptr;
+	const UBlackoutCombatComponent* CombatComp = PlayerCharacter ? PlayerCharacter->GetCombatComponent() : nullptr;
+	if (!CombatComp)
+	{
+		return;
+	}
+
+	if (const ABOFirearm* Primary = CombatComp->GetPrimaryFirearm())
+	{
+		ASC->SetNumericAttributeBase(
+			UBlackoutAmmoAttributeSet::GetPrimaryReserveAmmoAttribute(),
+			static_cast<float>(Primary->GetMaxReserveAmmo()));
+	}
+
+	if (const ABOFirearm* Secondary = CombatComp->GetSecondaryFirearm())
+	{
+		ASC->SetNumericAttributeBase(
+			UBlackoutAmmoAttributeSet::GetSecondaryReserveAmmoAttribute(),
+			static_cast<float>(Secondary->GetMaxReserveAmmo()));
 	}
 }
