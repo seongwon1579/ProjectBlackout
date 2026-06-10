@@ -683,6 +683,10 @@ protected:
 
 	float DesiredArmLength = 350.f;
 	
+	FVector DesiredSocketOffset = FVector::ZeroVector;
+	
+	float StabilizedShoulderY =0.0f;
+	
 	UPROPERTY(EditDefaultsOnly, Category="Blackout|Camera")
 	float HideMeshArmLength = 90.0f;
 	
