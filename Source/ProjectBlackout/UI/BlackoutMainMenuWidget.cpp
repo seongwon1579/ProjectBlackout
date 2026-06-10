@@ -227,15 +227,14 @@ void UBlackoutMainMenuWidget::HandleOptionsClicked()
 		return;
 	}
 
-	TSubclassOf<UBlackoutSettingsWidget> ResolvedSettingsClass =
-		SettingsWidgetClass;
-	if (!ResolvedSettingsClass)
+	if (!SettingsWidgetClass)
 	{
-		ResolvedSettingsClass = UBlackoutSettingsWidget::StaticClass();
+		BO_LOG_CORE(Warning, "옵션 메뉴: SettingsWidgetClass 미지정 — 설정 위젯 생성을 중단합니다.");
+		return;
 	}
 
 	ActiveSettingsWidget = CreateWidget<UBlackoutSettingsWidget>(
-		GetOwningPlayer(), ResolvedSettingsClass);
+		GetOwningPlayer(), SettingsWidgetClass);
 	if (!ActiveSettingsWidget)
 	{
 		return;
