@@ -19,7 +19,10 @@
 #include "Camera/PlayerCameraManager.h"
 #include "InputCoreTypes.h"
 #include "Framework/BlackoutMatchmakingSubsystem.h"
+#include "Framework/BlackoutCharacterPreviewManager.h"
 #include "GameFramework/PlayerState.h"
+#include "Kismet/GameplayStatics.h"
+#include "TimerManager.h"
 
 void ABlackoutPlayerController::AcknowledgePossession(APawn* P)
 {
@@ -78,8 +81,11 @@ void ABlackoutPlayerController::CloseClassSelectUI()
 {
 	if (!ClassSelectWidget && !ClassSelectController)
 	{
+		SetClassSelectRenderingState(false);
 		return;
 	}
+
+	SetClassSelectRenderingState(false);
 	
 	if (ClassSelectWidget)
 	{
@@ -400,6 +406,9 @@ void ABlackoutPlayerController::Client_OpenClassSelectUI_Implementation()
 		ClassSelectController = nullptr;
 		return;
 	}
+
+	SetClassSelectRenderingState(true);
+
 	ClassSelectWidget->SetWidgetController(ClassSelectController);
 	ClassSelectWidget->AddToViewport();
 	
@@ -419,6 +428,103 @@ void ABlackoutPlayerController::Client_OpenClassSelectUI_Implementation()
 	}
 	
 	ReceiveOpenClassSelectUI();
+}
+
+void ABlackoutPlayerController::SetClassSelectRenderingState(bool bActive)
+{
+	if (!IsLocalPlayerController())
+	{
+		return;
+	}
+
+	if (!bActive)
+	{
+		if (UWorld* World = GetWorld())
+		{
+			World->GetTimerManager().ClearTimer(ClassSelectRenderingRetryHandle);
+		}
+		ClassSelectRenderingRetryCount = 0;
+
+		if (ABlackoutCharacterPreviewManager* PreviewManager = FindCharacterPreviewManager())
+		{
+			PreviewManager->SetPreviewCaptureActive(false);
+			PreviewManager->ClearPreview();
+		}
+
+		if (bClassSelectRenderingStateActive)
+		{
+			AActor* RestoreTarget = ClassSelectPreviousViewTarget.Get();
+			if (!RestoreTarget)
+			{
+				RestoreTarget = GetPawn();
+			}
+			if (RestoreTarget)
+			{
+				SetViewTargetWithBlend(RestoreTarget, 0.0f);
+			}
+		}
+
+		ClassSelectPreviousViewTarget = nullptr;
+		bClassSelectRenderingStateActive = false;
+		return;
+	}
+
+	ABlackoutCharacterPreviewManager* PreviewManager = FindCharacterPreviewManager();
+	if (!PreviewManager || !PreviewManager->GetRenderTarget())
+	{
+		if (UWorld* World = GetWorld())
+		{
+			if (ClassSelectRenderingRetryCount < ClassSelectRenderingMaxRetries)
+			{
+				++ClassSelectRenderingRetryCount;
+				World->GetTimerManager().SetTimer(
+					ClassSelectRenderingRetryHandle,
+					this,
+					&ABlackoutPlayerController::RetryApplyClassSelectRenderingState,
+					0.1f,
+					false);
+			}
+			else
+			{
+				BO_LOG_CORE(Warning, "ClassSelect: PreviewManager RT 미준비 — 메인 카메라 전환 생략 (재시도 %d회 초과)", ClassSelectRenderingRetryCount);
+			}
+		}
+		return;
+	}
+
+	ClassSelectRenderingRetryCount = 0;
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(ClassSelectRenderingRetryHandle);
+	}
+
+	if (!bClassSelectRenderingStateActive)
+	{
+		ClassSelectPreviousViewTarget = GetViewTarget();
+		bClassSelectRenderingStateActive = true;
+	}
+
+	PreviewManager->SetPreviewCaptureActive(true);
+	SetViewTargetWithBlend(PreviewManager, 0.0f);
+}
+
+void ABlackoutPlayerController::RetryApplyClassSelectRenderingState()
+{
+	if (ClassSelectWidget || ClassSelectController)
+	{
+		SetClassSelectRenderingState(true);
+	}
+}
+
+ABlackoutCharacterPreviewManager* ABlackoutPlayerController::FindCharacterPreviewManager() const
+{
+	TArray<AActor*> FoundActors;
+	UGameplayStatics::GetAllActorsOfClass(
+		this,
+		ABlackoutCharacterPreviewManager::StaticClass(),
+		FoundActors);
+
+	return FoundActors.Num() > 0 ? Cast<ABlackoutCharacterPreviewManager>(FoundActors[0]) : nullptr;
 }
 
 void ABlackoutPlayerController::Client_ShowDamageNumber_Implementation(float DamageAmount, bool bIsCritical)
