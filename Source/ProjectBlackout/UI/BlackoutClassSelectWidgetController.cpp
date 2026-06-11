@@ -5,6 +5,7 @@
 
 #include "BlackoutLog.h"
 #include "Combat/Weapons/BOFirearm.h"
+#include "Combat/Weapons/BOShotgunFirearm.h"
 #include "Data/BOCharacterData.h"
 #include "Data/BOCharacterRoster.h"
 #include "Engine/DataTable.h"
@@ -104,7 +105,13 @@ BuildDisplayData(int32 Index) const
 	if (Data.CharacterData)
 	{
 		Data.PrimaryStat = LookupFirearmStat(Data.CharacterData->StartingPrimaryWeapon);
+		Data.bPrimaryHasPelletCount = LookupShotgunPelletCount(
+			Data.CharacterData->StartingPrimaryWeapon,
+			Data.PrimaryPelletCount);
 		Data.SecondaryStat=LookupFirearmStat(Data.CharacterData->StartingSecondaryWeapon);
+		Data.bSecondaryHasPelletCount = LookupShotgunPelletCount(
+			Data.CharacterData->StartingSecondaryWeapon,
+			Data.SecondaryPelletCount);
 	}
 	return Data;
 	
@@ -134,6 +141,39 @@ FBlackoutFirearmStat UBlackoutClassSelectWidgetController::LookupFirearmStat(
 		return *Row;
 	}
 	return {};
+}
+
+bool UBlackoutClassSelectWidgetController::LookupShotgunPelletCount(
+	TSubclassOf<ABOFirearm> WeaponClass, int32& OutPelletCount) const
+{
+	OutPelletCount = 0;
+	if (!WeaponClass)
+	{
+		return false;
+	}
+
+	const ABOShotgunFirearm* ShotgunCDO = Cast<ABOShotgunFirearm>(WeaponClass.GetDefaultObject());
+	if (!ShotgunCDO)
+	{
+		return false;
+	}
+
+	const FDataTableRowHandle RowHandle = ShotgunCDO->GetUIStatsRow();
+	if (!RowHandle.DataTable || RowHandle.RowName.IsNone())
+	{
+		return false;
+	}
+
+	if (const FBlackoutShotgunFirearmStat* Row = RowHandle.GetRow<FBlackoutShotgunFirearmStat>(TEXT("ClassSelect LookupShotgunPelletCount")))
+	{
+		OutPelletCount = FMath::Max(Row->PelletCount, 1);
+		return true;
+	}
+
+	BO_LOG_CORE(Warning, "ClassSelect LookupShotgunPelletCount: 산탄 스탯 행 조회 실패 Weapon=%s Row=%s",
+		*GetNameSafe(WeaponClass.Get()),
+		*RowHandle.RowName.ToString());
+	return false;
 }
 
 void UBlackoutClassSelectWidgetController::UpdatePreviewPawn()
