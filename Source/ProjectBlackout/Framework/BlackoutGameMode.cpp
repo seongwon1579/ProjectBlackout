@@ -12,6 +12,7 @@
 #include "Engine/GameInstance.h"
 #include "BlackoutDedicatedSessionSubsystem.h"
 #include "BlackoutMatchFlowSubsystem.h"
+#include "BlackoutTelemetrySampler.h"
 
 namespace
 {
@@ -246,6 +247,12 @@ void ABlackoutGameMode::ConfirmEmptyServer()
 	
 	
 	BO_LOG_NET(Log, "EmptyServer 확정 — idle 복귀 트리거");
+	// 런 중 로비 포함 모든 모드에서 RunId 정리
+	if (UBlackoutTelemetrySampler* Sampler = GetGameInstance()
+		? GetGameInstance()->GetSubsystem<UBlackoutTelemetrySampler>() : nullptr)
+	{
+		Sampler->EndRun();
+	}
 	HandleEmptyServerReset();
 }
 
