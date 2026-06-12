@@ -3,7 +3,7 @@
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
 #include "Components/ComboBoxString.h"
-#include "Framework/BlackoutGraphicsUserSettings.h"
+#include "Framework/BlackoutUserSettings.h"
 #include "BlackoutSettingsWidget.generated.h"
 
 class UButton;
