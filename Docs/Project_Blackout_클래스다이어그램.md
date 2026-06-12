@@ -769,6 +769,7 @@ classDiagram
 
     UGameUserSettings <|-- UBlackoutUserSettings
     UDeveloperSettings <|-- UBlackoutAudioSettings
+    UGameInstanceSubsystem <|-- UBlackoutUserSettingsSubsystem
     UUserWidget <|-- UBlackoutSettingsWidget
     USoundBase <|-- USoundCue
 
@@ -778,6 +779,15 @@ classDiagram
         -float PendingMusicVolume
         -float PendingSFXVolume
         -ApplyPendingSettings() void
+    }
+
+    class UBlackoutUserSettingsSubsystem {
+        <<GameInstanceSubsystem>>
+        -FDelegateHandle PostLoadMapHandle
+        +ShouldCreateSubsystem(UObject*) bool
+        +Initialize(FSubsystemCollectionBase&) void
+        +Deinitialize() void
+        -HandlePostLoadMapWithWorld(UWorld*) void
     }
 
     class UBlackoutUserSettings {
@@ -803,6 +813,7 @@ classDiagram
     }
 
     UBlackoutSettingsWidget --> UBlackoutUserSettings : 저장 / 적용
+    UBlackoutUserSettingsSubsystem --> UBlackoutUserSettings : 맵 로드마다 자동 재적용
     UBlackoutUserSettings --> UBlackoutAudioSettings : SoundMix / SoundClass 참조 조회
     UBlackoutUserSettings --> UGameplayStatics : SoundMix override 적용
     UBlackoutAudioSettings o-- USoundMix
