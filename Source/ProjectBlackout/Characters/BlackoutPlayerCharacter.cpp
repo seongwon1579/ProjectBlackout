@@ -1652,6 +1652,14 @@ void ABlackoutPlayerCharacter::OnDowned()
 	{
 		Multicast_PlayDownedEnterMontage(DownedEnterMontage, 1.f);
 	}
+	// GameMode에 다운 통지 
+	if (HasAuthority())
+	{
+		if (ABlackoutBattleGameMode* BattleGameMode= GetWorld()->GetAuthGameMode<ABlackoutBattleGameMode>())
+		{
+			BattleGameMode->NotifyPlayerDowned(this);
+		}
+	}
 }
 
 bool ABlackoutPlayerCharacter::CanEnterDownedState() const
@@ -3004,6 +3012,7 @@ void ABlackoutPlayerCharacter::UpdateAimCamera(float DeltaSeconds)
 		                                   ? AimSocketOffset
 		                                   : DefaultSocketOffset;
 	const float TargetFOV = ResolveTargetCameraFOV(bIsAiming);
+	const float CameraInterpSpeed = bIsAiming ? AimCameraInterpSpeed :CameraRelaxedInterpSpeed;
 
 
 	//aim 모드 카메라 숄더에 고정 
@@ -3011,13 +3020,13 @@ void ABlackoutPlayerCharacter::UpdateAimCamera(float DeltaSeconds)
 		DesiredArmLength,
 		TargetArmLength,
 		DeltaSeconds,
-		AimCameraInterpSpeed);
+		CameraInterpSpeed);
 
 	DesiredSocketOffset = FMath::VInterpTo(
 		DesiredSocketOffset,
 		TargetSocketOffset,
 		DeltaSeconds,
-		AimCameraInterpSpeed);
+		CameraInterpSpeed);
 
 	SpringArm->SocketOffset = DesiredSocketOffset;
 
@@ -3025,7 +3034,7 @@ void ABlackoutPlayerCharacter::UpdateAimCamera(float DeltaSeconds)
 		Camera->FieldOfView,
 		TargetFOV,
 		DeltaSeconds,
-		AimCameraInterpSpeed));
+		CameraInterpSpeed));
 }
 
 float ABlackoutPlayerCharacter::ResolveTargetCameraFOV(bool bIsAiming) const

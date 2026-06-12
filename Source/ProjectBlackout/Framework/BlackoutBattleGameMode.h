@@ -44,6 +44,9 @@ public:
 	// 플레이어가 다운 타이머 만료로 완전 사망했을 때 호출. 생존자 0명 여부를 평가한다.
 	void NotifyPlayerFullyDead(ABlackoutPlayerCharacter* DeadPlayer);
 	
+	// 다운 알림 
+	void NotifyPlayerDowned(ABlackoutPlayerCharacter* DownedPlayer);
+	
 	// ClientTravel URL SessionId DedicatedSessionSubsystem에 위임
 	// 데디만 사용
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
@@ -152,4 +155,6 @@ private:
 	void ReturnServerToIdleLobby();
 	
 	FTimerHandle FadeTravelTimerHandle;
+	
+	class UBlackoutTelemetrySampler* GetTelemetrySampler() const;
 };
