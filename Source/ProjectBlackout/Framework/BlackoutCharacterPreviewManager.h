@@ -28,9 +28,9 @@ public:
 	// Sets default values for this actor's properties
 	ABlackoutCharacterPreviewManager();
 	
-	/** 현재 Preview Pawn 교체 nullptr 이면 destroy 같은 클래스면 무시 */
+	/** 현재 Preview Actor 교체. nullptr 이면 destroy, 같은 클래스면 무시 */
 	UFUNCTION(BlueprintCallable , Category="Blackout|Preview")
-	void SetPreviewCharacter(TSubclassOf<APawn> PawnClass);
+	void SetPreviewCharacter(TSubclassOf<AActor> PreviewClass);
 	
 	/** Preview Pawn destroy + 참조 정리. UI 닫힐 때 호출. */
 	UFUNCTION(BlueprintCallable , Category="Blackout|Preview")
@@ -53,10 +53,10 @@ protected:
 	float PreviewYawOffset = 180.0f;
 	
 	UPROPERTY(Transient)
-	TObjectPtr<APawn> CurrentPawn;
+	TObjectPtr<AActor> CurrentPreviewActor;
 
 	UPROPERTY(Transient)
-	TSubclassOf<APawn> CurrentPawnClass;
+	TSubclassOf<AActor> CurrentPreviewClass;
 	
 	UPROPERTY(Transient)
 	TObjectPtr<USceneCaptureComponent2D> CaptureComp;
@@ -69,6 +69,5 @@ protected:
 	
 	UPROPERTY(Transient)
 	TObjectPtr<class UTextureRenderTarget2D> DynamicRT;
-
-private:
+	
 };

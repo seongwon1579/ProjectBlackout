@@ -50,16 +50,16 @@ ABlackoutCharacterPreviewManager::ABlackoutCharacterPreviewManager()
 	ViewCamera->SetRelativeRotation(FRotator(-10.f, 0.f, 0.f));
 }
 
-void ABlackoutCharacterPreviewManager::SetPreviewCharacter(TSubclassOf<APawn> PawnClass)
+void ABlackoutCharacterPreviewManager::SetPreviewCharacter(TSubclassOf<AActor> PreviewClass)
 {
-	if (CurrentPawnClass == PawnClass)
+	if (CurrentPreviewClass == PreviewClass)
 	{
 		return; // 같은 클래스는 재스폰 X
 	}
 
 	ClearPreview();
 
-	if (!PawnClass)
+	if (!PreviewClass)
 	{
 		return;
 	}
@@ -71,39 +71,39 @@ void ABlackoutCharacterPreviewManager::SetPreviewCharacter(TSubclassOf<APawn> Pa
 	SpawnParams.Owner = this;
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-	CurrentPawn = GetWorld()->SpawnActor<APawn>(PawnClass, SpawnTransform, SpawnParams);
-	if (CurrentPawn)
+	CurrentPreviewActor  = GetWorld()->SpawnActor<AActor>(PreviewClass, SpawnTransform, SpawnParams);
+	if (CurrentPreviewActor)
 	{
 		// Preview Pawn 은 각 client local — server 의 Pawn 이 다른 client 로 replicate 되면 stack
-		CurrentPawn->SetReplicates(false);
+		CurrentPreviewActor->SetReplicates(false);
 
 		if (CaptureComp)
 		{
 			CaptureComp->ShowOnlyActors.Reset();
-			CaptureComp->ShowOnlyActors.Add(CurrentPawn);
+			CaptureComp->ShowOnlyActors.Add(CurrentPreviewActor);
 
 			TArray<AActor*> AttachedActors;
-			CurrentPawn->GetAttachedActors(AttachedActors);
+			CurrentPreviewActor->GetAttachedActors(AttachedActors);
 			for (AActor* Attached : AttachedActors)
 			{
 				CaptureComp->ShowOnlyActors.Add(Attached);
 			}
 		}
 	}
-	CurrentPawnClass = PawnClass;
+	CurrentPreviewClass = PreviewClass;
 
-	BO_LOG_CORE(Log, "CharacterPreview spawn: %s @ %s", *GetNameSafe(PawnClass.Get()), *SpawnTransform.GetLocation().ToString());
+	BO_LOG_CORE(Log, "CharacterPreview spawn: %s @ %s", *GetNameSafe(PreviewClass.Get()), *SpawnTransform.GetLocation().ToString());
 }
 
 void ABlackoutCharacterPreviewManager::ClearPreview()
 {
-	if (CurrentPawn)
+	if (CurrentPreviewActor)
 	{
-		CurrentPawn->Destroy();
-		CurrentPawn = nullptr;
+		CurrentPreviewActor->Destroy();
+		CurrentPreviewActor = nullptr;
 	}
 
-	CurrentPawnClass = nullptr;
+	CurrentPreviewClass = nullptr;
 
 	if (CaptureComp)
 	{
