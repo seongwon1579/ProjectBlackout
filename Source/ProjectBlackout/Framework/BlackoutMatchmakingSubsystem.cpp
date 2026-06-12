@@ -14,6 +14,7 @@
 
 #include "MoviePlayer.h"
 #include "UI/SBlackoutLoadingScreen.h"
+#include "Engine/Texture2D.h"
 
 // GameInstance 부팅 시 호출. WebSockets 모듈 로드 + NetworkSettings 기본값 적용.
 void UBlackoutMatchmakingSubsystem::Initialize(
@@ -29,6 +30,9 @@ void UBlackoutMatchmakingSubsystem::Initialize(
 		BO_LOG_NET(Log, "Matchmaking Subsystem 초기화 - API=%s WS=%s",
 		           *Settings->ApiBaseUrl, *Settings->LobbyWsUrl);
 	}
+
+	// 로딩 화면 텍스처를 부팅 시점(=첫 LV_Entry→LV_Main 전환 전)에 미리 로드. 첫 로딩 화면부터 항상 준비된 상태 보장.
+	PreloadLoadingScreenTextures();
 
 	// 로딩 화면 라이프사이클 명시 바인딩 — ClientTravel 시 자동 표시 + 맵 로드 완료 시 명시 종료.
 	// ClientTravel 비동기 흐름에서 bAutoCompleteWhenLoadingCompletes 만으론 dismiss 보장 안 됨 → 명시 StopMovie 필요.
@@ -70,6 +74,30 @@ void UBlackoutMatchmakingSubsystem::Deinitialize()
 	Super::Deinitialize();
 }
 
+// 로딩 화면 텍스처 미리 로드 + 밉 강제 레지던트. 로딩 위젯이 GetSizeX() 로 비율을 잡으므로,
+// 텍스처가 준비되기 전(저해상도 밉/플레이스홀더)에 위젯이 생성되면 레이아웃이 깨진다. 부팅 시 미리 고정해 방지.
+void UBlackoutMatchmakingSubsystem::PreloadLoadingScreenTextures()
+{
+	auto PreloadTexture = [](const TCHAR* Path) -> UTexture2D*
+	{
+		UTexture2D* Texture = LoadObject<UTexture2D>(nullptr, Path);
+		if (Texture)
+		{
+			// 스트리밍/메모리 압박으로 밉이 빠지지 않도록 항상 최고 해상도 유지.
+			Texture->bForceMiplevelsToBeResident = true;
+			Texture->SetForceMipLevelsToBeResident(30.0f);
+		}
+		return Texture;
+	};
+
+	LoadingBackgroundTexture = PreloadTexture(BlackoutLoadingScreen::BackgroundTexturePath);
+	LoadingLogoTexture = PreloadTexture(BlackoutLoadingScreen::LogoTexturePath);
+
+	BO_LOG_NET(Log, "로딩 화면 텍스처 미리 로드 — BG=%s Logo=%s",
+	           LoadingBackgroundTexture ? TEXT("OK") : TEXT("FAIL"),
+	           LoadingLogoTexture ? TEXT("OK") : TEXT("FAIL"));
+}
+
 // 맵 로드 직전 — MoviePlayer 에 Slate 로딩 위젯 셋업. PreLoadMap → PlayMovie 흐름이 엔진 내부에서 자동 진행.
 void UBlackoutMatchmakingSubsystem::HandlePreLoadMap(const FString& MapName)
 {
@@ -79,7 +107,10 @@ void UBlackoutMatchmakingSubsystem::HandlePreLoadMap(const FString& MapName)
 	LoadingScreenAttributes.MinimumLoadingScreenDisplayTime = 2.0f;
 	LoadingScreenAttributes.bAutoCompleteWhenLoadingCompletes = false;
 	LoadingScreenAttributes.bMoviesAreSkippable = false;
-	LoadingScreenAttributes.WidgetLoadingScreen = SNew(SBlackoutLoadingScreen);
+	// 부팅 시 미리 로드된 텍스처를 주입 — 위젯이 PreLoadMap 시점에 새로 로드하지 않도록.
+	LoadingScreenAttributes.WidgetLoadingScreen = SNew(SBlackoutLoadingScreen)
+		.BackgroundTexture(LoadingBackgroundTexture)
+		.LogoTexture(LoadingLogoTexture);
 	GetMoviePlayer()->SetupLoadingScreen(LoadingScreenAttributes);
 }
 

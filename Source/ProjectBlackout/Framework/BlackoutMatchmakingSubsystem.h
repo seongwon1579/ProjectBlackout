@@ -10,6 +10,8 @@
 #include "IWebSocket.h"
 #include "BlackoutMatchmakingSubsystem.generated.h"
 
+class UTexture2D;
+
 
 /**
  * 매칭 서버(Nest.js)가 반환하는 세션 정보. StartMatchmaking 응답으로 채워진다.
@@ -203,6 +205,15 @@ private:
 
 	FDelegateHandle PreLoadMapHandle;
 	FDelegateHandle PostLoadMapHandle;
+
+	// 부팅 시 로딩 화면 텍스처를 미리 로드하고 밉을 강제 레지던트로 고정. 로드 타이밍에 의한 레이아웃 깨짐 방지.
+	void PreloadLoadingScreenTextures();
+
+	// 미리 로드된 로딩 화면 텍스처. UPROPERTY 강한 참조로 GameInstance 수명 동안 유지.
+	UPROPERTY(Transient)
+	TObjectPtr<UTexture2D> LoadingBackgroundTexture;
+	UPROPERTY(Transient)
+	TObjectPtr<UTexture2D> LoadingLogoTexture;
 
 	// Authorization: Bearer <token> 헤더 주입. AccessToken 비어있으면 skip.
 	void SetAuthHeader(const FHttpRequestRef& Request) const;
