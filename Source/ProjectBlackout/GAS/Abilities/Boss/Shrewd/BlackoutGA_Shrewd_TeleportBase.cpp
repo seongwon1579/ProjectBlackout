@@ -55,17 +55,6 @@ void UBlackoutGA_Shrewd_TeleportBase::PrepareAbility()
 
 void UBlackoutGA_Shrewd_TeleportBase::SetupEventListeners()
 {
-	// 은신 시작 Cue
-	if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
-	{
-		if (AActor* Avatar = GetAvatarActorFromActorInfo())
-		{
-			FGameplayCueParameters StartCueParams;
-			StartCueParams.Location = Avatar->GetActorLocation();
-			ASC->ExecuteGameplayCue(BlackoutGameplayTags::GameplayCue_Wraith_Teleport_Start, StartCueParams);
-		}
-	}
-
 	// Vanish 이벤트 대기
 	UAbilityTask_WaitGameplayEvent* VanishTask =
 		UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(
