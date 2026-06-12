@@ -28,6 +28,11 @@ public:
 	/** GetDefaultPawnClassForController 에서 사용할 Pawn Class */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Class")
 	TSubclassOf<APawn> PawnClass;
+	
+	/** 캐릭터 선택 프리뷰 전용 클래스 (메시 + 무기 메시 + 전시 애니만 있는 경량 BP).
+	 *  미지정 시 PawnClass 로 fallback */
+	UPROPERTY(EditAnywhere , BlueprintReadOnly , Category = "Blackout|Class")
+	TSubclassOf<AActor> PreviewClass;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Stats")
 	float BaseMaxHealth = 100.f;
