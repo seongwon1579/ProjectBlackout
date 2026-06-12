@@ -31,6 +31,7 @@ protected:
 private:
 	UPROPERTY(Transient)
 	TObjectPtr<UAbilityTask_WaitGameplayEvent> WaitBeginEvent;
+	UPROPERTY(Transient)
 	TObjectPtr<UAbilityTask_WaitGameplayEvent> WaitEndEvent;
 	
 	FTimerHandle DamageTimer;
