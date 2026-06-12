@@ -95,6 +95,9 @@ private:
 	void RegisterPlayerEvents();
 	void UnregisterPlayerEvents();
 	
+	FTimerHandle StartupTimerHandle;
+	void TryInitialTargeting();
+	
 	FGameplayTag TargetChangeTag;
 	FDelegateHandle PostLoginHandle;
 	FDelegateHandle TargetChangeTagChangedHandle;
@@ -102,6 +105,7 @@ private:
 	UPROPERTY()
 	TWeakObjectPtr<APawn> CurrentTarget;
 	
+	UPROPERTY()
 	TWeakObjectPtr<UAbilitySystemComponent> CurrentTargetASC;
 	FDelegateHandle TargetDownTagHandle;
 	FGameplayTag DownTag;

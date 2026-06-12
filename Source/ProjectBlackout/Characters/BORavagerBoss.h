@@ -18,6 +18,8 @@ public:
 	UBORavagerPatternData* GetPatternData(FGameplayTag AbilityTag) const;
 	
 	void SetCollisionState(bool bIgnore);
+	
+	virtual void SetData() override;
 
 protected:
 	UFUNCTION(NetMulticast, Reliable)
@@ -28,7 +30,6 @@ protected:
 	
 	virtual void OnDeath() override;
 	
-	virtual void SetData() override;
 	
 	virtual void OnDamageReceived(const FOnAttributeChangeData& Data);
 	

@@ -5,6 +5,7 @@
 #include "BlackoutPlayerCharacter.h"
 #include "BORavagerBoss.h"
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
+#include "Environment/BOBreakablePillarActor.h"
 
 const FName UBlackoutGA_Ravager_Base::WarpTargetName = FName("MW_Target");
 
@@ -91,7 +92,7 @@ bool UBlackoutGA_Ravager_Base::CanActivatePattern() const
 
 bool UBlackoutGA_Ravager_Base::ShouldDamageTarget(AActor* Target) const
 {
-	return IsValid(Target) && Target->IsA(ABlackoutPlayerCharacter::StaticClass());
+	return IsValid(Target) && (Target->IsA(ABlackoutPlayerCharacter::StaticClass()) || Target->IsA(ABOBreakablePillarActor::StaticClass()));
 }
 
 bool UBlackoutGA_Ravager_Base::TryResolveMontage(const FGameplayEventData* TriggerEventData)

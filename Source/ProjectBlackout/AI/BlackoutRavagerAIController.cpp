@@ -5,6 +5,7 @@
 
 #include "BlackoutBossBTRunner.h"
 #include "BlackoutPhaseEvaluator.h"
+#include "BORavagerBoss.h"
 #include "BehaviorTree/BlackboardComponent.h"
 
 void ABlackoutRavagerAIController::RequestPhaseChange(EBOBossPhase NewPhase)
@@ -35,7 +36,16 @@ void ABlackoutRavagerAIController::PreInitialize(APawn* InPawn)
 {
 	Super::PreInitialize(InPawn);
 	
+	UE_LOG(LogTemp, Warning, TEXT("ABlackoutRavagerAIController PreInitialize"));
+	
+	UE_LOG(LogTemp, Warning, TEXT("Ravager PreInitialize: NetMode=%d, CachedASC=%s"),
+	   (int32)GetNetMode(),
+	   CachedASC ? TEXT("VALID") : TEXT("NULL")); 
+	
 	if (!CachedASC) return;
+	
+	// ABORavagerBoss* Boss = Cast<ABORavagerBoss>(GetPawn());
+	// Boss->SetData();
 	
 	// BTRunner
 	BTRunner = NewObject<UBlackoutBossBTRunner>(this);
@@ -44,8 +54,10 @@ void ABlackoutRavagerAIController::PreInitialize(APawn* InPawn)
 	// Phase
 	PhaseEvaluator = NewObject<UBlackoutPhaseEvaluator>(this);
 	PhaseEvaluator->OnBossPhaseChanged.AddUObject(this, &ABlackoutRavagerAIController::HandlePhaseChanged);
-	PhaseEvaluator->Initialize(this, CachedASC);
+	PhaseEvaluator->Initialize(this,CachedASC);
+	
 }
+
 
 void ABlackoutRavagerAIController::HandleAggroTargetChanged(APawn* NewTarget)
 {
@@ -57,8 +69,10 @@ void ABlackoutRavagerAIController::HandleAggroTargetChanged(APawn* NewTarget)
 
 void ABlackoutRavagerAIController::HandlePhaseChanged(EBOBossPhase NewPhase)
 {
+	UE_LOG(LogTemp, Warning, TEXT("HandlePhaseChanged"));
 	if (BTRunner)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("HandlePhaseChanged BTRunner"));
 		BTRunner->RunPhaseBT(NewPhase);
 	}
 }
