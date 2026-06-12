@@ -163,6 +163,7 @@ void UBlackoutGA_Ravager_EnergyBurst::ApplyDamage()
 			const float Damage = Settings.Damage;
 
 			SpecHandle.Data->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Damage, Damage);
+			SpecHandle.Data->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Stun, Settings.StunMagnitude);
 			Damageable->ReceiveDamageFromHitbox(SpecHandle, NAME_None);
 		}
 	}

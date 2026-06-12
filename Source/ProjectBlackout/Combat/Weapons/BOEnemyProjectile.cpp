@@ -99,6 +99,9 @@ void ABOEnemyProjectile::ApplyDamageToTarget(AActor* Target, FName HitBoneName)
 		SpecHandle.Data->SetSetByCallerMagnitude(
 			BlackoutGameplayTags::Data_Damage, 
 			SpawnParams.DamageMagnitude);
+		SpecHandle.Data->SetSetByCallerMagnitude(
+			BlackoutGameplayTags::Data_Stun,
+			SpawnParams.StunMagnitude);
         
 		Damageable->ReceiveDamageFromHitbox(SpecHandle, HitBoneName);
 	}

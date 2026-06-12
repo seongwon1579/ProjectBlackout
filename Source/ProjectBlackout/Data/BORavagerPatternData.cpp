@@ -9,7 +9,7 @@ bool FBossProjectileSettings::IsValid() const
 {
 	return ProjectileClass 
 	  && ProjectileSpawnData.Effect 
-	  && ProjectileSpawnData.DamageMagnitude > 0.f;
+	  && (ProjectileSpawnData.DamageMagnitude > 0.f || ProjectileSpawnData.StunMagnitude > 0.f);
 }
 
 bool FBossMinionSpawnSettings::IsValid() const

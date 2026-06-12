@@ -30,6 +30,7 @@ protected:
 
 	virtual TSubclassOf<UGameplayEffect> GetDamageEffect() const { return nullptr; }
 	virtual float GetDamageMagnitude() const { return 0.f; }
+	virtual float GetStunMagnitude() const { return 0.f; }
 	virtual const TArray<FName>& GetHitboxComponentNames() const;
 	virtual bool HasValidSettings() const override;
 	
