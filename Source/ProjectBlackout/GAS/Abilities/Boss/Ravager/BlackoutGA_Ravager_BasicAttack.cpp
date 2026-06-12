@@ -28,6 +28,11 @@ float UBlackoutGA_Ravager_BasicAttack::GetDamageMagnitude() const
 	return CachedPatternData ? CachedPatternData->BasicAttackSettings.DamageMagnitude : 0.f;
 }
 
+float UBlackoutGA_Ravager_BasicAttack::GetStunMagnitude() const
+{
+	return CachedPatternData ? CachedPatternData->BasicAttackSettings.StunMagnitude : 0.f;
+}
+
 const TArray<FName>& UBlackoutGA_Ravager_BasicAttack::GetHitboxComponentNames() const
 {
 	if (!CachedPatternData) return EmptyHitboxNames;

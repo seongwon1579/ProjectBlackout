@@ -21,6 +21,9 @@ protected:
 	
 	UPROPERTY(EditDefaultsOnly, Category = "Blackout|Data")
 	float Damage;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Blackout|Data", meta = (ClampMin = "0.0"))
+	float StunMagnitude = 0.0f;
 	
 	UPROPERTY(EditDefaultsOnly, Category = "Blackout|Data")
 	TSubclassOf<UGameplayEffect> Effect;
