@@ -157,7 +157,9 @@ void UGA_Wraith_BowShove::OnMeleeSweepHit(const FHitResult& HitResult)
 	FGameplayEffectSpecHandle SpecHandle= OwnerASC->MakeOutgoingSpec(DamageEffectClass, GetAbilityLevel(), EffectContext);
 	if (SpecHandle.IsValid())
 	{
+		// 데미지와 스턴 누적량을 같은 피격 스펙으로 함께 전달합니다.
 		SpecHandle.Data -> SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Damage , DamageMagnitude);
+		SpecHandle.Data -> SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Stun , StunMagnitude);
 		Damageable->ReceiveDamageFromHitbox(SpecHandle,HitResult.BoneName);
 	}
 }

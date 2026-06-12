@@ -75,6 +75,9 @@ protected:
 	/** 피격 시 실제 적용된 데미지와 공격자 위치를 기준으로 히트 리액션 몽타주 재생 등 공통 처리를 수행합니다. */
 	virtual void OnHitReact(float AppliedDamage, const FVector& DamageSourceLocation);
 
+	/** 데미지/스턴 적용이 끝난 뒤 캐릭터별 반응 분기를 수행합니다. */
+	virtual void HandlePostDamageReaction(float AppliedDamage, float StunBefore, float StunAfter, const FVector& DamageSourceLocation);
+
 	/** 기절(State.Stun) 태그 부여 시 이동/액션 봉쇄 처리. */
 	virtual void OnStun();
 

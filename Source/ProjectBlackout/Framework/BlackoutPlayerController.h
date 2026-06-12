@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Engine/TimerHandle.h"
 #include "GameFramework/PlayerController.h"
 #include "GameplayTagContainer.h"
 #include "Core/BlackoutTypes.h"
@@ -21,6 +22,8 @@ class PROJECTBLACKOUT_API ABlackoutPlayerController : public APlayerController
 	GENERATED_BODY()
 
 public:
+	ABlackoutPlayerController();
+
 	virtual void AcknowledgePossession(APawn* P) override;
 
 	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "Blackout|Controller")
@@ -111,30 +114,18 @@ private:
 	
 	/** 오너 클라이언트가 로그인 닉네임을 서버 PlayerState에 반영하도록 송신 */
 	void SendDisplayNameToServer();
-
-	/** 로컬 미리보기/서버 권위 공용 치트 플래그 적용 경로입니다. */
-	void ApplyDebugCheatFlags(bool bNewInfiniteHealth, bool bNewInfiniteStamina, bool bNewInfiniteAmmo);
 	
 
 public:
-	/** 디버그용 게임 진행 상태(MatchState) 강제 설정 콘솔 명령어 */
-	UFUNCTION(Exec, Category = "Blackout|Cheat")
-	void BO_SetMatchState(const FString& NewStateStr);
+	/** CheatManager가 서버에서 동일한 치트 명령 문자열을 실행하도록 전달하는 공용 RPC입니다. */
+	UFUNCTION(Server, Reliable, WithValidation, Category = "Blackout|Cheat")
+	void Server_RunCheatCommand(const FString& CheatCommand);
 
-	UFUNCTION(Exec, Category = "Blackout|Cheat")
-	void BO_InfiniteHealth(bool bEnabled = true);
+	/** CheatManager와 서버 RPC가 공유하는 로컬 치트 명령 실행 진입점입니다. */
+	bool ExecuteCheatCommandLocally(const FString& CheatCommand);
 
-	UFUNCTION(Exec, Category = "Blackout|Cheat")
-	void BO_InfiniteStamina(bool bEnabled = true);
-
-	UFUNCTION(Exec, Category = "Blackout|Cheat")
-	void BO_InfiniteAmmo(bool bEnabled = true);
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_SetMatchStateCheat(EBlackoutMatchState NewState);
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_SetDebugCheatFlags(bool bNewInfiniteHealth, bool bNewInfiniteStamina, bool bNewInfiniteAmmo);
+	/** 로컬 화면에 스턴 게이지 디버그 정보를 주기적으로 표시합니다. */
+	void SetStunGaugeDebugEnabled(bool bEnabled);
 
 #pragma region InputSetup
 protected:
@@ -287,6 +278,14 @@ protected:
 	void TryInitHUD() const;
 	UBlackoutAbilitySystemComponent* GetBlackoutAbilitySystemComponent() const;
 	UBlackoutCombatComponent* GetBlackoutCombatComponent() const;
+	void HandleStunGaugeDebugTick();
+	void ClearStunGaugeDebugMessage() const;
+
+	/** 로컬 화면에 띄우는 스턴 게이지 디버그 갱신 타이머입니다. */
+	FTimerHandle StunGaugeDebugTimerHandle;
+
+	/** 로컬 스턴 게이지 디버그 표시 활성 여부입니다. */
+	bool bStunGaugeDebugEnabled = false;
 
 #pragma endregion 
 	

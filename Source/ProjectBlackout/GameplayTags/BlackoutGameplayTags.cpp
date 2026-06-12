@@ -10,6 +10,8 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(State_Invulnerable,  "State.Invulnerable");
 	UE_DEFINE_GAMEPLAY_TAG(State_MovementLocked,"State.MovementLocked");
 	UE_DEFINE_GAMEPLAY_TAG(State_Locked,        "State.Locked");
+	UE_DEFINE_GAMEPLAY_TAG(State_Stunned,       "State.Stunned");
+	UE_DEFINE_GAMEPLAY_TAG(State_StunBroken,    "State.StunBroken");
 	UE_DEFINE_GAMEPLAY_TAG(State_Aiming,        "State.Aiming");
 	UE_DEFINE_GAMEPLAY_TAG(State_Sprinting,     "State.Sprinting");
 	UE_DEFINE_GAMEPLAY_TAG(State_Attacking,     "State.Attacking");
@@ -35,6 +37,7 @@ namespace BlackoutGameplayTags
 
 	// ─── GAS SetByCaller 데이터 키 ────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Data_Damage,        "Data.Damage");
+	UE_DEFINE_GAMEPLAY_TAG(Data_Stun,          "Data.Stun");
 	UE_DEFINE_GAMEPLAY_TAG(Data_MaxHealth,     "Data.Stat.MaxHealth");
 	UE_DEFINE_GAMEPLAY_TAG(Data_Health,        "Data.Stat.Health");
 	UE_DEFINE_GAMEPLAY_TAG(Data_MaxStamina,    "Data.Stat.MaxStamina");
