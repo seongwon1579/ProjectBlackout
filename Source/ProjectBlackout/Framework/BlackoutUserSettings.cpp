@@ -1,4 +1,4 @@
-#include "Framework/BlackoutGraphicsUserSettings.h"
+#include "Framework/BlackoutUserSettings.h"
 
 #include "Framework/BlackoutAudioSettings.h"
 #include "Core/BlackoutLog.h"
@@ -98,7 +98,7 @@ namespace
 #endif
 }
 
-void UBlackoutGraphicsUserSettings::SetToDefaults()
+void UBlackoutUserSettings::SetToDefaults()
 {
 	Super::SetToDefaults();
 
@@ -123,7 +123,7 @@ void UBlackoutGraphicsUserSettings::SetToDefaults()
 	AimMouseSensitivityMultiplier = 1.0f;
 }
 
-void UBlackoutGraphicsUserSettings::ValidateSettings()
+void UBlackoutUserSettings::ValidateSettings()
 {
 	Super::ValidateSettings();
 
@@ -142,7 +142,7 @@ void UBlackoutGraphicsUserSettings::ValidateSettings()
 	AimMouseSensitivityMultiplier = FMath::Clamp(AimMouseSensitivityMultiplier, 0.1f, 3.0f);
 }
 
-void UBlackoutGraphicsUserSettings::ApplyNonResolutionSettings()
+void UBlackoutUserSettings::ApplyNonResolutionSettings()
 {
 	Super::ApplyNonResolutionSettings();
 
@@ -153,7 +153,7 @@ void UBlackoutGraphicsUserSettings::ApplyNonResolutionSettings()
 	ApplyAudioSettings();
 }
 
-void UBlackoutGraphicsUserSettings::ApplyBlackoutGraphicsSettings(const bool bSaveSettings)
+void UBlackoutUserSettings::ApplyBlackoutUserSettings(const bool bSaveSettings)
 {
 	ApplyNonResolutionSettings();
 
@@ -163,52 +163,57 @@ void UBlackoutGraphicsUserSettings::ApplyBlackoutGraphicsSettings(const bool bSa
 	}
 }
 
-void UBlackoutGraphicsUserSettings::SetUpscalerMode(const EBlackoutUpscalerMode InUpscalerMode)
+void UBlackoutUserSettings::ApplyBlackoutGraphicsSettings(const bool bSaveSettings)
+{
+	ApplyBlackoutUserSettings(bSaveSettings);
+}
+
+void UBlackoutUserSettings::SetUpscalerMode(const EBlackoutUpscalerMode InUpscalerMode)
 {
 	UpscalerMode = InUpscalerMode;
 }
 
-void UBlackoutGraphicsUserSettings::SetDLSSQualityMode(const EBlackoutDLSSQualityMode InDLSSQualityMode)
+void UBlackoutUserSettings::SetDLSSQualityMode(const EBlackoutDLSSQualityMode InDLSSQualityMode)
 {
 	DLSSQualityMode = InDLSSQualityMode;
 }
 
-void UBlackoutGraphicsUserSettings::SetReflexModeOption(const EBlackoutReflexMode InReflexMode)
+void UBlackoutUserSettings::SetReflexModeOption(const EBlackoutReflexMode InReflexMode)
 {
 	ReflexMode = InReflexMode;
 }
 
-void UBlackoutGraphicsUserSettings::SetFrameGenerationMode(const EBlackoutFrameGenerationMode InFrameGenerationMode)
+void UBlackoutUserSettings::SetFrameGenerationMode(const EBlackoutFrameGenerationMode InFrameGenerationMode)
 {
 	FrameGenerationMode = InFrameGenerationMode;
 }
 
-void UBlackoutGraphicsUserSettings::SetMasterVolume(const float InMasterVolume)
+void UBlackoutUserSettings::SetMasterVolume(const float InMasterVolume)
 {
 	MasterVolume = InMasterVolume;
 }
 
-void UBlackoutGraphicsUserSettings::SetMusicVolume(const float InMusicVolume)
+void UBlackoutUserSettings::SetMusicVolume(const float InMusicVolume)
 {
 	MusicVolume = InMusicVolume;
 }
 
-void UBlackoutGraphicsUserSettings::SetSFXVolume(const float InSFXVolume)
+void UBlackoutUserSettings::SetSFXVolume(const float InSFXVolume)
 {
 	SFXVolume = InSFXVolume;
 }
 
-void UBlackoutGraphicsUserSettings::SetMouseSensitivity(const float InMouseSensitivity)
+void UBlackoutUserSettings::SetMouseSensitivity(const float InMouseSensitivity)
 {
 	MouseSensitivity = InMouseSensitivity;
 }
 
-void UBlackoutGraphicsUserSettings::SetAimMouseSensitivityMultiplier(const float InAimMouseSensitivityMultiplier)
+void UBlackoutUserSettings::SetAimMouseSensitivityMultiplier(const float InAimMouseSensitivityMultiplier)
 {
 	AimMouseSensitivityMultiplier = InAimMouseSensitivityMultiplier;
 }
 
-bool UBlackoutGraphicsUserSettings::IsDLSSRuntimeAvailable()
+bool UBlackoutUserSettings::IsDLSSRuntimeAvailable()
 {
 #if BLACKOUT_WITH_DLSS
 	return UDLSSLibrary::IsDLSSSupported();
@@ -217,7 +222,7 @@ bool UBlackoutGraphicsUserSettings::IsDLSSRuntimeAvailable()
 #endif
 }
 
-bool UBlackoutGraphicsUserSettings::IsReflexRuntimeAvailable()
+bool UBlackoutUserSettings::IsReflexRuntimeAvailable()
 {
 #if BLACKOUT_WITH_STREAMLINE_REFLEX
 	return UStreamlineLibraryReflex::IsReflexSupported();
@@ -226,7 +231,7 @@ bool UBlackoutGraphicsUserSettings::IsReflexRuntimeAvailable()
 #endif
 }
 
-bool UBlackoutGraphicsUserSettings::IsFrameGenerationRuntimeAvailable()
+bool UBlackoutUserSettings::IsFrameGenerationRuntimeAvailable()
 {
 #if BLACKOUT_WITH_STREAMLINE_DLSSG
 	return UStreamlineLibraryDLSSG::IsDLSSGSupported();
@@ -235,7 +240,7 @@ bool UBlackoutGraphicsUserSettings::IsFrameGenerationRuntimeAvailable()
 #endif
 }
 
-bool UBlackoutGraphicsUserSettings::IsFrameGenerationModeRuntimeAvailable(const EBlackoutFrameGenerationMode InFrameGenerationMode)
+bool UBlackoutUserSettings::IsFrameGenerationModeRuntimeAvailable(const EBlackoutFrameGenerationMode InFrameGenerationMode)
 {
 #if BLACKOUT_WITH_STREAMLINE_DLSSG
 	if (InFrameGenerationMode == EBlackoutFrameGenerationMode::Disabled)
@@ -254,7 +259,7 @@ bool UBlackoutGraphicsUserSettings::IsFrameGenerationModeRuntimeAvailable(const 
 #endif
 }
 
-void UBlackoutGraphicsUserSettings::ApplyUpscalerSettings()
+void UBlackoutUserSettings::ApplyUpscalerSettings()
 {
 	const bool bUseDLSS = UpscalerMode != EBlackoutUpscalerMode::TSR;
 
@@ -307,7 +312,7 @@ void UBlackoutGraphicsUserSettings::ApplyUpscalerSettings()
 #endif
 }
 
-void UBlackoutGraphicsUserSettings::ApplyFrameGenerationSettings()
+void UBlackoutUserSettings::ApplyFrameGenerationSettings()
 {
 #if BLACKOUT_WITH_STREAMLINE_DLSSG
 	if (FrameGenerationMode == EBlackoutFrameGenerationMode::Disabled)
@@ -346,7 +351,7 @@ void UBlackoutGraphicsUserSettings::ApplyFrameGenerationSettings()
 #endif
 }
 
-void UBlackoutGraphicsUserSettings::ApplyReflexSettings() const
+void UBlackoutUserSettings::ApplyReflexSettings() const
 {
 #if BLACKOUT_WITH_STREAMLINE_REFLEX
 	if (!UStreamlineLibraryReflex::IsReflexSupported())
@@ -370,7 +375,7 @@ void UBlackoutGraphicsUserSettings::ApplyReflexSettings() const
 #endif
 }
 
-void UBlackoutGraphicsUserSettings::ApplyAudioSettings() const
+void UBlackoutUserSettings::ApplyAudioSettings() const
 {
 	static bool bLoggedMissingAudioSetup = false;
 
@@ -428,7 +433,7 @@ void UBlackoutGraphicsUserSettings::ApplyAudioSettings() const
 	}
 }
 
-float UBlackoutGraphicsUserSettings::ResolveTargetScreenPercentage() const
+float UBlackoutUserSettings::ResolveTargetScreenPercentage() const
 {
 	if (UpscalerMode == EBlackoutUpscalerMode::DLAA)
 	{
@@ -452,7 +457,7 @@ float UBlackoutGraphicsUserSettings::ResolveTargetScreenPercentage() const
 	}
 }
 
-UWorld* UBlackoutGraphicsUserSettings::ResolveSettingsWorld()
+UWorld* UBlackoutUserSettings::ResolveSettingsWorld()
 {
 	if (!GEngine)
 	{
@@ -484,12 +489,12 @@ UWorld* UBlackoutGraphicsUserSettings::ResolveSettingsWorld()
 	return nullptr;
 }
 
-bool UBlackoutGraphicsUserSettings::HasConsoleVariable(const TCHAR* Name)
+bool UBlackoutUserSettings::HasConsoleVariable(const TCHAR* Name)
 {
 	return IConsoleManager::Get().FindConsoleVariable(Name) != nullptr;
 }
 
-bool UBlackoutGraphicsUserSettings::TrySetConsoleVariableInt(const TCHAR* Name, const int32 Value)
+bool UBlackoutUserSettings::TrySetConsoleVariableInt(const TCHAR* Name, const int32 Value)
 {
 	if (IConsoleVariable* ConsoleVariable = IConsoleManager::Get().FindConsoleVariable(Name))
 	{
@@ -500,7 +505,7 @@ bool UBlackoutGraphicsUserSettings::TrySetConsoleVariableInt(const TCHAR* Name, 
 	return false;
 }
 
-bool UBlackoutGraphicsUserSettings::TrySetConsoleVariableFloat(const TCHAR* Name, const float Value)
+bool UBlackoutUserSettings::TrySetConsoleVariableFloat(const TCHAR* Name, const float Value)
 {
 	if (IConsoleVariable* ConsoleVariable = IConsoleManager::Get().FindConsoleVariable(Name))
 	{

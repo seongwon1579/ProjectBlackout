@@ -129,8 +129,8 @@ FReply UBlackoutSettingsWidget::NativeOnKeyDown(const FGeometry& InGeometry, con
 
 void UBlackoutSettingsWidget::RefreshFromCurrentSettings()
 {
-	const UBlackoutGraphicsUserSettings* GraphicsSettings = UBlackoutGraphicsBlueprintLibrary::GetBlackoutGraphicsUserSettings();
-	if (!GraphicsSettings)
+	const UBlackoutUserSettings* UserSettings = UBlackoutGraphicsBlueprintLibrary::GetBlackoutUserSettings();
+	if (!UserSettings)
 	{
 		// 설정 객체를 찾지 못하더라도 UI가 기본 문구에 머무르지 않도록 기본값과 가용성 텍스트를 갱신합니다.
 		ResetPendingSettingsToDefaults();
@@ -140,15 +140,15 @@ void UBlackoutSettingsWidget::RefreshFromCurrentSettings()
 		return;
 	}
 
-	PendingUpscalerMode = GraphicsSettings->GetUpscalerMode();
-	PendingDLSSMode = GraphicsSettings->GetDLSSQualityMode();
-	PendingFrameGenerationMode = GraphicsSettings->GetFrameGenerationMode();
-	PendingReflexMode = GraphicsSettings->GetReflexModeOption();
-	PendingMasterVolume = GraphicsSettings->GetMasterVolume();
-	PendingMusicVolume = GraphicsSettings->GetMusicVolume();
-	PendingSFXVolume = GraphicsSettings->GetSFXVolume();
-	PendingMouseSensitivity = GraphicsSettings->GetMouseSensitivity();
-	PendingAimMouseSensitivityMultiplier = GraphicsSettings->GetAimMouseSensitivityMultiplier();
+	PendingUpscalerMode = UserSettings->GetUpscalerMode();
+	PendingDLSSMode = UserSettings->GetDLSSQualityMode();
+	PendingFrameGenerationMode = UserSettings->GetFrameGenerationMode();
+	PendingReflexMode = UserSettings->GetReflexModeOption();
+	PendingMasterVolume = UserSettings->GetMasterVolume();
+	PendingMusicVolume = UserSettings->GetMusicVolume();
+	PendingSFXVolume = UserSettings->GetSFXVolume();
+	PendingMouseSensitivity = UserSettings->GetMouseSensitivity();
+	PendingAimMouseSensitivityMultiplier = UserSettings->GetAimMouseSensitivityMultiplier();
 
 	if (!UBlackoutGraphicsBlueprintLibrary::IsFrameGenerationModeRuntimeAvailable(PendingFrameGenerationMode))
 	{
@@ -504,22 +504,22 @@ void UBlackoutSettingsWidget::UpdateTabButtonState()
 
 void UBlackoutSettingsWidget::ApplyPendingSettings()
 {
-	UBlackoutGraphicsUserSettings* GraphicsSettings = UBlackoutGraphicsBlueprintLibrary::GetBlackoutGraphicsUserSettings();
-	if (!GraphicsSettings)
+	UBlackoutUserSettings* UserSettings = UBlackoutGraphicsBlueprintLibrary::GetBlackoutUserSettings();
+	if (!UserSettings)
 	{
 		return;
 	}
 
-	GraphicsSettings->SetUpscalerMode(PendingUpscalerMode);
-	GraphicsSettings->SetDLSSQualityMode(PendingDLSSMode);
-	GraphicsSettings->SetFrameGenerationMode(PendingFrameGenerationMode);
-	GraphicsSettings->SetReflexModeOption(PendingReflexMode);
-	GraphicsSettings->SetMasterVolume(PendingMasterVolume);
-	GraphicsSettings->SetMusicVolume(PendingMusicVolume);
-	GraphicsSettings->SetSFXVolume(PendingSFXVolume);
-	GraphicsSettings->SetMouseSensitivity(PendingMouseSensitivity);
-	GraphicsSettings->SetAimMouseSensitivityMultiplier(PendingAimMouseSensitivityMultiplier);
-	GraphicsSettings->ApplyBlackoutGraphicsSettings(true);
+	UserSettings->SetUpscalerMode(PendingUpscalerMode);
+	UserSettings->SetDLSSQualityMode(PendingDLSSMode);
+	UserSettings->SetFrameGenerationMode(PendingFrameGenerationMode);
+	UserSettings->SetReflexModeOption(PendingReflexMode);
+	UserSettings->SetMasterVolume(PendingMasterVolume);
+	UserSettings->SetMusicVolume(PendingMusicVolume);
+	UserSettings->SetSFXVolume(PendingSFXVolume);
+	UserSettings->SetMouseSensitivity(PendingMouseSensitivity);
+	UserSettings->SetAimMouseSensitivityMultiplier(PendingAimMouseSensitivityMultiplier);
+	UserSettings->ApplyBlackoutUserSettings(true);
 }
 
 void UBlackoutSettingsWidget::ResetPendingSettingsToDefaults()

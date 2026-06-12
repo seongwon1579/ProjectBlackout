@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameUserSettings.h"
-#include "BlackoutGraphicsUserSettings.generated.h"
+#include "BlackoutUserSettings.generated.h"
 
 UENUM(BlueprintType)
 enum class EBlackoutUpscalerMode : uint8
@@ -42,7 +42,7 @@ enum class EBlackoutFrameGenerationMode : uint8
  * 그래픽/오디오/마우스 감도 사용자 설정을 저장하고 적용하는 클래스입니다.
  */
 UCLASS(Config = GameUserSettings, ConfigDoNotCheckDefaults)
-class PROJECTBLACKOUT_API UBlackoutGraphicsUserSettings : public UGameUserSettings
+class PROJECTBLACKOUT_API UBlackoutUserSettings : public UGameUserSettings
 {
 	GENERATED_BODY()
 
@@ -51,7 +51,10 @@ public:
 	virtual void ValidateSettings() override;
 	virtual void ApplyNonResolutionSettings() override;
 
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Graphics")
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Settings")
+	void ApplyBlackoutUserSettings(bool bSaveSettings = true);
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Settings", meta = (DeprecatedFunction, DeprecationMessage = "ApplyBlackoutUserSettings를 사용하세요."))
 	void ApplyBlackoutGraphicsSettings(bool bSaveSettings = true);
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Graphics")

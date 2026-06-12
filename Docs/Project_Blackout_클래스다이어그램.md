@@ -754,3 +754,58 @@ classDiagram
     SessionExpirationListener --> EventsGateway : emitToSession
     EventsGateway --> Redis : room management
 ```
+
+---
+
+## ⚙️ 사용자 설정 / 오디오
+
+### 13. SoundMix 기반 볼륨 설정
+
+> 상세 설계는 [Foundation/11_User_Audio_Settings.md](Foundation/11_User_Audio_Settings.md)를 기준으로 합니다. 루트 문서는 설정 저장 클래스와 SoundMix/SoundClass 적용 경계만 요약합니다.
+
+```mermaid
+classDiagram
+    direction LR
+
+    UGameUserSettings <|-- UBlackoutUserSettings
+    UDeveloperSettings <|-- UBlackoutAudioSettings
+    UUserWidget <|-- UBlackoutSettingsWidget
+    USoundBase <|-- USoundCue
+
+    class UBlackoutSettingsWidget {
+        <<UserWidget>>
+        -float PendingMasterVolume
+        -float PendingMusicVolume
+        -float PendingSFXVolume
+        -ApplyPendingSettings() void
+    }
+
+    class UBlackoutUserSettings {
+        <<GameUserSettings>>
+        -float MasterVolume
+        -float MusicVolume
+        -float SFXVolume
+        +ApplyBlackoutUserSettings(bool) void
+        -ApplyAudioSettings() void
+    }
+
+    class UBlackoutAudioSettings {
+        <<DeveloperSettings>>
+        +TSoftObjectPtr~USoundMix~ SettingsSoundMix
+        +TSoftObjectPtr~USoundClass~ MasterSoundClass
+        +TSoftObjectPtr~USoundClass~ MusicSoundClass
+        +TSoftObjectPtr~USoundClass~ SFXSoundClass
+    }
+
+    class UGameplayStatics {
+        <<Engine API>>
+        +SetSoundMixClassOverride(...) void
+    }
+
+    UBlackoutSettingsWidget --> UBlackoutUserSettings : 저장 / 적용
+    UBlackoutUserSettings --> UBlackoutAudioSettings : SoundMix / SoundClass 참조 조회
+    UBlackoutUserSettings --> UGameplayStatics : SoundMix override 적용
+    UBlackoutAudioSettings o-- USoundMix
+    UBlackoutAudioSettings o-- USoundClass
+    USoundCue --> USoundClass : 에셋 SoundClass 지정 필요
+```

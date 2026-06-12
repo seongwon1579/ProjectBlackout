@@ -1,37 +1,47 @@
 #include "Framework/BlackoutGraphicsBlueprintLibrary.h"
 
-UBlackoutGraphicsUserSettings* UBlackoutGraphicsBlueprintLibrary::GetBlackoutGraphicsUserSettings()
+UBlackoutUserSettings* UBlackoutGraphicsBlueprintLibrary::GetBlackoutUserSettings()
 {
-	return Cast<UBlackoutGraphicsUserSettings>(UGameUserSettings::GetGameUserSettings());
+	return Cast<UBlackoutUserSettings>(UGameUserSettings::GetGameUserSettings());
 }
 
-bool UBlackoutGraphicsBlueprintLibrary::ApplyBlackoutGraphicsUserSettings(const bool bSaveSettings)
+bool UBlackoutGraphicsBlueprintLibrary::ApplyBlackoutUserSettings(const bool bSaveSettings)
 {
-	if (UBlackoutGraphicsUserSettings* GraphicsSettings = GetBlackoutGraphicsUserSettings())
+	if (UBlackoutUserSettings* UserSettings = GetBlackoutUserSettings())
 	{
-		GraphicsSettings->ApplyBlackoutGraphicsSettings(bSaveSettings);
+		UserSettings->ApplyBlackoutUserSettings(bSaveSettings);
 		return true;
 	}
 
 	return false;
 }
 
+UBlackoutUserSettings* UBlackoutGraphicsBlueprintLibrary::GetBlackoutGraphicsUserSettings()
+{
+	return GetBlackoutUserSettings();
+}
+
+bool UBlackoutGraphicsBlueprintLibrary::ApplyBlackoutGraphicsUserSettings(const bool bSaveSettings)
+{
+	return ApplyBlackoutUserSettings(bSaveSettings);
+}
+
 bool UBlackoutGraphicsBlueprintLibrary::IsDLSSRuntimeAvailable()
 {
-	return UBlackoutGraphicsUserSettings::IsDLSSRuntimeAvailable();
+	return UBlackoutUserSettings::IsDLSSRuntimeAvailable();
 }
 
 bool UBlackoutGraphicsBlueprintLibrary::IsReflexRuntimeAvailable()
 {
-	return UBlackoutGraphicsUserSettings::IsReflexRuntimeAvailable();
+	return UBlackoutUserSettings::IsReflexRuntimeAvailable();
 }
 
 bool UBlackoutGraphicsBlueprintLibrary::IsFrameGenerationRuntimeAvailable()
 {
-	return UBlackoutGraphicsUserSettings::IsFrameGenerationRuntimeAvailable();
+	return UBlackoutUserSettings::IsFrameGenerationRuntimeAvailable();
 }
 
 bool UBlackoutGraphicsBlueprintLibrary::IsFrameGenerationModeRuntimeAvailable(const EBlackoutFrameGenerationMode InFrameGenerationMode)
 {
-	return UBlackoutGraphicsUserSettings::IsFrameGenerationModeRuntimeAvailable(InFrameGenerationMode);
+	return UBlackoutUserSettings::IsFrameGenerationModeRuntimeAvailable(InFrameGenerationMode);
 }
