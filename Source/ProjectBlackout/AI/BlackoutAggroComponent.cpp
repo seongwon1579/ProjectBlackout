@@ -83,6 +83,7 @@ void UBlackoutAggroComponent::BeginPlay()
 			this, &UBlackoutAggroComponent::OnTargetChangeTagChanged);
 	}
 
+	ReEvaluate();
 	// 주기 평가 타이머 시작
 	GetWorld()->GetTimerManager().SetTimer(ReEvalTimerHandle, this,
 	                                       &UBlackoutAggroComponent::ReEvaluate,
