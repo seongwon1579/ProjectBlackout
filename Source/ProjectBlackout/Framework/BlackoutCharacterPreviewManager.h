@@ -4,10 +4,10 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "Engine/TimerHandle.h"
 #include "BlackoutCharacterPreviewManager.generated.h"
 
 class USceneCaptureComponent2D;
+class UCameraComponent;
 /**
  * 캐릭터 선택 UI 의 3D Preview Pawn 라이프사이클 관리.
  * L_CharacterPreview Sublevel 안 한 개 배치. 위치 = Pawn spawn 위치.
@@ -36,9 +36,17 @@ public:
 	UFUNCTION(BlueprintCallable , Category="Blackout|Preview")
 	void ClearPreview();
 
+	/** 클래스 선택 UI 표시 여부에 맞춰 프리뷰 SceneCapture 를 켜고 끈다. */
+	UFUNCTION(BlueprintCallable, Category="Blackout|Preview")
+	void SetPreviewCaptureActive(bool bActive);
+
 protected:
 	UPROPERTY(VisibleAnywhere, Category="Blackout|Preview")
 	TObjectPtr<USceneComponent> SpawnRoot;
+
+	/** 클래스 선택 UI 활성 중 플레이어 ViewTarget 으로 사용할 경량 카메라. */
+	UPROPERTY(VisibleAnywhere, Category="Blackout|Preview")
+	TObjectPtr<UCameraComponent> ViewCamera;
 	
 	/** spawn 시 Pawn의 Yaw 회전 */
 	UPROPERTY(EditAnywhere , BlueprintReadWrite , Category="Blackout|Preview")
@@ -63,7 +71,4 @@ protected:
 	TObjectPtr<class UTextureRenderTarget2D> DynamicRT;
 
 private:
-	// 스폰 직후 1프레임 뒤 명시적 캡처(client 캡처 실행 강제).
-	void CaptureCurrentPreview();
-	FTimerHandle PreviewCaptureTimerHandle;
 };

@@ -6,8 +6,8 @@
 #include "Kismet/GameplayStatics.h"
 #include "Engine/TextureRenderTarget2D.h"
 #include "Engine/SceneCapture2D.h"
+#include "Camera/CameraComponent.h"
 #include "Components/SceneCaptureComponent2D.h"
-#include "TimerManager.h"
 
 
 void ABlackoutCharacterPreviewManager::BeginPlay()
@@ -27,6 +27,8 @@ void ABlackoutCharacterPreviewManager::BeginPlay()
 	{
 		CaptureComp->TextureTarget = DynamicRT;
 		CaptureComp->PrimitiveRenderMode = ESceneCapturePrimitiveRenderMode::PRM_UseShowOnlyList;
+
+		SetPreviewCaptureActive(false);
 	}
 	BO_LOG_CORE(Log, "Manager BeginPlay: DynamicRT created (%dx%d), CaptureComp=%s",
 		RTSizeX, RTSizeY, CaptureComp ? TEXT("OK") : TEXT("NULL"));
@@ -41,6 +43,11 @@ ABlackoutCharacterPreviewManager::ABlackoutCharacterPreviewManager()
 	
 	SpawnRoot = CreateDefaultSubobject<USceneComponent>(TEXT("SpawnRoot"));
 	RootComponent = SpawnRoot;
+
+	ViewCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("ViewCamera"));
+	ViewCamera->SetupAttachment(SpawnRoot);
+	ViewCamera->SetRelativeLocation(FVector(-300.f, 0.f, 120.f));
+	ViewCamera->SetRelativeRotation(FRotator(-10.f, 0.f, 0.f));
 }
 
 void ABlackoutCharacterPreviewManager::SetPreviewCharacter(TSubclassOf<APawn> PawnClass)
@@ -81,10 +88,6 @@ void ABlackoutCharacterPreviewManager::SetPreviewCharacter(TSubclassOf<APawn> Pa
 			{
 				CaptureComp->ShowOnlyActors.Add(Attached);
 			}
-
-			// client 에서 every-frame 캡처가 안 도는 정황 → 스폰 직후 명시적 1회 캡처(포즈 잡힌 뒤).
-			GetWorldTimerManager().SetTimer(PreviewCaptureTimerHandle, this,
-				&ABlackoutCharacterPreviewManager::CaptureCurrentPreview, 0.05f, false);
 		}
 	}
 	CurrentPawnClass = PawnClass;
@@ -108,14 +111,25 @@ void ABlackoutCharacterPreviewManager::ClearPreview()
 	}
 }
 
-void ABlackoutCharacterPreviewManager::CaptureCurrentPreview()
+void ABlackoutCharacterPreviewManager::SetPreviewCaptureActive(bool bActive)
 {
-	if (CaptureComp)
+	if (!CaptureComp)
 	{
-		CaptureComp->CaptureScene();
+		return;
+	}
+
+	// UI 가 닫힌 동안에는 렌더타깃 갱신 자체를 멈추고, 열렸을 때만 애니메이션을 매 프레임 캡처한다.
+	CaptureComp->bCaptureEveryFrame = bActive;
+	CaptureComp->bCaptureOnMovement = false;
+	CaptureComp->SetVisibility(bActive);
+	CaptureComp->SetComponentTickEnabled(bActive);
+
+	if (bActive)
+	{
+		CaptureComp->Activate(true);
+	}
+	else
+	{
+		CaptureComp->Deactivate();
 	}
 }
-
-
-
-

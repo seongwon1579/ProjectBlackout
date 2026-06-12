@@ -68,6 +68,7 @@ public:
 private:
 	FBlackoutClassSelectDisplayData BuildDisplayData(int32 Index) const;
 	FBlackoutFirearmStat LookupFirearmStat(TSubclassOf<ABOFirearm> WeaponClass) const;
+	bool LookupShotgunPelletCount(TSubclassOf<ABOFirearm> WeaponClass, int32& OutPelletCount) const;
 	
 	/** SubLevel 안 Manager 찾기 , 현재 인덱스 캐릭터 Pawn 갱신 첫 호출 시 GetAllActorsOfClass 로 lookup, 이후 캐싱 활용 */
 	void UpdatePreviewPawn();

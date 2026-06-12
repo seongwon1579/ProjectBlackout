@@ -3,7 +3,6 @@
 #include "BlackoutBattleGameMode.h"
 #include "BlackoutGameMode.h"
 #include "BlackoutAbilitySystemComponent.h"
-#include "BlackoutCheatManager.h"
 #include "BlackoutPlayerState.h"
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
@@ -18,89 +17,12 @@
 #include "UI/BlackoutClassSelectWidgetController.h"
 #include "UI/BlackoutMainMenuWidget.h"
 #include "Camera/PlayerCameraManager.h"
-#include "Engine/Engine.h"
 #include "InputCoreTypes.h"
 #include "Framework/BlackoutMatchmakingSubsystem.h"
+#include "Framework/BlackoutCharacterPreviewManager.h"
 #include "GameFramework/PlayerState.h"
+#include "Kismet/GameplayStatics.h"
 #include "TimerManager.h"
-
-namespace
-{
-	constexpr int32 StunGaugeDebugScreenMessageKey = 42021;
-	constexpr float StunGaugeDebugRefreshInterval = 0.1f;
-	constexpr float StunGaugeDebugMessageLifetime = 0.15f;
-
-	bool ParseCheatBoolArgument(const TArray<FString>& Tokens, bool bDefaultValue = true)
-	{
-		if (Tokens.Num() < 2)
-		{
-			return bDefaultValue;
-		}
-
-		const FString NormalizedValue = Tokens[1].ToLower();
-		return !(NormalizedValue == TEXT("0")
-			|| NormalizedValue == TEXT("false")
-			|| NormalizedValue == TEXT("off"));
-	}
-
-	bool TryResolveMatchStateCheatString(const FString& NewStateStr, EBlackoutMatchState& OutMatchState)
-	{
-		const FString TargetState = NewStateStr.ToLower().TrimStartAndEnd();
-
-		if (TargetState.Equals(TEXT("inlobby")) || TargetState.Equals(TEXT("lobby")))
-		{
-			OutMatchState = EBlackoutMatchState::InLobby;
-			return true;
-		}
-		if (TargetState.Equals(TEXT("starting")) || TargetState.Equals(TEXT("start")))
-		{
-			OutMatchState = EBlackoutMatchState::Starting;
-			return true;
-		}
-		if (TargetState.Equals(TEXT("incombatready")) || TargetState.Equals(TEXT("ready")))
-		{
-			OutMatchState = EBlackoutMatchState::InCombatReady;
-			return true;
-		}
-		if (TargetState.Equals(TEXT("incombat")) || TargetState.Equals(TEXT("combat")) || TargetState.Equals(TEXT("c")))
-		{
-			OutMatchState = EBlackoutMatchState::InCombat;
-			return true;
-		}
-		if (TargetState.Equals(TEXT("ended")) || TargetState.Equals(TEXT("end")) || TargetState.Equals(TEXT("e")))
-		{
-			OutMatchState = EBlackoutMatchState::Ended;
-			return true;
-		}
-		if (TargetState.Equals(TEXT("waitingforplayers")) || TargetState.Equals(TEXT("waiting")) || TargetState.Equals(TEXT("wait")) || TargetState.Equals(TEXT("w")))
-		{
-			OutMatchState = EBlackoutMatchState::WaitingForPlayers;
-			return true;
-		}
-		if (TargetState.Equals(TEXT("shelterprep")) || TargetState.Equals(TEXT("prep")) || TargetState.Equals(TEXT("s1")))
-		{
-			OutMatchState = EBlackoutMatchState::ShelterPrep;
-			return true;
-		}
-		if (TargetState.Equals(TEXT("midbosscombat")) || TargetState.Equals(TEXT("midboss")) || TargetState.Equals(TEXT("mid")) || TargetState.Equals(TEXT("m")))
-		{
-			OutMatchState = EBlackoutMatchState::MidBossCombat;
-			return true;
-		}
-		if (TargetState.Equals(TEXT("mainbosscombat")) || TargetState.Equals(TEXT("mainboss")) || TargetState.Equals(TEXT("main")) || TargetState.Equals(TEXT("b")))
-		{
-			OutMatchState = EBlackoutMatchState::MainBossCombat;
-			return true;
-		}
-
-		return false;
-	}
-}
-
-ABlackoutPlayerController::ABlackoutPlayerController()
-{
-	CheatClass = UBlackoutCheatManager::StaticClass();
-}
 
 void ABlackoutPlayerController::AcknowledgePossession(APawn* P)
 {
@@ -159,8 +81,11 @@ void ABlackoutPlayerController::CloseClassSelectUI()
 {
 	if (!ClassSelectWidget && !ClassSelectController)
 	{
+		SetClassSelectRenderingState(false);
 		return;
 	}
+
+	SetClassSelectRenderingState(false);
 	
 	if (ClassSelectWidget)
 	{
@@ -259,7 +184,7 @@ void ABlackoutPlayerController::OnPossess(APawn* InPawn)
 
 	if (ABlackoutPlayerState* BlackoutPlayerState = GetPlayerState<ABlackoutPlayerState>())
 	{
-		BlackoutPlayerState->SetDebugCheatFlags(
+		ApplyDebugCheatFlags(
 			BlackoutPlayerState->HasInfiniteHealthCheat(),
 			BlackoutPlayerState->HasInfiniteStaminaCheat(),
 			BlackoutPlayerState->HasInfiniteAmmoCheat());
@@ -275,7 +200,7 @@ void ABlackoutPlayerController::OnRep_PlayerState()
 
 	if (ABlackoutPlayerState* BlackoutPlayerState = GetPlayerState<ABlackoutPlayerState>())
 	{
-		BlackoutPlayerState->SetDebugCheatFlags(
+		ApplyDebugCheatFlags(
 			BlackoutPlayerState->HasInfiniteHealthCheat(),
 			BlackoutPlayerState->HasInfiniteStaminaCheat(),
 			BlackoutPlayerState->HasInfiniteAmmoCheat());
@@ -481,6 +406,9 @@ void ABlackoutPlayerController::Client_OpenClassSelectUI_Implementation()
 		ClassSelectController = nullptr;
 		return;
 	}
+
+	SetClassSelectRenderingState(true);
+
 	ClassSelectWidget->SetWidgetController(ClassSelectController);
 	ClassSelectWidget->AddToViewport();
 	
@@ -500,6 +428,103 @@ void ABlackoutPlayerController::Client_OpenClassSelectUI_Implementation()
 	}
 	
 	ReceiveOpenClassSelectUI();
+}
+
+void ABlackoutPlayerController::SetClassSelectRenderingState(bool bActive)
+{
+	if (!IsLocalPlayerController())
+	{
+		return;
+	}
+
+	if (!bActive)
+	{
+		if (UWorld* World = GetWorld())
+		{
+			World->GetTimerManager().ClearTimer(ClassSelectRenderingRetryHandle);
+		}
+		ClassSelectRenderingRetryCount = 0;
+
+		if (ABlackoutCharacterPreviewManager* PreviewManager = FindCharacterPreviewManager())
+		{
+			PreviewManager->SetPreviewCaptureActive(false);
+			PreviewManager->ClearPreview();
+		}
+
+		if (bClassSelectRenderingStateActive)
+		{
+			AActor* RestoreTarget = ClassSelectPreviousViewTarget.Get();
+			if (!RestoreTarget)
+			{
+				RestoreTarget = GetPawn();
+			}
+			if (RestoreTarget)
+			{
+				SetViewTargetWithBlend(RestoreTarget, 0.0f);
+			}
+		}
+
+		ClassSelectPreviousViewTarget = nullptr;
+		bClassSelectRenderingStateActive = false;
+		return;
+	}
+
+	ABlackoutCharacterPreviewManager* PreviewManager = FindCharacterPreviewManager();
+	if (!PreviewManager || !PreviewManager->GetRenderTarget())
+	{
+		if (UWorld* World = GetWorld())
+		{
+			if (ClassSelectRenderingRetryCount < ClassSelectRenderingMaxRetries)
+			{
+				++ClassSelectRenderingRetryCount;
+				World->GetTimerManager().SetTimer(
+					ClassSelectRenderingRetryHandle,
+					this,
+					&ABlackoutPlayerController::RetryApplyClassSelectRenderingState,
+					0.1f,
+					false);
+			}
+			else
+			{
+				BO_LOG_CORE(Warning, "ClassSelect: PreviewManager RT 미준비 — 메인 카메라 전환 생략 (재시도 %d회 초과)", ClassSelectRenderingRetryCount);
+			}
+		}
+		return;
+	}
+
+	ClassSelectRenderingRetryCount = 0;
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(ClassSelectRenderingRetryHandle);
+	}
+
+	if (!bClassSelectRenderingStateActive)
+	{
+		ClassSelectPreviousViewTarget = GetViewTarget();
+		bClassSelectRenderingStateActive = true;
+	}
+
+	PreviewManager->SetPreviewCaptureActive(true);
+	SetViewTargetWithBlend(PreviewManager, 0.0f);
+}
+
+void ABlackoutPlayerController::RetryApplyClassSelectRenderingState()
+{
+	if (ClassSelectWidget || ClassSelectController)
+	{
+		SetClassSelectRenderingState(true);
+	}
+}
+
+ABlackoutCharacterPreviewManager* ABlackoutPlayerController::FindCharacterPreviewManager() const
+{
+	TArray<AActor*> FoundActors;
+	UGameplayStatics::GetAllActorsOfClass(
+		this,
+		ABlackoutCharacterPreviewManager::StaticClass(),
+		FoundActors);
+
+	return FoundActors.Num() > 0 ? Cast<ABlackoutCharacterPreviewManager>(FoundActors[0]) : nullptr;
 }
 
 void ABlackoutPlayerController::Client_ShowDamageNumber_Implementation(float DamageAmount, bool bIsCritical)
@@ -1083,170 +1108,161 @@ void ABlackoutPlayerController::SendDisplayNameToServer()
 	}
 }
 
-bool ABlackoutPlayerController::ExecuteCheatCommandLocally(const FString& CheatCommand)
+void ABlackoutPlayerController::BO_SetMatchState(const FString& NewStateStr)
 {
 #if WITH_EDITOR || UE_BUILD_DEVELOPMENT
-	const FString TrimmedCheatCommand = CheatCommand.TrimStartAndEnd();
-	if (TrimmedCheatCommand.IsEmpty())
+	FString TargetState = NewStateStr.ToLower().TrimStartAndEnd();
+	EBlackoutMatchState SelectedState = EBlackoutMatchState::WaitingForPlayers;
+	bool bIsValid = false;
+
+	if (TargetState.Equals(TEXT("inlobby")) || TargetState.Equals(TEXT("lobby")))
 	{
-		BO_LOG_CORE(Warning, TEXT("치트 명령 실행 실패: 빈 명령 문자열입니다."));
-		return false;
+		SelectedState = EBlackoutMatchState::InLobby;
+		bIsValid = true;
+	}
+	else if (TargetState.Equals(TEXT("starting")) || TargetState.Equals(TEXT("start")))
+	{
+		SelectedState = EBlackoutMatchState::Starting;
+		bIsValid = true;
+	}
+	else if (TargetState.Equals(TEXT("incombatready")) || TargetState.Equals(TEXT("ready")))
+	{
+		SelectedState = EBlackoutMatchState::InCombatReady;
+		bIsValid = true;
+	}
+	else if (TargetState.Equals(TEXT("incombat")) || TargetState.Equals(TEXT("combat")) || TargetState.Equals(TEXT("c")))
+	{
+		SelectedState = EBlackoutMatchState::InCombat;
+		bIsValid = true;
+	}
+	else if (TargetState.Equals(TEXT("ended")) || TargetState.Equals(TEXT("end")) || TargetState.Equals(TEXT("e")))
+	{
+		SelectedState = EBlackoutMatchState::Ended;
+		bIsValid = true;
+	}
+	else if (TargetState.Equals(TEXT("waitingforplayers")) || TargetState.Equals(TEXT("waiting")) || TargetState.Equals(TEXT("wait")) || TargetState.Equals(TEXT("w")))
+	{
+		SelectedState = EBlackoutMatchState::WaitingForPlayers;
+		bIsValid = true;
+	}
+	else if (TargetState.Equals(TEXT("shelterprep")) || TargetState.Equals(TEXT("prep")) || TargetState.Equals(TEXT("s1")))
+	{
+		SelectedState = EBlackoutMatchState::ShelterPrep;
+		bIsValid = true;
+	}
+	else if (TargetState.Equals(TEXT("midbosscombat")) || TargetState.Equals(TEXT("midboss")) || TargetState.Equals(TEXT("mid")) || TargetState.Equals(TEXT("m")))
+	{
+		SelectedState = EBlackoutMatchState::MidBossCombat;
+		bIsValid = true;
+	}
+	else if (TargetState.Equals(TEXT("mainbosscombat")) || TargetState.Equals(TEXT("mainboss")) || TargetState.Equals(TEXT("main")) || TargetState.Equals(TEXT("b")))
+	{
+		SelectedState = EBlackoutMatchState::MainBossCombat;
+		bIsValid = true;
 	}
 
-	TArray<FString> Tokens;
-	TrimmedCheatCommand.ParseIntoArrayWS(Tokens);
-	if (Tokens.Num() == 0)
+	if (bIsValid)
 	{
-		BO_LOG_CORE(Warning, TEXT("치트 명령 실행 실패: 토큰 파싱 결과가 비어 있습니다. Command=%s"), *TrimmedCheatCommand);
-		return false;
+		Server_SetMatchStateCheat(SelectedState);
 	}
-
-	const FString CommandName = Tokens[0].ToLower();
-	if (CommandName == TEXT("bo_setmatchstate"))
+	else
 	{
-		const FString RequestedState = Tokens.Num() > 1 ? Tokens[1] : FString();
-		EBlackoutMatchState SelectedState = EBlackoutMatchState::WaitingForPlayers;
-		if (!TryResolveMatchStateCheatString(RequestedState, SelectedState))
-		{
-			BO_LOG_CORE(Warning, TEXT("알 수 없는 매치 상태 치트 문자열입니다: %s"), *RequestedState);
-			return false;
-		}
-
-		if (ABlackoutGameState* BlackoutGameState = GetWorld() ? GetWorld()->GetGameState<ABlackoutGameState>() : nullptr)
-		{
-			BlackoutGameState->SetMatchState(SelectedState);
-			BO_LOG_NET(Log, TEXT("치트 명령어로 매치 상태를 강제 전환했습니다: %s"), *UEnum::GetValueAsString(SelectedState));
-			return true;
-		}
-
-		BO_LOG_CORE(Warning, TEXT("매치 상태 치트 적용 실패: BlackoutGameState가 유효하지 않습니다."));
-		return false;
+		BO_LOG_CORE(Warning, TEXT("알 수 없는 매치 상태 치트 문자열입니다: %s"), *NewStateStr);
 	}
+#else
+	BO_LOG_CORE(Warning, TEXT("개발 빌드가 아닌 환경에서는 매치 상태 치트 명령을 사용할 수 없습니다: %s"), *NewStateStr);
+#endif
+}
 
-	ABlackoutPlayerState* BlackoutPlayerState = GetPlayerState<ABlackoutPlayerState>();
-	if (!BlackoutPlayerState)
+void ABlackoutPlayerController::Server_SetMatchStateCheat_Implementation(EBlackoutMatchState NewState)
+{
+#if WITH_EDITOR || UE_BUILD_DEVELOPMENT
+	if (ABlackoutGameState* GS = GetWorld() ? GetWorld()->GetGameState<ABlackoutGameState>() : nullptr)
+	{
+		GS->SetMatchState(NewState);
+		BO_LOG_NET(Log, TEXT("치트 명령어로 매치 상태를 강제 전환했습니다: %s"), *UEnum::GetValueAsString(NewState));
+	}
+#else
+	BO_LOG_NET(Warning, TEXT("개발 빌드가 아닌 환경에서 매치 상태 치트 RPC가 차단되었습니다: %s"), *UEnum::GetValueAsString(NewState));
+#endif
+}
+
+bool ABlackoutPlayerController::Server_SetMatchStateCheat_Validate(EBlackoutMatchState NewState)
+{
+#if WITH_EDITOR || UE_BUILD_DEVELOPMENT
+	return true;
+#else
+	return false;
+#endif
+}
+
+void ABlackoutPlayerController::ApplyDebugCheatFlags(bool bNewInfiniteHealth, bool bNewInfiniteStamina, bool bNewInfiniteAmmo)
+{
+	if (ABlackoutPlayerState* BlackoutPlayerState = GetPlayerState<ABlackoutPlayerState>())
+	{
+		BlackoutPlayerState->SetDebugCheatFlags(bNewInfiniteHealth, bNewInfiniteStamina, bNewInfiniteAmmo);
+	}
+	else
 	{
 		BO_LOG_CORE(Warning, TEXT("플레이어 치트 적용 실패: BlackoutPlayerState가 유효하지 않습니다."));
-		return false;
 	}
+}
 
-	if (CommandName == TEXT("bo_infinitehealth"))
-	{
-		BlackoutPlayerState->SetDebugCheatFlags(
-			ParseCheatBoolArgument(Tokens),
-			BlackoutPlayerState->HasInfiniteStaminaCheat(),
-			BlackoutPlayerState->HasInfiniteAmmoCheat());
-		return true;
-	}
+void ABlackoutPlayerController::BO_InfiniteHealth(bool bEnabled)
+{
+#if WITH_EDITOR || UE_BUILD_DEVELOPMENT
+	const ABlackoutPlayerState* BlackoutPlayerState = GetPlayerState<ABlackoutPlayerState>();
+	const bool bCurrentInfiniteStamina = BlackoutPlayerState && BlackoutPlayerState->HasInfiniteStaminaCheat();
+	const bool bCurrentInfiniteAmmo = BlackoutPlayerState && BlackoutPlayerState->HasInfiniteAmmoCheat();
 
-	if (CommandName == TEXT("bo_infinitestamina"))
-	{
-		BlackoutPlayerState->SetDebugCheatFlags(
-			BlackoutPlayerState->HasInfiniteHealthCheat(),
-			ParseCheatBoolArgument(Tokens),
-			BlackoutPlayerState->HasInfiniteAmmoCheat());
-		return true;
-	}
-
-	if (CommandName == TEXT("bo_infiniteammo"))
-	{
-		BlackoutPlayerState->SetDebugCheatFlags(
-			BlackoutPlayerState->HasInfiniteHealthCheat(),
-			BlackoutPlayerState->HasInfiniteStaminaCheat(),
-			ParseCheatBoolArgument(Tokens));
-		return true;
-	}
-
-	BO_LOG_CORE(Warning, TEXT("알 수 없는 치트 명령입니다: %s"), *TrimmedCheatCommand);
-	return false;
+	ApplyDebugCheatFlags(bEnabled, bCurrentInfiniteStamina, bCurrentInfiniteAmmo);
+	Server_SetDebugCheatFlags(bEnabled, bCurrentInfiniteStamina, bCurrentInfiniteAmmo);
 #else
-	BO_LOG_CORE(Warning, TEXT("개발 빌드가 아닌 환경에서는 치트 명령을 사용할 수 없습니다: %s"), *CheatCommand);
-	return false;
+	BO_LOG_CORE(Warning, TEXT("개발 빌드가 아닌 환경에서는 체력 무한 치트를 사용할 수 없습니다."));
 #endif
 }
 
-void ABlackoutPlayerController::SetStunGaugeDebugEnabled(bool bEnabled)
+void ABlackoutPlayerController::BO_InfiniteStamina(bool bEnabled)
 {
 #if WITH_EDITOR || UE_BUILD_DEVELOPMENT
-	bStunGaugeDebugEnabled = bEnabled;
+	const ABlackoutPlayerState* BlackoutPlayerState = GetPlayerState<ABlackoutPlayerState>();
+	const bool bCurrentInfiniteHealth = BlackoutPlayerState && BlackoutPlayerState->HasInfiniteHealthCheat();
+	const bool bCurrentInfiniteAmmo = BlackoutPlayerState && BlackoutPlayerState->HasInfiniteAmmoCheat();
 
-	if (!IsLocalController())
-	{
-		return;
-	}
-
-	if (bStunGaugeDebugEnabled)
-	{
-		GetWorldTimerManager().SetTimer(
-			StunGaugeDebugTimerHandle,
-			this,
-			&ABlackoutPlayerController::HandleStunGaugeDebugTick,
-			StunGaugeDebugRefreshInterval,
-			true);
-		HandleStunGaugeDebugTick();
-		ClientMessage(TEXT("스턴 게이지 디버그 표시를 활성화했습니다. BO_DebugStunGauge 0 으로 끌 수 있습니다."));
-		return;
-	}
-
-	GetWorldTimerManager().ClearTimer(StunGaugeDebugTimerHandle);
-	ClearStunGaugeDebugMessage();
-	ClientMessage(TEXT("스턴 게이지 디버그 표시를 비활성화했습니다."));
+	ApplyDebugCheatFlags(bCurrentInfiniteHealth, bEnabled, bCurrentInfiniteAmmo);
+	Server_SetDebugCheatFlags(bCurrentInfiniteHealth, bEnabled, bCurrentInfiniteAmmo);
 #else
-	BO_LOG_CORE(Warning, TEXT("개발 빌드가 아닌 환경에서는 스턴 게이지 디버그 표시를 사용할 수 없습니다."));
+	BO_LOG_CORE(Warning, TEXT("개발 빌드가 아닌 환경에서는 스태미나 무한 치트를 사용할 수 없습니다."));
 #endif
 }
 
-void ABlackoutPlayerController::HandleStunGaugeDebugTick()
+void ABlackoutPlayerController::BO_InfiniteAmmo(bool bEnabled)
 {
 #if WITH_EDITOR || UE_BUILD_DEVELOPMENT
-	if (!bStunGaugeDebugEnabled || !IsLocalController() || !GEngine)
-	{
-		return;
-	}
+	const ABlackoutPlayerState* BlackoutPlayerState = GetPlayerState<ABlackoutPlayerState>();
+	const bool bCurrentInfiniteHealth = BlackoutPlayerState && BlackoutPlayerState->HasInfiniteHealthCheat();
+	const bool bCurrentInfiniteStamina = BlackoutPlayerState && BlackoutPlayerState->HasInfiniteStaminaCheat();
 
-	FString DebugMessage = TEXT("StunGauge Debug | Pawn=Invalid");
-	if (const ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(GetPawn()))
-	{
-		DebugMessage = PlayerCharacter->BuildStunDebugString();
-	}
-
-	GEngine->AddOnScreenDebugMessage(
-		StunGaugeDebugScreenMessageKey,
-		StunGaugeDebugMessageLifetime,
-		FColor::Cyan,
-		DebugMessage);
-#endif
-}
-
-void ABlackoutPlayerController::ClearStunGaugeDebugMessage() const
-{
-#if WITH_EDITOR || UE_BUILD_DEVELOPMENT
-	if (!IsLocalController() || !GEngine)
-	{
-		return;
-	}
-
-	GEngine->AddOnScreenDebugMessage(
-		StunGaugeDebugScreenMessageKey,
-		0.01f,
-		FColor::Transparent,
-		TEXT(""));
-#endif
-}
-
-void ABlackoutPlayerController::Server_RunCheatCommand_Implementation(const FString& CheatCommand)
-{
-#if WITH_EDITOR || UE_BUILD_DEVELOPMENT
-	ExecuteCheatCommandLocally(CheatCommand);
+	ApplyDebugCheatFlags(bCurrentInfiniteHealth, bCurrentInfiniteStamina, bEnabled);
+	Server_SetDebugCheatFlags(bCurrentInfiniteHealth, bCurrentInfiniteStamina, bEnabled);
 #else
-	BO_LOG_CORE(Warning, TEXT("개발 빌드가 아닌 환경에서는 치트 RPC를 사용할 수 없습니다: %s"), *CheatCommand);
+	BO_LOG_CORE(Warning, TEXT("개발 빌드가 아닌 환경에서는 탄약 무한 치트를 사용할 수 없습니다."));
 #endif
 }
 
-bool ABlackoutPlayerController::Server_RunCheatCommand_Validate(const FString& CheatCommand)
+void ABlackoutPlayerController::Server_SetDebugCheatFlags_Implementation(bool bNewInfiniteHealth, bool bNewInfiniteStamina, bool bNewInfiniteAmmo)
 {
 #if WITH_EDITOR || UE_BUILD_DEVELOPMENT
-	return !CheatCommand.TrimStartAndEnd().IsEmpty() && CheatCommand.Len() <= 256;
+	ApplyDebugCheatFlags(bNewInfiniteHealth, bNewInfiniteStamina, bNewInfiniteAmmo);
+#else
+	BO_LOG_CORE(Warning, TEXT("개발 빌드가 아닌 환경에서는 플레이어 치트 RPC를 사용할 수 없습니다."));
+#endif
+}
+
+bool ABlackoutPlayerController::Server_SetDebugCheatFlags_Validate(bool bNewInfiniteHealth, bool bNewInfiniteStamina, bool bNewInfiniteAmmo)
+{
+#if WITH_EDITOR || UE_BUILD_DEVELOPMENT
+	return true;
 #else
 	return false;
 #endif

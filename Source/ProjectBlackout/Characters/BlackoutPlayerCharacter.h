@@ -766,6 +766,11 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Camera")
 	float AimCameraInterpSpeed = 12.f;
+	
+	// 카메라 전환 속도 ( 낮을수록 천천히 )
+	UPROPERTY(EditDefaultsOnly , Category = "Blackout|Camera" , meta=(ClampMin="0.1"))
+	float CameraRelaxedInterpSpeed  =3.5f;
+	
 
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Movement")
 	float DefaultMaxWalkSpeed;

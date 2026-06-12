@@ -37,7 +37,8 @@ protected:
 private:
 	UPROPERTY()
 	TObjectPtr<UAbilityTask_TickerTask> MoveTask;
-
+	
+	UPROPERTY()
 	TWeakObjectPtr<const APawn> MoveTarget;
 	FVector MoveStartLocation = FVector::ZeroVector;
 	FVector GoalLocSmoothed   = FVector::ZeroVector;
