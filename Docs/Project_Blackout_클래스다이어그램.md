@@ -805,6 +805,9 @@ classDiagram
         +TSoftObjectPtr~USoundClass~ MasterSoundClass
         +TSoftObjectPtr~USoundClass~ MusicSoundClass
         +TSoftObjectPtr~USoundClass~ SFXSoundClass
+        +GetBlackoutAudioSettings() UBlackoutAudioSettings*
+        +HasRequiredAudioAssets() bool
+        +SetAudioMixAssets(...) void
     }
 
     class UGameplayStatics {

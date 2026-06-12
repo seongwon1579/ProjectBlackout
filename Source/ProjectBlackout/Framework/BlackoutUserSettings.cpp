@@ -379,7 +379,7 @@ void UBlackoutUserSettings::ApplyAudioSettings() const
 {
 	static bool bLoggedMissingAudioSetup = false;
 
-	const UBlackoutAudioSettings* AudioSettings = GetDefault<UBlackoutAudioSettings>();
+	const UBlackoutAudioSettings* AudioSettings = UBlackoutAudioSettings::GetBlackoutAudioSettings();
 	if (!AudioSettings)
 	{
 		return;
@@ -408,21 +408,34 @@ void UBlackoutUserSettings::ApplyAudioSettings() const
 	UGameplayStatics::SetBaseSoundMix(World, SettingsSoundMix);
 	UGameplayStatics::PushSoundMixModifier(World, SettingsSoundMix);
 
-	auto ApplySoundClassOverride = [World, SettingsSoundMix](USoundClass* SoundClass, const float Volume)
+	auto ApplySoundClassOverride = [World, SettingsSoundMix](
+		USoundClass* SoundClass,
+		const float Volume,
+		const bool bApplyToChildren)
 	{
 		if (!SoundClass)
 		{
 			return false;
 		}
 
-		UGameplayStatics::SetSoundMixClassOverride(World, SettingsSoundMix, SoundClass, Volume, 1.0f, 0.0f, true);
+		UGameplayStatics::SetSoundMixClassOverride(
+			World,
+			SettingsSoundMix,
+			SoundClass,
+			Volume,
+			1.0f,
+			0.0f,
+			bApplyToChildren);
 		return true;
 	};
 
+	const float EffectiveMusicVolume = MasterVolume * MusicVolume;
+	const float EffectiveSFXVolume = MasterVolume * SFXVolume;
+
 	const bool bAppliedAnyClass =
-		ApplySoundClassOverride(AudioSettings->MasterSoundClass.LoadSynchronous(), MasterVolume) |
-		ApplySoundClassOverride(AudioSettings->MusicSoundClass.LoadSynchronous(), MusicVolume) |
-		ApplySoundClassOverride(AudioSettings->SFXSoundClass.LoadSynchronous(), SFXVolume);
+		ApplySoundClassOverride(AudioSettings->MasterSoundClass.LoadSynchronous(), MasterVolume, false) |
+		ApplySoundClassOverride(AudioSettings->MusicSoundClass.LoadSynchronous(), EffectiveMusicVolume, true) |
+		ApplySoundClassOverride(AudioSettings->SFXSoundClass.LoadSynchronous(), EffectiveSFXVolume, true);
 
 	if (!bAppliedAnyClass && !bLoggedMissingAudioSetup)
 	{

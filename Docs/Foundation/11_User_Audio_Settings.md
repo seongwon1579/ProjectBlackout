@@ -58,6 +58,9 @@ classDiagram
         +TSoftObjectPtr~USoundClass~ MasterSoundClass
         +TSoftObjectPtr~USoundClass~ MusicSoundClass
         +TSoftObjectPtr~USoundClass~ SFXSoundClass
+        +GetBlackoutAudioSettings() UBlackoutAudioSettings*
+        +HasRequiredAudioAssets() bool
+        +SetAudioMixAssets(...) void
         +GetCategoryName() FName
     }
 
@@ -119,9 +122,11 @@ sequenceDiagram
 ## 구현 노트
 
 - `UBlackoutUserSettings`: `DefaultEngine.ini`의 `GameUserSettingsClassName=/Script/ProjectBlackout.BlackoutUserSettings`로 엔진 사용자 설정 클래스에 연결됩니다.
-- `UBlackoutAudioSettings`: 프로젝트 설정(`Project Settings > Blackout > Audio`)에서 런타임 적용 대상 `USoundMix`와 `USoundClass`를 지정하는 설정 클래스입니다.
+- `UBlackoutAudioSettings`: 프로젝트 설정(`Project Settings > Blackout > Audio`)에서 런타임 적용 대상 `USoundMix`와 `USoundClass`를 지정하는 설정 클래스입니다. `BlackoutUserSettings`는 사용자 볼륨 값만 저장하며, SoundMix/SoundClass 등록 책임은 이 클래스에 둡니다.
+- 블루프린트에서는 `GetBlackoutAudioSettings()`로 설정 객체를 읽고, 필요 시 `SetAudioMixAssets()`로 SoundMix/SoundClass 참조를 지정할 수 있습니다. 기본 작업 흐름은 Project Settings에서 직접 지정하는 방식입니다.
 - `UBlackoutSettingsWidget`: 슬라이더 변경값을 즉시 에셋에 쓰지 않고 `Pending*Volume`에 보관한 뒤 Apply 버튼에서 사용자 설정에 저장합니다.
 - `SoundCue` 볼륨 제어의 핵심 전제는 각 `SoundCue` 에셋이 `MasterSoundClass`, `MusicSoundClass`, `SFXSoundClass` 중 적절한 `USoundClass` 계층에 연결되어 있어야 한다는 점입니다. 코드의 `SetSoundMixClassOverride`는 `SoundCue`를 직접 순회하지 않고, SoundClass 믹스 결과를 통해 간접적으로 영향을 줍니다.
+- Master 볼륨은 전체 게이트로 동작합니다. 실제 적용값은 `MasterSoundClass = MasterVolume`, `MusicSoundClass = MasterVolume * MusicVolume`, `SFXSoundClass = MasterVolume * SFXVolume`이며, 따라서 MasterVolume이 0이면 Music/SFX도 함께 음소거됩니다.
 - 현재 `Config`에는 `UBlackoutAudioSettings`의 기본 에셋 경로가 명시되어 있지 않습니다. 따라서 실제 적용을 보장하려면 SoundMix/SoundClass 에셋 생성 및 설정 섹션 등록 여부를 별도로 확인해야 합니다.
 
 ## 시작 시 자동 적용
