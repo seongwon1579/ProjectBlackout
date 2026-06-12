@@ -4,6 +4,7 @@
 #include "GameFramework/PlayerController.h"
 #include "GameplayTagContainer.h"
 #include "Core/BlackoutTypes.h"
+#include "Engine/TimerHandle.h"
 #include "BlackoutPlayerController.generated.h"
 
 class UInputMappingContext;
@@ -14,6 +15,7 @@ class AActor;
 class UBlackoutClassSelectWidget;
 class UBlackoutClassSelectWidgetController;
 class UBlackoutMainMenuWidget;
+class ABlackoutCharacterPreviewManager;
 
 UCLASS()
 class PROJECTBLACKOUT_API ABlackoutPlayerController : public APlayerController
@@ -114,6 +116,22 @@ private:
 
 	/** 로컬 미리보기/서버 권위 공용 치트 플래그 적용 경로입니다. */
 	void ApplyDebugCheatFlags(bool bNewInfiniteHealth, bool bNewInfiniteStamina, bool bNewInfiniteAmmo);
+
+	/** 클래스 선택 UI 표시 상태에 맞춰 월드 카메라와 프리뷰 캡처를 전환합니다. */
+	void SetClassSelectRenderingState(bool bActive);
+
+	/** 스트리밍 레벨의 프리뷰 매니저가 늦게 로드될 때 렌더링 상태 적용을 재시도합니다. */
+	void RetryApplyClassSelectRenderingState();
+
+	ABlackoutCharacterPreviewManager* FindCharacterPreviewManager() const;
+
+	UPROPERTY(Transient)
+	TWeakObjectPtr<AActor> ClassSelectPreviousViewTarget;
+
+	FTimerHandle ClassSelectRenderingRetryHandle;
+	int32 ClassSelectRenderingRetryCount = 0;
+	static constexpr int32 ClassSelectRenderingMaxRetries = 30;
+	bool bClassSelectRenderingStateActive = false;
 	
 
 public:

@@ -24,7 +24,23 @@ struct PROJECTBLACKOUT_API FBlackoutClassSelectDisplayData
 	/** 주무기 stat - ABOFirearm CDO -> DataTable lookup 결과를 Controller 캐싱 */
 	UPROPERTY(BlueprintReadOnly , Category="Blackout|ClassSelect")
 	FBlackoutFirearmStat PrimaryStat;
+
+	/** 주무기가 산탄 무기일 때 펠릿 수를 표시할지 여부 */
+	UPROPERTY(BlueprintReadOnly, Category="Blackout|ClassSelect")
+	bool bPrimaryHasPelletCount = false;
+
+	/** 주무기가 산탄 무기일 때 한 번의 사격에서 생성되는 펠릿 수 */
+	UPROPERTY(BlueprintReadOnly, Category="Blackout|ClassSelect")
+	int32 PrimaryPelletCount = 0;
 	
 	UPROPERTY(BlueprintReadOnly , Category="Blackout|ClassSelect")
 	FBlackoutFirearmStat SecondaryStat;
+
+	/** 보조무기가 산탄 무기일 때 펠릿 수를 표시할지 여부 */
+	UPROPERTY(BlueprintReadOnly, Category="Blackout|ClassSelect")
+	bool bSecondaryHasPelletCount = false;
+
+	/** 보조무기가 산탄 무기일 때 한 번의 사격에서 생성되는 펠릿 수 */
+	UPROPERTY(BlueprintReadOnly, Category="Blackout|ClassSelect")
+	int32 SecondaryPelletCount = 0;
 };
