@@ -126,8 +126,11 @@ void UGA_Wraith_FireTwinArrows::FireOneArrow()
 			DamageEffectClass);
 		if (SpecHandle.IsValid())
 		{
+			// 데미지와 스턴 누적량을 같은 피격 스펙으로 함께 전달합니다.
 			SpecHandle.Data->SetSetByCallerMagnitude(
 				BlackoutGameplayTags::Data_Damage, DamageMagnitude);
+			SpecHandle.Data->SetSetByCallerMagnitude(
+				BlackoutGameplayTags::Data_Stun, StunMagnitude);
 			Arrow->InitFromSpec(SpecHandle, 0.0f);
 		}
 	}

@@ -35,6 +35,14 @@ public:
 	FGameplayAttributeData MaxStamina;
 	ATTRIBUTE_ACCESSORS(UBlackoutPlayerAttributeSet, MaxStamina)
 
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Attributes", ReplicatedUsing = OnRep_StunGauge)
+	FGameplayAttributeData StunGauge;
+	ATTRIBUTE_ACCESSORS(UBlackoutPlayerAttributeSet, StunGauge)
+
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Attributes", ReplicatedUsing = OnRep_MaxStunGauge)
+	FGameplayAttributeData MaxStunGauge;
+	ATTRIBUTE_ACCESSORS(UBlackoutPlayerAttributeSet, MaxStunGauge)
+
 	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Attributes", ReplicatedUsing = OnRep_CriticalHitChance)
 	FGameplayAttributeData CriticalHitChance;
 	ATTRIBUTE_ACCESSORS(UBlackoutPlayerAttributeSet, CriticalHitChance)
@@ -61,6 +69,12 @@ protected:
 
 	UFUNCTION()
 	virtual void OnRep_MaxStamina(const FGameplayAttributeData& OldValue);
+
+	UFUNCTION()
+	virtual void OnRep_StunGauge(const FGameplayAttributeData& OldValue);
+
+	UFUNCTION()
+	virtual void OnRep_MaxStunGauge(const FGameplayAttributeData& OldValue);
 
 	UFUNCTION()
 	virtual void OnRep_CriticalHitChance(const FGameplayAttributeData& OldValue);

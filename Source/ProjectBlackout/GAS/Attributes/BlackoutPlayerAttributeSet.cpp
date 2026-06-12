@@ -14,6 +14,8 @@ UBlackoutPlayerAttributeSet::UBlackoutPlayerAttributeSet()
 	// 유물은 모든 병과 공통으로 기본/최대 3회 고정입니다.
 	InitMaxRelicCharges(3.0f);
 	InitRelicCharges(3.0f);
+	InitMaxStunGauge(100.0f);
+	InitStunGauge(0.0f);
 }
 
 void UBlackoutPlayerAttributeSet::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -22,6 +24,8 @@ void UBlackoutPlayerAttributeSet::GetLifetimeReplicatedProps(TArray<FLifetimePro
 
 	DOREPLIFETIME_CONDITION_NOTIFY(UBlackoutPlayerAttributeSet, Stamina,               COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(UBlackoutPlayerAttributeSet, MaxStamina,            COND_None, REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION_NOTIFY(UBlackoutPlayerAttributeSet, StunGauge,             COND_None, REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION_NOTIFY(UBlackoutPlayerAttributeSet, MaxStunGauge,          COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(UBlackoutPlayerAttributeSet, CriticalHitChance,     COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(UBlackoutPlayerAttributeSet, CriticalHitMultiplier, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(UBlackoutPlayerAttributeSet, HealingEffectiveness,   COND_None, REPNOTIFY_Always);
@@ -40,6 +44,14 @@ void UBlackoutPlayerAttributeSet::PreAttributeChange(const FGameplayAttribute& A
 	else if (Attribute == GetMaxStaminaAttribute())
 	{
 		NewValue = FMath::Max(NewValue, 0.0f);
+	}
+	else if (Attribute == GetStunGaugeAttribute())
+	{
+		NewValue = FMath::Clamp(NewValue, 0.0f, GetMaxStunGauge());
+	}
+	else if (Attribute == GetMaxStunGaugeAttribute())
+	{
+		NewValue = FMath::Clamp(NewValue, 0.0f, 100.0f);
 	}
 	else if (Attribute == GetCriticalHitChanceAttribute())
 	{
@@ -83,6 +95,15 @@ void UBlackoutPlayerAttributeSet::PostGameplayEffectExecute(const FGameplayEffec
 			? GetMaxStamina()
 			: FMath::Clamp(GetStamina(), 0.0f, GetMaxStamina()));
 	}
+	else if (Data.EvaluatedData.Attribute == GetStunGaugeAttribute())
+	{
+		SetStunGauge(FMath::Clamp(GetStunGauge(), 0.0f, GetMaxStunGauge()));
+	}
+	else if (Data.EvaluatedData.Attribute == GetMaxStunGaugeAttribute())
+	{
+		SetMaxStunGauge(FMath::Clamp(GetMaxStunGauge(), 0.0f, 100.0f));
+		SetStunGauge(FMath::Clamp(GetStunGauge(), 0.0f, GetMaxStunGauge()));
+	}
 	else if (Data.EvaluatedData.Attribute == GetCriticalHitChanceAttribute())
 	{
 		SetCriticalHitChance(FMath::Max(GetCriticalHitChance(), 0.0f));
@@ -114,6 +135,16 @@ void UBlackoutPlayerAttributeSet::OnRep_Stamina(const FGameplayAttributeData& Ol
 void UBlackoutPlayerAttributeSet::OnRep_MaxStamina(const FGameplayAttributeData& OldValue)
 {
 	GAMEPLAYATTRIBUTE_REPNOTIFY(UBlackoutPlayerAttributeSet, MaxStamina, OldValue);
+}
+
+void UBlackoutPlayerAttributeSet::OnRep_StunGauge(const FGameplayAttributeData& OldValue)
+{
+	GAMEPLAYATTRIBUTE_REPNOTIFY(UBlackoutPlayerAttributeSet, StunGauge, OldValue);
+}
+
+void UBlackoutPlayerAttributeSet::OnRep_MaxStunGauge(const FGameplayAttributeData& OldValue)
+{
+	GAMEPLAYATTRIBUTE_REPNOTIFY(UBlackoutPlayerAttributeSet, MaxStunGauge, OldValue);
 }
 
 void UBlackoutPlayerAttributeSet::OnRep_CriticalHitChance(const FGameplayAttributeData& OldValue)
