@@ -9,6 +9,7 @@ class UChildActorComponent;
 class UBoxComponent;
 class UPrimitiveComponent;
 class USceneComponent;
+class USoundBase;
 
 UCLASS(Blueprintable)
 class PROJECTBLACKOUT_API ABOBreakablePillarActor : public AActor, public IBlackoutDamageable
@@ -116,6 +117,22 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Breakable|VFX", meta = (ClampMin = "0.0"))
 	float BreakDustLifeSpan = 0.0f;
 
+	// 기둥 파괴 순간에 재생할 Sound Cue 또는 Sound Base입니다.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Breakable|SFX")
+	TObjectPtr<USoundBase> BreakSound;
+
+	// 파괴 사운드를 기둥 중심에서 얼마나 띄워서 재생할지 조정합니다.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Breakable|SFX")
+	FVector BreakSoundLocationOffset = FVector::ZeroVector;
+
+	// 파괴 사운드의 볼륨 배율입니다.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Breakable|SFX", meta = (ClampMin = "0.0"))
+	float BreakSoundVolumeMultiplier = 1.0f;
+
+	// 파괴 사운드의 피치 배율입니다.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Breakable|SFX", meta = (ClampMin = "0.0"))
+	float BreakSoundPitchMultiplier = 1.0f;
+
 	// 실제 파괴 여부를 네트워크로 동기화합니다.
 	UPROPERTY(ReplicatedUsing = OnRep_IsBroken, VisibleInstanceOnly, BlueprintReadOnly, Category = "Blackout|Breakable")
 	bool bIsBroken = false;
@@ -171,6 +188,9 @@ private:
 
 	// 현재 월드에서 더스트 BP를 실제로 스폰합니다.
 	void PlayBreakDustEffect();
+
+	// 현재 월드에서 파괴 사운드를 실제로 재생합니다.
+	void PlayBreakSound();
 
 	// ChildActor 내부에서 주 물리 컴포넌트를 찾습니다.
 	UPrimitiveComponent* ResolvePrimitiveFromChild(UChildActorComponent* ChildActorComponent) const;
