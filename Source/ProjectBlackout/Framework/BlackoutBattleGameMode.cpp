@@ -15,6 +15,7 @@
 #include "BlackoutMatchFlowSubsystem.h"
 #include "Characters/BlackoutBossCharacter.h"
 #include "EngineUtils.h"
+#include "BlackoutTelemetrySampler.h"
 
 namespace
 {
@@ -228,6 +229,12 @@ void ABlackoutBattleGameMode::InitGame(const FString& MapName,
                                        FString& ErrorMessage)
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
+	
+	// 위치정보 시작 
+	if (UBlackoutTelemetrySampler* Sampler = GetTelemetrySampler())
+	{
+		Sampler->BeginRun();
+	}
 
 	// ClientTravel URL 옵션 "?SessionId=session" 추출
 	const FString SessionId = UGameplayStatics::ParseOption(
@@ -330,6 +337,10 @@ void ABlackoutBattleGameMode::TravelToLobby(FLinearColor FadeColor)
 	{
 		GS->SetMatchState(EBlackoutMatchState::Starting);
 	}
+	if (UBlackoutTelemetrySampler* Sampler = GetTelemetrySampler())
+	{
+		Sampler->FlushPending();
+	}
 	BroadcastScreenFadeOut(FadeColor);
 	GetWorldTimerManager().SetTimer(FadeTravelTimerHandle, this,
 	                                &ABlackoutBattleGameMode::DoTravelToLobby,
@@ -375,6 +386,10 @@ void ABlackoutBattleGameMode::EndMatch(EBlackoutMatchEndReason Reason)
 			DedicatedSessionSubsystem->ReportFinishToMatchmakingServer();
 		}
 	}
+	if (UBlackoutTelemetrySampler* Sampler = GetTelemetrySampler())
+	{
+		Sampler->EndRun();
+	}
 }
 
 void ABlackoutBattleGameMode::NotifyPlayerFullyDead(
@@ -384,6 +399,10 @@ void ABlackoutBattleGameMode::NotifyPlayerFullyDead(
 	{
 		BO_LOG_NET(Warning, "완전 사망 알림 무시: DeadPlayer가 비어 있음");
 		return;
+	}
+	if (UBlackoutTelemetrySampler* Sampler = GetTelemetrySampler())
+	{
+		Sampler->AddEvent(DeadPlayer , TEXT("death"));
 	}
 
 	BO_LOG_NET(Log, "플레이어 완전 사망 감지: %s", *GetNameSafe(DeadPlayer));
@@ -401,6 +420,19 @@ void ABlackoutBattleGameMode::NotifyPlayerFullyDead(
 	}
 
 	EvaluatePartyWipe();
+}
+
+void ABlackoutBattleGameMode::NotifyPlayerDowned(
+	ABlackoutPlayerCharacter* DownedPlayer)
+{
+	if (!DownedPlayer)
+	{
+		return;
+	}
+	if (UBlackoutTelemetrySampler* Sampler = GetTelemetrySampler())
+	{
+		Sampler->AddEvent(DownedPlayer , TEXT("down"));
+	}
 }
 
 void ABlackoutBattleGameMode::EvaluatePartyWipe()
@@ -696,6 +728,11 @@ void ABlackoutBattleGameMode::DoTravelToTitle()
 
 void ABlackoutBattleGameMode::ReturnServerToIdleLobby()
 {
+	if (UBlackoutTelemetrySampler* Sampler = GetTelemetrySampler())
+	{
+		Sampler->EndRun();
+	}
+	
 	if (UBlackoutMatchFlowSubsystem* FlowSubsystem = GetGameInstance()
 		? GetGameInstance()->GetSubsystem<UBlackoutMatchFlowSubsystem>()
 		: nullptr)
@@ -708,6 +745,12 @@ void ABlackoutBattleGameMode::ReturnServerToIdleLobby()
 		BO_LOG_NET(Log, "서버 idle 복귀 — ServerTravel -> %s", *LobbyPackage);
 		GetWorld()->ServerTravel(LobbyPackage);
 	}
+}
+
+UBlackoutTelemetrySampler* ABlackoutBattleGameMode::
+GetTelemetrySampler() const
+{
+	return GetGameInstance() ? GetGameInstance()->GetSubsystem<UBlackoutTelemetrySampler>() : nullptr;
 }
 
 // 파티 전멸 감지 시 호출. 체크포인트 텔레포트 + PartyWipeRestart 정책 + Ready 리셋 + InCombatReady 복귀.

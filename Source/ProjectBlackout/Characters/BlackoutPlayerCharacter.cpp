@@ -1652,6 +1652,14 @@ void ABlackoutPlayerCharacter::OnDowned()
 	{
 		Multicast_PlayDownedEnterMontage(DownedEnterMontage, 1.f);
 	}
+	// GameMode에 다운 통지 
+	if (HasAuthority())
+	{
+		if (ABlackoutBattleGameMode* BattleGameMode= GetWorld()->GetAuthGameMode<ABlackoutBattleGameMode>())
+		{
+			BattleGameMode->NotifyPlayerDowned(this);
+		}
+	}
 }
 
 bool ABlackoutPlayerCharacter::CanEnterDownedState() const
