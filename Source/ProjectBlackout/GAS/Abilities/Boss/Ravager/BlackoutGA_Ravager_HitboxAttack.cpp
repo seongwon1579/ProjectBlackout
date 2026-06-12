@@ -147,6 +147,7 @@ void UBlackoutGA_Ravager_HitboxAttack::ApplyHitboxDamage(const FHitResult& HitRe
 	if (SpecHandle.IsValid())
 	{
 		SpecHandle.Data->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Damage, GetDamageMagnitude());
+		SpecHandle.Data->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Stun, GetStunMagnitude());
 		Damageable->ReceiveDamageFromHitbox(SpecHandle, HitResult.BoneName);
 		
 		DamagedActorsThisWindow.Add(HitActor);

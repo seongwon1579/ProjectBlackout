@@ -228,5 +228,11 @@ void UBlackoutClassSelectWidgetController::UpdatePreviewPawn()
 	{
 		return;
 	}
-	PreviewManager->SetPreviewCharacter(Selected->PawnClass);
+	// 프리뷰 전용 클래스 우선, 미지정 캐릭터는 PawnClass fallback
+	TSubclassOf<AActor> PreviewClass = Selected->PreviewClass;
+	if (!PreviewClass)
+	{
+		PreviewClass = Selected->PawnClass;
+	}
+	PreviewManager->SetPreviewCharacter(PreviewClass);
 }

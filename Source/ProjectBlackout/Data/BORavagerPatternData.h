@@ -27,8 +27,11 @@ struct FBossBasicAttackSettings
 	
 	UPROPERTY(EditAnywhere)
 	float DamageMagnitude = 10.f;
+
+	UPROPERTY(EditAnywhere, meta = (ClampMin = "0.0"))
+	float StunMagnitude = 0.0f;
 	
-	bool IsValid() const { return Effect && DamageMagnitude > 0.f && HitboxComponentNames.Num() > 0; }
+	bool IsValid() const { return Effect && (DamageMagnitude > 0.f || StunMagnitude > 0.f) && HitboxComponentNames.Num() > 0; }
 };
 
 
@@ -67,6 +70,9 @@ struct FProjectileSpawnData
 	
 	UPROPERTY(EditAnywhere)
 	float DamageMagnitude = 10.f;
+
+	UPROPERTY(EditAnywhere, meta = (ClampMin = "0.0"))
+	float StunMagnitude = 0.0f;
 };
 
 USTRUCT()
@@ -178,6 +184,9 @@ struct FBossGorenadoSettings
 	
 	UPROPERTY(EditAnywhere)
 	float Damage = 15.f;
+
+	UPROPERTY(EditAnywhere, meta = (ClampMin = "0.0"))
+	float StunMagnitude = 0.0f;
 	
 	UPROPERTY(EditAnywhere, meta = (ClampMin = "0"))
 	float DamageTickInterval = 0.5f;
@@ -201,6 +210,9 @@ struct FBossEnergyBurstSettings
 	
 	UPROPERTY(EditAnywhere)
 	float Damage = 999999.f;
+
+	UPROPERTY(EditAnywhere, meta = (ClampMin = "0.0"))
+	float StunMagnitude = 0.0f;
 	
 	UPROPERTY(EditAnywhere, meta = (ClampMin = "0"))
 	float DamageTickInterval = 0.5f;
@@ -222,6 +234,9 @@ struct FBossChargeSettings
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Damage")
 	float DamageMagnitude = 100.f;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Damage", meta = (ClampMin = "0.0"))
+	float StunMagnitude = 0.0f;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Hitbox")
 	TArray<FName> HitboxComponentNames;
 	
@@ -240,7 +255,7 @@ struct FBossChargeSettings
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Logic", meta = (ClampMin = "0.0"))
 	float MaxChargeDuration = 3.f;
 
-	bool IsValid() const { return DamageEffect != nullptr && HitboxComponentNames.Num() > 0; }
+	bool IsValid() const { return DamageEffect != nullptr && (DamageMagnitude > 0.f || StunMagnitude > 0.f) && HitboxComponentNames.Num() > 0; }
 };
 
 UCLASS()

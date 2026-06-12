@@ -32,6 +32,7 @@ void UBlackoutGA_Hollow_Attack::ActivateAbility(const FGameplayAbilitySpecHandle
 	if (SpecHandle.IsValid())
 	{
 		SpecHandle.Data->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Damage, Damage);
+		SpecHandle.Data->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Stun, StunMagnitude);
 		Damageable->ReceiveDamageFromHitbox(SpecHandle, NAME_None);
 	}
 	

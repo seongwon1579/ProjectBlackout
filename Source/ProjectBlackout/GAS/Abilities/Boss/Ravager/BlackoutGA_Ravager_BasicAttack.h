@@ -27,6 +27,7 @@ protected:
 
 	virtual TSubclassOf<UGameplayEffect> GetDamageEffect() const override;
 	virtual float GetDamageMagnitude() const override;
+	virtual float GetStunMagnitude() const override;
 	virtual const TArray<FName>& GetHitboxComponentNames() const override;
 	virtual bool HasValidSettings() const override;
 	

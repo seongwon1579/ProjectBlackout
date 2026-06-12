@@ -68,6 +68,11 @@ float UBlackoutGA_Ravager_Charge::GetDamageMagnitude() const
 	return CachedPatternData ? CachedPatternData->ChargeSettings.DamageMagnitude : 0.f;
 }
 
+float UBlackoutGA_Ravager_Charge::GetStunMagnitude() const
+{
+	return CachedPatternData ? CachedPatternData->ChargeSettings.StunMagnitude : 0.f;
+}
+
 const TArray<FName>& UBlackoutGA_Ravager_Charge::GetHitboxComponentNames() const
 {
 	if (!CachedPatternData) return GetEmptyHitboxNames();
