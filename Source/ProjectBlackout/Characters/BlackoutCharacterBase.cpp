@@ -9,6 +9,7 @@
 #include "Framework/BlackoutPlayerController.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "GAS/Attributes/BlackoutBaseAttributeSet.h"
+#include "GAS/Attributes/BlackoutPlayerAttributeSet.h"
 #include "GAS/Effects/ExecCalc_CombatReward.h"
 #include "GameFramework/Controller.h"
 #include "GameFramework/Pawn.h"
@@ -251,6 +252,8 @@ bool ABlackoutCharacterBase::ApplyIncomingDamageSpec(const FGameplayEffectSpecHa
 
 	const float HealthBefore =
 		AbilitySystemComponent->GetNumericAttribute(UBlackoutBaseAttributeSet::GetHealthAttribute());
+	const float StunBefore =
+		AbilitySystemComponent->GetNumericAttribute(UBlackoutPlayerAttributeSet::GetStunGaugeAttribute());
 	const FGameplayTag HitPartTag = GetHitPartTag(BoneName);
 
 	// 약점 치명타 처치 보상은 실제 사망 확정 직후 같은 Spec으로 판정되므로, 데미지 적용 전에 태그를 보강합니다.
@@ -263,6 +266,8 @@ bool ABlackoutCharacterBase::ApplyIncomingDamageSpec(const FGameplayEffectSpecHa
 
 	const float HealthAfter =
 		AbilitySystemComponent->GetNumericAttribute(UBlackoutBaseAttributeSet::GetHealthAttribute());
+	const float StunAfter =
+		AbilitySystemComponent->GetNumericAttribute(UBlackoutPlayerAttributeSet::GetStunGaugeAttribute());
 
 	const float AppliedDamage = FMath::Max(0.f, HealthBefore - HealthAfter);
 	if (AppliedDamage > 0.f && !ShouldSuppressAuthoritativeDamageNumber(SpecHandle))
@@ -294,10 +299,10 @@ bool ABlackoutCharacterBase::ApplyIncomingDamageSpec(const FGameplayEffectSpecHa
 		return true;
 	}
 
-	if (HealthAfter < HealthBefore)
+	if (HealthAfter < HealthBefore || StunAfter > StunBefore)
 	{
 		const FVector DamageSourceLocation = ResolveDamageSourceWorldLocation(SpecHandle, this);
-		OnHitReact(AppliedDamage, DamageSourceLocation);
+		HandlePostDamageReaction(AppliedDamage, StunBefore, StunAfter, DamageSourceLocation);
 		return true;
 	}
 
@@ -359,6 +364,21 @@ void ABlackoutCharacterBase::OnHitReact(float AppliedDamage, const FVector& Dama
 {
 	(void)AppliedDamage;
 	(void)DamageSourceLocation;
+}
+
+void ABlackoutCharacterBase::HandlePostDamageReaction(
+	float AppliedDamage,
+	float StunBefore,
+	float StunAfter,
+	const FVector& DamageSourceLocation)
+{
+	(void)StunBefore;
+	(void)StunAfter;
+
+	if (AppliedDamage > 0.0f)
+	{
+		OnHitReact(AppliedDamage, DamageSourceLocation);
+	}
 }
 
 void ABlackoutCharacterBase::OnStun()

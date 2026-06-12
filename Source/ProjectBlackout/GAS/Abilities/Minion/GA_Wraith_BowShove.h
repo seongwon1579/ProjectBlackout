@@ -54,6 +54,9 @@ protected:
 	
 	UPROPERTY(EditDefaultsOnly, Category="Wraith" , meta=(ClampMin="0.0"))
 	float DamageMagnitude =12.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category="Wraith", meta=(ClampMin="0.0"))
+	float StunMagnitude = 0.0f;
 	
 	/** 활대 시작 소켓 */
 	UPROPERTY(EditDefaultsOnly, Category="Wraith|Sweep")

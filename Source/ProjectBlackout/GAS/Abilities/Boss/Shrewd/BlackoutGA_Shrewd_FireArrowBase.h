@@ -39,5 +39,8 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Abilities|Damage")
 	float DamageMagnitude = 0.f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Abilities|Damage", meta = (ClampMin = "0.0"))
+	float StunMagnitude = 0.f;
 	
 };

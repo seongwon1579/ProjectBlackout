@@ -104,6 +104,9 @@ public:
 	UFUNCTION(Server, Reliable, Category = "Blackout|Debug")
 	void Server_RequestDebugSelfDamage(float DamageAmount);
 
+	/** 현재 플레이어의 스턴 게이지 상태를 디버그 문자열로 구성합니다. */
+	FString BuildStunDebugString() const;
+
 	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "Blackout|State")
 	void Server_ReviveFromDowned(float RevivedHealth);
 
@@ -307,12 +310,30 @@ protected:
 	/** CharacterData를 기반으로 초기 어트리뷰트 값 설정 (GE 적용) */
 	virtual void InitializeAttributes();
 
+	virtual void HandlePostDamageReaction(float AppliedDamage, float StunBefore, float StunAfter, const FVector& DamageSourceLocation) override;
+
 	/** 피격 시 실제 적용된 데미지와 공격 방향에 따라 플레이어 전용 히트 리액션 몽타주를 재생합니다. */
 	virtual void OnHitReact(float AppliedDamage, const FVector& DamageSourceLocation) override;
 	virtual void OnDowned() override;
 	virtual bool CanEnterDownedState() const override;
 	virtual void OnDeath() override;
 	virtual void HandleDownedStateChanged(bool bWasDowned, bool bIsDowned) override;
+	void StartStunDecayDelay();
+	void BeginStunDecay();
+	void HandleStunDecayTick();
+	void StopStunDecay();
+	void ResetStunGauge(bool bStopDecay = true);
+	void BeginStunReaction(UAnimMontage* Montage, FGameplayTag ReactionTag);
+	void ClearStunReactionState();
+	float GetCurrentStunGaugeValue() const;
+	float GetMaxStunGaugeValue() const;
+	float GetHeavyStunThresholdValue() const;
+	float GetStunBreakThresholdValue() const;
+	float GetStunDecayDelayValue() const;
+	float GetStunDecayPerSecondValue() const;
+	float GetStunDecayTickIntervalValue() const;
+	UAnimMontage* ResolveHeavyStunMontage(bool bIsBackHitReact) const;
+	UAnimMontage* ResolveStunBreakMontage(bool bIsBackHitReact) const;
 	
 	/** 완전 사망 시 이 목록에서 유효한 몽타주 하나를 골라 재생합니다. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
@@ -531,6 +552,8 @@ protected:
 
 	FTimerHandle ReviveWeaponRestoreTimerHandle;
 	FTimerHandle DownedDeathTimerHandle;
+	FTimerHandle StunDecayDelayTimerHandle;
+	FTimerHandle StunDecayTickTimerHandle;
 
 	/**
 	 * 다운 사망 타이머가 만료되는 서버 월드 시간(초)입니다.
@@ -554,6 +577,12 @@ protected:
 	/** 진행 중인 부활 시도의 총 지속 시간(초)입니다. 시도 중이 아니면 0. */
 	UPROPERTY(Transient, Replicated)
 	float ReviveDuration = 0.0f;
+
+	bool bAppliedStunLockedTag = false;
+	bool bAppliedStunnedTag = false;
+	bool bAppliedStunBreakTag = false;
+	bool bAppliedStunBreakInvulnerableTag = false;
+	bool bClearStunReactionStateOnMontageEnd = false;
 
 	UFUNCTION()
 	void HandleHitReactMontageEnded(UAnimMontage* Montage, bool bInterrupted);
@@ -625,6 +654,30 @@ protected:
 	/** 이 값 이하의 실제 적용 데미지는 Light, 초과는 Heavy 몽타주를 사용합니다. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation", meta = (ClampMin = "0.0"))
 	float HeavyHitReactDamageThreshold = 30.0f;
+
+	/** 일반 스턴 구간 진입 시 사용할 전면/측면 방향 몽타주입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
+	TObjectPtr<UAnimMontage> HeavyStunFrontMontage;
+
+	/** 일반 스턴 구간 진입 시 사용할 후면 방향 몽타주입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
+	TObjectPtr<UAnimMontage> HeavyStunBackMontage;
+
+	/** 방향별 몽타주가 비어 있을 때 사용할 공통 스턴 몽타주입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
+	TObjectPtr<UAnimMontage> HeavyStunMontage;
+
+	/** 스턴 브레이크 시 사용할 전면/측면 방향 몽타주입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
+	TObjectPtr<UAnimMontage> StunBreakFrontMontage;
+
+	/** 스턴 브레이크 시 사용할 후면 방향 몽타주입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
+	TObjectPtr<UAnimMontage> StunBreakBackMontage;
+
+	/** 방향별 몽타주가 비어 있을 때 사용할 공통 스턴 브레이크 몽타주입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
+	TObjectPtr<UAnimMontage> StunBreakMontage;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
 	TArray<FBlackoutFireMontageEntry> FireMontageEntries;

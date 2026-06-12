@@ -13,6 +13,8 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Invulnerable);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_MovementLocked);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Locked);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Stunned);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_StunBroken);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Aiming);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Sprinting);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Attacking);
@@ -38,6 +40,7 @@ namespace BlackoutGameplayTags
 
 	// ─── GAS SetByCaller 데이터 키 ────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Damage);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Stun);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_MaxHealth);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Health);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_MaxStamina);

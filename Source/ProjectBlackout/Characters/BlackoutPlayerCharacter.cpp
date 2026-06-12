@@ -27,6 +27,7 @@
 #include "Components/CapsuleComponent.h"
 #include "Engine/OverlapResult.h"
 #include "GAS/Attributes/BlackoutBaseAttributeSet.h"
+#include "GAS/Attributes/BlackoutPlayerAttributeSet.h"
 #include "Net/UnrealNetwork.h"
 #include "Items/BlackoutDropItem.h"
 #include "Components/SphereComponent.h"
@@ -1274,6 +1275,12 @@ void ABlackoutPlayerCharacter::HandleHitReactMontageEnded(
 {
 	bIsHitReactMontagePlaying = false;
 	bCanMoveDuringHitReact = false;
+
+	if (HasAuthority() && bClearStunReactionStateOnMontageEnd)
+	{
+		ClearStunReactionState();
+	}
+
 	BO_LOG_GAS(Log,
 	           "Hit react montage ended: Interrupted=%s Montage=%s",
 	           bInterrupted ? TEXT("true") : TEXT("false"),
@@ -1565,6 +1572,433 @@ void ABlackoutPlayerCharacter::OnHitReact(float AppliedDamage,
 	                              bIsAimingLightHitReact);
 }
 
+void ABlackoutPlayerCharacter::HandlePostDamageReaction(
+	float AppliedDamage,
+	float StunBefore,
+	float StunAfter,
+	const FVector& DamageSourceLocation)
+{
+	if (!HasAuthority() || IsDead() || IsDowned())
+	{
+		return;
+	}
+
+	const bool bHasImpact = AppliedDamage > 0.0f || StunAfter > StunBefore;
+	if (!bHasImpact)
+	{
+		return;
+	}
+
+	if (StunAfter > 0.0f)
+	{
+		StartStunDecayDelay();
+	}
+	else
+	{
+		StopStunDecay();
+	}
+
+	const bool bIsBackHitReact = IsBackHitReact(DamageSourceLocation);
+	const float StunBreakThreshold = GetStunBreakThresholdValue();
+	if (StunBreakThreshold > 0.0f && StunAfter >= StunBreakThreshold)
+	{
+		ResetStunGauge();
+		BeginStunReaction(
+			ResolveStunBreakMontage(bIsBackHitReact),
+			BlackoutGameplayTags::State_StunBroken);
+		return;
+	}
+
+	const float HeavyStunThreshold = GetHeavyStunThresholdValue();
+	if (HeavyStunThreshold > 0.0f && StunAfter >= HeavyStunThreshold)
+	{
+		BeginStunReaction(
+			ResolveHeavyStunMontage(bIsBackHitReact),
+			BlackoutGameplayTags::State_Stunned);
+		return;
+	}
+
+	OnHitReact(AppliedDamage, DamageSourceLocation);
+}
+
+float ABlackoutPlayerCharacter::GetCurrentStunGaugeValue() const
+{
+	return AbilitySystemComponent
+		? AbilitySystemComponent->GetNumericAttribute(
+			UBlackoutPlayerAttributeSet::GetStunGaugeAttribute())
+		: 0.0f;
+}
+
+FString ABlackoutPlayerCharacter::BuildStunDebugString() const
+{
+	const float CurrentStunGauge = GetCurrentStunGaugeValue();
+	const float MaxStunGauge = GetMaxStunGaugeValue();
+	const float HeavyStunThreshold = GetHeavyStunThresholdValue();
+	const float StunBreakThreshold = GetStunBreakThresholdValue();
+	const float StunDecayDelay = GetStunDecayDelayValue();
+	const float StunDecayPerSecond = GetStunDecayPerSecondValue();
+	const float StunRatio = MaxStunGauge > KINDA_SMALL_NUMBER
+		? CurrentStunGauge / MaxStunGauge
+		: 0.0f;
+
+	const bool bIsLocked = AbilitySystemComponent
+		&& AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Locked);
+	const bool bIsHeavyStunned = AbilitySystemComponent
+		&& AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Stunned);
+	const bool bIsStunBroken = AbilitySystemComponent
+		&& AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_StunBroken);
+	const bool bIsInvulnerable = AbilitySystemComponent
+		&& AbilitySystemComponent->HasMatchingGameplayTag(BlackoutGameplayTags::State_Invulnerable);
+
+	const TCHAR* ReactionState = TEXT("Clear");
+	if (IsDead())
+	{
+		ReactionState = TEXT("Dead");
+	}
+	else if (IsDowned())
+	{
+		ReactionState = TEXT("Downed");
+	}
+	else if (bIsStunBroken)
+	{
+		ReactionState = TEXT("StunBreak");
+	}
+	else if (bIsHeavyStunned)
+	{
+		ReactionState = TEXT("HeavyStun");
+	}
+	else if (CurrentStunGauge > 0.0f)
+	{
+		ReactionState = TEXT("Accumulating");
+	}
+
+	return FString::Printf(
+		TEXT("StunGauge %.1f / %.1f (%.0f%%) | Heavy %.1f | Break %.1f | Decay %.1fs / %.1f/s | State %s | Locked %s | Invuln %s"),
+		CurrentStunGauge,
+		MaxStunGauge,
+		StunRatio * 100.0f,
+		HeavyStunThreshold,
+		StunBreakThreshold,
+		StunDecayDelay,
+		StunDecayPerSecond,
+		ReactionState,
+		bIsLocked ? TEXT("On") : TEXT("Off"),
+		bIsInvulnerable ? TEXT("On") : TEXT("Off"));
+}
+
+float ABlackoutPlayerCharacter::GetMaxStunGaugeValue() const
+{
+	if (!AbilitySystemComponent)
+	{
+		return 0.0f;
+	}
+
+	return FMath::Clamp(
+		AbilitySystemComponent->GetNumericAttribute(
+			UBlackoutPlayerAttributeSet::GetMaxStunGaugeAttribute()),
+		0.0f,
+		100.0f);
+}
+
+float ABlackoutPlayerCharacter::GetHeavyStunThresholdValue() const
+{
+	const float MaxStunGauge = GetMaxStunGaugeValue();
+	if (MaxStunGauge <= 0.0f)
+	{
+		return 0.0f;
+	}
+
+	const float StunBreakThreshold = GetStunBreakThresholdValue();
+	const float DefaultThreshold = StunBreakThreshold * 0.5f;
+	return CharacterData
+		? FMath::Clamp(CharacterData->HeavyStunThreshold, 0.0f, StunBreakThreshold)
+		: DefaultThreshold;
+}
+
+float ABlackoutPlayerCharacter::GetStunBreakThresholdValue() const
+{
+	const float MaxStunGauge = GetMaxStunGaugeValue();
+	if (MaxStunGauge <= 0.0f)
+	{
+		return 0.0f;
+	}
+
+	return CharacterData
+		? FMath::Clamp(CharacterData->StunBreakThreshold, 0.0f, MaxStunGauge)
+		: MaxStunGauge;
+}
+
+float ABlackoutPlayerCharacter::GetStunDecayDelayValue() const
+{
+	return CharacterData ? FMath::Max(0.0f, CharacterData->StunDecayDelay) : 0.0f;
+}
+
+float ABlackoutPlayerCharacter::GetStunDecayPerSecondValue() const
+{
+	return CharacterData ? FMath::Max(0.0f, CharacterData->StunDecayPerSecond) : 0.0f;
+}
+
+float ABlackoutPlayerCharacter::GetStunDecayTickIntervalValue() const
+{
+	return CharacterData ? FMath::Max(0.01f, CharacterData->StunDecayTickInterval) : 0.1f;
+}
+
+UAnimMontage* ABlackoutPlayerCharacter::ResolveHeavyStunMontage(
+	bool bIsBackHitReact) const
+{
+	if (UAnimMontage* DirectionalMontage = SelectDirectionalHitReactMontage(
+		HeavyStunFrontMontage,
+		HeavyStunBackMontage,
+		HeavyStunMontage,
+		bIsBackHitReact))
+	{
+		return DirectionalMontage;
+	}
+
+	return HeavyHitReactMontage;
+}
+
+UAnimMontage* ABlackoutPlayerCharacter::ResolveStunBreakMontage(
+	bool bIsBackHitReact) const
+{
+	if (UAnimMontage* DirectionalMontage = SelectDirectionalHitReactMontage(
+		StunBreakFrontMontage,
+		StunBreakBackMontage,
+		StunBreakMontage,
+		bIsBackHitReact))
+	{
+		return DirectionalMontage;
+	}
+
+	return nullptr;
+}
+
+void ABlackoutPlayerCharacter::StartStunDecayDelay()
+{
+	if (!HasAuthority() || IsDead() || IsDowned() || !AbilitySystemComponent)
+	{
+		return;
+	}
+
+	if (GetCurrentStunGaugeValue() <= 0.0f)
+	{
+		StopStunDecay();
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	World->GetTimerManager().ClearTimer(StunDecayTickTimerHandle);
+
+	const float Delay = GetStunDecayDelayValue();
+	if (Delay <= 0.0f)
+	{
+		BeginStunDecay();
+		return;
+	}
+
+	World->GetTimerManager().ClearTimer(StunDecayDelayTimerHandle);
+	World->GetTimerManager().SetTimer(
+		StunDecayDelayTimerHandle,
+		this,
+		&ABlackoutPlayerCharacter::BeginStunDecay,
+		Delay,
+		false);
+}
+
+void ABlackoutPlayerCharacter::BeginStunDecay()
+{
+	if (!HasAuthority() || IsDead() || IsDowned())
+	{
+		return;
+	}
+
+	const float DecayPerSecond = GetStunDecayPerSecondValue();
+	if (DecayPerSecond <= 0.0f || GetCurrentStunGaugeValue() <= 0.0f)
+	{
+		StopStunDecay();
+		return;
+	}
+
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(StunDecayDelayTimerHandle);
+		World->GetTimerManager().SetTimer(
+			StunDecayTickTimerHandle,
+			this,
+			&ABlackoutPlayerCharacter::HandleStunDecayTick,
+			GetStunDecayTickIntervalValue(),
+			true);
+	}
+}
+
+void ABlackoutPlayerCharacter::HandleStunDecayTick()
+{
+	if (!HasAuthority() || IsDead() || IsDowned() || !AbilitySystemComponent)
+	{
+		StopStunDecay();
+		return;
+	}
+
+	const float CurrentStunGauge = GetCurrentStunGaugeValue();
+	if (CurrentStunGauge <= 0.0f)
+	{
+		StopStunDecay();
+		return;
+	}
+
+	const float DecayAmount =
+		GetStunDecayPerSecondValue() * GetStunDecayTickIntervalValue();
+	if (DecayAmount <= 0.0f)
+	{
+		StopStunDecay();
+		return;
+	}
+
+	const float NewStunGauge = FMath::Max(0.0f, CurrentStunGauge - DecayAmount);
+	AbilitySystemComponent->SetNumericAttributeBase(
+		UBlackoutPlayerAttributeSet::GetStunGaugeAttribute(),
+		NewStunGauge);
+
+	if (NewStunGauge <= 0.0f)
+	{
+		StopStunDecay();
+	}
+}
+
+void ABlackoutPlayerCharacter::StopStunDecay()
+{
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(StunDecayDelayTimerHandle);
+		World->GetTimerManager().ClearTimer(StunDecayTickTimerHandle);
+	}
+}
+
+void ABlackoutPlayerCharacter::ResetStunGauge(bool bStopDecay)
+{
+	if (bStopDecay)
+	{
+		StopStunDecay();
+	}
+
+	if (!AbilitySystemComponent)
+	{
+		return;
+	}
+
+	AbilitySystemComponent->SetNumericAttributeBase(
+		UBlackoutPlayerAttributeSet::GetStunGaugeAttribute(),
+		0.0f);
+}
+
+void ABlackoutPlayerCharacter::BeginStunReaction(
+	UAnimMontage* Montage,
+	FGameplayTag ReactionTag)
+{
+	if (!HasAuthority() || IsDead() || IsDowned() || !AbilitySystemComponent)
+	{
+		return;
+	}
+
+	StopStunDecay();
+	ClearStunReactionState();
+
+	if (CombatComponent)
+	{
+		CombatComponent->StopFire();
+		CombatComponent->HandlePrimaryActionReleased();
+		CombatComponent->StopAim();
+	}
+
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		MoveComp->StopMovementImmediately();
+	}
+
+	if (!bAppliedStunLockedTag)
+	{
+		AbilitySystemComponent->AddLooseGameplayTag(
+			BlackoutGameplayTags::State_Locked);
+		bAppliedStunLockedTag = true;
+	}
+
+	if (ReactionTag.MatchesTagExact(BlackoutGameplayTags::State_StunBroken))
+	{
+		AbilitySystemComponent->AddLooseGameplayTag(
+			BlackoutGameplayTags::State_StunBroken);
+		bAppliedStunBreakTag = true;
+
+		// 스턴 브레이크 몽타주 재생 동안에는 추가 피격으로 끊기지 않도록 무적 태그를 함께 부여합니다.
+		AbilitySystemComponent->AddLooseGameplayTag(
+			BlackoutGameplayTags::State_Invulnerable);
+		bAppliedStunBreakInvulnerableTag = true;
+	}
+	else
+	{
+		AbilitySystemComponent->AddLooseGameplayTag(
+			BlackoutGameplayTags::State_Stunned);
+		bAppliedStunnedTag = true;
+	}
+
+	bClearStunReactionStateOnMontageEnd = true;
+
+	if (!Montage)
+	{
+		BO_LOG_GAS(
+			Warning,
+			"BeginStunReaction skipped: 재생할 스턴 몽타주가 비어 있습니다. Player=%s Tag=%s",
+			*GetNameSafe(this),
+			*ReactionTag.ToString());
+		ClearStunReactionState();
+		return;
+	}
+
+	Multicast_PlayHitReactMontage(Montage, 1.0f, false);
+}
+
+void ABlackoutPlayerCharacter::ClearStunReactionState()
+{
+	bClearStunReactionStateOnMontageEnd = false;
+
+	if (!HasAuthority() || !AbilitySystemComponent)
+	{
+		return;
+	}
+
+	if (bAppliedStunnedTag)
+	{
+		AbilitySystemComponent->RemoveLooseGameplayTag(
+			BlackoutGameplayTags::State_Stunned);
+		bAppliedStunnedTag = false;
+	}
+
+	if (bAppliedStunBreakTag)
+	{
+		AbilitySystemComponent->RemoveLooseGameplayTag(
+			BlackoutGameplayTags::State_StunBroken);
+		bAppliedStunBreakTag = false;
+	}
+
+	if (bAppliedStunBreakInvulnerableTag)
+	{
+		AbilitySystemComponent->RemoveLooseGameplayTag(
+			BlackoutGameplayTags::State_Invulnerable);
+		bAppliedStunBreakInvulnerableTag = false;
+	}
+
+	if (bAppliedStunLockedTag)
+	{
+		AbilitySystemComponent->RemoveLooseGameplayTag(
+			BlackoutGameplayTags::State_Locked);
+		bAppliedStunLockedTag = false;
+	}
+}
+
 void ABlackoutPlayerCharacter::HandleDownedStateChanged(
 	bool bWasDowned, bool bIsCurrentlyDowned)
 {
@@ -1645,6 +2079,9 @@ void ABlackoutPlayerCharacter::OnDowned()
 
 	Super::OnDowned();
 
+	ResetStunGauge();
+	ClearStunReactionState();
+
 	EndReviveInteraction(nullptr);
 	StartDownedDeathTimer();
 
@@ -1692,6 +2129,9 @@ void ABlackoutPlayerCharacter::OnDeath()
 	}
 
 	Super::OnDeath();
+
+	ResetStunGauge();
+	ClearStunReactionState();
 
 	ClearDownedDeathTimer();
 	EndReviveInteraction(nullptr);
@@ -1755,6 +2195,8 @@ void ABlackoutPlayerCharacter::Server_ReviveFromDowned_Implementation(
 	ClearDownedDeathTimer();
 	SetDownedStateActive(false);
 	EndReviveInteraction(nullptr);
+	ResetStunGauge();
+	ClearStunReactionState();
 	AbilitySystemComponent->SetNumericAttributeBase(
 		UBlackoutBaseAttributeSet::GetHealthAttribute(), ClampedHealth);
 	ScheduleWeaponVisibilityRestoreAfterRevive();
@@ -1774,6 +2216,8 @@ void ABlackoutPlayerCharacter::RestoreToFullState()
 	SetDownedStateActive(false);
 	SetBeingRevivedStateActive(false);
 	SetRevivingStateActive(false);
+	ResetStunGauge();
+	ClearStunReactionState();
 	ActiveReviver = nullptr;
 	ActiveReviveTarget = nullptr;
 
@@ -3137,6 +3581,17 @@ void ABlackoutPlayerCharacter::InitializeAttributes()
 		DefaultMaxWalkSpeed = CharacterData->BaseMovementSpeed;
 		AimMaxWalkSpeed = CharacterData->AimMovementSpeed;
 		DownedMaxWalkSpeed = CharacterData->DownedMovementSpeed;
+
+		const float ConfiguredMaxStunGauge = FMath::Clamp(
+			CharacterData->MaxStunGauge,
+			1.0f,
+			100.0f);
+		AbilitySystemComponent->SetNumericAttributeBase(
+			UBlackoutPlayerAttributeSet::GetMaxStunGaugeAttribute(),
+			ConfiguredMaxStunGauge);
+		AbilitySystemComponent->SetNumericAttributeBase(
+			UBlackoutPlayerAttributeSet::GetStunGaugeAttribute(),
+			FMath::Clamp(CharacterData->BaseStunGauge, 0.0f, ConfiguredMaxStunGauge));
 
 		// 조준 및 다운 상태를 확인하고 올바른 이동 속도로 즉시 업데이트합니다.
 		UpdateAimMovementMode();
