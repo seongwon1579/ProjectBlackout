@@ -70,14 +70,7 @@ void ABOBossIntroSequencer::OnCutsceneTimerExpired()
 		UE_LOG(LogTemp, Warning, TEXT("ABossCutsceneManager: Does not have Authority"))
 		return;
 	}
-	
 	UE_LOG(LogTemp, Warning, TEXT("ABossCutsceneManager: Elapsed the time of cutscene"))
-	
-	if (ABlackoutBattleGameMode* GM = Cast<ABlackoutBattleGameMode>(GetWorld()->GetAuthGameMode()))
-	{
-		
-	}
-
 	ActivateBossAI();
 }
 
