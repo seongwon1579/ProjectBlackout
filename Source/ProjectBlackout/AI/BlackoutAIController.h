@@ -17,11 +17,14 @@ class PROJECTBLACKOUT_API ABlackoutAIController : public AAIController
 
 public:
 	ABlackoutAIController(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+	
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	virtual void StartCombat() {}
 
 protected:
-	virtual void OnPossess(APawn* InPawn) override;
-	virtual void OnUnPossess() override;
-
+	// virtual void OnPossess(APawn* InPawn) override;
+	// virtual void OnUnPossess() override;
+	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|AI")
 	TObjectPtr<UStateTreeAIComponent> StateTreeComp;
 };

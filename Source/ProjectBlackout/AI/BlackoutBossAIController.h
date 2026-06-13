@@ -18,6 +18,8 @@ public:
 
 	// 데미지를 받았을때 호출
 	virtual void RecordDamage(APawn* Source, float Amount);
+	
+	virtual void StartCombat() override;
 
 protected:
 

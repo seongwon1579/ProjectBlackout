@@ -26,7 +26,7 @@ void UBlackoutPhaseEvaluator::Initialize(AAIController* InAIController, UAbility
 
     UE_LOG(LogTemp, Warning, TEXT("UBlackoutPhaseEvaluator Initialize"));
     // 초기 페이즈 시작
-    RequestPhaseChange(EBOBossPhase::Phase1);
+    //RequestPhaseChange(EBOBossPhase::Phase1);
 }
 
 void UBlackoutPhaseEvaluator::Deinitialize()
