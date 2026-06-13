@@ -37,7 +37,10 @@ public class ProjectBlackout : ModuleRules
 			"DeveloperSettings",
 			// Plugin
 			"MotionWarping",
-			"NavigationSystem"
+			"NavigationSystem",
+			// Level Sequence
+			"LevelSequence",
+			"MovieScene"
 		});
 
 		if (Target.Platform == UnrealTargetPlatform.Win64 && Target.Type != TargetType.Server)
