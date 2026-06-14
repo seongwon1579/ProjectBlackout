@@ -1,12 +1,10 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "BORavagerPatternData.h"
-#include "BORavagerStatData.h"
+#include "BOBossChaseRanges.h"
 #include "Characters/BlackoutEnemyCharacter.h"
 #include "GameplayEffectTypes.h"
 #include "MotionWarpingComponent.h"
-#include "Enum/BOBossPhase.h"
 
 #include "BlackoutBossCharacter.generated.h"
 
@@ -30,13 +28,17 @@ public:
 	FBlackoutBossDefeatedSignature OnDefeated;
 	
 	virtual void SetData() {}
+	
+	virtual FBossChaseRanges GetChaseRanges(const FGameplayTag& PatternTag) const
+	{
+		return FBossChaseRanges();
+	}
 
 protected:
 	virtual void BeginPlay() override;
 
 	virtual void OnDeath() override;
-
-
+	
 	virtual void OnDamageReceived(const FOnAttributeChangeData& Data) {}
  
 	virtual FText GetBossDisplayName() const { return FText::FromString(TEXT("")); }

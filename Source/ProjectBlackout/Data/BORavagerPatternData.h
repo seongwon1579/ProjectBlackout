@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "BOBossChaseRanges.h"
 #include "GameplayEffect.h"
 #include "GameplayTagContainer.h"
 #include "Engine/DataAsset.h"
@@ -271,16 +272,7 @@ public:
 	TMap<FGameplayTag, TObjectPtr<UAnimMontage>> Montages;
 	
 	UPROPERTY(EditAnywhere, Category = "Blackout|Chase")
-	float ChaseStartRange = 800.f;
-
-	UPROPERTY(EditAnywhere, Category = "Blackout|Chase")
-	float ChaseEndRange = 1000.f;
-
-	UPROPERTY(EditAnywhere, Category = "Blackout|Chase")
-	float AttackRange = 300.f;
-	
-	UPROPERTY(EditAnywhere, Category = "Blackout|Chase", meta = (ClampMin = "0.0", ClampMax = "1.0"))
-	float AttackRangeVariance = 0.f;
+	FBossChaseRanges ChaseRanges;
 	
 	UPROPERTY(EditAnywhere, Category = "Blackout|Melee")
 	FBossBasicAttackSettings BasicAttackSettings;
