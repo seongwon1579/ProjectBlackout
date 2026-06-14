@@ -49,6 +49,7 @@ void ABlackoutPlayerState::CopyProperties(APlayerState* NewPlayerState)
 		NewPS->bInfiniteHealthCheat = bInfiniteHealthCheat;
 		NewPS->bInfiniteStaminaCheat = bInfiniteStaminaCheat;
 		NewPS->bInfiniteAmmoCheat = bInfiniteAmmoCheat;
+		NewPS->MatchStats = MatchStats;  
 	}
 }
 
@@ -63,6 +64,7 @@ void ABlackoutPlayerState::GetLifetimeReplicatedProps(
 	DOREPLIFETIME(ABlackoutPlayerState, bIsReady);
 	DOREPLIFETIME(ABlackoutPlayerState, bRequestedSurrender);
 	DOREPLIFETIME(ABlackoutPlayerState, bVotedAgainstSurrender);
+	DOREPLIFETIME(ABlackoutPlayerState, MatchStats);
 	DOREPLIFETIME_CONDITION(ABlackoutPlayerState, bInfiniteHealthCheat, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(ABlackoutPlayerState, bInfiniteStaminaCheat, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(ABlackoutPlayerState, bInfiniteAmmoCheat, COND_OwnerOnly);
@@ -280,6 +282,75 @@ bool ABlackoutPlayerState::IsBeingRevived() const
 	return HasStateTag(BlackoutGameplayTags::State_BeingRevived);
 }
 
+void ABlackoutPlayerState::AddDamageDealt(float Amount)
+{
+	if (!HasAuthority() || Amount <= 0.f)
+	{
+		return;
+	}
+	MatchStats.DamageDealt += FMath::RoundToInt(Amount);   
+	BroadcastMatchStatsChanged();
+}
+
+void ABlackoutPlayerState::RecordKill(bool bWasMeleeKill)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+	++MatchStats.Kills;
+	if (bWasMeleeKill)
+	{
+		++MatchStats.MeleeKills;
+	}
+	BroadcastMatchStatsChanged();
+}
+
+void ABlackoutPlayerState::RecordShotsFired(int32 Count)
+{
+	if (!HasAuthority() || Count <= 0)
+	{
+		return;
+	}
+	MatchStats.ShotsFired += Count;
+	BroadcastMatchStatsChanged();
+}
+
+void ABlackoutPlayerState::RecordShotsHit(int32 Count)
+{
+	if (!HasAuthority() || Count <= 0)
+	{
+		return;
+	}
+	MatchStats.ShotsHit += Count;  
+	BroadcastMatchStatsChanged();
+}
+
+void ABlackoutPlayerState::RecordConsumableUsed()
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+	++MatchStats.ConsumablesUsed;
+	BroadcastMatchStatsChanged();
+}
+
+void ABlackoutPlayerState::RecordRevive()
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+	++MatchStats.Revives;
+	BroadcastMatchStatsChanged();
+}
+
+void ABlackoutPlayerState::OnRep_MatchStats()
+{
+	BroadcastMatchStatsChanged();
+}
+
 void ABlackoutPlayerState::OnRep_PlayerName()
 {
 	Super::OnRep_PlayerName();
@@ -304,6 +375,11 @@ void ABlackoutPlayerState::OnRep_GulSerumCount()
 void ABlackoutPlayerState::BroadcastConsumableCounts()
 {
 	OnConsumableCountsChanged.Broadcast(BloodRootCount, GulSerumCount);
+}
+
+void ABlackoutPlayerState::BroadcastMatchStatsChanged()
+{
+	OnMatchStatsChangedNative.Broadcast();
 }
 
 void ABlackoutPlayerState::BroadcastReadyStateChanged()

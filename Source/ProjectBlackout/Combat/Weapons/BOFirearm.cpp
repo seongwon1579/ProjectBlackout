@@ -58,8 +58,9 @@ void ABOFirearm::ApplyFirearmStats(const FBlackoutFirearmStat& FirearmStats)
 	bUseTwoHandedAnimation = CachedFirearmStats.bUseTwoHandedAnimation;
 }
 
-FHitResult ABOFirearm::Fire(const FVector& Direction, const FGameplayEffectSpecHandle& DamageSpecHandle)
+FHitResult ABOFirearm::Fire(const FVector& Direction, const FGameplayEffectSpecHandle& DamageSpecHandle, bool& bOutHitEnemy)
 {
+	bOutHitEnemy = false;
 	FHitResult HitResult;
 	if (bUseHitscan)
 	{
@@ -106,6 +107,8 @@ FHitResult ABOFirearm::Fire(const FVector& Direction, const FGameplayEffectSpecH
 					}
 				}
 			}
+
+			bOutHitEnemy = bAppliedDamage;   // 적 명중(데미지 적용) 여부를 호출부에 반환
 
 			if (bDrawDebugHitscanRay)
 			{

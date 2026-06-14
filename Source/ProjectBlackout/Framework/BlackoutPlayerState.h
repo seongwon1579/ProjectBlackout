@@ -17,6 +17,7 @@ class UBOConsumableData;
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FBlackoutConsumableCountsChangedSignature, int32, BloodRootCount, int32, GulSerumCount);
 DECLARE_MULTICAST_DELEGATE_OneParam(FBlackoutReadyStateChangedNativeSignature, bool);
 DECLARE_MULTICAST_DELEGATE(FBlackoutPlayerNameChangedNativeSignature);
+DECLARE_MULTICAST_DELEGATE(FBlackoutMatchStatsChangedNativeSignature);
 
 UCLASS()
 class PROJECTBLACKOUT_API ABlackoutPlayerState : public APlayerState, public IAbilitySystemInterface
@@ -109,8 +110,26 @@ public:
 
 	/** PlayerName 이 복제(변경)될 때 코드로 알림 — 파티 로스터가 닉네임 늦게 도착 시 갱신용. */
 	FBlackoutPlayerNameChangedNativeSignature OnPlayerNameChangedNative;
+	
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_MatchStats, Category = "Blackout|PlayerState|Stats")
+	FBlackoutMatchStats MatchStats;
+
+	/** 매치 통계가 갱신될 때 코드로 알림 — 스코어보드/요약 위젯 갱신용. */
+	FBlackoutMatchStatsChangedNativeSignature OnMatchStatsChangedNative;
+
+	// --- 집계 (기존 서버 경로에서 호출, 클라 RPC 금지) ---
+	void AddDamageDealt(float Amount);
+	void RecordKill(bool bWasMeleeKill);
+	void RecordShotsFired(int32 Count = 1);
+	void RecordShotsHit(int32 Count = 1);
+	void RecordConsumableUsed();
+	void RecordRevive();
 
 protected:
+	
+	UFUNCTION()
+	void OnRep_MatchStats();
+	
 	/** 기본 PlayerName 복제 콜백 — 늦게 도착하는 닉네임을 로스터에 알리려 오버라이드. */
 	virtual void OnRep_PlayerName() override;
 
@@ -146,6 +165,7 @@ protected:
 	TObjectPtr<const UBlackoutAmmoAttributeSet> AmmoAttributeSet;
 	
 private:
+	void BroadcastMatchStatsChanged();
 	void BroadcastReadyStateChanged();
 	void RestoreAtCheckpoint();
 	void ApplyActiveCheatState();
