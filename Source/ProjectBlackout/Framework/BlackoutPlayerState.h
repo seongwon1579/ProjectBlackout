@@ -132,6 +132,10 @@ public:
 	void RecordConsumableUsed();
 	void RecordRevive();
 
+	// 보스 진입 스냅샷 / 전멸·항복 재시작 시 롤백 (클리어 구간 유지 + 재도전 보스 구간만 휘발)
+	void SnapshotMatchStats();
+	void RollbackMatchStats();
+
 protected:
 	
 	UFUNCTION()
@@ -173,6 +177,10 @@ protected:
 	
 private:
 	void BroadcastMatchStatsChanged();
+
+	// 보스 진입 시점 스냅샷. 복제 X(서버 전용) — 롤백은 MatchStats 복제로 클라 반영.
+	FBlackoutMatchStats CheckpointStats;
+
 	void BroadcastReadyStateChanged();
 	void RestoreAtCheckpoint();
 	void ApplyActiveCheatState();
