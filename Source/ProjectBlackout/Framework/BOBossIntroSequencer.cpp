@@ -5,6 +5,8 @@
 
 #include "BlackoutBattleGameMode.h"
 #include "BlackoutBossAIController.h"
+#include "BlackoutMusicSubsystem.h"
+#include "Engine/GameInstance.h"
 #include "LevelSequenceActor.h"
 #include "LevelSequencePlayer.h"
 #include "MovieSceneSequencePlayer.h"
@@ -25,15 +27,19 @@ void ABOBossIntroSequencer::PlayBossIntro()
 		return;
 	}
 	ULevelSequencePlayer* Player = BossCutsceneActor ? BossCutsceneActor->GetSequencePlayer() : nullptr;
+	if (Player)
+	{
+		Player->OnFinished.AddDynamic(this, &ABOBossIntroSequencer::OnCutsceneTimerExpired);
+	}
+	
+	Multicast_PlayerCutscene();
+
+	// 컷신 액터가 없더라도 인트로 음악은 재생하고 AI 활성화만 즉시 진행합니다.
 	if (!Player)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("ABossCutsceneManager: do not exist cut scene, so do Combat instantly"))
 		OnCutsceneTimerExpired();
-		return;
 	}
-	Player->OnFinished.AddDynamic(this, &ABOBossIntroSequencer::OnCutsceneTimerExpired);
-	
-	Multicast_PlayerCutscene();
 }
 
 void ABOBossIntroSequencer::ActivateBossAI()
@@ -56,6 +62,15 @@ void ABOBossIntroSequencer::ActivateBossAI()
 
 void ABOBossIntroSequencer::Multicast_PlayerCutscene_Implementation()
 {
+	if (UGameInstance* GameInstance = GetGameInstance())
+	{
+		if (UBlackoutMusicSubsystem* MusicSubsystem = GameInstance->GetSubsystem<UBlackoutMusicSubsystem>())
+		{
+			// 보스 종류 하드코딩 대신 시퀀서 인스턴스에 지정된 음악을 그대로 재생합니다.
+			MusicSubsystem->PlayMusicAsset(IntroMusic);
+		}
+	}
+
 	if (BossCutsceneActor && BossCutsceneActor->GetSequencePlayer())
 	{
 		UE_LOG(LogTemp, Warning, TEXT("ABossCutsceneManager: Play a cut scene"))
@@ -82,6 +97,7 @@ void ABOBossIntroSequencer::BeginPlay()
 	{
 		if (ABlackoutBattleGameMode* GM = Cast<ABlackoutBattleGameMode>(GetWorld()->GetAuthGameMode()))
 		{
+			// 전투 시작 타이밍은 BattleGameMode가 소유하고, 시퀀서는 자기 자신을 거기에 등록만 합니다.
 			GM->RegisterCutsceneManager(this);
 		}
 	}

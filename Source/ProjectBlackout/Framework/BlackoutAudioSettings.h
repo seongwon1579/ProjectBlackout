@@ -6,6 +6,7 @@
 
 class USoundClass;
 class USoundMix;
+class USoundBase;
 
 /**
  * 오디오 옵션이 제어할 사운드 에셋 참조를 보관하는 프로젝트 설정입니다.
@@ -31,6 +32,18 @@ public:
 	/** 효과음 볼륨 슬라이더가 제어할 사운드 클래스입니다. */
 	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "Blackout|Audio")
 	TSoftObjectPtr<USoundClass> SFXSoundClass;
+
+	/** 타이틀 메인 메뉴에 진입했을 때 재생할 기본 BGM입니다. */
+	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "Blackout|Audio|Music")
+	TSoftObjectPtr<USoundBase> MainMenuMusic;
+
+	/** ShelterPrep 로비 구간에서 재생할 기본 BGM입니다. */
+	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "Blackout|Audio|Music")
+	TSoftObjectPtr<USoundBase> LobbyMusic;
+
+	/** 배경 음악을 시작할 때 사용할 기본 페이드 인 시간입니다. */
+	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "Blackout|Audio|Music", meta = (ClampMin = "0.0"))
+	float BackgroundMusicFadeInDuration = 1.0f;
 
 	/** 블루프린트에서 프로젝트 오디오 설정 객체에 접근합니다. */
 	UFUNCTION(BlueprintPure, Category = "Blackout|Audio")
