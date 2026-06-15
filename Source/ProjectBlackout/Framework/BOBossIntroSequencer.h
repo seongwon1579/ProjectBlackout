@@ -7,6 +7,7 @@
 #include "BOBossIntroSequencer.generated.h"
 
 class ALevelSequenceActor;
+class USoundBase;
 
 UCLASS()
 class PROJECTBLACKOUT_API ABOBossIntroSequencer : public AActor
@@ -35,6 +36,10 @@ public:
 
 	UPROPERTY(EditInstanceOnly, Category = "Blackout|Cutscene")
 	AActor* TargetBoss;
+
+	/** 이 인트로 시퀀서가 재생될 때 함께 시작할 전용 BGM입니다. */
+	UPROPERTY(EditInstanceOnly, Category = "Blackout|Cutscene|Audio")
+	TSoftObjectPtr<USoundBase> IntroMusic;
 	
 private:
 	FTimerHandle CutsceneTimerHandle;

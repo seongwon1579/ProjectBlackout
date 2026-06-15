@@ -8,6 +8,7 @@
 #include "BlackoutMatchFlowSubsystem.h"
 #include "BlackoutMatchmakingWidget.h"
 #include "BlackoutSettingsWidget.h"
+#include "Framework/BlackoutMusicSubsystem.h"
 #include "Framework/BlackoutMatchmakingSubsystem.h"
 #include "Framework/BlackoutPlayerController.h"
 
@@ -82,6 +83,18 @@ void UBlackoutMainMenuWidget::NativeConstruct()
 			
 			MatchmakingSubsystem->OnActiveSessionFound.AddDynamic(
 				this, &UBlackoutMainMenuWidget::HandleActiveSessionFound);
+		}
+	}
+
+	// 타이틀 전용 메뉴에서만 메인 메뉴 BGM을 시작하고, 인게임 ESC 메뉴에서는 현재 게임 음악을 유지합니다.
+	if (!bUseAsInGameMenu)
+	{
+		if (UGameInstance* GameInstance = GetGameInstance())
+		{
+			if (UBlackoutMusicSubsystem* MusicSubsystem = GameInstance->GetSubsystem<UBlackoutMusicSubsystem>())
+			{
+				MusicSubsystem->PlayMainMenuMusic();
+			}
 		}
 	}
 
