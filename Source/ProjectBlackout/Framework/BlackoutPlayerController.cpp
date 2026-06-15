@@ -19,6 +19,7 @@
 #include "UI/BlackoutMainMenuWidget.h"
 #include "Camera/PlayerCameraManager.h"
 #include "Engine/Engine.h"
+#include "GameMapsSettings.h"
 #include "InputCoreTypes.h"
 #include "Framework/BlackoutMatchmakingSubsystem.h"
 #include "Framework/BlackoutCharacterPreviewManager.h"
@@ -253,6 +254,24 @@ void ABlackoutPlayerController::ClosePlayerMenu()
 	FInputModeGameOnly InputMode;
 	SetInputMode(InputMode);
 	bShowMouseCursor = false;
+}
+
+void ABlackoutPlayerController::LeaveToTitleScreen()
+{
+	if (!IsLocalController())
+	{
+		return;
+	}
+	
+	ClosePlayerMenu();
+	
+	if (PlayerCameraManager)
+	{
+		LastFadeColor = FLinearColor::Black;
+		PlayerCameraManager->StartCameraFade(0.0f , 1.0f, ScreenFadeDuration , LastFadeColor , false ,	true); 
+	}
+	
+	GetWorldTimerManager().SetTimer(LeaveToTitleTimerHandle, this , &ABlackoutPlayerController::DoLeaveToTitle , ScreenFadeDuration , false);
 }
 
 void ABlackoutPlayerController::Server_ReportLoaded_Implementation()
@@ -1187,6 +1206,19 @@ void ABlackoutPlayerController::OnRequestSurrenderPressed()
 }
 
 #pragma endregion 
+void ABlackoutPlayerController::DoLeaveToTitle()
+{
+	const FString TitleURL = GetDefault<UGameMapsSettings>()->GetGameDefaultMap();
+	if (TitleURL.IsEmpty())
+	{
+		BO_LOG_NET(Error, "LeaveToTitleScreen 실패: GameDefaultMap 미설정");
+		return;
+	}
+	BO_LOG_NET(Log, "메인 화면으로 나가기 — 로컬 ClientTravel -> %s", *TitleURL);
+	ClientTravel(TitleURL, TRAVEL_Absolute);
+	
+}
+
 void ABlackoutPlayerController::StartScreenFadeIn()
 {
 	if (!PlayerCameraManager)
