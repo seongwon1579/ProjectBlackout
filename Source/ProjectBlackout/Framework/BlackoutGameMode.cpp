@@ -293,14 +293,14 @@ void ABlackoutGameMode::TransitionTo(EBlackoutMatchState NewState)
 	}
 }
 
-void ABlackoutGameMode::BroadcastScreenFadeOut(FLinearColor FadeColor)
+void ABlackoutGameMode::BroadcastScreenFadeOut(FLinearColor FadeColor, bool bHoldUntilReady)
 {
 	
 	for (const TObjectPtr<APlayerController>& PC : ConnectedPlayers)
 	{
 		if (ABlackoutPlayerController* BlackoutPlayerController = Cast<ABlackoutPlayerController>(PC))
 		{
-			BlackoutPlayerController->Client_StartScreenFadeOut(FadeColor);
+			BlackoutPlayerController->Client_StartScreenFadeOut(FadeColor , bHoldUntilReady);
 		}
 	}
 }

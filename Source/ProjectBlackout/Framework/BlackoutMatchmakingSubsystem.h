@@ -150,6 +150,10 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Blackout|Matchmaking")
 	bool IsLoggedIn() const { return !AccessToken.IsEmpty(); }
+	
+	// seamless travel 도착시 로딩 커버 필요 여부
+	void SetPendingLoadingGate(bool bInPenging) {bPendingLoadingGate = bInPenging;}
+	bool IsPendingLoadingGate() const { return bPendingLoadingGate; }
 
 	UFUNCTION(BlueprintPure, Category = "Blackout|Matchmaking")
 	FString GetPlayerName() const { return CachedPlayerName; }
@@ -214,6 +218,9 @@ private:
 	TObjectPtr<UTexture2D> LoadingBackgroundTexture;
 	UPROPERTY(Transient)
 	TObjectPtr<UTexture2D> LoadingLogoTexture;
+	
+	// 로비->보스 seamless 도착 후 로딩 커버를 걸지. travel 넘어 살아남아야 해 PC 가 아닌 여기 보관.
+	bool bPendingLoadingGate = false;
 
 	// Authorization: Bearer <token> 헤더 주입. AccessToken 비어있으면 skip.
 	void SetAuthHeader(const FHttpRequestRef& Request) const;
