@@ -1028,6 +1028,15 @@ void ABlackoutBattleGameMode::StartBossCombat()
 	TransitionTo(NewState);
 	BO_LOG_NET(Log, "보스맵 전원 도착 — 전투 시작 (%s)",
 	           *UEnum::GetValueAsString(NewState));
+	
+	// 각 클라 로딩 해제용 ready
+	for (const TObjectPtr<APlayerController>& PC : ConnectedPlayers)
+	{
+		if (ABlackoutPlayerController* BPC = Cast<ABlackoutPlayerController>(PC))
+		{
+			BPC -> Client_NotifyBossCombatReady();
+		}
+	}
 }
 
 void ABlackoutBattleGameMode::TravelToTitle()
