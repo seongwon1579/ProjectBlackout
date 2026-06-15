@@ -199,6 +199,15 @@ void UBlackoutHUDWidgetController::BindCallbacksToDependencies()
 			BlackoutCombatComponent->OnEquippedWeaponChanged.AddDynamic(this, &UBlackoutHUDWidgetController::HandleEquippedWeaponChanged);
 			BlackoutCombatComponent->OnAimingChanged.AddDynamic(this, &UBlackoutHUDWidgetController::HandleAimingChanged);
 			BoundCombatComponent = BlackoutCombatComponent;
+
+			// 캐릭터 교체로 새 전투 컴포넌트에 바인딩되면 새 캐릭터는 항상 주무기를 장착한다.
+			// 무기 슬롯 UI는 스왑 애니메이션 위치로 장착 슬롯을 표현하고 위젯 인스턴스는 유지되므로,
+			// 직전 표시가 보조무기였다면 주무기 위치로 스왑 애니메이션을 강제 재생해 정렬한다.
+			// (직전이 이미 주무기였다면 애니메이션이 그대로이므로 불필요한 재생/글리치를 피한다.)
+			if (!bLastDisplayedPrimaryEquipped)
+			{
+				BroadcastWeaponAmmoDisplay(true, BlackoutGameplayTags::Weapon_Primary);
+			}
 		}
 	}
 	else
@@ -420,7 +429,8 @@ void UBlackoutHUDWidgetController::HandleEquippedWeaponChanged(ABOWeaponBase* Eq
 	OnEquippedWeaponChanged.Broadcast(EquippedWeapon, WeaponSlotTag);
 	BroadcastAiming();
 	BroadcastAmmo();
-	BroadcastWeaponAmmoDisplay(true);
+	// 이벤트가 전달한 슬롯 태그를 그대로 사용한다(무기 포인터 비교 재계산으로 인한 오판정 방지).
+	BroadcastWeaponAmmoDisplay(true, WeaponSlotTag);
 }
 
 void UBlackoutHUDWidgetController::HandleAimingChanged(bool bIsAiming)
@@ -546,7 +556,7 @@ void UBlackoutHUDWidgetController::BroadcastAiming() const
 	OnAimingChanged.Broadcast(BlackoutCombatComponent ? BlackoutCombatComponent->IsAiming() : false, GetEquippedCrosshairType());
 }
 
-void UBlackoutHUDWidgetController::BroadcastWeaponAmmoDisplay(bool bPlaySwapAnimation) const
+void UBlackoutHUDWidgetController::BroadcastWeaponAmmoDisplay(bool bPlaySwapAnimation, FGameplayTag EquippedSlotTagOverride)
 {
 	const UBlackoutCombatComponent* BlackoutCombatComponent = CombatComponent.Get();
 	if (!BlackoutCombatComponent)
@@ -558,7 +568,17 @@ void UBlackoutHUDWidgetController::BroadcastWeaponAmmoDisplay(bool bPlaySwapAnim
 		return;
 	}
 
-	const FGameplayTag EquippedWeaponSlotTag = BlackoutCombatComponent->GetEquippedWeaponSlotTag();
+	// 호출부가 슬롯 태그를 명시하면 그것을 신뢰한다(클래스 변경 직후 등 무기 포인터 비교가 불안정한 시점 대응).
+	const FGameplayTag EquippedWeaponSlotTag = EquippedSlotTagOverride.IsValid()
+		? EquippedSlotTagOverride
+		: BlackoutCombatComponent->GetEquippedWeaponSlotTag();
+
+	// 스왑 애니메이션을 재생하는 경우에만 위젯의 표시 슬롯이 바뀌므로 이때만 추적 값을 갱신한다.
+	if (bPlaySwapAnimation)
+	{
+		bLastDisplayedPrimaryEquipped = EquippedWeaponSlotTag.MatchesTagExact(BlackoutGameplayTags::Weapon_Primary);
+	}
+
 	const FBlackoutWeaponAmmoSlotData PrimarySlotData = MakeWeaponAmmoSlotData(
 		BlackoutCombatComponent->GetPrimaryWeapon(),
 		BlackoutGameplayTags::Weapon_Primary,

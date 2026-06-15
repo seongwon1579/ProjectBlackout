@@ -61,7 +61,7 @@ void SBlackoutLoadingScreen::Construct(const FArguments& InArgs)
 	const FSlateBrush* WhiteBrush = FCoreStyle::Get().GetBrush("WhiteBrush");
 	const FSlateBrush* BackgroundImageBrush = BackgroundTexture.IsValid() ? &BackgroundBrush : WhiteBrush;
 	const FSlateBrush* LogoImageBrush = LogoTexture.IsValid() ? &LogoBrush : WhiteBrush;
-	const FLinearColor BackgroundTint = FLinearColor(0.01f, 0.01f, 0.01f, 1.0f);
+	constexpr FLinearColor BackgroundTint = FLinearColor(0.4f, 0.4f, 0.4f, 1.0f);
 	const FLinearColor LogoTint = FLinearColor::White;
 
 	ChildSlot
@@ -115,10 +115,8 @@ void SBlackoutLoadingScreen::Construct(const FArguments& InArgs)
 				SNew(STextBlock)
 				.Text(FText::FromString(TEXT("LOADING...")))
 				.Font(FCoreStyle::GetDefaultFontStyle("Bold", 32))
-				.ColorAndOpacity(FLinearColor(0.1f, 0.1f, 0.1f, 1.0f))
+				.ColorAndOpacity(FLinearColor::White)
 				.Justification(ETextJustify::Center)
-				.ShadowOffset(FVector2D(0.0f, 2.0f))
-				.ShadowColorAndOpacity(FLinearColor(0.0f, 0.0f, 0.0f, 0.7f))
 			]
 		]
 	];

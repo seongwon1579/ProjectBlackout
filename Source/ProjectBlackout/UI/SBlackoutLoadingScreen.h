@@ -13,7 +13,7 @@ class UTexture2D;
 namespace BlackoutLoadingScreen
 {
 	inline constexpr const TCHAR* BackgroundTexturePath =
-		TEXT("/Game/Textures/T_Generic_WhiteWeathered.T_Generic_WhiteWeathered");
+		TEXT("/Game/Textures/T_BG_HighresScreenshot_Main.T_BG_HighresScreenshot_Main");
 	inline constexpr const TCHAR* LogoTexturePath =
 		TEXT("/Game/Textures/Logo/T_Blackout_TitleLogo_SharpBT_transparent.T_Blackout_TitleLogo_SharpBT_transparent");
 }

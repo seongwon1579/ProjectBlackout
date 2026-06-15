@@ -178,6 +178,9 @@ private:
 	
 	void DoTravelToTitle();
 	
+	// 매치 종료 후 복귀 공통 정리 : 텔레메트리 run 종료 + 매치 진행 스테이지 리셋
+	void ResetMatchProgressForReturn();
+
 	// 데디 서버측 Idle 복귀 : 매치 인덱스 리셋 , 로비맵 ServerTravel  (타이틀/전원퇴장 공용)
 	void ReturnServerToIdleLobby();
 	
