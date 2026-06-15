@@ -393,6 +393,25 @@ void ABlackoutPlayerState::BroadcastMatchStatsChanged()
 	OnMatchStatsChangedNative.Broadcast();
 }
 
+void ABlackoutPlayerState::SnapshotMatchStats()
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+	CheckpointStats = MatchStats;
+}
+
+void ABlackoutPlayerState::RollbackMatchStats()
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+	MatchStats = CheckpointStats;
+	BroadcastMatchStatsChanged();
+}
+
 void ABlackoutPlayerState::BroadcastReadyStateChanged()
 {
 	OnReadyStateChangedNative.Broadcast(bIsReady);

@@ -10,6 +10,7 @@ class UBOCharacterRoster;
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FBlackoutPlayerArrayChangedSignature);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FBlackoutMatchStateChangedSignature, EBlackoutMatchState, NewState);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_FourParams(FBlackoutSurrenderVoteStateChangedSignature, bool, bIsActive, int32, YesCount, int32, NoCount, float, EndTimeSeconds);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FBlackoutMatchSummaryReadySignature);
 
 UCLASS()
 class PROJECTBLACKOUT_API ABlackoutGameState : public AGameStateBase
@@ -29,6 +30,15 @@ public:
 	// 매치 상태 변경 통지 (서버 SetMatchState + 클라 OnRep 양쪽 broadcast). 게이트/HUD/보스 활성이 구독.
 	UPROPERTY(BlueprintAssignable, Category = "Blackout|GameState")
 	FBlackoutMatchStateChangedSignature OnMatchStateChanged;
+	
+	UPROPERTY(BlueprintAssignable , Category = "Blackout|GameState")
+	FBlackoutMatchSummaryReadySignature OnMatchSummaryReady;
+	
+	UPROPERTY(BlueprintReadOnly , ReplicatedUsing=OnRep_MatchSummaryReady , Category = "Blackout|GameState")
+	bool bMatchSummaryReady = false;
+	
+	UFUNCTION(BlueprintCallable, Category = "Blackout|GameState")
+	void MarkMatchSummaryReady();
 
 	// 현재 매치 생애주기 상태. 서버에서 SetMatchState 로만 전환하고 클라에 리플리케이트.
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_CurrentMatchState, Category = "Blackout|GameState")
@@ -81,6 +91,9 @@ protected:
 
 	UFUNCTION()
 	void OnRep_SurrenderVoteActive();
+	
+	UFUNCTION()
+	void OnRep_MatchSummaryReady();
 
 private:
 	// ShelterPrep 진입 시 로컬 PC 의 클래스 선택 UI 를 연다 (서버/클라 공통, 로컬 1개만).

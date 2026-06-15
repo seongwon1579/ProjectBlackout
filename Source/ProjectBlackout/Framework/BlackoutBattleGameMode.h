@@ -83,7 +83,7 @@ protected:
 
 	// 중간보스 사망 → 페이드 시작까지 대기(초). 사망 애님 자연스럽게 보이도록.
 	UPROPERTY(EditDefaultsOnly, Category="Blackout|Battle")
-	float MidBossDeathDelay = 2.0f;
+	float MidBossDeathDelay = 5.0f;
 
 	void TravelToLobby(FLinearColor FadeColor);
 	
