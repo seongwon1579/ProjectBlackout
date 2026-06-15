@@ -21,4 +21,9 @@ public:
 
 	void SetCombatTarget(APawn* TargetPawn);
 	
+	virtual void StartCombat() override;
+	
+	virtual void OnPossess(APawn* InPawn) override;
+	virtual void OnUnPossess() override;
+	
 };

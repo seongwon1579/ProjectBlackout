@@ -10,6 +10,7 @@ enum class EBlackoutMatchEndReason : uint8;
 class ABlackoutPlayerCharacter;
 class ABlackoutPlayerController;
 class ABlackoutBossCharacter;
+class ABOBossIntroSequencer;
 /**
  * 전투 레벨 전용 GameMode. 전투 진입 자원 초기화 / 체크포인트 등록 / 파티 전멸 복귀 처리.
  */
@@ -59,6 +60,7 @@ public:
 	
 	virtual UClass* GetDefaultPawnClassForController_Implementation(AController* InController) override;
 
+	void RegisterCutsceneManager(ABOBossIntroSequencer* InManager);
 protected:
 	// 플레이어 접속 시 전투 진입 자원 초기화 정책 적용 (LobbyToBattle).
 	virtual void OnPlayerJoined(APlayerController* NewPlayer) override;
@@ -92,6 +94,9 @@ protected:
 	bool bTravelInitiated  = false;
 	
 	virtual void OnSeamlessArrival(APlayerController* PC) override;
+	virtual void RestartPlayer(AController* NewPlayer) override;
+	
+	bool bIsEncounterStarted = false;
 	
 	// 끊긴 플레이어 UniqueId -> SelectedClassTag 재접속 클래스 복원용 매치 종료시 Clear
 	TMap<FString , FGameplayTag> ReconnectStash;
@@ -157,4 +162,7 @@ private:
 	FTimerHandle FadeTravelTimerHandle;
 	
 	class UBlackoutTelemetrySampler* GetTelemetrySampler() const;
+	
+	UPROPERTY(Transient)
+	ABOBossIntroSequencer* CurrentCutsceneManager;
 };

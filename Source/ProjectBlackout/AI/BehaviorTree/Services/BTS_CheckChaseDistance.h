@@ -41,5 +41,5 @@ public:
 protected:
 	
 	UPROPERTY(Transient)
-	TObjectPtr<UBORavagerPatternData> CachedData;
+	FBossChaseRanges CachedRanges;
 };

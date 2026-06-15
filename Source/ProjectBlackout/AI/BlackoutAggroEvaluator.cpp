@@ -17,21 +17,43 @@ UWorld* UBlackoutAggroEvaluator::GetWorld() const
 
 void UBlackoutAggroEvaluator::Initialize(AAIController* InAIController, UAbilitySystemComponent* InASC)
 {
+	// CachedOwnerAIController = InAIController;
+	// CachedASC = InASC;
+	//
+	// UE_LOG(LogTemp, Warning, TEXT("UBlackoutAggroEvaluator::Initialize"))
+	//
+	// if (!InAIController || !InAIController->HasAuthority()) return;
+	//
+	// RegisterTagEvents();
+	// RegisterPlayerEvents();
+	//
+	// UpdateTarget();
 	CachedOwnerAIController = InAIController;
 	CachedASC = InASC;
+    
+	UE_LOG(LogTemp, Warning, TEXT("UBlackoutAggroEvaluator::Initialize"))
 
 	if (!InAIController || !InAIController->HasAuthority()) return;
 
 	RegisterTagEvents();
-	RegisterPlayerEvents();
 
-	UpdateTarget();
+	// // [수정] 즉시 바인딩/타겟팅을 시도하지 않고, 플레이어가 월드에 완전히 올라올 때까지 타이머를 돌립니다.
+	// if (UWorld* World = GetWorld())
+	// {
+	// 	// 0.1초마다 TryInitialTargeting을 호출합니다.
+	// 	World->GetTimerManager().SetTimer(StartupTimerHandle, this, &UBlackoutAggroEvaluator::TryInitialTargeting, 0.1f, true);
+	// }
 }
 
 void UBlackoutAggroEvaluator::Deinitialize()
 {
+	// if (UWorld* World = GetWorld())
+	// {
+	// 	World->GetTimerManager().ClearTimer(StartupTimerHandle);
+	// }
+	
 	UnregisterTagEvents();
-	UnregisterPlayerEvents();
+	//UnregisterPlayerEvents();
 
 	CachedASC = nullptr;
 	CachedOwnerAIController = nullptr;
@@ -41,11 +63,15 @@ void UBlackoutAggroEvaluator::Deinitialize()
 void UBlackoutAggroEvaluator::UpdateTarget()
 {
 	if (!CachedOwnerAIController) return;
+	
+	UE_LOG(LogTemp, Warning, TEXT("UpdateTarget"))
 
 	APawn* BestTarget = CalculateBestTarget(nullptr);
 
 	if (BestTarget && BestTarget != CurrentTarget.Get())
 	{
+		UE_LOG(LogTemp, Warning, TEXT("UpdateTarget BestTarget && BestTarget != CurrentTarget.Get()"))
+		
 		CurrentTarget = BestTarget;
 		WatchTargetDownState(BestTarget);
 		OnAggroTargetChanged.Broadcast(BestTarget);
@@ -60,25 +86,29 @@ void UBlackoutAggroEvaluator::OnAggroTargetChangeTagChanged(const FGameplayTag T
 	}
 }
 
-void UBlackoutAggroEvaluator::OnPlayerPawnChanged(APawn* OldPawn, APawn* NewPawn)
-{
-	if (NewPawn)
-	{
-		UpdateTarget();
-	}
-}
+// void UBlackoutAggroEvaluator::OnPlayerPawnChanged(APawn* OldPawn, APawn* NewPawn)
+// {
+// 	if (IsValid(NewPawn))
+// 	{
+// 		UE_LOG(LogTemp, Warning, TEXT("플레이어 폰 빙의 감지! 보스전 어그로 시스템 가동. 타겟: %s"), *NewPawn->GetName());
+// 		UpdateTarget();
+// 	}
+// }
 
-void UBlackoutAggroEvaluator::OnPostLogin(AGameModeBase* GameMode, APlayerController* NewPC)
-{
-	if (!NewPC) return;
-
-	NewPC->OnPossessedPawnChanged.AddDynamic(this, &UBlackoutAggroEvaluator::OnPlayerPawnChanged);
-
-	if (NewPC->GetPawn())
-	{
-		UpdateTarget();
-	}
-}
+// void UBlackoutAggroEvaluator::OnPostLogin(AGameModeBase* GameMode, APlayerController* NewPC)
+// {
+// 	UE_LOG(LogTemp, Warning, TEXT("OnPostLogin"))
+// 	if (!NewPC) return;
+//
+// 	UE_LOG(LogTemp, Warning, TEXT("OnPostLogin NewPC"))
+// 	NewPC->OnPossessedPawnChanged.AddDynamic(this, &UBlackoutAggroEvaluator::OnPlayerPawnChanged);
+//
+// 	if (NewPC->GetPawn())
+// 	{
+// 		UE_LOG(LogTemp, Warning, TEXT("OnPostLogin NewPC->GetPawn()"))
+// 		UpdateTarget();
+// 	}
+// }
 
 void UBlackoutAggroEvaluator::RecordDamage(APawn* Source, float Amount)
 {
@@ -95,9 +125,16 @@ void UBlackoutAggroEvaluator::RecordDamage(APawn* Source, float Amount)
 	Data.DamageRecords.Add(NewRecord);
 }
 
+void UBlackoutAggroEvaluator::StartAggroEvaluation()
+{
+	UpdateTarget();
+}
+
 APawn* UBlackoutAggroEvaluator::CalculateBestTarget(APawn* ExcludeTarget) const
 {
 	if (!CachedOwnerAIController) return nullptr;
+	
+	UE_LOG(LogTemp, Warning, TEXT("CalculateBestTarget"))
 
 	APawn* Owner = CachedOwnerAIController->GetPawn();
 	if (!Owner || !GetWorld()) return nullptr;
@@ -108,11 +145,17 @@ APawn* UBlackoutAggroEvaluator::CalculateBestTarget(APawn* ExcludeTarget) const
 
 	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("CalculateBestTarget"))
+		
 		APlayerController* PC = It->Get();
 		if (!PC) continue;
+		
+		UE_LOG(LogTemp, Warning, TEXT("CalculateBestTarget PC"))
 
 		APawn* Target = PC->GetPawn();
 		if (!IsValid(Target)) continue;
+		
+		UE_LOG(LogTemp, Warning, TEXT("CalculateBestTarget Pawn"))
 		
 		if (IsTargetInvalid(Target)) continue;
 
@@ -152,38 +195,68 @@ void UBlackoutAggroEvaluator::UnregisterTagEvents()
 	).Remove(TargetChangeTagChangedHandle);
 }
 
-void UBlackoutAggroEvaluator::RegisterPlayerEvents()
-{
-	UWorld* World = GetWorld();
-	if (!World) return;
+// void UBlackoutAggroEvaluator::RegisterPlayerEvents()
+// {
+// 	UWorld* World = GetWorld();
+// 	if (!World) return;
+//
+// 	// for (FConstPlayerControllerIterator It = World->GetPlayerControllerIterator(); It; ++It)
+// 	// {
+// 	// 	UE_LOG(LogTemp, Warning, TEXT("RegisterPlayerEvents"))
+// 	// 	if (APlayerController* PC = It->Get())
+// 	// 	{
+// 	// 		UE_LOG(LogTemp, Warning, TEXT("RegisterPlayerEvents PC"))
+// 	// 		PC->OnPossessedPawnChanged.AddDynamic(this, &UBlackoutAggroEvaluator::OnPlayerPawnChanged);
+// 	// 	}
+// 	// }
+// 	//
+// 	// UE_LOG(LogTemp, Warning, TEXT("RegisterPlayerEvents Next"))
+// 	// PostLoginHandle = FGameModeEvents::GameModePostLoginEvent.AddUObject(
+// 	// 	this, &UBlackoutAggroEvaluator::OnPostLogin);
+// 	
+// 	for (FConstPlayerControllerIterator It = World->GetPlayerControllerIterator(); It; ++It)
+// 	{
+// 		if (APlayerController* PC = It->Get())
+// 		{
+// 			PC->OnPossessedPawnChanged.RemoveDynamic(this, &UBlackoutAggroEvaluator::OnPlayerPawnChanged);
+// 			PC->OnPossessedPawnChanged.AddDynamic(this, &UBlackoutAggroEvaluator::OnPlayerPawnChanged);
+// 		}
+// 	}
+// }
 
-	for (FConstPlayerControllerIterator It = World->GetPlayerControllerIterator(); It; ++It)
-	{
-		if (APlayerController* PC = It->Get())
-		{
-			PC->OnPossessedPawnChanged.AddDynamic(this, &UBlackoutAggroEvaluator::OnPlayerPawnChanged);
-		}
-	}
+// void UBlackoutAggroEvaluator::UnregisterPlayerEvents()
+// {
+// 	FGameModeEvents::GameModePostLoginEvent.Remove(PostLoginHandle);
+//
+// 	UWorld* World = GetWorld();
+// 	if (!World) return;
+//
+// 	for (FConstPlayerControllerIterator It = World->GetPlayerControllerIterator(); It; ++It)
+// 	{
+// 		if (APlayerController* PC = It->Get())
+// 		{
+// 			PC->OnPossessedPawnChanged.RemoveDynamic(this, &UBlackoutAggroEvaluator::OnPlayerPawnChanged);
+// 		}
+// 	}
+// }
 
-	PostLoginHandle = FGameModeEvents::GameModePostLoginEvent.AddUObject(
-		this, &UBlackoutAggroEvaluator::OnPostLogin);
-}
-
-void UBlackoutAggroEvaluator::UnregisterPlayerEvents()
-{
-	FGameModeEvents::GameModePostLoginEvent.Remove(PostLoginHandle);
-
-	UWorld* World = GetWorld();
-	if (!World) return;
-
-	for (FConstPlayerControllerIterator It = World->GetPlayerControllerIterator(); It; ++It)
-	{
-		if (APlayerController* PC = It->Get())
-		{
-			PC->OnPossessedPawnChanged.RemoveDynamic(this, &UBlackoutAggroEvaluator::OnPlayerPawnChanged);
-		}
-	}
-}
+// void UBlackoutAggroEvaluator::TryInitialTargeting()
+// {
+// 	UWorld* World = GetWorld();
+// 	if (!World) return;
+//
+// 	UE_LOG(LogTemp, Warning, TEXT("TryInitialTargeting - 플레이어 로딩 대기 중..."))
+//
+// 	RegisterPlayerEvents();
+//
+// 	UpdateTarget();
+//
+// 	if (CurrentTarget.IsValid())
+// 	{
+// 		World->GetTimerManager().ClearTimer(StartupTimerHandle);
+// 		UE_LOG(LogTemp, Log, TEXT("보스전 최초 타겟 확보 성공 및 스타트업 타이머 종료! 타겟: %s"), *CurrentTarget.Get()->GetName());
+// 	}
+// }
 
 void UBlackoutAggroEvaluator::WatchTargetDownState(APawn* Target)
 {

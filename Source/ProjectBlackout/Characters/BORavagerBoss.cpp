@@ -6,6 +6,8 @@
 #include "BlackoutBaseAttributeSet.h"
 #include "BlackoutBossAIController.h"
 #include "BlackoutRavagerAIController.h"
+#include "BORavagerPatternData.h"
+#include "BORavagerStatData.h"
 #include "BrainComponent.h"
 #include "GameplayEffectExtension.h"
 #include "GameFramework/PlayerState.h"
@@ -47,6 +49,15 @@ void ABORavagerBoss::OnDeath()
 			Brain->StopLogic("Dead");
 		}
 	}
+}
+
+FBossChaseRanges ABORavagerBoss::GetChaseRanges(const FGameplayTag& PatternTag) const
+{
+	if (const UBORavagerPatternData* Data = GetPatternData(PatternTag))
+	{
+		return Data->ChaseRanges;
+	}
+	return FBossChaseRanges();
 }
 
 void ABORavagerBoss::SetData()

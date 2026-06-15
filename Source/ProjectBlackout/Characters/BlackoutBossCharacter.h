@@ -1,12 +1,10 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "BORavagerPatternData.h"
-#include "BORavagerStatData.h"
+#include "BOBossChaseRanges.h"
 #include "Characters/BlackoutEnemyCharacter.h"
 #include "GameplayEffectTypes.h"
 #include "MotionWarpingComponent.h"
-#include "Enum/BOBossPhase.h"
 
 #include "BlackoutBossCharacter.generated.h"
 
@@ -28,14 +26,19 @@ public:
 
 	/** 서버에서 보스 사망 시 1회 발행. GameMode가 바인딩해 매치 분기 처리. */
 	FBlackoutBossDefeatedSignature OnDefeated;
+	
+	virtual void SetData() {}
+	
+	virtual FBossChaseRanges GetChaseRanges(const FGameplayTag& PatternTag) const
+	{
+		return FBossChaseRanges();
+	}
 
 protected:
 	virtual void BeginPlay() override;
 
 	virtual void OnDeath() override;
-
-	virtual void SetData() {}
-
+	
 	virtual void OnDamageReceived(const FOnAttributeChangeData& Data) {}
  
 	virtual FText GetBossDisplayName() const { return FText::FromString(TEXT("")); }
