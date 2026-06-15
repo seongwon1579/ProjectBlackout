@@ -34,7 +34,7 @@ void ABlackoutLobbyGameMode::StartBattle()
 	}
 	
 	// 일반 이동 = 흰색 페이드 -> 대기후 travel
-	BroadcastScreenFadeOut(FLinearColor::White);
+	BroadcastScreenFadeOut(FLinearColor::White ,true);
 	GetWorldTimerManager().SetTimer(FadeTravelTimerHandle ,this ,&ABlackoutLobbyGameMode::DoStartBattleTravel , FadeOutTravelDelay , false);
 }
 
