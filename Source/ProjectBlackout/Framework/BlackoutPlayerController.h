@@ -96,6 +96,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|UI")
 	void ClosePlayerMenu();
 	
+	/** 인게임 메뉴 -> 타이틀 */
+	UFUNCTION(BlueprintCallable , Category="Blackout|UI")
+	void LeaveToTitleScreen();
+	
 	/** 레벨 전환 전 , 서버가 각 클라 화면을 페이드아웃. bHoldUntilReady=true 면 도착 후 ready 신호까지 fade-in 보류 */
 	UFUNCTION(Client,Reliable , Category="Blackout|Controller|Transition")
 	void Client_StartScreenFadeOut(FLinearColor FadeColor, bool bHoldUntilReady = false);
@@ -134,6 +138,11 @@ private:
 	
 	FTimerHandle ReadinessPollTimer;
 	float ReadinessWaitStartTime = 0.f;
+	
+	/** 페이드 종료 후 실제 타이틀 ClientTravel 수행 */
+	void DoLeaveToTitle();
+
+	FTimerHandle LeaveToTitleTimerHandle;
 	
 	/** 도착 후 화면 복귀 */
 	void StartScreenFadeIn();
