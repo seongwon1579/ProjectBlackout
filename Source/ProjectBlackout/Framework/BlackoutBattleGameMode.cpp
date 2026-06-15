@@ -302,6 +302,7 @@ void ABlackoutBattleGameMode::ShowMatchResultAfterDelay()
 		CurrentTime,
 		AutoTravelTime,
 		Participants);
+	GS->MarkMatchSummaryReady();
 
 	if (MatchResultAutoTravelDelay <= KINDA_SMALL_NUMBER)
 	{
@@ -931,6 +932,18 @@ void ABlackoutBattleGameMode::HandlePartyWipe()
 {
 	Super::HandlePartyWipe();
 
+	// 매치 통계: 전멸/항복 시 현재 보스 구간 통계 롤백. 항복도 이 경로로 수렴, 정상 클리어는 안 거침.
+	if (ABlackoutGameState* GS = GetGameState<ABlackoutGameState>())
+	{
+		for (APlayerState* PS : GS->PlayerArray)
+		{
+			if (ABlackoutPlayerState* BPS = Cast<ABlackoutPlayerState>(PS))
+			{
+				BPS->RollbackMatchStats();
+			}
+		}
+	}
+
 	TravelToLobby(FLinearColor::Black);
 }
 
@@ -1151,6 +1164,18 @@ void ABlackoutBattleGameMode::StartBossCombat()
 		                                     : EBlackoutMatchState::MainBossCombat;
 
 	TransitionTo(NewState);
+
+	// 매치 통계: 보스 진입 스냅샷. 전멸/항복 재시작 시 이 시점으로 롤백.
+	if (ABlackoutGameState* GS = GetGameState<ABlackoutGameState>())
+	{
+		for (APlayerState* PS : GS->PlayerArray)
+		{
+			if (ABlackoutPlayerState* BPS = Cast<ABlackoutPlayerState>(PS))
+			{
+				BPS->SnapshotMatchStats();
+			}
+		}
+	}
 	BO_LOG_NET(Log, "보스맵 전원 도착 — 전투 시작 (%s)",
 	           *UEnum::GetValueAsString(NewState));
 	

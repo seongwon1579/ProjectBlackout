@@ -27,6 +27,7 @@ void ABlackoutGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 	DOREPLIFETIME(ABlackoutGameState, RequiredSurrenderVoteCount);
 	DOREPLIFETIME(ABlackoutGameState, SurrenderVoteEndTimeSeconds);
 	DOREPLIFETIME(ABlackoutGameState, SurrenderVoteCooldownEndTime);
+	DOREPLIFETIME(ABlackoutGameState, bMatchSummaryReady);
 }
 
 void ABlackoutGameState::AddPlayerState(APlayerState* PlayerState)
@@ -41,6 +42,17 @@ void ABlackoutGameState::RemovePlayerState(APlayerState* PlayerState)
 	Super::RemovePlayerState(PlayerState);
 
 	OnPlayerArrayChanged.Broadcast();
+}
+
+void ABlackoutGameState::MarkMatchSummaryReady()
+{
+	if (!HasAuthority() || bMatchSummaryReady)
+	{
+		return;
+	}
+	
+	bMatchSummaryReady = true;
+	OnMatchSummaryReady.Broadcast();
 }
 
 // 서버 Authority 전용. 클라 호출 차단 + 동일 상태 중복 전환 무시.
@@ -117,6 +129,14 @@ void ABlackoutGameState::OnRep_SurrenderVoteActive()
 		SurrenderVoteNoCount,
 		SurrenderVoteEndTimeSeconds
 	);
+}
+
+void ABlackoutGameState::OnRep_MatchSummaryReady()
+{
+	if (bMatchSummaryReady)
+	{
+		OnMatchSummaryReady.Broadcast();
+	}
 }
 
 void ABlackoutGameState::TryOpenLocalClassSelectUI()
