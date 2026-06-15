@@ -132,9 +132,12 @@ void ABlackoutBattleGameMode::HandleEmptyServerReset()
 
 void ABlackoutBattleGameMode::OnSeamlessArrival(APlayerController* PC)
 {
-	if (ConnectedPlayers.Num() == MaxPlayers)
+	
+	if (ConnectedPlayers.Num() == MaxPlayers && !bBossCombatStarted)
 	{
-		StartBossCombat();
+		GetWorldTimerManager().SetTimer(LoadingTimeoutHandle, this,
+			&ABlackoutBattleGameMode::OnLoadingTimeout, LoadingTimeout, false);
+		NotifyPlayerLoaded(); 
 	}
 }
 
@@ -1006,6 +1009,12 @@ void ABlackoutBattleGameMode::TimeoutSurrenderVote()
 
 void ABlackoutBattleGameMode::StartBossCombat()
 {
+	if (bBossCombatStarted)
+	{
+		return;
+	}
+	bBossCombatStarted = true;
+	GetWorldTimerManager().ClearTimer(LoadingTimeoutHandle);
 	BO_LOG_NET(Log, "StartBossCombat 진입 (StartBossCombat 진입 — 전투 상태 전이)");
 
 	const UBlackoutMatchFlowSubsystem* Flow = GetGameInstance()
@@ -1037,6 +1046,28 @@ void ABlackoutBattleGameMode::StartBossCombat()
 			BPC -> Client_NotifyBossCombatReady();
 		}
 	}
+}
+
+void ABlackoutBattleGameMode::NotifyPlayerLoaded()
+{
+	if (bBossCombatStarted)
+	{
+		return;
+	}
+	if (AllPlayersLoaded())
+	{
+		StartBossCombat();
+	}
+}
+
+void ABlackoutBattleGameMode::OnLoadingTimeout()
+{
+	if (bBossCombatStarted)
+	{
+		return;
+	}
+	BO_LOG_NET(Warning, "로딩 집계 타임아웃(%.1fs) — 전원 완료 못 기다리고 전투 강제 시작", LoadingTimeout);
+	StartBossCombat();
 }
 
 void ABlackoutBattleGameMode::TravelToTitle()

@@ -227,6 +227,27 @@ bool ABlackoutGameMode::AllPlayersReady() const
 	return true;
 }
 
+bool ABlackoutGameMode::AllPlayersLoaded() const
+{
+	if (ConnectedPlayers.Num() < MaxPlayers)
+	{
+		return false;
+	}
+	if (!GameState)
+	{
+		return false;
+	}
+	for (APlayerState* PS : GameState->PlayerArray)
+	{
+		const ABlackoutPlayerState* BlackoutPS = Cast<ABlackoutPlayerState>(PS);
+		if (!BlackoutPS || !BlackoutPS->IsLoaded())
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
 // Ready 상태 갱신 직후 호출. 성립 시 자식 GameMode 훅 실행.
 void ABlackoutGameMode::NotifyReadyChanged()
 {

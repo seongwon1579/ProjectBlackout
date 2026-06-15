@@ -104,6 +104,10 @@ public:
 	UFUNCTION(Client,Reliable , Category="Blackout|Controller|Transition")
 	void Client_NotifyBossCombatReady();
 	
+	/** 클라 로딩(워밍) 완료를 서버에 보고 — 서버 전원 집계(StartBossCombat)용 */
+	UFUNCTION(Server, Reliable)
+	void Server_ReportLoaded();
+	
 private:
 	/** 페이드 지속시간 */
 	UPROPERTY(EditDefaultsOnly , Category="Blackout|Transition")
@@ -125,6 +129,8 @@ private:
 	
 	/** 서버 전투시작 통지 수신 여부(readiness 서버측 신호) */
 	bool bServerCombatReady = false;
+	
+	bool bReportedLoaded = false;
 	
 	FTimerHandle ReadinessPollTimer;
 	float ReadinessWaitStartTime = 0.f;

@@ -255,6 +255,19 @@ void ABlackoutPlayerController::ClosePlayerMenu()
 	bShowMouseCursor = false;
 }
 
+void ABlackoutPlayerController::Server_ReportLoaded_Implementation()
+{
+	if (ABlackoutPlayerState* PS = GetPlayerState<ABlackoutPlayerState>())
+	{
+		PS->SetLoadedState(true);
+	}
+	
+	if (ABlackoutBattleGameMode* BattleGameMode = GetWorld()->GetAuthGameMode<ABlackoutBattleGameMode>())
+	{
+		BattleGameMode->NotifyPlayerLoaded();
+	}
+}
+
 void ABlackoutPlayerController::Client_NotifyBossCombatReady_Implementation()
 {
 	bServerCombatReady = true;
@@ -1224,17 +1237,24 @@ void ABlackoutPlayerController::PollLevelReadiness()
 	}
 	const float Elapsed = World->GetTimeSeconds() - ReadinessWaitStartTime;
 	const bool bStreamed = (IStreamingManager::Get().GetNumWantingResources() == 0);
-	const bool bReady = (Elapsed >= MinReadinessHoldTime) && bStreamed && bServerCombatReady;
-	const bool bTimedOut = Elapsed >= MaxReadinessHoldTime;
+	const bool bWarmed = (Elapsed >= MinReadinessHoldTime) && bStreamed;
 
-	if (bReady || bTimedOut)
+	if (bWarmed && !bReportedLoaded)
 	{
-		if (bTimedOut && !bReady)
+		bReportedLoaded = true;
+		Server_ReportLoaded();
+	}
+	
+	const bool bReady = bWarmed && bServerCombatReady;
+	const bool bTimeOut = Elapsed >= MaxReadinessHoldTime;
+	if (bReady || bTimeOut)
+	{
+		if (bTimeOut && !bReady)
 		{
 			BO_LOG_CORE(Warning, "로딩 커버 캡(%.1fs) 초과 강제 해제 (streamed=%d combat=%d)",
 				MaxReadinessHoldTime, bStreamed, bServerCombatReady);
 		}
-		World->GetTimerManager().ClearTimer(ReadinessPollTimer);
+		World ->GetTimerManager().ClearTimer(ReadinessPollTimer);
 		StartScreenFadeIn();
 	}
 }

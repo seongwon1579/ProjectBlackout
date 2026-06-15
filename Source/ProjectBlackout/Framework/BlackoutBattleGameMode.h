@@ -48,6 +48,8 @@ public:
 	// 다운 알림 
 	void NotifyPlayerDowned(ABlackoutPlayerCharacter* DownedPlayer);
 	
+	void NotifyPlayerLoaded();   
+	
 	// ClientTravel URL SessionId DedicatedSessionSubsystem에 위임
 	// 데디만 사용
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
@@ -130,6 +132,14 @@ private:
 	void TimeoutSurrenderVote();
 	
 	void StartBossCombat();
+	
+	void OnLoadingTimeout();   
+	
+	FTimerHandle LoadingTimeoutHandle;
+	bool bBossCombatStarted = false;   
+
+	UPROPERTY(EditDefaultsOnly, Category="Blackout|GameMode")
+	float LoadingTimeout = 15.0f;     
 	
 	void TravelToTitle();
 	FTimerHandle TitleTravelTimerHandle;
