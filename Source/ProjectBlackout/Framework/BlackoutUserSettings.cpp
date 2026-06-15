@@ -163,11 +163,6 @@ void UBlackoutUserSettings::ApplyBlackoutUserSettings(const bool bSaveSettings)
 	}
 }
 
-void UBlackoutUserSettings::ApplyBlackoutGraphicsSettings(const bool bSaveSettings)
-{
-	ApplyBlackoutUserSettings(bSaveSettings);
-}
-
 void UBlackoutUserSettings::SetUpscalerMode(const EBlackoutUpscalerMode InUpscalerMode)
 {
 	UpscalerMode = InUpscalerMode;
