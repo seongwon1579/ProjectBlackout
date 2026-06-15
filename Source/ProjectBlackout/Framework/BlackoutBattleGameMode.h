@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "BlackoutGameMode.h"
+#include "Core/BlackoutTypes.h"
 #include "UObject/SoftObjectPath.h"
 #include "GameplayTagContainer.h"
 #include "BlackoutBattleGameMode.generated.h"
@@ -11,6 +12,7 @@ class ABlackoutPlayerCharacter;
 class ABlackoutPlayerController;
 class ABlackoutBossCharacter;
 class ABOBossIntroSequencer;
+class ABlackoutPlayerState;
 /**
  * 전투 레벨 전용 GameMode. 전투 진입 자원 초기화 / 체크포인트 등록 / 파티 전멸 복귀 처리.
  */
@@ -79,9 +81,13 @@ protected:
 	UPROPERTY(EditDefaultsOnly , Category="Blackout|Battle")
 	FSoftObjectPath LobbyMapPath;
 
-	// 중간보스 사망 → 페이드 시작까지 대기(초). 사망 애님 자연스럽게 보이도록.
-	UPROPERTY(EditDefaultsOnly, Category="Blackout|Battle")
-	float MidBossDeathDelay = 2.0f;
+	// 보스 처치 후 결과창을 표시하기 전까지 대기하는 시간입니다.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Battle|Result", meta = (ClampMin = "0.0"))
+	float MatchResultDisplayDelay = 3.0f;
+
+	// 결과창 표시 후 아무도 진행을 확정하지 않아도 자동 이동되는 시간입니다.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Battle|Result", meta = (ClampMin = "0.0"))
+	float MatchResultAutoTravelDelay = 10.0f;
 
 	void TravelToLobby(FLinearColor FadeColor);
 	
@@ -130,12 +136,18 @@ private:
 	void TimeoutSurrenderVote();
 	
 	void StartBossCombat();
+
+	void BeginBossDefeatResultFlow(EBossType DefeatedBossType);
+	void ShowMatchResultAfterDelay();
+	void AutoTravelAfterMatchResult();
+	void ExecuteMatchResultTravel();
+	void SnapshotMatchResultParticipants(TArray<ABlackoutPlayerState*>& OutParticipants) const;
 	
 	void TravelToTitle();
-	FTimerHandle TitleTravelTimerHandle;
 
-	void DoMidBossTravelToLobby();
-	FTimerHandle MidBossDeathDelayHandle;
+	FTimerHandle MatchResultDisplayTimerHandle;
+	FTimerHandle MatchResultAutoTravelTimerHandle;
+	EBossType PendingResultBossType = EBossType::Mid;
 
 	FTimerHandle SurrenderVoteTimerHandle;
 

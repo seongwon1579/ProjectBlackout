@@ -237,21 +237,142 @@ void ABlackoutBattleGameMode::OnBossDefeated()
 		return;
 	}
 
-	if (Flow->GetCurrentBossType() == EBossType::Mid)
+	BeginBossDefeatResultFlow(Flow->GetCurrentBossType());
+}
+
+void ABlackoutBattleGameMode::BeginBossDefeatResultFlow(EBossType DefeatedBossType)
+{
+	if (bTravelInitiated)
 	{
-		Flow->AdvanceStage();
-		BO_LOG_NET(Log, "중간보스 처치 — 사망 연출 %.1fs 후 로비 복귀", MidBossDeathDelay);
-		GetWorldTimerManager().SetTimer(MidBossDeathDelayHandle, this,
-		                                &ABlackoutBattleGameMode::DoMidBossTravelToLobby,
-		                                MidBossDeathDelay, false);
+		BO_LOG_NET(Warning, "결과창 플로우 시작 무시: 이미 이동이 시작되었습니다.");
+		return;
 	}
-	else
+
+	if (GetWorldTimerManager().IsTimerActive(MatchResultDisplayTimerHandle) ||
+		GetWorldTimerManager().IsTimerActive(MatchResultAutoTravelTimerHandle))
 	{
-		BO_LOG_NET(Log, "메인보스 처치 — 5초 후 타이틀 복귀");
-		EndMatch(EBlackoutMatchEndReason::BossDefeated);
-		GetWorldTimerManager().SetTimer(TitleTravelTimerHandle, this,
-		                                &ABlackoutBattleGameMode::TravelToTitle,
-		                                5.0f, false);
+		BO_LOG_NET(Warning, "결과창 플로우 시작 무시: 이미 결과창 타이머가 진행 중입니다.");
+		return;
+	}
+
+	PendingResultBossType = DefeatedBossType;
+	GetWorldTimerManager().ClearTimer(MatchResultDisplayTimerHandle);
+	GetWorldTimerManager().ClearTimer(MatchResultAutoTravelTimerHandle);
+
+	BO_LOG_NET(Log,
+	           "보스 처치 결과창 예약: Boss=%s DisplayDelay=%.2f AutoTravelDelay=%.2f",
+	           *UEnum::GetValueAsString(PendingResultBossType),
+	           MatchResultDisplayDelay,
+	           MatchResultAutoTravelDelay);
+
+	if (MatchResultDisplayDelay <= KINDA_SMALL_NUMBER)
+	{
+		ShowMatchResultAfterDelay();
+		return;
+	}
+
+	GetWorldTimerManager().SetTimer(
+		MatchResultDisplayTimerHandle,
+		this,
+		&ABlackoutBattleGameMode::ShowMatchResultAfterDelay,
+		MatchResultDisplayDelay,
+		false);
+}
+
+void ABlackoutBattleGameMode::ShowMatchResultAfterDelay()
+{
+	ABlackoutGameState* GS = GetGameState<ABlackoutGameState>();
+	if (!GS)
+	{
+		BO_LOG_NET(Error, "결과창 표시 실패: GameState가 비어 있습니다.");
+		return;
+	}
+
+	TArray<ABlackoutPlayerState*> Participants;
+	SnapshotMatchResultParticipants(Participants);
+
+	const float CurrentTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+	const float AutoTravelTime = CurrentTime + FMath::Max(0.f, MatchResultAutoTravelDelay);
+	GS->SetMatchResultState(
+		true,
+		PendingResultBossType,
+		CurrentTime,
+		AutoTravelTime,
+		Participants);
+
+	if (MatchResultAutoTravelDelay <= KINDA_SMALL_NUMBER)
+	{
+		AutoTravelAfterMatchResult();
+		return;
+	}
+
+	GetWorldTimerManager().SetTimer(
+		MatchResultAutoTravelTimerHandle,
+		this,
+		&ABlackoutBattleGameMode::AutoTravelAfterMatchResult,
+		MatchResultAutoTravelDelay,
+		false);
+}
+
+void ABlackoutBattleGameMode::AutoTravelAfterMatchResult()
+{
+	BO_LOG_NET(Log, "결과창 자동 이동 타이머 만료");
+	ExecuteMatchResultTravel();
+}
+
+void ABlackoutBattleGameMode::ExecuteMatchResultTravel()
+{
+	GetWorldTimerManager().ClearTimer(MatchResultDisplayTimerHandle);
+	GetWorldTimerManager().ClearTimer(MatchResultAutoTravelTimerHandle);
+
+	if (ABlackoutGameState* GS = GetGameState<ABlackoutGameState>())
+	{
+		TArray<ABlackoutPlayerState*> EmptyParticipants;
+		GS->SetMatchResultState(false, PendingResultBossType, 0.f, 0.f, EmptyParticipants);
+	}
+
+	if (PendingResultBossType == EBossType::Mid)
+	{
+		if (UBlackoutMatchFlowSubsystem* Flow = GetGameInstance()
+			? GetGameInstance()->GetSubsystem<UBlackoutMatchFlowSubsystem>()
+			: nullptr)
+		{
+			Flow->AdvanceStage();
+		}
+		else
+		{
+			BO_LOG_NET(Error, "중간 보스 결과 이동 실패: MatchFlowSubsystem 없음");
+			return;
+		}
+
+		BO_LOG_NET(Log, "중간 보스 결과창 종료 — 로비로 이동");
+		TravelToLobby(FLinearColor::White);
+		return;
+	}
+
+	BO_LOG_NET(Log, "메인 보스 결과창 종료 — 타이틀로 이동");
+	EndMatch(EBlackoutMatchEndReason::BossDefeated);
+	TravelToTitle();
+}
+
+void ABlackoutBattleGameMode::SnapshotMatchResultParticipants(
+	TArray<ABlackoutPlayerState*>& OutParticipants) const
+{
+	OutParticipants.Reset();
+
+	const ABlackoutGameState* GS = GetGameState<ABlackoutGameState>();
+	if (!GS)
+	{
+		return;
+	}
+
+	OutParticipants.Reserve(GS->PlayerArray.Num());
+	for (APlayerState* PlayerStateBase : GS->PlayerArray)
+	{
+		if (ABlackoutPlayerState* BlackoutPlayerState = Cast<ABlackoutPlayerState>(PlayerStateBase))
+		{
+			OutParticipants.Add(BlackoutPlayerState);
+		}
 	}
 }
 
@@ -757,11 +878,6 @@ void ABlackoutBattleGameMode::DoTravelToLobby()
 	const FString PackageName = LobbyMapPath.GetLongPackageName();
 	BO_LOG_NET(Log, "TravelToLobby — ServerTravel -> %s", *PackageName);
 	GetWorld()->ServerTravel(PackageName);
-}
-
-void ABlackoutBattleGameMode::DoMidBossTravelToLobby()
-{
-	TravelToLobby(FLinearColor::White);
 }
 
 void ABlackoutBattleGameMode::DoTravelToTitle()

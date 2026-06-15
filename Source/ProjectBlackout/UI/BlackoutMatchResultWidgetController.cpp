@@ -13,6 +13,7 @@ void UBlackoutMatchResultWidgetController::BeginDestroy()
 	{
 		BlackoutGameState->OnPlayerArrayChanged.RemoveAll(this);
 		BlackoutGameState->OnMatchStateChanged.RemoveAll(this);
+		BlackoutGameState->OnMatchResultStateChanged.RemoveAll(this);
 	}
 
 	Super::BeginDestroy();
@@ -46,6 +47,9 @@ void UBlackoutMatchResultWidgetController::BindCallbacksToDependencies()
 		BlackoutGameState->OnMatchStateChanged.AddDynamic(
 			this,
 			&UBlackoutMatchResultWidgetController::HandleMatchStateChanged);
+		BlackoutGameState->OnMatchResultStateChanged.AddDynamic(
+			this,
+			&UBlackoutMatchResultWidgetController::HandleMatchResultStateChanged);
 		bGameStateCallbacksBound = true;
 	}
 
@@ -97,7 +101,7 @@ void UBlackoutMatchResultWidgetController::RefreshResult()
 
 void UBlackoutMatchResultWidgetController::RequestConfirmResult()
 {
-	if (bLocalPlayerConfirmed)
+	if (!IsResultVisible() || bLocalPlayerConfirmed)
 	{
 		return;
 	}
@@ -143,6 +147,7 @@ bool UBlackoutMatchResultWidgetController::ResolveDependencies(APlayerController
 		{
 			PreviousGameState->OnPlayerArrayChanged.RemoveAll(this);
 			PreviousGameState->OnMatchStateChanged.RemoveAll(this);
+			PreviousGameState->OnMatchResultStateChanged.RemoveAll(this);
 		}
 
 		bGameStateCallbacksBound = false;
@@ -235,9 +240,21 @@ FBlackoutMatchResultSummaryData UBlackoutMatchResultWidgetController::BuildSumma
 	const TArray<FBlackoutMatchResultPlayerStatsData>& PlayerStatsList) const
 {
 	FBlackoutMatchResultSummaryData SummaryData;
-	SummaryData.ResultTitle = FText::FromString(TEXT("MISSION COMPLETE"));
+	const ABlackoutGameState* BlackoutGameState = GameState.Get();
+	SummaryData.DefeatedBossType = BlackoutGameState ? BlackoutGameState->DefeatedBossType : EBossType::Main;
+	SummaryData.ResultTitle = SummaryData.DefeatedBossType == EBossType::Mid
+		? FText::FromString(TEXT("AREA CLEARED"))
+		: FText::FromString(TEXT("MISSION COMPLETE"));
 	SummaryData.ResultSubtitle = FText::FromString(TEXT("Squad statistics"));
 	SummaryData.RequiredConfirmPlayerCount = PlayerStatsList.Num();
+
+	if (BlackoutGameState && BlackoutGameState->MatchResultAutoTravelServerTime > 0.f)
+	{
+		const float CurrentTime = BlackoutGameState->GetServerWorldTimeSeconds();
+		SummaryData.AutoTravelRemainingTime = FMath::Max(
+			0.f,
+			BlackoutGameState->MatchResultAutoTravelServerTime - CurrentTime);
+	}
 
 	int32 TotalShotsFired = 0;
 	int32 TotalShotsHit = 0;
@@ -303,6 +320,20 @@ TArray<ABlackoutPlayerState*> UBlackoutMatchResultWidgetController::GetParticipa
 		return ParticipantPlayerStates;
 	}
 
+	if (BlackoutGameState->MatchResultParticipants.Num() > 0)
+	{
+		ParticipantPlayerStates.Reserve(BlackoutGameState->MatchResultParticipants.Num());
+		for (ABlackoutPlayerState* PlayerState : BlackoutGameState->MatchResultParticipants)
+		{
+			if (PlayerState)
+			{
+				ParticipantPlayerStates.Add(PlayerState);
+			}
+		}
+
+		return ParticipantPlayerStates;
+	}
+
 	ParticipantPlayerStates.Reserve(BlackoutGameState->PlayerArray.Num());
 	for (APlayerState* PlayerStateBase : BlackoutGameState->PlayerArray)
 	{
@@ -318,7 +349,7 @@ TArray<ABlackoutPlayerState*> UBlackoutMatchResultWidgetController::GetParticipa
 bool UBlackoutMatchResultWidgetController::IsResultVisible() const
 {
 	const ABlackoutGameState* BlackoutGameState = GameState.Get();
-	return BlackoutGameState && BlackoutGameState->CurrentMatchState == EBlackoutMatchState::Ended;
+	return BlackoutGameState && BlackoutGameState->bIsMatchResultVisible;
 }
 
 void UBlackoutMatchResultWidgetController::HandlePlayerArrayChanged()
@@ -326,8 +357,22 @@ void UBlackoutMatchResultWidgetController::HandlePlayerArrayChanged()
 	RefreshResult();
 }
 
-void UBlackoutMatchResultWidgetController::HandleMatchStateChanged(EBlackoutMatchState NewState)
+void UBlackoutMatchResultWidgetController::HandleMatchStateChanged(EBlackoutMatchState)
 {
-	OnResultVisibilityChanged.Broadcast(NewState == EBlackoutMatchState::Ended);
+	OnResultVisibilityChanged.Broadcast(IsResultVisible());
+	RefreshResult();
+}
+
+void UBlackoutMatchResultWidgetController::HandleMatchResultStateChanged()
+{
+	const bool bIsVisible = IsResultVisible();
+	if (!bIsVisible)
+	{
+		bLocalPlayerConfirmed = false;
+		ConfirmedPlayerStates.Reset();
+		OnLocalConfirmStateChanged.Broadcast(false);
+	}
+
+	OnResultVisibilityChanged.Broadcast(bIsVisible);
 	RefreshResult();
 }

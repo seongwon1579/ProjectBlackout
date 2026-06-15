@@ -85,6 +85,9 @@ private:
 	UFUNCTION()
 	void HandleMatchStateChanged(EBlackoutMatchState NewState);
 
+	UFUNCTION()
+	void HandleMatchResultStateChanged();
+
 	TWeakObjectPtr<APlayerController> PlayerController;
 	TWeakObjectPtr<ABlackoutGameState> GameState;
 	TWeakObjectPtr<ABlackoutPlayerState> LocalPlayerState;
