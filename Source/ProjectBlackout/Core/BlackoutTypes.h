@@ -64,3 +64,32 @@ enum class EBossType : uint8
 	Mid UMETA(DisplayName = "Mid Boss"),
 	Main UMETA(DisplayName = "Main Boss"),
 };
+
+USTRUCT(BlueprintType)
+struct FBlackoutMatchStats
+{
+	GENERATED_BODY()
+	
+	
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Stats")
+	int32 DamageDealt = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Stats")
+	int32 Kills = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Stats")
+	int32 MeleeKills = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Stats")
+	int32 ShotsFired = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Stats")
+	int32 ShotsHit = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Stats")
+	int32 ConsumablesUsed = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Stats")
+	int32 Revives = 0;
+	
+};

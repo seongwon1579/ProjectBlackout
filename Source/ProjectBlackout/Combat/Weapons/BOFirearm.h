@@ -28,7 +28,7 @@ public:
 	virtual void OnEquipStateChanged(bool bEquipped) override;
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
-	FHitResult Fire(const FVector& Direction, const FGameplayEffectSpecHandle& DamageSpecHandle);
+	FHitResult Fire(const FVector& Direction, const FGameplayEffectSpecHandle& DamageSpecHandle, bool& bOutHitEnemy);
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
 	ABOProjectile* SpawnProjectile(const FVector& Direction, const FGameplayEffectSpecHandle& DamageSpecHandle);

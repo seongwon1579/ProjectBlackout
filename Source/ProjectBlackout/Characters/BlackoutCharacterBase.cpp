@@ -2,11 +2,13 @@
 
 #include "AbilitySystemComponent.h"
 #include "BlackoutAbilitySystemComponent.h"
+#include "BlackoutEnemyCharacter.h"
 #include "BlackoutLog.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Core/BlackoutCollisionChannels.h"
 #include "Framework/BlackoutPlayerController.h"
+#include "Framework/BlackoutPlayerState.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "GAS/Attributes/BlackoutBaseAttributeSet.h"
 #include "GAS/Attributes/BlackoutPlayerAttributeSet.h"
@@ -270,19 +272,25 @@ bool ABlackoutCharacterBase::ApplyIncomingDamageSpec(const FGameplayEffectSpecHa
 		AbilitySystemComponent->GetNumericAttribute(UBlackoutPlayerAttributeSet::GetStunGaugeAttribute());
 
 	const float AppliedDamage = FMath::Max(0.f, HealthBefore - HealthAfter);
-	if (AppliedDamage > 0.f && !ShouldSuppressAuthoritativeDamageNumber(SpecHandle))
+	ABlackoutPlayerController* SourcePC =
+		AppliedDamage > 0.f ? ResolveDamageNumberOwner(SpecHandle) : nullptr;
+	ABlackoutPlayerState* SourcePS =
+		SourcePC ? SourcePC->GetPlayerState<ABlackoutPlayerState>() : nullptr;
+	const bool bPlayerDamagedEnemy =
+			SourcePS != nullptr && Cast<ABlackoutEnemyCharacter>(this) != nullptr;
+	if (bPlayerDamagedEnemy)
 	{
-		if (ABlackoutPlayerController* SourcePlayerController = ResolveDamageNumberOwner(SpecHandle))
-		{
-			const bool bIsCritical = IsCriticalDamageSpec(SpecHandle, HitPartTag);
-			const FVector DamageNumberWorldLocation = ResolveDamageNumberWorldLocation(this, BoneName);
+		SourcePS->AddDamageDealt(AppliedDamage);
+	}
 
-			// 실제 적용된 데미지만 서버에서 계산해 사격한 클라 HUD로 전달합니다.
-			SourcePlayerController->Client_ShowDamageNumberAtLocation(
-				AppliedDamage,
-				DamageNumberWorldLocation,
-				bIsCritical);
-		}
+	if (SourcePC && !ShouldSuppressAuthoritativeDamageNumber(SpecHandle))
+	{
+		const bool bIsCritical = IsCriticalDamageSpec(SpecHandle, HitPartTag);
+		const FVector DamageNumberWorldLocation = ResolveDamageNumberWorldLocation(this, BoneName);
+
+		// 실제 적용된 데미지만 서버에서 계산해 사격한 클라 HUD로 전달합니다.
+		SourcePC->Client_ShowDamageNumberAtLocation(
+			AppliedDamage, DamageNumberWorldLocation, bIsCritical);
 	}
 
 	if (HealthBefore > 0.f && HealthAfter <= 0.f)
@@ -293,7 +301,14 @@ bool ABlackoutCharacterBase::ApplyIncomingDamageSpec(const FGameplayEffectSpecHa
 			return true;
 		}
 
-		// 치명 피해 확정 직후, State.Dead 부여와 풀 반환 사이드 이펙트가 실행되기 전에 보상 GE를 먼저 적용합니다.
+		// 매치 통계: 적/보스 처치 → 킬 +1
+		if (bPlayerDamagedEnemy)
+		{
+			const bool bMeleeKill =
+				SpecHandle.Data->GetDynamicAssetTags().HasTagExact(BlackoutGameplayTags::Kill_Melee);
+			SourcePS->RecordKill(bMeleeKill);
+		}
+		
 		UExecCalc_CombatReward::ApplyConfiguredRewardEffect(SpecHandle, AbilitySystemComponent);
 		OnDeath();
 		return true;
