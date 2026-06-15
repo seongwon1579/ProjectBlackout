@@ -124,7 +124,7 @@ private:
 	void BroadcastAmmo() const;
 	void BroadcastEquippedWeapon() const;
 	void BroadcastAiming() const;
-	void BroadcastWeaponAmmoDisplay(bool bPlaySwapAnimation) const;
+	void BroadcastWeaponAmmoDisplay(bool bPlaySwapAnimation, FGameplayTag EquippedSlotTagOverride = FGameplayTag());
 	void BroadcastRelicCharges() const;
 	void BroadcastConsumables() const;
 	void BroadcastConsumableSlots(int32 BloodRootCount, int32 GulSerumCount) const;
@@ -177,6 +177,11 @@ private:
 	TWeakObjectPtr<ABlackoutPlayerState> BoundPlayerState;
 
 	bool bAttributeCallbacksBound = false;
+
+	// 무기 슬롯 UI는 스왑 애니메이션 재생 위치로 장착 슬롯을 표현하며, 위젯 인스턴스는 캐릭터 교체 시에도
+	// 유지된다. 직전에 표시한 슬롯이 주무기인지 추적해, 새 전투 컴포넌트(=캐릭터 교체)에 바인딩될 때
+	// 직전이 보조무기였다면 주무기로 강제 전환한다. 위젯 애니메이션 기본 위치는 주무기이므로 true 로 시작.
+	bool bLastDisplayedPrimaryEquipped = true;
 
 	/** State 태그 이벤트 핸들. ASC 재바인딩 시 해제용으로 보관합니다. */
 	FDelegateHandle DownedTagChangedHandle;

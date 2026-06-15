@@ -888,6 +888,11 @@ void ABlackoutBattleGameMode::DoTravelToTitle()
 {
 	const FString URL = TitleMapPath.GetLongPackageName();
 	BO_LOG_NET(Log, "메인보스 클리어 — 전 클라 타이틀 ClientTravel -> %s", *URL);
+
+	// 모든 플레이어(호스트 포함)를 절대 ClientTravel(browse)로 타이틀로 보낸다.
+	// 절대 browse 는 non-seamless 라 현재 월드/네트워크 세션을 정리하고 타이틀을 새로 연다.
+	// 특히 "혼자하기"는 OpenLevel("listen")로 띄운 리슨 서버이므로, 이 경로로 리슨 서버가 정리되며
+	// 타이틀 메뉴가 스탠드얼론으로 정상 로드된다.
 	for (const TObjectPtr<APlayerController>& PC : ConnectedPlayers)
 	{
 		if (PC)
@@ -896,23 +901,38 @@ void ABlackoutBattleGameMode::DoTravelToTitle()
 		}
 	}
 
-	// 다음 매치를 위해 매치 진행 인덱스 초기화 + 서버 idle 로비 복귀
-	ReturnServerToIdleLobby();
+	if (GetWorld()->GetNetMode() == NM_DedicatedServer)
+	{
+		// 데디 서버: 클라이언트는 위에서 타이틀로 떠났고, 서버 자신은 다음 매치를 위해 idle 로비로 복귀.
+		ReturnServerToIdleLobby();
+		return;
+	}
+
+	// 리슨 서버 / 스탠드얼론(혼자하기): 호스트가 곧 서버이자 플레이어이므로 위 ClientTravel 로 호스트까지
+	// 타이틀로 이동한다. 데디처럼 서버를 idle 로비로 ServerTravel 해서는 안 된다 — 돌아갈 호스트가 없고,
+	// bUseSeamlessTravel=true 라 ServerTravel(로비)이 seamless 전환을 시작해 호스트의 타이틀 ClientTravel 과
+	// 경합하면 엉뚱하게 로비로 이동할 수 있다. 매치 진행 상태만 정리한다.
+	ResetMatchProgressForReturn();
 }
 
-void ABlackoutBattleGameMode::ReturnServerToIdleLobby()
+void ABlackoutBattleGameMode::ResetMatchProgressForReturn()
 {
 	if (UBlackoutTelemetrySampler* Sampler = GetTelemetrySampler())
 	{
 		Sampler->EndRun();
 	}
-	
+
 	if (UBlackoutMatchFlowSubsystem* FlowSubsystem = GetGameInstance()
 		? GetGameInstance()->GetSubsystem<UBlackoutMatchFlowSubsystem>()
 		: nullptr)
 	{
 		FlowSubsystem->ResetStages();
 	}
+}
+
+void ABlackoutBattleGameMode::ReturnServerToIdleLobby()
+{
+	ResetMatchProgressForReturn();
 	if (LobbyMapPath.IsValid())
 	{
 		const FString LobbyPackage = LobbyMapPath.GetLongPackageName();
