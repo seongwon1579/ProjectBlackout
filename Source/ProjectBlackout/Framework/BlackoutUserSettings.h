@@ -54,9 +54,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Settings")
 	void ApplyBlackoutUserSettings(bool bSaveSettings = true);
 
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Settings", meta = (DeprecatedFunction, DeprecationMessage = "ApplyBlackoutUserSettings를 사용하세요."))
-	void ApplyBlackoutGraphicsSettings(bool bSaveSettings = true);
-
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Graphics")
 	void SetUpscalerMode(EBlackoutUpscalerMode InUpscalerMode);
 

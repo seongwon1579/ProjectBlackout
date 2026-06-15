@@ -15,6 +15,8 @@ class UBlackoutConsumableSlotsWidget;
 class UBlackoutDownedStateWidget;
 class UBlackoutHUDWidgetController;
 class UBlackoutInteractionPromptWidget;
+class UBlackoutMatchResultWidget;
+class UBlackoutMatchResultWidgetController;
 class UBlackoutPartyRosterWidget;
 class UBlackoutPartyRosterWidgetController;
 class UBlackoutRelicWidget;
@@ -43,6 +45,12 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Blackout|HUD")
 	UBlackoutPartyRosterWidgetController* GetPartyRosterWidgetController() const { return PartyRosterWidgetController; }
 
+	UFUNCTION(BlueprintCallable, Category = "Blackout|HUD")
+	void SetMatchResultWidgetController(UBlackoutMatchResultWidgetController* InMatchResultWidgetController);
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|HUD")
+	UBlackoutMatchResultWidgetController* GetMatchResultWidgetController() const { return MatchResultWidgetController; }
+
 	bool ShowDamageNumberAtWorldLocation(float DamageAmount, const FVector& WorldLocation, bool bIsCritical);
 
 protected:
@@ -65,6 +73,9 @@ protected:
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|HUD")
 	TObjectPtr<UBlackoutPartyRosterWidgetController> PartyRosterWidgetController;
 
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|HUD")
+	TObjectPtr<UBlackoutMatchResultWidgetController> MatchResultWidgetController;
+
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
 	TObjectPtr<UBlackoutValueBarWidget> HealthBarWidget;
 
@@ -82,6 +93,9 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
 	TObjectPtr<UBlackoutPartyRosterWidget> PartyRosterWidget;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD|Result")
+	TObjectPtr<UBlackoutMatchResultWidget> MatchResultWidget;
 
 	/**
 	 * 다운 상태에서 기본 전투 HUD(크로스헤어/탄약/체력 등)를 한 번에 숨기기 위한 컨테이너 레이어입니다.
@@ -165,6 +179,9 @@ protected:
 
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Party Roster Controller Set"), Category = "Blackout|HUD")
 	void ReceivePartyRosterControllerSet(UBlackoutPartyRosterWidgetController* InPartyRosterWidgetController);
+
+	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Match Result Controller Set"), Category = "Blackout|HUD")
+	void ReceiveMatchResultControllerSet(UBlackoutMatchResultWidgetController* InMatchResultWidgetController);
 
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Health Changed"), Category = "Blackout|HUD")
 	void ReceiveHealthChanged(float CurrentHealth, float MaxHealth);

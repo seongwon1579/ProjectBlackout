@@ -84,6 +84,9 @@ protected:
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UButton> BackButton;
 	
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UButton> ExitToTitleButton;
+	
 	UPROPERTY(meta=(BindWidget))
 	TObjectPtr<UTextBlock> WelcomeText;
 	
@@ -111,6 +114,9 @@ private:
 
 	UFUNCTION()
 	void HandleBackClicked();
+	
+	UFUNCTION()
+	void HandleExitToTitleClicked();
 
 	UFUNCTION()
 	void HandleSettingsClosed();

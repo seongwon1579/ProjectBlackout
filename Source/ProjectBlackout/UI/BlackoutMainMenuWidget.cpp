@@ -10,6 +10,7 @@
 #include "BlackoutSettingsWidget.h"
 #include "Framework/BlackoutMusicSubsystem.h"
 #include "Framework/BlackoutMatchmakingSubsystem.h"
+#include "Framework/BlackoutPlayerController.h"
 
 #include  "Components/Button.h"
 #include "Components/TextBlock.h"
@@ -64,6 +65,12 @@ void UBlackoutMainMenuWidget::NativeConstruct()
 	{
 		BackButton->OnClicked.AddDynamic(
 			this, &UBlackoutMainMenuWidget::HandleBackClicked);
+	}
+	
+	if (ExitToTitleButton)
+	{
+		ExitToTitleButton->OnClicked.AddDynamic(
+			this, &UBlackoutMainMenuWidget::HandleExitToTitleClicked);
 	}
 
 	if (UGameInstance* GameInstance = GetGameInstance())
@@ -132,6 +139,12 @@ void UBlackoutMainMenuWidget::NativeDestruct()
 	{
 		BackButton->OnClicked.RemoveDynamic(
 			this, &UBlackoutMainMenuWidget::HandleBackClicked);
+	}
+	
+	if (ExitToTitleButton)
+	{
+		ExitToTitleButton->OnClicked.RemoveDynamic(
+			this, &UBlackoutMainMenuWidget::HandleExitToTitleClicked);
 	}
 	Super::NativeDestruct();
 }
@@ -270,6 +283,14 @@ void UBlackoutMainMenuWidget::HandleBackClicked()
 	CloseMenu();
 }
 
+void UBlackoutMainMenuWidget::HandleExitToTitleClicked()
+{
+	if (ABlackoutPlayerController* PC = Cast<ABlackoutPlayerController>(GetOwningPlayer()))
+	{
+		PC->LeaveToTitleScreen();
+	}
+}
+
 void UBlackoutMainMenuWidget::CloseMenu()
 {
 	OnMenuClosed.Broadcast();
@@ -386,6 +407,10 @@ void UBlackoutMainMenuWidget::RefreshForLoginState()
 		{
 			BackButton->SetVisibility(ESlateVisibility::Visible);
 		}
+		if (ExitToTitleButton)
+		{
+			ExitToTitleButton->SetVisibility(ESlateVisibility::Visible);
+		}
 		return;
 	}
 
@@ -430,5 +455,9 @@ void UBlackoutMainMenuWidget::RefreshForLoginState()
 					TEXT("Welcome, %s"),
 					*MatchmakingSubsystem->GetPlayerName())));
 		}
+	}
+	if (ExitToTitleButton)
+	{
+		ExitToTitleButton->SetVisibility(ESlateVisibility::Collapsed);
 	}
 }

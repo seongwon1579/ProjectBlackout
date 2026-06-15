@@ -391,6 +391,8 @@ void UBlackoutMatchmakingSubsystem::CheckActiveSession()
 
 void UBlackoutMatchmakingSubsystem::ManualReconnect()
 {
+	// GameInstance 유지 재접속 시 이전 세션의 로딩 게이트가 stale 로 남지 않도록 클리어(보험 — 주 방어는 도착 시 1회 소비)
+	bPendingLoadingGate = false;
 	ReconnectAttempts = 0;
 	bIsReconnecting  =true;
 	AttemptReconnect();

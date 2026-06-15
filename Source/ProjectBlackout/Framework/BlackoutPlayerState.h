@@ -56,8 +56,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|PlayerState|Ready")
 	void SetReadyState(bool bNewReady);
 
+	void SetLoadedState(bool bNewLoaded);
+	
 	UFUNCTION(BlueprintPure, Category = "Blackout|PlayerState|Ready")
 	bool IsReady() const { return bIsReady; }
+	
+	bool IsLoaded() const { return bIsLoaded; }
 
 	UFUNCTION(BlueprintPure, Category = "Blackout|PlayerState|State")
 	bool IsDowned() const;
@@ -95,6 +99,9 @@ public:
 
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_IsReady, Category = "Blackout|PlayerState")
 	bool bIsReady = false;
+	
+	bool bIsLoaded = false;
+
 
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_SurrenderVoteState, Category = "Blackout|PlayerState")
 	bool bRequestedSurrender = false;
@@ -124,6 +131,10 @@ public:
 	void RecordShotsHit(int32 Count = 1);
 	void RecordConsumableUsed();
 	void RecordRevive();
+
+	// 보스 진입 스냅샷 / 전멸·항복 재시작 시 롤백 (클리어 구간 유지 + 재도전 보스 구간만 휘발)
+	void SnapshotMatchStats();
+	void RollbackMatchStats();
 
 protected:
 	
@@ -166,6 +177,10 @@ protected:
 	
 private:
 	void BroadcastMatchStatsChanged();
+
+	// 보스 진입 시점 스냅샷. 복제 X(서버 전용) — 롤백은 MatchStats 복제로 클라 반영.
+	FBlackoutMatchStats CheckpointStats;
+
 	void BroadcastReadyStateChanged();
 	void RestoreAtCheckpoint();
 	void ApplyActiveCheatState();

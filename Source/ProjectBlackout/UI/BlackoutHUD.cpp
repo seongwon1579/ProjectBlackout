@@ -7,6 +7,7 @@
 #include "UI/BlackoutHUDWidget.h"
 #include "UI/BlackoutHUDWidgetController.h"
 #include "UI/BlackoutEnemyHUDWidgetController.h"
+#include "UI/BlackoutMatchResultWidgetController.h"
 #include "UI/BlackoutPartyRosterWidgetController.h"
 
 void ABlackoutHUD::BeginPlay()
@@ -131,5 +132,16 @@ void ABlackoutHUD::CreateWidgetController()
 	{
 		HUDWidget->SetPartyRosterWidgetController(PartyRosterWidgetController);
 		PartyRosterWidgetController->BroadcastInitialRoster();
+	}
+
+	if (!MatchResultWidgetController)
+	{
+		MatchResultWidgetController = NewObject<UBlackoutMatchResultWidgetController>(this);
+	}
+
+	if (MatchResultWidgetController && MatchResultWidgetController->Initialize(PlayerOwner))
+	{
+		HUDWidget->SetMatchResultWidgetController(MatchResultWidgetController);
+		MatchResultWidgetController->BroadcastInitialResult();
 	}
 }

@@ -50,7 +50,7 @@ public class ProjectBlackout : ModuleRules
 			PublicDependencyModuleNames.Add("StreamlineReflexBlueprint");
 		}
 
-		PrivateDependencyModuleNames.AddRange(new string[] {"MoviePlayer" });
+		PrivateDependencyModuleNames.AddRange(new string[] {"MoviePlayer" , "EngineSettings" });
 
 		PublicIncludePaths.AddRange(new string[] {
 			"ProjectBlackout",

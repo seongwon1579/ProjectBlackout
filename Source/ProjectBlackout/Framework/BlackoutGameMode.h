@@ -27,6 +27,8 @@ public:
 	// 정원 충족 + 전원 bIsReady == true 조건 검사. Lobby / Battle 공용.
 	UFUNCTION(BlueprintCallable, Category = "Blackout|GameMode")
 	virtual bool AllPlayersReady() const;
+	
+	bool AllPlayersLoaded() const;
 
 	// PlayerController::Server_SetReady 처리 직후 호출. AllPlayersReady 성립 시 OnAllPlayersReady 훅 실행.
 	UFUNCTION(BlueprintCallable, Category = "Blackout|GameMode")
@@ -84,8 +86,8 @@ protected:
 	
 	FTimerHandle EmptyServerGraceHandle;
 	
-	// 레벨 전환 직전, 접속 중 전 클라에 화면 페이드아웃 브로드캐스트
-	void BroadcastScreenFadeOut(FLinearColor FadeColor);
+	// 레벨 전환 직전, 접속 중 전 클라에 화면 페이드아웃 브로드캐스트. bHoldUntilReady=true 면 도착 후 ready 게이트까지 fade-in 보류(로비->보스)
+	void BroadcastScreenFadeOut(FLinearColor FadeColor, bool bHoldUntilReady = false);
 	
 	// 페이드아웃 후 실제 travel 까지 서버대기 
 	UPROPERTY(EditDefaultsOnly, Category="Blackout|Transition")

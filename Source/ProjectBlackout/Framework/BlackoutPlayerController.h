@@ -96,14 +96,34 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|UI")
 	void ClosePlayerMenu();
 	
-	/** 레벨 전환 전 , 서버가 각 클라 화면을 페이드아웃 */
+	/** 인게임 메뉴 -> 타이틀 */
+	UFUNCTION(BlueprintCallable , Category="Blackout|UI")
+	void LeaveToTitleScreen();
+	
+	/** 레벨 전환 전 , 서버가 각 클라 화면을 페이드아웃. bHoldUntilReady=true 면 도착 후 ready 신호까지 fade-in 보류 */
 	UFUNCTION(Client,Reliable , Category="Blackout|Controller|Transition")
-	void Client_StartScreenFadeOut(FLinearColor FadeColor);
+	void Client_StartScreenFadeOut(FLinearColor FadeColor, bool bHoldUntilReady = false);
+	
+	/** 서버가 보스 전투 시작 시 각 클라에 통지 — readiness 게이트의 서버측 신호 */
+	UFUNCTION(Client,Reliable , Category="Blackout|Controller|Transition")
+	void Client_NotifyBossCombatReady();
+	
+	/** 클라 로딩(워밍) 완료를 서버에 보고 — 서버 전원 집계(StartBossCombat)용 */
+	UFUNCTION(Server, Reliable)
+	void Server_ReportLoaded();
 	
 private:
 	/** 페이드 지속시간 */
 	UPROPERTY(EditDefaultsOnly , Category="Blackout|Transition")
 	float ScreenFadeDuration = 1.2f;
+	
+	/** ready 판정 최소 홀드 시간(깜빡임 방지) */
+	UPROPERTY(EditDefaultsOnly , Category="Blackout|Transition")
+	float MinReadinessHoldTime = 0.3f;
+	
+	/** ready 판정 상한 캡 — 초과 시 강제 fade-in(영영 idle 안 되는 환경 방어) */
+	UPROPERTY(EditDefaultsOnly , Category="Blackout|Transition")
+	float MaxReadinessHoldTime = 5.0f;
 	
 	/** 페이드 아웃에 쓴 색 보관 -> 도착후 페이드 인에 재사용 */
 	FLinearColor LastFadeColor = FLinearColor::Black;
@@ -111,8 +131,30 @@ private:
 	/** 전환 페이드 진행 중 플래그, 도착시 페이드 인 여부 판정 */
 	bool bScreenFadePending = false;
 	
+	/** 서버 전투시작 통지 수신 여부(readiness 서버측 신호) */
+	bool bServerCombatReady = false;
+	
+	bool bReportedLoaded = false;
+	
+	FTimerHandle ReadinessPollTimer;
+	float ReadinessWaitStartTime = 0.f;
+	
+	/** 페이드 종료 후 실제 타이틀 ClientTravel 수행 */
+	void DoLeaveToTitle();
+
+	FTimerHandle LeaveToTitleTimerHandle;
+	
 	/** 도착 후 화면 복귀 */
 	void StartScreenFadeIn();
+
+	/** seamless 도착 시 로딩 게이트 재커버+폴링 시작 시도(게이트 플래그 set + 카메라 준비 시). 처리하면 true, 카메라 미준비면 false(다음 콜백서 재시도). */
+	bool TryBeginLoadingGate();
+
+	/** hold 전환 도착 시 readiness 폴링 시작 */
+	void BeginReadinessGatedFadeIn();
+
+	/** 스트리밍 idle + 최소홀드 + 서버신호 충족 또는 캡 초과 시 fade-in */
+	void PollLevelReadiness();
 	
 	/** 오너 클라이언트가 로그인 닉네임을 서버 PlayerState에 반영하도록 송신 */
 	void SendDisplayNameToServer();

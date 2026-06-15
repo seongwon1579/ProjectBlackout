@@ -19,12 +19,14 @@
 #include "UI/BlackoutMainMenuWidget.h"
 #include "Camera/PlayerCameraManager.h"
 #include "Engine/Engine.h"
+#include "GameMapsSettings.h"
 #include "InputCoreTypes.h"
 #include "Framework/BlackoutMatchmakingSubsystem.h"
 #include "Framework/BlackoutCharacterPreviewManager.h"
 #include "GameFramework/PlayerState.h"
 #include "Kismet/GameplayStatics.h"
 #include "TimerManager.h"
+#include "ContentStreaming.h"
 
 namespace
 {
@@ -108,6 +110,8 @@ void ABlackoutPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 	EnsureCheatManagerReady();
+	// 가능한 이른 시점에 재커버 — 새 카메라 첫 렌더 전에 가려 도착 깜빡임 방지
+	TryBeginLoadingGate();
 }
 
 void ABlackoutPlayerController::AcknowledgePossession(APawn* P)
@@ -135,8 +139,8 @@ void ABlackoutPlayerController::AcknowledgePossession(APawn* P)
 		}
 	}
 	
-	// seamless travel 도착 후 폰 빙의 시 화면 복귀
-	if (bScreenFadePending)
+	// seamless 도착 후 화면 처리. BeginPlay 에서 못 했으면(카메라 미준비) 여기서 재시도. 게이트 아니면 일반 페이드인.
+	if (!TryBeginLoadingGate() && bScreenFadePending)
 	{
 		bScreenFadePending = false;
 		StartScreenFadeIn();
@@ -252,8 +256,45 @@ void ABlackoutPlayerController::ClosePlayerMenu()
 	bShowMouseCursor = false;
 }
 
+void ABlackoutPlayerController::LeaveToTitleScreen()
+{
+	if (!IsLocalController())
+	{
+		return;
+	}
+	
+	ClosePlayerMenu();
+	
+	if (PlayerCameraManager)
+	{
+		LastFadeColor = FLinearColor::Black;
+		PlayerCameraManager->StartCameraFade(0.0f , 1.0f, ScreenFadeDuration , LastFadeColor , false ,	true); 
+	}
+	
+	GetWorldTimerManager().SetTimer(LeaveToTitleTimerHandle, this , &ABlackoutPlayerController::DoLeaveToTitle , ScreenFadeDuration , false);
+}
+
+void ABlackoutPlayerController::Server_ReportLoaded_Implementation()
+{
+	if (ABlackoutPlayerState* PS = GetPlayerState<ABlackoutPlayerState>())
+	{
+		PS->SetLoadedState(true);
+	}
+	
+	if (ABlackoutBattleGameMode* BattleGameMode = GetWorld()->GetAuthGameMode<ABlackoutBattleGameMode>())
+	{
+		BattleGameMode->NotifyPlayerLoaded();
+	}
+}
+
+void ABlackoutPlayerController::Client_NotifyBossCombatReady_Implementation()
+{
+	bServerCombatReady = true;
+}
+
+
 void ABlackoutPlayerController::Client_StartScreenFadeOut_Implementation(
-	FLinearColor FadeColor)
+	FLinearColor FadeColor ,  bool bHoldUntilReady)
 {
 	if (!PlayerCameraManager)
 	{
@@ -261,7 +302,16 @@ void ABlackoutPlayerController::Client_StartScreenFadeOut_Implementation(
 	}
 	LastFadeColor = FadeColor;
 	bScreenFadePending = true;
-	
+	bServerCombatReady = false;
+	if (bHoldUntilReady)
+	{
+		// hold 는 travel 넘어 살아야 하므로 PC 가 아닌 클라 영속 Subsystem 에 기록
+		if (UBlackoutMatchmakingSubsystem* MM = GetGameInstance()
+			? GetGameInstance()->GetSubsystem<UBlackoutMatchmakingSubsystem>() : nullptr)
+		{
+			MM->SetPendingLoadingGate(true);
+		}
+	}
 	PlayerCameraManager->StartCameraFade(0.0f ,1.0f ,ScreenFadeDuration , FadeColor ,false ,true);
 }
 
@@ -1156,6 +1206,19 @@ void ABlackoutPlayerController::OnRequestSurrenderPressed()
 }
 
 #pragma endregion 
+void ABlackoutPlayerController::DoLeaveToTitle()
+{
+	const FString TitleURL = GetDefault<UGameMapsSettings>()->GetGameDefaultMap();
+	if (TitleURL.IsEmpty())
+	{
+		BO_LOG_NET(Error, "LeaveToTitleScreen 실패: GameDefaultMap 미설정");
+		return;
+	}
+	BO_LOG_NET(Log, "메인 화면으로 나가기 — 로컬 ClientTravel -> %s", *TitleURL);
+	ClientTravel(TitleURL, TRAVEL_Absolute);
+	
+}
+
 void ABlackoutPlayerController::StartScreenFadeIn()
 {
 	if (!PlayerCameraManager)
@@ -1163,6 +1226,69 @@ void ABlackoutPlayerController::StartScreenFadeIn()
 		return;
 	}
 	PlayerCameraManager->StartCameraFade(1.0f, 0.0f , ScreenFadeDuration , LastFadeColor , false , false);
+}
+
+bool ABlackoutPlayerController::TryBeginLoadingGate()
+{
+	UBlackoutMatchmakingSubsystem* MM = GetGameInstance()
+		? GetGameInstance()->GetSubsystem<UBlackoutMatchmakingSubsystem>() : nullptr;
+	if (!MM || !MM->IsPendingLoadingGate())
+	{
+		return false;
+	}
+	if (!PlayerCameraManager)
+	{
+		return false; // 카메라 미준비 — 게이트 플래그 유지하고 다음 콜백(AckPossession)서 재시도
+	}
+	MM->SetPendingLoadingGate(false); // 성공 시에만 1회 소비(재접속 stale 방지)
+	// 새 PC 라 카메라가 안 검음 → 즉시 재커버(로비->보스=흰) 후 ready 까지 보류
+	LastFadeColor = FLinearColor::White;
+	PlayerCameraManager->StartCameraFade(1.0f, 1.0f, 0.0f, LastFadeColor, false, true);
+	BeginReadinessGatedFadeIn();
+	return true;
+}
+
+void ABlackoutPlayerController::BeginReadinessGatedFadeIn()
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		StartScreenFadeIn(); // 안정만
+		return;
+	}
+	ReadinessWaitStartTime = World->GetTimeSeconds();
+	World ->GetTimerManager().SetTimer(ReadinessPollTimer, this , &ABlackoutPlayerController::PollLevelReadiness , 0.1f , true);
+}
+
+void ABlackoutPlayerController::PollLevelReadiness()
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+	const float Elapsed = World->GetTimeSeconds() - ReadinessWaitStartTime;
+	const bool bStreamed = (IStreamingManager::Get().GetNumWantingResources() == 0);
+	const bool bWarmed = (Elapsed >= MinReadinessHoldTime) && bStreamed;
+
+	if (bWarmed && !bReportedLoaded)
+	{
+		bReportedLoaded = true;
+		Server_ReportLoaded();
+	}
+	
+	const bool bReady = bWarmed && bServerCombatReady;
+	const bool bTimeOut = Elapsed >= MaxReadinessHoldTime;
+	if (bReady || bTimeOut)
+	{
+		if (bTimeOut && !bReady)
+		{
+			BO_LOG_CORE(Warning, "로딩 커버 캡(%.1fs) 초과 강제 해제 (streamed=%d combat=%d)",
+				MaxReadinessHoldTime, bStreamed, bServerCombatReady);
+		}
+		World ->GetTimerManager().ClearTimer(ReadinessPollTimer);
+		StartScreenFadeIn();
+	}
 }
 
 void ABlackoutPlayerController::SendDisplayNameToServer()
