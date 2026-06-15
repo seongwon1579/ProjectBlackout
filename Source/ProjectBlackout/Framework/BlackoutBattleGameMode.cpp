@@ -78,25 +78,6 @@ GetDefaultPawnClassForController_Implementation(AController* InController)
 	return SelectedPawn.Get();
 }
 
-void ABlackoutBattleGameMode::RegisterCutsceneManager(ABOBossIntroSequencer* InManager)
-{
-	CurrentCutsceneManager = InManager;
-	
-	if (!CurrentCutsceneManager)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("ABlackoutBattleGameMode: CurrentCutsceneManager is nullPtr"))
-		return;
-	}
-	
-	if (GetWorld()->GetNetMode() == NM_Standalone)
-	{
-		if (!bIsEncounterStarted)
-		{
-			bIsEncounterStarted = true;
-			CurrentCutsceneManager->PlayBossIntro();
-		}
-	}
-}
 
 // 플레이어 접속 직후 전투 진입 자원 정책 적용. 정원 충족 시 InCombatReady 로 전환 (Ready 대기 단계).
 void ABlackoutBattleGameMode::OnPlayerJoined(APlayerController* NewPlayer)
@@ -138,40 +119,6 @@ void ABlackoutBattleGameMode::OnSeamlessArrival(APlayerController* PC)
 		GetWorldTimerManager().SetTimer(LoadingTimeoutHandle, this,
 			&ABlackoutBattleGameMode::OnLoadingTimeout, LoadingTimeout, false);
 		NotifyPlayerLoaded(); 
-	}
-}
-
-void ABlackoutBattleGameMode::RestartPlayer(AController* NewPlayer)
-{
-	Super::RestartPlayer(NewPlayer);
-	
-	if (bIsEncounterStarted) return;
-	
-	if (!CurrentCutsceneManager)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("ABlackoutBattleGameMode: CurrentCutsceneManager is nullPtr"))
-		return;
-	}
-	
-	int32 ReadyPlayersCount = 0;
-	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
-	{
-		if (APlayerController* PC = Iterator->Get())
-		{
-			if (PC->GetPawn())
-			{
-				ReadyPlayersCount++;
-			}
-		}
-	}
-
-	if (ReadyPlayersCount >= MaxPlayers)
-	{
-		bIsEncounterStarted = true;
-		if (CurrentCutsceneManager)
-		{
-			CurrentCutsceneManager->PlayBossIntro();
-		}
 	}
 }
 
@@ -1016,7 +963,14 @@ void ABlackoutBattleGameMode::StartBossCombat()
 	bBossCombatStarted = true;
 	GetWorldTimerManager().ClearTimer(LoadingTimeoutHandle);
 	BO_LOG_NET(Log, "StartBossCombat 진입 (StartBossCombat 진입 — 전투 상태 전이)");
-
+	
+	for (TActorIterator<ABOBossIntroSequencer> It(GetWorld()); It; ++It)
+	{
+		CurrentCutsceneManager = *It;
+		CurrentCutsceneManager->PlayBossIntro();
+		break; 
+	}
+	
 	const UBlackoutMatchFlowSubsystem* Flow = GetGameInstance()
 		                                          ? GetGameInstance()->
 		                                          GetSubsystem<

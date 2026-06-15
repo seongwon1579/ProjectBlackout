@@ -62,7 +62,6 @@ public:
 	
 	virtual UClass* GetDefaultPawnClassForController_Implementation(AController* InController) override;
 
-	void RegisterCutsceneManager(ABOBossIntroSequencer* InManager);
 protected:
 	// 플레이어 접속 시 전투 진입 자원 초기화 정책 적용 (LobbyToBattle).
 	virtual void OnPlayerJoined(APlayerController* NewPlayer) override;
@@ -96,7 +95,6 @@ protected:
 	bool bTravelInitiated  = false;
 	
 	virtual void OnSeamlessArrival(APlayerController* PC) override;
-	virtual void RestartPlayer(AController* NewPlayer) override;
 	
 	bool bIsEncounterStarted = false;
 	
