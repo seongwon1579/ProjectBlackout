@@ -22,10 +22,6 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(
 	FBlackoutMatchResultPlayerStatsChangedSignature,
 	const FBlackoutMatchResultPlayerStatsData&, PlayerStatsData);
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(
-	FBlackoutMatchResultLocalConfirmStateChangedSignature,
-	bool, bHasConfirmed);
-
 struct FBlackoutMatchResultPlayerBinding
 {
 	TWeakObjectPtr<ABlackoutPlayerState> PlayerState;
@@ -54,7 +50,7 @@ public:
 	void RefreshResult();
 
 	UFUNCTION(BlueprintCallable, Category = "Blackout|HUD|Result")
-	void RequestConfirmResult();
+	float GetAutoTravelRemainingTime() const;
 
 	UPROPERTY(BlueprintAssignable, Category = "Blackout|HUD|Result")
 	FBlackoutMatchResultVisibilityChangedSignature OnResultVisibilityChanged;
@@ -64,9 +60,6 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category = "Blackout|HUD|Result")
 	FBlackoutMatchResultPlayerStatsChangedSignature OnPlayerStatsChanged;
-
-	UPROPERTY(BlueprintAssignable, Category = "Blackout|HUD|Result")
-	FBlackoutMatchResultLocalConfirmStateChangedSignature OnLocalConfirmStateChanged;
 
 private:
 	bool ResolveDependencies(APlayerController* InPlayerController);
@@ -92,7 +85,5 @@ private:
 	TWeakObjectPtr<ABlackoutGameState> GameState;
 	TWeakObjectPtr<ABlackoutPlayerState> LocalPlayerState;
 	TMap<ABlackoutPlayerState*, FBlackoutMatchResultPlayerBinding> PlayerBindings;
-	TSet<TObjectKey<ABlackoutPlayerState>> ConfirmedPlayerStates;
 	bool bGameStateCallbacksBound = false;
-	bool bLocalPlayerConfirmed = false;
 };

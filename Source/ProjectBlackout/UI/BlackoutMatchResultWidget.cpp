@@ -1,6 +1,6 @@
 #include "UI/BlackoutMatchResultWidget.h"
 
-#include "Components/Button.h"
+#include "Components/TextBlock.h"
 #include "Core/BlackoutLog.h"
 #include "UI/BlackoutMatchResultStatsTableWidget.h"
 #include "UI/BlackoutMatchResultWidgetController.h"
@@ -25,17 +25,8 @@ void UBlackoutMatchResultWidget::SetWidgetController(UBlackoutMatchResultWidgetC
 	WidgetController->OnPlayerStatsChanged.AddDynamic(
 		this,
 		&UBlackoutMatchResultWidget::HandlePlayerStatsChanged);
-	WidgetController->OnLocalConfirmStateChanged.AddDynamic(
-		this,
-		&UBlackoutMatchResultWidget::HandleLocalConfirmStateChanged);
 
-	if (ConfirmButton)
-	{
-		ConfirmButton->OnClicked.RemoveDynamic(this, &UBlackoutMatchResultWidget::HandleConfirmClicked);
-		ConfirmButton->OnClicked.AddDynamic(this, &UBlackoutMatchResultWidget::HandleConfirmClicked);
-	}
-
-	ReceiveConfirmStateChanged(false);
+	RefreshStatusText();
 }
 
 void UBlackoutMatchResultWidget::RebuildResult(
@@ -50,6 +41,7 @@ void UBlackoutMatchResultWidget::RebuildResult(
 	}
 
 	ReceiveResultRebuilt(SummaryData, PlayerStatsList);
+	RefreshStatusText();
 }
 
 void UBlackoutMatchResultWidget::UpdatePlayerStats(const FBlackoutMatchResultPlayerStatsData& PlayerStatsData)
@@ -60,24 +52,21 @@ void UBlackoutMatchResultWidget::UpdatePlayerStats(const FBlackoutMatchResultPla
 	}
 }
 
-void UBlackoutMatchResultWidget::SetConfirmButtonEnabled(bool bEnabled)
-{
-	if (ConfirmButton)
-	{
-		ConfirmButton->SetIsEnabled(bEnabled);
-	}
-}
-
 void UBlackoutMatchResultWidget::NativeDestruct()
 {
 	UnbindWidgetControllerCallbacks();
 
-	if (ConfirmButton)
-	{
-		ConfirmButton->OnClicked.RemoveDynamic(this, &UBlackoutMatchResultWidget::HandleConfirmClicked);
-	}
-
 	Super::NativeDestruct();
+}
+
+void UBlackoutMatchResultWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
+{
+	Super::NativeTick(MyGeometry, InDeltaTime);
+
+	if (GetVisibility() != ESlateVisibility::Collapsed)
+	{
+		RefreshStatusText();
+	}
 }
 
 void UBlackoutMatchResultWidget::UnbindWidgetControllerCallbacks()
@@ -90,12 +79,12 @@ void UBlackoutMatchResultWidget::UnbindWidgetControllerCallbacks()
 	WidgetController->OnResultVisibilityChanged.RemoveAll(this);
 	WidgetController->OnResultRebuilt.RemoveAll(this);
 	WidgetController->OnPlayerStatsChanged.RemoveAll(this);
-	WidgetController->OnLocalConfirmStateChanged.RemoveAll(this);
 }
 
 void UBlackoutMatchResultWidget::HandleResultVisibilityChanged(bool bIsVisible)
 {
-	SetVisibility(bIsVisible ? ESlateVisibility::SelfHitTestInvisible : ESlateVisibility::Collapsed);
+	SetVisibility(bIsVisible ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
+	RefreshStatusText();
 	ReceiveResultVisibilityChanged(bIsVisible);
 }
 
@@ -112,16 +101,30 @@ void UBlackoutMatchResultWidget::HandlePlayerStatsChanged(
 	UpdatePlayerStats(PlayerStatsData);
 }
 
-void UBlackoutMatchResultWidget::HandleLocalConfirmStateChanged(bool bHasConfirmed)
+void UBlackoutMatchResultWidget::RefreshStatusText()
 {
-	SetConfirmButtonEnabled(!bHasConfirmed);
-	ReceiveConfirmStateChanged(bHasConfirmed);
-}
-
-void UBlackoutMatchResultWidget::HandleConfirmClicked()
-{
-	if (WidgetController)
+	if (!StatusText)
 	{
-		WidgetController->RequestConfirmResult();
+		return;
 	}
+
+	const float RemainingTime = WidgetController
+		? WidgetController->GetAutoTravelRemainingTime()
+		: SummaryData.AutoTravelRemainingTime;
+	const bool bShouldShow = GetVisibility() != ESlateVisibility::Collapsed && RemainingTime > 0.f;
+	if (!bShouldShow)
+	{
+		StatusText->SetText(FText::GetEmpty());
+		StatusText->SetVisibility(ESlateVisibility::Collapsed);
+		return;
+	}
+
+	const FText ResolvedStatusText = RemainingTime <= ImminentTravelTextThreshold
+		? ImminentTravelText
+		: FText::Format(
+			AutoTravelCountdownFormatText,
+			FText::AsNumber(FMath::CeilToInt(RemainingTime)));
+
+	StatusText->SetText(ResolvedStatusText);
+	StatusText->SetVisibility(ESlateVisibility::HitTestInvisible);
 }

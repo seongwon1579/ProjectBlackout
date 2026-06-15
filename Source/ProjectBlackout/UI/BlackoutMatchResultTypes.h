@@ -45,12 +45,6 @@ struct PROJECTBLACKOUT_API FBlackoutMatchResultSummaryData
 
 	UPROPERTY(BlueprintReadOnly, Category = "Blackout|HUD|Result")
 	float AutoTravelRemainingTime = 0.0f;
-
-	UPROPERTY(BlueprintReadOnly, Category = "Blackout|HUD|Result")
-	int32 ConfirmedPlayerCount = 0;
-
-	UPROPERTY(BlueprintReadOnly, Category = "Blackout|HUD|Result")
-	int32 RequiredConfirmPlayerCount = 0;
 };
 
 USTRUCT(BlueprintType)
@@ -93,9 +87,6 @@ struct PROJECTBLACKOUT_API FBlackoutMatchResultPlayerStatsData
 
 	UPROPERTY(BlueprintReadOnly, Category = "Blackout|HUD|Result")
 	int32 Revives = 0;
-
-	UPROPERTY(BlueprintReadOnly, Category = "Blackout|HUD|Result")
-	bool bHasConfirmedResult = false;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Blackout|HUD|Result")
 	bool bIsLocalPlayer = false;

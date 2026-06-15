@@ -6,7 +6,6 @@
 #include "BlackoutMatchResultPlayerColumnWidget.generated.h"
 
 class UTextBlock;
-class UWidget;
 
 UCLASS(BlueprintType, Blueprintable)
 class PROJECTBLACKOUT_API UBlackoutMatchResultPlayerColumnWidget : public UUserWidget
@@ -50,9 +49,6 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD|Result")
 	TObjectPtr<UTextBlock> RevivesText;
-
-	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD|Result")
-	TObjectPtr<UWidget> ConfirmedIconWidget;
 
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Player Stats Data Changed"), Category = "Blackout|HUD|Result")
 	void ReceivePlayerStatsDataChanged(const FBlackoutMatchResultPlayerStatsData& InPlayerStatsData);

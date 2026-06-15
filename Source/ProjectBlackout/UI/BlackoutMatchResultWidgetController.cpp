@@ -60,7 +60,6 @@ void UBlackoutMatchResultWidgetController::BroadcastInitialResult()
 {
 	OnResultVisibilityChanged.Broadcast(IsResultVisible());
 	RefreshResult();
-	OnLocalConfirmStateChanged.Broadcast(bLocalPlayerConfirmed);
 }
 
 void UBlackoutMatchResultWidgetController::RefreshResult()
@@ -99,23 +98,17 @@ void UBlackoutMatchResultWidgetController::RefreshResult()
 	OnResultRebuilt.Broadcast(BuildSummaryData(PlayerStatsList), PlayerStatsList);
 }
 
-void UBlackoutMatchResultWidgetController::RequestConfirmResult()
+float UBlackoutMatchResultWidgetController::GetAutoTravelRemainingTime() const
 {
-	if (!IsResultVisible() || bLocalPlayerConfirmed)
+	const ABlackoutGameState* BlackoutGameState = GameState.Get();
+	if (!BlackoutGameState || BlackoutGameState->MatchResultAutoTravelServerTime <= 0.f)
 	{
-		return;
+		return 0.f;
 	}
 
-	bLocalPlayerConfirmed = true;
-
-	if (ABlackoutPlayerState* BlackoutPlayerState = LocalPlayerState.Get())
-	{
-		ConfirmedPlayerStates.Add(BlackoutPlayerState);
-		const int32 DisplayOrder = GetParticipantPlayerStates().IndexOfByKey(BlackoutPlayerState);
-		OnPlayerStatsChanged.Broadcast(BuildPlayerStatsData(BlackoutPlayerState, DisplayOrder));
-	}
-
-	OnLocalConfirmStateChanged.Broadcast(true);
+	return FMath::Max(
+		0.f,
+		BlackoutGameState->MatchResultAutoTravelServerTime - BlackoutGameState->GetServerWorldTimeSeconds());
 }
 
 bool UBlackoutMatchResultWidgetController::ResolveDependencies(APlayerController* InPlayerController)
@@ -246,14 +239,10 @@ FBlackoutMatchResultSummaryData UBlackoutMatchResultWidgetController::BuildSumma
 		? FText::FromString(TEXT("AREA CLEARED"))
 		: FText::FromString(TEXT("MISSION COMPLETE"));
 	SummaryData.ResultSubtitle = FText::FromString(TEXT("Squad statistics"));
-	SummaryData.RequiredConfirmPlayerCount = PlayerStatsList.Num();
 
 	if (BlackoutGameState && BlackoutGameState->MatchResultAutoTravelServerTime > 0.f)
 	{
-		const float CurrentTime = BlackoutGameState->GetServerWorldTimeSeconds();
-		SummaryData.AutoTravelRemainingTime = FMath::Max(
-			0.f,
-			BlackoutGameState->MatchResultAutoTravelServerTime - CurrentTime);
+		SummaryData.AutoTravelRemainingTime = GetAutoTravelRemainingTime();
 	}
 
 	int32 TotalShotsFired = 0;
@@ -267,10 +256,6 @@ FBlackoutMatchResultSummaryData UBlackoutMatchResultWidgetController::BuildSumma
 		TotalShotsFired += PlayerStatsData.ShotsFired;
 		TotalShotsHit += PlayerStatsData.ShotsHit;
 
-		if (PlayerStatsData.bHasConfirmedResult)
-		{
-			++SummaryData.ConfirmedPlayerCount;
-		}
 	}
 
 	SummaryData.TeamAccuracyPercent = TotalShotsFired > 0
@@ -305,7 +290,6 @@ FBlackoutMatchResultPlayerStatsData UBlackoutMatchResultWidgetController::BuildP
 		: 0.0f;
 	PlayerStatsData.ConsumablesUsed = MatchStats.ConsumablesUsed;
 	PlayerStatsData.Revives = MatchStats.Revives;
-	PlayerStatsData.bHasConfirmedResult = ConfirmedPlayerStates.Contains(PlayerState);
 	PlayerStatsData.bIsLocalPlayer = PlayerState == LocalPlayerState.Get();
 	PlayerStatsData.bIsValid = true;
 	return PlayerStatsData;
@@ -368,9 +352,7 @@ void UBlackoutMatchResultWidgetController::HandleMatchResultStateChanged()
 	const bool bIsVisible = IsResultVisible();
 	if (!bIsVisible)
 	{
-		bLocalPlayerConfirmed = false;
-		ConfirmedPlayerStates.Reset();
-		OnLocalConfirmStateChanged.Broadcast(false);
+		UnbindAllPlayers();
 	}
 
 	OnResultVisibilityChanged.Broadcast(bIsVisible);

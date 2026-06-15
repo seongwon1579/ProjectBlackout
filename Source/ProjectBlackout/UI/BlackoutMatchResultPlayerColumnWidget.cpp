@@ -1,7 +1,6 @@
 #include "UI/BlackoutMatchResultPlayerColumnWidget.h"
 
 #include "Components/TextBlock.h"
-#include "Components/Widget.h"
 
 void UBlackoutMatchResultPlayerColumnWidget::SetPlayerStatsData(
 	const FBlackoutMatchResultPlayerStatsData& InPlayerStatsData)
@@ -43,12 +42,6 @@ void UBlackoutMatchResultPlayerColumnWidget::SetPlayerStatsData(
 	if (RevivesText)
 	{
 		RevivesText->SetText(FormatInteger(PlayerStatsData.Revives));
-	}
-	if (ConfirmedIconWidget)
-	{
-		ConfirmedIconWidget->SetVisibility(PlayerStatsData.bHasConfirmedResult
-			? ESlateVisibility::HitTestInvisible
-			: ESlateVisibility::Hidden);
 	}
 
 	ReceivePlayerStatsDataChanged(PlayerStatsData);

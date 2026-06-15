@@ -7,7 +7,7 @@
 
 class UBlackoutMatchResultStatsTableWidget;
 class UBlackoutMatchResultWidgetController;
-class UButton;
+class UTextBlock;
 
 UCLASS(BlueprintType, Blueprintable)
 class PROJECTBLACKOUT_API UBlackoutMatchResultWidget : public UUserWidget
@@ -26,14 +26,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|HUD|Result")
 	void UpdatePlayerStats(const FBlackoutMatchResultPlayerStatsData& PlayerStatsData);
 
-	UFUNCTION(BlueprintCallable, Category = "Blackout|HUD|Result")
-	void SetConfirmButtonEnabled(bool bEnabled);
-
 protected:
 	virtual void NativeDestruct() override;
+	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
 
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD|Result")
-	TObjectPtr<UButton> ConfirmButton;
+	TObjectPtr<UTextBlock> StatusText;
 
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD|Result")
 	TObjectPtr<UBlackoutMatchResultStatsTableWidget> StatsTableWidget;
@@ -44,6 +42,15 @@ protected:
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|HUD|Result")
 	FBlackoutMatchResultSummaryData SummaryData;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|HUD|Result|Text")
+	FText AutoTravelCountdownFormatText = FText::FromString(TEXT("{0}초 후 자동으로 이동..."));
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|HUD|Result|Text")
+	FText ImminentTravelText = FText::FromString(TEXT("잠시 후 이동합니다..."));
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|HUD|Result|Text", meta = (ClampMin = "0.0"))
+	float ImminentTravelTextThreshold = 1.0f;
+
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Result Visibility Changed"), Category = "Blackout|HUD|Result")
 	void ReceiveResultVisibilityChanged(bool bIsVisible);
 
@@ -52,11 +59,9 @@ protected:
 		const FBlackoutMatchResultSummaryData& InSummaryData,
 		const TArray<FBlackoutMatchResultPlayerStatsData>& PlayerStatsList);
 
-	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Confirm State Changed"), Category = "Blackout|HUD|Result")
-	void ReceiveConfirmStateChanged(bool bHasConfirmed);
-
 private:
 	void UnbindWidgetControllerCallbacks();
+	void RefreshStatusText();
 
 	UFUNCTION()
 	void HandleResultVisibilityChanged(bool bIsVisible);
@@ -68,10 +73,4 @@ private:
 
 	UFUNCTION()
 	void HandlePlayerStatsChanged(const FBlackoutMatchResultPlayerStatsData& PlayerStatsData);
-
-	UFUNCTION()
-	void HandleLocalConfirmStateChanged(bool bHasConfirmed);
-
-	UFUNCTION()
-	void HandleConfirmClicked();
 };
