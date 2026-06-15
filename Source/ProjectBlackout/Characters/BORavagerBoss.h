@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Characters/BlackoutBossCharacter.h"
+#include "Enum/BOBossPhase.h"
 #include "BORavagerBoss.generated.h"
 
 
@@ -18,6 +19,10 @@ public:
 	UBORavagerPatternData* GetPatternData(FGameplayTag AbilityTag) const;
 	
 	void SetCollisionState(bool bIgnore);
+	
+	virtual void SetData() override;
+	
+	virtual FBossChaseRanges GetChaseRanges(const FGameplayTag& PatternTag) const override;
 
 protected:
 	UFUNCTION(NetMulticast, Reliable)
@@ -28,7 +33,6 @@ protected:
 	
 	virtual void OnDeath() override;
 	
-	virtual void SetData() override;
 	
 	virtual void OnDamageReceived(const FOnAttributeChangeData& Data);
 	

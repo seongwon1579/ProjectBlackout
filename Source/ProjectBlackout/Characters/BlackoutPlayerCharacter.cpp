@@ -8,7 +8,7 @@
 #include "EngineUtils.h"
 #include "Engine/World.h"
 #include "Framework/BlackoutBattleGameMode.h"
-#include "Framework/BlackoutGraphicsUserSettings.h"
+#include "Framework/BlackoutUserSettings.h"
 #include "Framework/BlackoutPlayerState.h"
 #include "AbilitySystemInterface.h"
 #include "GAS/Abilities/Player/BlackoutGA_Revive.h"
@@ -3681,18 +3681,18 @@ void ABlackoutPlayerCharacter::DoLook(float Yaw, float Pitch)
 
 	if (GetController() != nullptr)
 	{
-		const UBlackoutGraphicsUserSettings* GraphicsUserSettings = Cast<
-			UBlackoutGraphicsUserSettings>(
+		const UBlackoutUserSettings* UserSettings = Cast<
+			UBlackoutUserSettings>(
 			UGameUserSettings::GetGameUserSettings());
 		float AppliedMouseSensitivity = 1.0f;
-		if (GraphicsUserSettings)
+		if (UserSettings)
 		{
 			// 일반 상태와 조준 상태가 서로 독립적인 감도 값을 사용하도록 분리합니다.
 			AppliedMouseSensitivity = (CombatComponent && CombatComponent->
 				                          IsAiming())
-				                          ? GraphicsUserSettings->
+				                          ? UserSettings->
 				                          GetAimMouseSensitivityMultiplier()
-				                          : GraphicsUserSettings->
+				                          : UserSettings->
 				                          GetMouseSensitivity();
 		}
 

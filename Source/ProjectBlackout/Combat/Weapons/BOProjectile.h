@@ -118,6 +118,9 @@ protected:
 	// 풀 이중 등록을 막습니다. OnSpawnFromPool에서 재사용 시 false로 리셋됩니다.
 	bool bReturnedToPool = false;
 
+	// 매치 통계: 발사체당 명중 1회만 집계(이중 OnHit 방어). OnSpawnFromPool에서 false로 리셋.
+	bool bAlreadyCountedHit = false;
+
 	FGameplayEffectSpecHandle DamageSpec;
 	FBlackoutWeaponCueSet CueSet;
 };

@@ -681,6 +681,22 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 			UBlackoutWeaponCueLibrary::ExecuteFireCue(AbilitySystemComponent, WeaponCueSet, ShotgunFirearm, MuzzleLocation, FireDirection);
 
 			const TArray<FBlackoutShotgunPelletHit> PelletHits = ShotgunFirearm->FireShotgun(FireDirection, PelletDamageSpecHandle);
+
+			// 매치 통계: 발포=펠릿 수, 명중=적중 펠릿 수(펠릿 단위)
+			if (ABlackoutPlayerState* SourcePS = PlayerCharacter->GetPlayerState<ABlackoutPlayerState>())
+			{
+				int32 HitPelletCount = 0;
+				for (const FBlackoutShotgunPelletHit& PelletHit : PelletHits)
+				{
+					if (PelletHit.bAppliedDamage)
+					{
+						++HitPelletCount;
+					}
+				}
+				SourcePS->RecordShotsFired(PelletHits.Num());
+				SourcePS->RecordShotsHit(HitPelletCount);
+			}
+
 			TArray<FBlackoutWeaponGameplayCueEntry> ShotgunCueEntries;
 			ShotgunCueEntries.Reserve(PelletHits.Num() * 2);
 
@@ -706,7 +722,30 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 			UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo();
 			UBlackoutWeaponCueLibrary::ExecuteFireCue(AbilitySystemComponent, WeaponCueSet, EquippedFirearm, MuzzleLocation, FireDirection);
 
-			const FHitResult ShotHitResult = EquippedFirearm->Fire(FireDirection, DamageSpecHandle);
+			bool bHitEnemy = false;
+			const FHitResult ShotHitResult = EquippedFirearm->Fire(FireDirection, DamageSpecHandle, bHitEnemy);
+
+			// 매치 통계: 히트스캔만 발포/명중 집계(발사 단위). 투사체는 2단계(BOProjectile)에서 별도.
+			if (EquippedFirearm->UsesHitscan())
+			{
+				if (ABlackoutPlayerState* SourcePS = PlayerCharacter->GetPlayerState<ABlackoutPlayerState>())
+				{
+					SourcePS->RecordShotsFired(1);
+					if (bHitEnemy)
+					{
+						SourcePS->RecordShotsHit(1);
+					}
+				}
+			}
+			else
+			{
+				// 투사체: 발포만 집계(명중은 BOProjectile::OnHit)
+				if (ABlackoutPlayerState* SourcePS = PlayerCharacter->GetPlayerState<ABlackoutPlayerState>())
+				{
+					SourcePS->RecordShotsFired(1);
+				}
+			}
+
 			const FVector TraceEnd = ShotHitResult.TraceEnd.IsNearlyZero()
 				? MuzzleLocation + FireDirection.GetSafeNormal() * ParallaxMaxDistance
 				: FVector(ShotHitResult.TraceEnd);

@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "BlackoutBossAIController.h"
 #include "AI/BlackoutAIController.h"
+#include "Enum/BOBossPhase.h"
 #include "BlackoutRavagerAIController.generated.h"
 
 /**
@@ -26,6 +27,8 @@ public:
 	void RequestPhaseChange(EBOBossPhase NewPhase);
 	
 	EBOBossPhase GetCurrentPhase() const;
+	
+	virtual void StartCombat() override;
 
 protected:
 	virtual void OnUnPossess() override;

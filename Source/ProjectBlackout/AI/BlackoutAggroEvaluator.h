@@ -28,6 +28,7 @@ public:
 	void Initialize(AAIController* InAIController, UAbilitySystemComponent* InASC);
 	void Deinitialize();
 	void RecordDamage(APawn* Source, float Amount);
+	void StartAggroEvaluation();
 
 private:
 	struct FDamageRecord
@@ -72,7 +73,7 @@ private:
 	float DPSWeight = 2.0f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Blackout|Aggro", meta =(ClampMin = "0.0"))
-	float LowHPWeight = 1.5f;
+	float LowHPWeight = 1.f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Blackout|Aggro", meta =(ClampMin = "0.0"))
 	float DPSWindowDuration = 3.0f;
@@ -80,10 +81,10 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Blackout|Aggro", meta =(ClampMin = "0.0"))
 	float MaxAggroRange = 10000.f;
 	
-	UFUNCTION()
-	void OnPlayerPawnChanged(APawn* OldPawn, APawn* NewPawn);
+	//UFUNCTION()
+	//void OnPlayerPawnChanged(APawn* OldPawn, APawn* NewPawn);
 	void OnAggroTargetChangeTagChanged(const FGameplayTag Tag, int32 NewCount);
-	void OnPostLogin(AGameModeBase* GameMode, APlayerController* NewPC);
+	//void OnPostLogin(AGameModeBase* GameMode, APlayerController* NewPC);
 	
 	APawn* CalculateBestTarget(APawn* ExcludeTarget = nullptr) const;
 	float CalculateAggroScore(APawn* Target) const;
@@ -92,17 +93,22 @@ private:
 	
 	void RegisterTagEvents();
 	void UnregisterTagEvents();
-	void RegisterPlayerEvents();
-	void UnregisterPlayerEvents();
+	// void RegisterPlayerEvents();
+	// void UnregisterPlayerEvents();
 	
-	FGameplayTag TargetChangeTag;
-	FDelegateHandle PostLoginHandle;
-	FDelegateHandle TargetChangeTagChangedHandle;
+	//FTimerHandle StartupTimerHandle;
+	//void TryInitialTargeting();
+	
+	//FDelegateHandle PostLoginHandle;
 	
 	UPROPERTY()
 	TWeakObjectPtr<APawn> CurrentTarget;
-	
+	UPROPERTY()
 	TWeakObjectPtr<UAbilitySystemComponent> CurrentTargetASC;
+	
+	FDelegateHandle TargetChangeTagChangedHandle;
+	FGameplayTag TargetChangeTag;
+	
 	FDelegateHandle TargetDownTagHandle;
 	FGameplayTag DownTag;
 	

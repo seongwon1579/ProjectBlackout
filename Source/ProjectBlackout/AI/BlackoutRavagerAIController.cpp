@@ -20,6 +20,20 @@ EBOBossPhase ABlackoutRavagerAIController::GetCurrentPhase() const
 	return PhaseEvaluator ? PhaseEvaluator->GetCurrentPhase() : EBOBossPhase::None;
 }
 
+void ABlackoutRavagerAIController::StartCombat()
+{
+	if (!HasAuthority()) return;
+	
+	if (!PhaseEvaluator)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Blackout: PhaseEvaluator is not set In ABlackoutRavagerAIController"));
+		return;
+	}
+	PhaseEvaluator->RequestPhaseChange(EBOBossPhase::Phase1);
+	
+	Super::StartCombat();
+}
+
 void ABlackoutRavagerAIController::OnUnPossess()
 {
 	if (PhaseEvaluator)   PhaseEvaluator->Deinitialize();
@@ -44,8 +58,9 @@ void ABlackoutRavagerAIController::PreInitialize(APawn* InPawn)
 	// Phase
 	PhaseEvaluator = NewObject<UBlackoutPhaseEvaluator>(this);
 	PhaseEvaluator->OnBossPhaseChanged.AddUObject(this, &ABlackoutRavagerAIController::HandlePhaseChanged);
-	PhaseEvaluator->Initialize(this, CachedASC);
+	PhaseEvaluator->Initialize(this,CachedASC);
 }
+
 
 void ABlackoutRavagerAIController::HandleAggroTargetChanged(APawn* NewTarget)
 {
@@ -57,8 +72,10 @@ void ABlackoutRavagerAIController::HandleAggroTargetChanged(APawn* NewTarget)
 
 void ABlackoutRavagerAIController::HandlePhaseChanged(EBOBossPhase NewPhase)
 {
+	UE_LOG(LogTemp, Warning, TEXT("HandlePhaseChanged"));
 	if (BTRunner)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("HandlePhaseChanged BTRunner"));
 		BTRunner->RunPhaseBT(NewPhase);
 	}
 }
