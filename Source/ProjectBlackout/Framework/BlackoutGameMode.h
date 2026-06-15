@@ -27,6 +27,8 @@ public:
 	// 정원 충족 + 전원 bIsReady == true 조건 검사. Lobby / Battle 공용.
 	UFUNCTION(BlueprintCallable, Category = "Blackout|GameMode")
 	virtual bool AllPlayersReady() const;
+	
+	bool AllPlayersLoaded() const;
 
 	// PlayerController::Server_SetReady 처리 직후 호출. AllPlayersReady 성립 시 OnAllPlayersReady 훅 실행.
 	UFUNCTION(BlueprintCallable, Category = "Blackout|GameMode")

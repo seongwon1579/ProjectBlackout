@@ -56,8 +56,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|PlayerState|Ready")
 	void SetReadyState(bool bNewReady);
 
+	void SetLoadedState(bool bNewLoaded);
+	
 	UFUNCTION(BlueprintPure, Category = "Blackout|PlayerState|Ready")
 	bool IsReady() const { return bIsReady; }
+	
+	bool IsLoaded() const { return bIsLoaded; }
 
 	UFUNCTION(BlueprintPure, Category = "Blackout|PlayerState|State")
 	bool IsDowned() const;
@@ -95,6 +99,9 @@ public:
 
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_IsReady, Category = "Blackout|PlayerState")
 	bool bIsReady = false;
+	
+	bool bIsLoaded = false;
+
 
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_SurrenderVoteState, Category = "Blackout|PlayerState")
 	bool bRequestedSurrender = false;

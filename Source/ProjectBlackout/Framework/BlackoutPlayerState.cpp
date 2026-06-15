@@ -111,6 +111,17 @@ void ABlackoutPlayerState::SetReadyState(bool bNewReady)
 	BroadcastReadyStateChanged();
 }
 
+void ABlackoutPlayerState::SetLoadedState(bool bNewLoaded)
+{
+	if (!HasAuthority())
+	{
+		BO_LOG_NET(Warning, "SetLoadedState 무시: 서버 권한 없음. PlayerState=%s", *GetName());
+		return;
+	}
+	
+	bIsLoaded = bNewLoaded;
+}
+
 void ABlackoutPlayerState::ApplyBattleTransitionPolicy(
 	EBattleTransitionType TransitionType)
 {
