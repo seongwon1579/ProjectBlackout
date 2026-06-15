@@ -15,6 +15,8 @@
 #include "UI/BlackoutDownedStateWidget.h"
 #include "UI/BlackoutHUDWidgetController.h"
 #include "UI/BlackoutInteractionPromptWidget.h"
+#include "UI/BlackoutMatchResultWidget.h"
+#include "UI/BlackoutMatchResultWidgetController.h"
 #include "UI/BlackoutPartyRosterWidget.h"
 #include "UI/BlackoutPartyRosterWidgetController.h"
 #include "UI/BlackoutRelicWidget.h"
@@ -159,6 +161,30 @@ void UBlackoutHUDWidget::SetPartyRosterWidgetController(
 	}
 
 	ReceivePartyRosterControllerSet(PartyRosterWidgetController);
+}
+
+void UBlackoutHUDWidget::SetMatchResultWidgetController(
+	UBlackoutMatchResultWidgetController* InMatchResultWidgetController)
+{
+	if (!InMatchResultWidgetController)
+	{
+		BO_LOG_CORE(Warning, "결과창 컨트롤러가 유효하지 않아 HUD 위젯에 연결하지 않았습니다.");
+		return;
+	}
+
+	MatchResultWidgetController = InMatchResultWidgetController;
+
+	if (MatchResultWidget)
+	{
+		MatchResultWidget->SetWidgetController(MatchResultWidgetController);
+		MatchResultWidget->SetVisibility(ESlateVisibility::Collapsed);
+	}
+	else
+	{
+		BO_LOG_CORE(Verbose, "MatchResultWidget이 바인딩되지 않아 결과창 위젯 연결을 건너뜁니다.");
+	}
+
+	ReceiveMatchResultControllerSet(MatchResultWidgetController);
 }
 
 bool UBlackoutHUDWidget::ShowDamageNumberAtWorldLocation(
