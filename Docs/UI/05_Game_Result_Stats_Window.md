@@ -11,7 +11,8 @@ classDiagram
 
     UUserWidget <|-- UBlackoutHUDWidget
     UUserWidget <|-- UBlackoutMatchResultWidget
-    UUserWidget <|-- UBlackoutMatchResultPlayerRowWidget
+    UUserWidget <|-- UBlackoutMatchResultStatsTableWidget
+    UUserWidget <|-- UBlackoutMatchResultPlayerColumnWidget
     UObject <|-- UBlackoutMatchResultWidgetController
     AGameModeBase <|-- ABlackoutBattleGameMode
     AGameStateBase <|-- ABlackoutGameState
@@ -26,9 +27,7 @@ classDiagram
 
     class UBlackoutMatchResultWidget {
         -UButton* ConfirmButton
-        -UVerticalBox* PlayerStatsContainer
-        -TSubclassOf~UBlackoutMatchResultPlayerRowWidget~ PlayerRowWidgetClass
-        -TMap~ABlackoutPlayerState*, UBlackoutMatchResultPlayerRowWidget*~ PlayerRowWidgets
+        -UBlackoutMatchResultStatsTableWidget* StatsTableWidget
         -FBlackoutMatchResultSummaryData SummaryData
         +SetWidgetController(UBlackoutMatchResultWidgetController*) void
         +RebuildResult(const FBlackoutMatchResultSummaryData&, TArray~FBlackoutMatchResultPlayerStatsData~) void
@@ -40,8 +39,29 @@ classDiagram
         #ReceiveConfirmStateChanged(bool bHasConfirmed) void
     }
 
-    class UBlackoutMatchResultPlayerRowWidget {
+    class UBlackoutMatchResultStatsTableWidget {
+        -UHorizontalBox* PlayerColumnContainer
+        -TSubclassOf~UBlackoutMatchResultPlayerColumnWidget~ PlayerColumnWidgetClass
+        -TMap~ABlackoutPlayerState*, UBlackoutMatchResultPlayerColumnWidget*~ PlayerColumnWidgets
+        -TArray~FBlackoutMatchResultStatRowDefinition~ StatRows
+        +RebuildColumns(TArray~FBlackoutMatchResultPlayerStatsData~) void
+        +UpdatePlayerColumn(FBlackoutMatchResultPlayerStatsData) void
+        -CreatePlayerColumn(FBlackoutMatchResultPlayerStatsData) UBlackoutMatchResultPlayerColumnWidget*
+        -RemoveMissingColumns(TSet~ABlackoutPlayerState*~) void
+    }
+
+    class UBlackoutMatchResultPlayerColumnWidget {
         -FBlackoutMatchResultPlayerStatsData PlayerStatsData
+        -UTextBlock* PlayerNameText
+        -UTextBlock* DamageDealtText
+        -UTextBlock* KillsText
+        -UTextBlock* MeleeKillsText
+        -UTextBlock* AccuracyText
+        -UTextBlock* ShotsFiredText
+        -UTextBlock* ShotsHitText
+        -UTextBlock* ConsumablesUsedText
+        -UTextBlock* RevivesText
+        -UWidget* ConfirmedIconWidget
         +SetPlayerStatsData(FBlackoutMatchResultPlayerStatsData) void
         #ReceivePlayerStatsDataChanged(FBlackoutMatchResultPlayerStatsData) void
     }
@@ -91,6 +111,7 @@ classDiagram
         +bool bIsMatchResultVisible
         +float MatchResultVisibleServerTime
         +float MatchResultAutoTravelServerTime
+        +TArray~ABlackoutPlayerState*~ MatchResultParticipants
         +TArray~ABlackoutPlayerState*~ ResultConfirmedPlayers
         +OnMatchStateChanged(EBlackoutMatchState)
         +OnPlayerArrayChanged()
@@ -136,6 +157,7 @@ classDiagram
         +ABlackoutPlayerState* PlayerState
         +FText DisplayName
         +FGameplayTag SelectedClassTag
+        +int32 DisplayOrder
         +int32 DamageDealt
         +int32 Kills
         +int32 MeleeKills
@@ -149,6 +171,13 @@ classDiagram
         +bool bIsValid
     }
 
+    class FBlackoutMatchResultStatRowDefinition {
+        <<Struct>>
+        +FName StatId
+        +FText DisplayLabel
+        +EBlackoutMatchResultStatFormat DisplayFormat
+    }
+
     class FBlackoutMatchResultPlayerBinding {
         <<Struct>>
         +ABlackoutPlayerState* PlayerState
@@ -158,20 +187,25 @@ classDiagram
 
     UBlackoutHUDWidget o-- UBlackoutMatchResultWidget : owns
     UBlackoutMatchResultWidget --> UBlackoutMatchResultWidgetController : receives result events
-    UBlackoutMatchResultWidget o-- UBlackoutMatchResultPlayerRowWidget : creates per player
+    UBlackoutMatchResultWidget o-- UBlackoutMatchResultStatsTableWidget : owns
+    UBlackoutMatchResultStatsTableWidget o-- UBlackoutMatchResultPlayerColumnWidget : creates per player
     UBlackoutMatchResultWidgetController --> ABlackoutBattleGameMode : requests confirm via controller RPC
     ABlackoutBattleGameMode --> ABlackoutGameState : publishes result visibility and confirm state
-    UBlackoutMatchResultWidgetController --> ABlackoutGameState : watches match state and player array
+    UBlackoutMatchResultWidgetController --> ABlackoutGameState : watches match result participant snapshot
     UBlackoutMatchResultWidgetController --> ABlackoutPlayerState : reads replicated stats
     UBlackoutMatchResultWidgetController --> FBlackoutMatchResultSummaryData : builds team summary
-    UBlackoutMatchResultWidgetController --> FBlackoutMatchResultPlayerStatsData : builds row data
-    UBlackoutMatchResultPlayerRowWidget --> FBlackoutMatchResultPlayerStatsData : renders
+    UBlackoutMatchResultWidgetController --> FBlackoutMatchResultPlayerStatsData : builds player columns
+    UBlackoutMatchResultStatsTableWidget --> FBlackoutMatchResultStatRowDefinition : defines stat row order
+    UBlackoutMatchResultPlayerColumnWidget --> FBlackoutMatchResultPlayerStatsData : renders nickname and stats
 ```
 
 ## 표시 항목
 
+결과창은 헬다이버즈 2의 게임 결과 통계 화면처럼 **통계 항목을 세로 축**, **참가 플레이어를 가로 축**으로 배치합니다. 각 플레이어 열의 상단에는 닉네임을 고정 표시하고, 아래에는 동일한 순서의 통계 값을 나란히 표시해 파티 전체 성과를 한눈에 비교할 수 있게 합니다.
+
 | 표시명 | 데이터 원천 | 계산 규칙 |
 |---|---|---|
+| 닉네임 | `ABlackoutPlayerState::GetPlayerName()` | 결과창 표시 시점의 참가 플레이어 스냅샷 순서대로 플레이어 열 상단에 표시 |
 | 입힌 데미지 | `FBlackoutMatchStats::DamageDealt` | 서버 데미지 적용 결과를 정수 합산 |
 | 처치한 적의 수 | `FBlackoutMatchStats::Kills` | 서버 처치 확정 시 1 증가 |
 | 근접 공격 처치 횟수 | `FBlackoutMatchStats::MeleeKills` | `RecordKill(bWasMeleeKill)`에서 근접 처치일 때만 1 증가 |
@@ -180,6 +214,23 @@ classDiagram
 | 명중한 횟수 | `FBlackoutMatchStats::ShotsHit` | 사격/투사체 명중 서버 처리 결과 합산 |
 | 사용한 소모품 개수 | `FBlackoutMatchStats::ConsumablesUsed` | 소모품 사용 GA 서버 확정 시 1 증가 |
 | 아군 부활 횟수 | `FBlackoutMatchStats::Revives` | 부활 성공 서버 확정 시 1 증가 |
+
+## 통계 테이블 레이아웃
+
+```mermaid
+flowchart LR
+    Result["UBlackoutMatchResultWidget"] --> Table["UBlackoutMatchResultStatsTableWidget"]
+    Table --> LabelRows["고정 통계 라벨 열"]
+    Table --> P1["플레이어 1 열\n닉네임 + 통계"]
+    Table --> P2["플레이어 2 열\n닉네임 + 통계"]
+    Table --> P3["플레이어 3 열\n닉네임 + 통계"]
+    Table --> P4["플레이어 4 열\n닉네임 + 통계"]
+```
+
+| 열 | 내용 |
+|---|---|
+| 고정 통계 라벨 열 | 입힌 데미지, 처치 수, 근접 처치, 명중률, 발포 수, 명중 수, 소모품 사용, 부활 수 |
+| 플레이어 열 | 닉네임, 병과 표시, 확인 완료 아이콘, 해당 플레이어의 `FBlackoutMatchStats` 값 |
 
 ## 데이터 흐름
 
@@ -194,20 +245,23 @@ sequenceDiagram
     participant PS as ABlackoutPlayerState
     participant HUD as UBlackoutHUDWidget
     participant RW as UBlackoutMatchResultWidget
-    participant Row as UBlackoutMatchResultPlayerRowWidget
+    participant Table as UBlackoutMatchResultStatsTableWidget
+    participant Column as UBlackoutMatchResultPlayerColumnWidget
 
     Boss-->>GM: OnDefeated
     GM->>GM: BeginBossDefeatResultFlow(DefeatedBossType)
     GM->>GM: 3초 보스 사망 연출 대기
     GM->>GS: bIsMatchResultVisible = true
+    GM->>GS: MatchResultParticipants = 현재 참가 플레이어 스냅샷
     GM->>GS: MatchResultAutoTravelServerTime = Now + 10초
     GS-->>RC: OnMatchResultStateChanged()
-    RC->>GS: PlayerArray 순회
+    RC->>GS: MatchResultParticipants 순회
     RC->>PS: MatchStats / PlayerName / SelectedClassTag 읽기
-    RC->>RC: SummaryData 및 PlayerStatsData 배열 생성
+    RC->>RC: SummaryData 및 PlayerStatsData 열 배열 생성
     RC-->>HUD: OnResultVisibilityChanged(true)
     RC-->>RW: OnResultRebuilt(SummaryData, PlayerStatsData 배열)
-    RW->>Row: CreateWidget / SetPlayerStatsData
+    RW->>Table: RebuildColumns(PlayerStatsData 배열)
+    Table->>Column: CreateWidget / SetPlayerStatsData
 
     alt 로컬 플레이어가 확인 버튼 클릭
         RW->>RC: RequestConfirmResult()
@@ -233,7 +287,8 @@ sequenceDiagram
     PS-->>RC: OnMatchStatsChangedNative
     RC->>RC: 해당 플레이어 PlayerStatsData 재생성
     RC-->>RW: OnPlayerStatsChanged(PlayerStatsData)
-    RW-->>Row: SetPlayerStatsData
+    RW-->>Table: UpdatePlayerColumn(PlayerStatsData)
+    Table-->>Column: SetPlayerStatsData
 ```
 
 ## 표시 규칙
@@ -273,7 +328,9 @@ flowchart TB
 - **첫 확인 이동 예약**: 결과창 표시 후 누군가 확인 버튼을 처음 클릭하면 서버는 목적지 이동을 예약합니다. 중간 보스 처치 결과창은 로비 이동, 메인 보스 처치 결과창은 5초 후 타이틀 이동을 예약합니다.
 - **전원 확인 즉시 이동**: 결과창 대상 플레이어 전원이 확인하면 남은 예약 시간과 자동 이동 타이머를 취소하고 즉시 목적지로 이동합니다.
 - **자동 이동**: 아무도 확인하지 않으면 결과창 표시 10초 후 자동 이동합니다. 자동 이동 목적지는 처치한 보스 타입에 따라 중간 보스는 로비, 메인 보스는 타이틀입니다.
-- **컨트롤러 책임**: `UBlackoutMatchResultWidgetController`는 `ABlackoutGameState::PlayerArray`를 기준으로 모든 플레이어의 통계를 표시합니다. 로컬 플레이어만 강조하기 위해 `bIsLocalPlayer`를 별도 전달합니다.
+- **컨트롤러 책임**: `UBlackoutMatchResultWidgetController`는 `ABlackoutGameState::MatchResultParticipants`를 기준으로 게임에 참가한 모든 플레이어의 닉네임과 통계를 표시합니다. 로컬 플레이어만 강조하기 위해 `bIsLocalPlayer`를 별도 전달합니다.
+- **참가자 스냅샷**: 결과창 표시 시점에 서버가 참가 플레이어 목록을 고정합니다. 단순히 현재 `PlayerArray`만 매 프레임 순회하면 결과창 표시 중 이탈/복제 지연으로 열 순서가 흔들릴 수 있으므로, `DisplayOrder`를 포함한 스냅샷을 기준으로 컬럼을 구성합니다.
+- **헬다이버즈 2 스타일 테이블**: `UBlackoutMatchResultStatsTableWidget`은 고정 통계 라벨 열과 플레이어별 컬럼들을 같은 행 높이로 맞춥니다. 각 `UBlackoutMatchResultPlayerColumnWidget`은 상단 닉네임, 병과/확인 상태, 통계 값을 세로로 렌더링합니다.
 - **갱신 방식**: `ABlackoutPlayerState::OnMatchStatsChangedNative`와 `OnPlayerNameChangedNative`를 바인딩해 늦게 도착한 복제 값도 결과창에 반영합니다. 결과창 표시 시점에는 `RefreshResult()`로 전체 스냅샷을 한 번 재구성합니다.
 - **명중률 처리**: 발포 횟수가 0이면 0%로 표시해 0 나누기를 방지합니다. UI 표기는 정수 또는 소수점 한 자리 등 블루프린트 위젯에서 결정합니다.
 - **팀 요약**: 팀 명중률은 플레이어별 명중률 평균이 아니라 `전체 ShotsHit / 전체 ShotsFired`로 계산합니다.
