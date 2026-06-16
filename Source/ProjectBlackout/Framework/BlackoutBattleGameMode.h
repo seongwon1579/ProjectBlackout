@@ -13,6 +13,20 @@ class ABlackoutPlayerController;
 class ABlackoutBossCharacter;
 class ABOBossIntroSequencer;
 class ABlackoutPlayerState;
+
+USTRUCT(BlueprintType)
+struct FBlackoutPoolWarmupEntry
+{
+	GENERATED_BODY()
+
+	// 프리로드할 풀 대상 액터 클래스입니다.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Pool")
+	TSubclassOf<AActor> ActorClass;
+
+	// 전투 시작 전에 미리 생성해 둘 개수입니다.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Pool", meta = (ClampMin = "1"))
+	int32 Count = 1;
+};
 /**
  * 전투 레벨 전용 GameMode. 전투 진입 자원 초기화 / 체크포인트 등록 / 파티 전멸 복귀 처리.
  */
@@ -65,6 +79,8 @@ public:
 	virtual UClass* GetDefaultPawnClassForController_Implementation(AController* InController) override;
 
 protected:
+	virtual void BeginPlay() override;
+
 	// 플레이어 접속 시 전투 진입 자원 초기화 정책 적용 (LobbyToBattle).
 	virtual void OnPlayerJoined(APlayerController* NewPlayer) override;
 	
@@ -89,6 +105,10 @@ protected:
 	// 결과창 표시 후 아무도 진행을 확정하지 않아도 자동 이동되는 시간입니다.
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Battle|Result", meta = (ClampMin = "0.0"))
 	float MatchResultAutoTravelDelay = 10.0f;
+
+	// 전투 시작 전에 서버가 미리 생성해 둘 풀 엔트리 목록입니다.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Pool")
+	TArray<FBlackoutPoolWarmupEntry> PoolWarmupEntries;
 
 	void TravelToLobby(FLinearColor FadeColor);
 	
@@ -128,6 +148,8 @@ public:
 	void CastSurrenderVote(ABlackoutPlayerController* Voter, bool bAgree);
 
 private:
+	void WarmUpCombatPools();
+
 	void EvaluateSurrenderVote();
 	void HandleSurrenderSuccess();
 	void HandleSurrenderFailed(bool bIsTimeout);

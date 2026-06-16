@@ -12,6 +12,7 @@
 #include "Components/BoxComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/ProjectileMovementComponent.h"
+#include "Pool/BlackoutPoolSubsystem.h"
 
 ABOEnemyProjectile::ABOEnemyProjectile()
 {
@@ -31,13 +32,64 @@ ABOEnemyProjectile::ABOEnemyProjectile()
     
 	Effect = CreateDefaultSubobject<UNiagaraComponent>(TEXT("Effect"));
 	Effect->SetupAttachment(RootComponent);
-    
-	InitialLifeSpan = 5.f;  
+
+	// 풀 재사용 시 수명 타이머는 InitializeProjectile에서 서버가 다시 무장합니다.
+	InitialLifeSpan = 0.f;
+	DefaultCollisionEnabled = CollisionComp->GetCollisionEnabled();
+}
+
+void ABOEnemyProjectile::OnSpawnFromPool_Implementation()
+{
+	bReturnedToPool = false;
+
+	SetLifeSpan(0.0f);
+	SetActorHiddenInGame(false);
+	SetActorEnableCollision(true);
+
+	if (CollisionComp)
+	{
+		// 소유자/속도 설정이 끝나기 전 조기 오버랩을 막기 위해 InitializeProjectile에서 다시 켭니다.
+		CollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
+
+	if (ProjectileMovement)
+	{
+		ProjectileMovement->StopMovementImmediately();
+		ProjectileMovement->Deactivate();
+		ProjectileMovement->Velocity = FVector::ZeroVector;
+	}
+}
+
+void ABOEnemyProjectile::OnReturnToPool_Implementation()
+{
+	SetLifeSpan(0.0f);
+	SetActorHiddenInGame(true);
+	SetActorEnableCollision(false);
+
+	if (CollisionComp)
+	{
+		CollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
+
+	if (ProjectileMovement)
+	{
+		ProjectileMovement->StopMovementImmediately();
+		ProjectileMovement->Deactivate();
+		ProjectileMovement->Velocity = FVector::ZeroVector;
+	}
+
+	SpawnParams = FProjectileSpawnData();
+	SetOwner(nullptr);
+	SetInstigator(nullptr);
 }
 
 void ABOEnemyProjectile::InitializeProjectile(const FProjectileSpawnData& InSpawnParams)
 {
+	bReturnedToPool = false;
 	SpawnParams = InSpawnParams;
+
+	SetActorHiddenInGame(false);
+	SetActorEnableCollision(true);
 	
 	if (InSpawnParams.Speed > 0.f)
 	{
@@ -46,10 +98,25 @@ void ABOEnemyProjectile::InitializeProjectile(const FProjectileSpawnData& InSpaw
 		
 		ProjectileMovement->Velocity = GetActorForwardVector() * InSpawnParams.Speed;
 	}
+
+	if (CollisionComp)
+	{
+		CollisionComp->SetCollisionEnabled(DefaultCollisionEnabled);
+	}
+
+	if (ProjectileMovement)
+	{
+		ProjectileMovement->UpdateComponentVelocity();
+		ProjectileMovement->Activate(true);
+	}
 	
 	if (InSpawnParams.LifeSpan > 0.f)
 	{
 		SetLifeSpan(InSpawnParams.LifeSpan);
+	}
+	else
+	{
+		SetLifeSpan(0.0f);
 	}
 }
 
@@ -65,6 +132,16 @@ void ABOEnemyProjectile::BeginPlay()
 	SetCollisionEvent();
 }
 
+void ABOEnemyProjectile::LifeSpanExpired()
+{
+	SetLifeSpan(0.0f);
+
+	if (HasAuthority())
+	{
+		ReturnToPool();
+	}
+}
+
 void ABOEnemyProjectile::OnBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
                                         UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
@@ -72,7 +149,7 @@ void ABOEnemyProjectile::OnBeginOverlap(UPrimitiveComponent* OverlappedComp, AAc
 	if (!HasAuthority()) return;
 
 	ApplyDamageToTarget(OtherActor, SweepResult.BoneName);
-	Destroy();
+	ReturnToPool();
 }
 
 void ABOEnemyProjectile::ApplyDamageToTarget(AActor* Target, FName HitBoneName)
@@ -126,4 +203,23 @@ void ABOEnemyProjectile::SetCollisionEvent()
 	}
 }
 
+void ABOEnemyProjectile::ReturnToPool()
+{
+	if (!HasAuthority() || bReturnedToPool)
+	{
+		return;
+	}
 
+	bReturnedToPool = true;
+
+	if (UWorld* World = GetWorld())
+	{
+		if (UBlackoutPoolSubsystem* PoolSubsystem = World->GetSubsystem<UBlackoutPoolSubsystem>())
+		{
+			PoolSubsystem->ReturnToPool(this);
+			return;
+		}
+	}
+
+	Destroy();
+}
