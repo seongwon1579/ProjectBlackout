@@ -27,7 +27,9 @@ struct FBlackoutHeatmapGrid
 	UPROPERTY(BlueprintReadOnly) float MaxValue =0.0f; 
 	UPROPERTY(BlueprintReadOnly) FString LevelName;
 	UPROPERTY(BlueprintReadOnly) TArray<float> Values;
-	
+	// 셀별 평균 플레이어 Z (zgrid.csv). 비었으면 raycast 폴백. row-major, Values 와 동일 차원
+	UPROPERTY(BlueprintReadOnly) TArray<float> CellZ;
+
 };
 
 /**

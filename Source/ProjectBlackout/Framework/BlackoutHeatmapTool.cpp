@@ -22,7 +22,9 @@
 
 	static const FName GHeatmapActorTag(TEXT("BlackoutHeatmap"));
 
-static bool ParseHeatmapGrid(const FString &CsvBody, const FString &MetaBody, FBlackoutHeatmapGrid &OutGrid)
+static constexpr float PLAYER_CAPSULE_HALF = 88.f; // 샘플 Z(캡슐 중심) → 발밑 보정
+
+static bool ParseHeatmapGrid(const FString &CsvBody, const FString &MetaBody, const FString &ZBody, FBlackoutHeatmapGrid &OutGrid)
 {
 	OutGrid = FBlackoutHeatmapGrid();
 
@@ -72,6 +74,28 @@ static bool ParseHeatmapGrid(const FString &CsvBody, const FString &MetaBody, FB
 		}
 	}
 
+	// zgrid (셀별 평균 Z) — 있으면 파싱. 렌더 셀(count>0)은 항상 유효. 없으면 비워 raycast 폴백.
+	if (!ZBody.IsEmpty())
+	{
+		TArray<FString> ZLines;
+		ZBody.ParseIntoArrayLines(ZLines, true);
+		OutGrid.CellZ.Reserve(OutGrid.RowsX * OutGrid.ColsY);
+		for (const FString &Line : ZLines)
+		{
+			TArray<FString> Cols;
+			Line.ParseIntoArray(Cols, TEXT(","), false);
+			for (int32 j = 0; j < OutGrid.ColsY; ++j)
+			{
+				OutGrid.CellZ.Add(Cols.IsValidIndex(j) ? FCString::Atof(*Cols[j]) : 0.0f);
+			}
+		}
+		if (OutGrid.CellZ.Num() != OutGrid.Values.Num())
+		{
+			BO_LOG_CORE(Warning, "Heatmap Parse — zgrid 크기 불일치, raycast 폴백");
+			OutGrid.CellZ.Reset();
+		}
+	}
+
 	double MetaRows = 0.0, MetaCols = 0.0;
 	Meta->TryGetNumberField(TEXT("rows_x"), MetaRows);
 	Meta->TryGetNumberField(TEXT("cols_y"), MetaCols);
@@ -103,7 +127,14 @@ bool UBlackoutHeatmapTool::LoadHeatmapGrid(const FString &GridCsvPath,
 		return false;
 	}
 
-	const bool bOk = ParseHeatmapGrid(CsvBody, MetaBody, OutGrid);
+	// zgrid (....dwell.zgrid.csv) — 없으면 빈 문자열 → raycast 폴백
+	FString ZPath = GridCsvPath;
+	ZPath.RemoveFromEnd(TEXT(".grid.csv"));
+	ZPath += TEXT(".zgrid.csv");
+	FString ZBody;
+	FFileHelper::LoadFileToString(ZBody, *ZPath);
+
+	const bool bOk = ParseHeatmapGrid(CsvBody, MetaBody, ZBody, OutGrid);
 	if (bOk)
 	{
 		BO_LOG_CORE(Log, "Heatmap Load — %s %dx%d max=%.1f cells=%d",
@@ -170,8 +201,14 @@ AActor *UBlackoutHeatmapTool::BuildHeatmap(const FBlackoutHeatmapGrid &Grid,
 			const double WorldY = Grid.WorldYMin + (j + 0.5) * CellY;
 			const float Height = FMath::Max(Norm * HeightScale, 1.0f);
 
+			const int32 CellIdx = i * Grid.ColsY + j;
 			float BaseZ = FloorZ;
-			if (bSnapToGround)
+			if (Grid.CellZ.IsValidIndex(CellIdx) && !FMath::IsNaN(Grid.CellZ[CellIdx]))
+			{
+				// 데이터 기반: 캡처된 플레이어 Z(캡슐 중심) → 발밑. raycast 불필요(볼륨/메시 간섭 0)
+				BaseZ = Grid.CellZ[CellIdx] - PLAYER_CAPSULE_HALF;
+			}
+			else if (bSnapToGround)
 			{
 				FHitResult Hit;
 				const FVector Start(WorldX, WorldY, TraceTopZ);
