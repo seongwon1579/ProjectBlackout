@@ -5,6 +5,7 @@
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "AbilitySystemComponent.h"
 #include "BlackoutGameplayTags.h"
+#include "DrawDebugHelpers.h"
 #include "Engine/OverlapResult.h"
 
 void UBlackoutGA_Ravager_EnergyBurst::PreActivateAbility(const FGameplayAbilitySpecHandle Handle,
@@ -107,19 +108,22 @@ void UBlackoutGA_Ravager_EnergyBurst::ApplyDamage()
 
 #if ENABLE_DRAW_DEBUG
 
-	const FVector Center = CachedOwner->GetActorLocation();
-	DrawDebugSphere(
-		World,
-		Center,
-		Settings.DamageRadius,
-		24,
-		FColor::Red,
-		false,
-		Settings.DamageTickInterval,
-		0,
-		2.0f);
+	if (IsBossDebugEnabled())
+	{
+		const FVector Center = CachedOwner->GetActorLocation();
+		DrawDebugSphere(
+			World,
+			Center,
+			Settings.DamageRadius,
+			24,
+			FColor::Red,
+			false,
+			Settings.DamageTickInterval,
+			0,
+			2.0f);
 	
-	UE_LOG(LogTemp, Warning, TEXT("Current Damage: %f"), Settings.Damage)
+		UE_LOG(LogTemp, Warning, TEXT("Current Damage: %f"), Settings.Damage)
+	}
 
 #endif
 

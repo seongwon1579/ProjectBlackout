@@ -32,6 +32,7 @@ public:
 private:
 	TWeakObjectPtr<UPrimitiveComponent> Hitbox;
 	TArray<TWeakObjectPtr<AActor>> HitActors;
+	bool bEnableBossDebug = false;
 
 	UFUNCTION()
 	void OnHitboxBeginOverlap(
@@ -42,5 +43,5 @@ private:
 		bool bFromSweep,
 		const FHitResult& SweepResult);
 	
-	UPrimitiveComponent* HitboxComp;
+	UPrimitiveComponent* HitboxComp = nullptr;
 };
