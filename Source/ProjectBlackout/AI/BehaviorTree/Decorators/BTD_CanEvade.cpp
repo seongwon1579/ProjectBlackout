@@ -58,20 +58,23 @@ bool UBTD_CanEvade::IsBlocked(const APawn* Owner, const FVector& Direction) cons
 		Hit, Start, End, FQuat::Identity, ECC_Visibility, FCollisionShape::MakeSphere(CapsuleRadius), Params);
 	
 #if ENABLE_DRAW_DEBUG
-	const FColor LineColor = bHit ? FColor::Green : FColor::Red;
-	DrawDebugCapsule(
-		Owner->GetWorld(),
-		(Start + End) * 0.5f,
-		TraceLength * 0.5f,
-		CapsuleRadius,
-		FRotationMatrix::MakeFromZ(End - Start).ToQuat(),
-		LineColor,
-		false,
-		0.2f
-	);
-	if (bHit)
+	if (bEnableDebugDraw)
 	{
-		DrawDebugSphere(Owner->GetWorld(), Hit.ImpactPoint, 10.f, 8, FColor::Yellow, false, 0.2f);
+		const FColor LineColor = bHit ? FColor::Green : FColor::Red;
+		DrawDebugCapsule(
+			Owner->GetWorld(),
+			(Start + End) * 0.5f,
+			TraceLength * 0.5f,
+			CapsuleRadius,
+			FRotationMatrix::MakeFromZ(End - Start).ToQuat(),
+			LineColor,
+			false,
+			0.2f
+		);
+		if (bHit)
+		{
+			DrawDebugSphere(Owner->GetWorld(), Hit.ImpactPoint, 10.f, 8, FColor::Yellow, false, 0.2f);
+		}
 	}
 #endif
 	
