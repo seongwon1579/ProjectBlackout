@@ -81,10 +81,7 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Blackout|Aggro", meta =(ClampMin = "0.0"))
 	float MaxAggroRange = 10000.f;
 	
-	//UFUNCTION()
-	//void OnPlayerPawnChanged(APawn* OldPawn, APawn* NewPawn);
 	void OnAggroTargetChangeTagChanged(const FGameplayTag Tag, int32 NewCount);
-	//void OnPostLogin(AGameModeBase* GameMode, APlayerController* NewPC);
 	
 	APawn* CalculateBestTarget(APawn* ExcludeTarget = nullptr) const;
 	float CalculateAggroScore(APawn* Target) const;
@@ -93,13 +90,6 @@ private:
 	
 	void RegisterTagEvents();
 	void UnregisterTagEvents();
-	// void RegisterPlayerEvents();
-	// void UnregisterPlayerEvents();
-	
-	//FTimerHandle StartupTimerHandle;
-	//void TryInitialTargeting();
-	
-	//FDelegateHandle PostLoginHandle;
 	
 	UPROPERTY()
 	TWeakObjectPtr<APawn> CurrentTarget;

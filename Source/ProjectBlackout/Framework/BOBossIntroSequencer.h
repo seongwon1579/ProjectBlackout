@@ -40,11 +40,11 @@ protected:
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_PlayIntroMusic();
 	
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_EndCutscene();
+	
 	UFUNCTION()
 	void OnCutsceneTimerExpired();
-
-	/** 서버에서 설정된 트리거 시점과 일치하면 인트로 음악을 1회만 재생합니다. */
-	void TryPlayIntroMusic(EBlackoutBossIntroMusicTrigger TriggerPoint);
 
 public:
 	UPROPERTY(EditInstanceOnly, Category = "Blackout|Cutscene")
@@ -63,6 +63,9 @@ public:
 	
 private:
 	FTimerHandle CutsceneTimerHandle;
+	
+	UPROPERTY(EditAnywhere, Category = "Blackout|Cutscene")
+	bool bIsTestMode = false;
 
 	/** 중복 호출이나 컷신/AI 활성화 경로가 겹쳐도 인트로 음악은 1회만 재생합니다. */
 	bool bHasPlayedIntroMusic = false;
