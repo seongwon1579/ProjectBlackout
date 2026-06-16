@@ -243,6 +243,8 @@ private:
 
 	void HandleWsMessage(const FString& MessageStr);
 	void HandleWsConnected();
+	void HandleWsConnectionError(const FString& Error);  
+	void HandleWsClosed(int32 StatusCode, const FString& Reason, bool bWasClean);
 
 	// PendingSessionId 있으면 즉시 join_session 송신.
 	void FlushPendingJoin();
@@ -250,6 +252,8 @@ private:
 	FString AccessToken;
 	FString CachedPlayerName;
 	TSharedPtr<IWebSocket> WebSocket;
+	// 연결 진행 중 플래그 
+	bool bIsConnecting = false;
 	// 현재 참여 중인 세션. FlushPendingJoin 시점에 확정.
 	FString CurrentSessionId;
 	// WebSocket 미연결 시점의 join_session 요청 대기 큐.
