@@ -51,6 +51,10 @@ public class ProjectBlackout : ModuleRules
 		}
 
 		PrivateDependencyModuleNames.AddRange(new string[] {"MoviePlayer" , "EngineSettings" });
+		if (Target.bBuildEditor)
+		{
+			PrivateDependencyModuleNames.AddRange(new string[] { "UnrealEd", "DesktopPlatform" });
+		}
 
 		PublicIncludePaths.AddRange(new string[] {
 			"ProjectBlackout",
