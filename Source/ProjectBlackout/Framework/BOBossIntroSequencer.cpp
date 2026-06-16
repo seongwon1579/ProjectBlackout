@@ -10,6 +10,8 @@
 #include "LevelSequenceActor.h"
 #include "LevelSequencePlayer.h"
 #include "MovieSceneSequencePlayer.h"
+#include "UI/BlackoutHUD.h"
+#include "UI/BlackoutHUDWidget.h"
 
 // Sets default values
 ABOBossIntroSequencer::ABOBossIntroSequencer()
@@ -66,15 +68,45 @@ void ABOBossIntroSequencer::Multicast_PlayerCutscene_Implementation()
 	{
 		if (UBlackoutMusicSubsystem* MusicSubsystem = GameInstance->GetSubsystem<UBlackoutMusicSubsystem>())
 		{
-			// 보스 종류 하드코딩 대신 시퀀서 인스턴스에 지정된 음악을 그대로 재생합니다.
 			MusicSubsystem->PlayMusicAsset(IntroMusic);
 		}
+	}
+	
+	if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
+	{
+		if (ABlackoutHUD* HUD = PC->GetHUD<ABlackoutHUD>())
+		{
+			if (UBlackoutHUDWidget* HUDWidget = HUD->GetHUDWidget())
+			{
+				HUDWidget->SetVisibility(ESlateVisibility::Hidden);
+			}
+		}
+		
+		PC->SetCinematicMode(true, false, true, true, true);
+		PC->DisableInput(PC);
 	}
 
 	if (BossCutsceneActor && BossCutsceneActor->GetSequencePlayer())
 	{
 		UE_LOG(LogTemp, Warning, TEXT("ABossCutsceneManager: Play a cut scene"))
 		BossCutsceneActor->GetSequencePlayer()->Play();
+	}
+}
+
+void ABOBossIntroSequencer::Multicast_EndCutscene_Implementation()
+{
+	if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
+	{
+		if (ABlackoutHUD* HUD = PC->GetHUD<ABlackoutHUD>())
+		{
+			if (UBlackoutHUDWidget* HUDWidget = HUD->GetHUDWidget())
+			{
+				HUDWidget->SetVisibility(ESlateVisibility::Visible);
+			}
+		}
+		
+		PC->SetCinematicMode(false, false, false, true, true);
+		PC->EnableInput(PC);
 	}
 }
 
@@ -85,21 +117,20 @@ void ABOBossIntroSequencer::OnCutsceneTimerExpired()
 		UE_LOG(LogTemp, Warning, TEXT("ABossCutsceneManager: Does not have Authority"))
 		return;
 	}
+	Multicast_EndCutscene();
+	
 	UE_LOG(LogTemp, Warning, TEXT("ABossCutsceneManager: Elapsed the time of cutscene"))
 	ActivateBossAI();
 }
+
 
 void ABOBossIntroSequencer::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	if (HasAuthority())
+	if (bIsTestMode)
 	{
-		if (ABlackoutBattleGameMode* GM = Cast<ABlackoutBattleGameMode>(GetWorld()->GetAuthGameMode()))
-		{
-			// 전투 시작 타이밍은 BattleGameMode가 소유하고, 시퀀서는 자기 자신을 거기에 등록만 합니다.
-			GM->RegisterCutsceneManager(this);
-		}
+		PlayBossIntro();
 	}
 }
 

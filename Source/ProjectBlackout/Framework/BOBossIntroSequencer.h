@@ -27,6 +27,9 @@ protected:
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_PlayerCutscene();
 	
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_EndCutscene();
+	
 	UFUNCTION()
 	void OnCutsceneTimerExpired();
 
@@ -43,4 +46,7 @@ public:
 	
 private:
 	FTimerHandle CutsceneTimerHandle;
+	
+	UPROPERTY(EditAnywhere, Category = "Blackout|Cutscene")
+	bool bIsTestMode = false;
 };
