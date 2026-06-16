@@ -104,6 +104,9 @@ class PROJECTBLACKOUT_API
 	GENERATED_BODY()
 
 public:
+	/** 전용 서버에서는 매치메이킹 클라이언트와 로딩 화면이 필요 없으므로 서브시스템을 생성하지 않습니다. */
+	virtual bool ShouldCreateSubsystem(UObject* Outer) const override;
+
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 	virtual void Deinitialize() override;
 
