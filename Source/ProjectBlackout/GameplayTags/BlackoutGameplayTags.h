@@ -231,8 +231,9 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Hollow_PreRoll);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Hollow_Attack);
 	
-	// ─── Shrewd Gameplay Cues ─────────────────────────────────────────────────────────
+	// ─── Hollow Gameplay Cues ─────────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Hollow_Spawn);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Hollow_Projectile);
 	
 	// ─── Shrewd Abilities ──────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Shrewd_Teleport_ToPoint);
