@@ -221,6 +221,7 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Ravager_BiteSingle, "GameplayCue.Ravager.BiteSingle");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Ravager_Evade, "GameplayCue.Ravager.Evade");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Ravager_FlashKick, "GameplayCue.Ravager.FlashKick");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Ravager_Flea, "GameplayCue.Ravager.Flea");
 	
 	// ─── Hollow Abilities ──────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Hollow_Spawn, "Ability.Hollow.Spawn");

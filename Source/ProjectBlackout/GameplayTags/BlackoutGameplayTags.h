@@ -224,6 +224,7 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Ravager_BiteSingle);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Ravager_Evade);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Ravager_FlashKick);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Ravager_Flea);
 	
 	// ─── Hollow Abilities ──────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Hollow_Spawn);
