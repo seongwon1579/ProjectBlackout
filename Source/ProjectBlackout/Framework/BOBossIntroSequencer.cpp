@@ -3,7 +3,6 @@
 
 #include "Framework/BOBossIntroSequencer.h"
 
-#include "BlackoutBattleGameMode.h"
 #include "BlackoutBossAIController.h"
 #include "BlackoutMusicSubsystem.h"
 #include "Engine/GameInstance.h"
@@ -55,7 +54,7 @@ void ABOBossIntroSequencer::ActivateBossAI()
 	if (APawn* BossPawn = Cast<APawn>(TargetBoss))
 	{
 		if (ABlackoutBossAIController* Controller = Cast<ABlackoutBossAIController>(BossPawn->GetController()))
-		{
+		{ 
 			UE_LOG(LogTemp, Warning, TEXT("ABossCutsceneManager: Request a Combat to Controller"))
 			Controller->StartCombat();
 		}
@@ -63,6 +62,15 @@ void ABOBossIntroSequencer::ActivateBossAI()
 }
 
 void ABOBossIntroSequencer::Multicast_PlayerCutscene_Implementation()
+{
+	if (BossCutsceneActor && BossCutsceneActor->GetSequencePlayer())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ABossCutsceneManager: Play a cut scene"))
+		BossCutsceneActor->GetSequencePlayer()->Play();
+	}
+}
+
+void ABOBossIntroSequencer::Multicast_PlayIntroMusic_Implementation()
 {
 	if (UGameInstance* GameInstance = GetGameInstance())
 	{
@@ -123,11 +131,9 @@ void ABOBossIntroSequencer::OnCutsceneTimerExpired()
 	ActivateBossAI();
 }
 
-
 void ABOBossIntroSequencer::BeginPlay()
 {
 	Super::BeginPlay();
-	
 	if (bIsTestMode)
 	{
 		PlayBossIntro();
