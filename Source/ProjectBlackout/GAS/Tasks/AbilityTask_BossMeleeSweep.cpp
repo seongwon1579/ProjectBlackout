@@ -2,6 +2,7 @@
 
 #include "Core/BlackoutCollisionChannels.h"
 #include "DrawDebugHelpers.h"
+#include "GAS/Abilities/Boss/Ravager/BlackoutGA_Ravager_Base.h"
 #include "KismetTraceUtils.h"
 #include "GameFramework/Character.h"
 #include "Interfaces/BlackoutDamageable.h"
@@ -19,6 +20,10 @@ UAbilityTask_BossMeleeSweep* UAbilityTask_BossMeleeSweep::CreateSweepTask(
 	Task->EndSocketName = InEndSocketName;
 	Task->SweepRadius = InSweepRadius;
 	Task->MeshOverride = InMeshOverride;
+	if (const UBlackoutGA_Ravager_Base* RavagerAbility = Cast<UBlackoutGA_Ravager_Base>(OwningAbility))
+	{
+		Task->bEnableBossDebug = RavagerAbility->IsBossDebugEnabled();
+	}
 	return Task;
 }
 
@@ -61,8 +66,11 @@ void UAbilityTask_BossMeleeSweep::TickTask(float DeltaTime)
 	const FVector MeshLoc  = Mesh->GetComponentLocation();
 
 #if ENABLE_DRAW_DEBUG
-	DrawDebugSphere(OwnerActor->GetWorld(), ActorLoc, 20.f, 8, FColor::Yellow, false, 0.f);
-	DrawDebugSphere(OwnerActor->GetWorld(), MeshLoc, 15.f, 8, FColor::Blue, false, 0.f);
+	if (bEnableBossDebug)
+	{
+		DrawDebugSphere(OwnerActor->GetWorld(), ActorLoc, 20.f, 8, FColor::Yellow, false, 0.f);
+		DrawDebugSphere(OwnerActor->GetWorld(), MeshLoc, 15.f, 8, FColor::Blue, false, 0.f);
+	}
 #endif
 
 	FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(BossMeleeSweep), false, OwnerActor);
@@ -84,7 +92,10 @@ void UAbilityTask_BossMeleeSweep::TickTask(float DeltaTime)
 		const FVector To    = FMath::Lerp(CurStartLoc,  CurEndLoc,  T);
 
 #if ENABLE_DRAW_DEBUG
-		DrawDebugSweptSphere(OwnerActor->GetWorld(), From, To, SweepRadius, FColor::Green, false, 0.1f);
+		if (bEnableBossDebug)
+		{
+			DrawDebugSweptSphere(OwnerActor->GetWorld(), From, To, SweepRadius, FColor::Green, false, 0.1f);
+		}
 #endif
 
 		if (DoSweep(From, To, QueryParams, HitResult) && HitResult.GetActor())
@@ -95,7 +106,7 @@ void UAbilityTask_BossMeleeSweep::TickTask(float DeltaTime)
 	const bool bHit = HitResult.GetActor() != nullptr;
 
 #if ENABLE_DRAW_DEBUG
-	if (bHit)
+	if (bEnableBossDebug && bHit)
 	{
 		DrawDebugSphere(OwnerActor->GetWorld(), HitResult.ImpactPoint, SweepRadius, 12, FColor::Red, false, 0.1f);
 	}
@@ -106,10 +117,16 @@ void UAbilityTask_BossMeleeSweep::TickTask(float DeltaTime)
 
 	if (bHit)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Hit: %s"), *HitResult.GetActor()->GetName());
 #if ENABLE_DRAW_DEBUG
-		DrawDebugSphere(OwnerActor->GetWorld(), HitResult.ImpactPoint, SweepRadius, 12, FColor::Orange, false, 1.f);
-		GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red, FString::Printf(TEXT("Hit: %s"), *HitResult.GetActor()->GetName()));
+		if (bEnableBossDebug)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Hit: %s"), *HitResult.GetActor()->GetName());
+			DrawDebugSphere(OwnerActor->GetWorld(), HitResult.ImpactPoint, SweepRadius, 12, FColor::Orange, false, 1.f);
+			if (GEngine)
+			{
+				GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red, FString::Printf(TEXT("Hit: %s"), *HitResult.GetActor()->GetName()));
+			}
+		}
 #endif
 
 		HitActors.Add(HitResult.GetActor());

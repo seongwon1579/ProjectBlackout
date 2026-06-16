@@ -114,8 +114,8 @@ void SBlackoutLoadingScreen::Construct(const FArguments& InArgs)
 			[
 				SNew(STextBlock)
 				.Text(FText::FromString(TEXT("LOADING...")))
-				.Font(FCoreStyle::GetDefaultFontStyle("Bold", 32))
-				.ColorAndOpacity(FLinearColor::White)
+				.Font(FCoreStyle::GetDefaultFontStyle("Bold", 20))
+				.ColorAndOpacity(FLinearColor::Gray)
 				.Justification(ETextJustify::Center)
 			]
 		]
