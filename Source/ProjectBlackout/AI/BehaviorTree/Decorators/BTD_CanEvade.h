@@ -18,6 +18,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Condition", meta = (ClampMin = "0.0"))
 	float TraceLength = 500.f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Debug")
+	bool bEnableDebugDraw = false;
+
 	virtual bool CalculateRawConditionValue(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) const override;
 	virtual FString GetStaticDescription() const override;
 	
