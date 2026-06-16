@@ -31,6 +31,16 @@ void ABlackoutLobbyGameMode::StartBattle()
 	if (ABlackoutGameState* GS = GetGameState<ABlackoutGameState>())
 	{
 		GS->SetMatchState(EBlackoutMatchState::Starting);
+
+		// 로비에서 부여한 무한 치트가 보스전으로 넘어가지 않도록 travel 직전 전원 해제.
+		// (CopyProperties 가 seamless travel 시 치트 플래그를 새 PS 로 복사하므로 여기서 차단)
+		for (APlayerState* PS : GS->PlayerArray)
+		{
+			if (ABlackoutPlayerState* BlackoutPS = Cast<ABlackoutPlayerState>(PS))
+			{
+				BlackoutPS->SetDebugCheatFlags(false, false, false);
+			}
+		}
 	}
 	
 	// 일반 이동 = 흰색 페이드 -> 대기후 travel
@@ -72,6 +82,12 @@ void ABlackoutLobbyGameMode::HandleLobbyArrival(APlayerController* PC)
 	if (ABlackoutPlayerCharacter* PlayerCharacter = Cast<ABlackoutPlayerCharacter>(PC->GetPawn()))
 	{
 		PlayerCharacter->RestoreToFullState();
+	}
+
+	// 로비는 안전한 샌드박스 — 탄/체력/스테미나 무한 적용. 보스전 travel 직전 StartBattle 에서 해제.
+	if (ABlackoutPlayerState* PS = PC->GetPlayerState<ABlackoutPlayerState>())
+	{
+		PS->SetDebugCheatFlags(true, true, true);
 	}
 
 	if (ConnectedPlayers.Num() == MaxPlayers)
