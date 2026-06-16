@@ -31,6 +31,8 @@ void ABOBossIntroSequencer::PlayBossIntro()
 	{
 		Player->OnFinished.AddDynamic(this, &ABOBossIntroSequencer::OnCutsceneTimerExpired);
 	}
+
+	TryPlayIntroMusic(EBlackoutBossIntroMusicTrigger::OnPlayBossIntro);
 	
 	Multicast_PlayerCutscene();
 
@@ -53,28 +55,34 @@ void ABOBossIntroSequencer::ActivateBossAI()
 	if (APawn* BossPawn = Cast<APawn>(TargetBoss))
 	{
 		if (ABlackoutBossAIController* Controller = Cast<ABlackoutBossAIController>(BossPawn->GetController()))
-		{
+		{ 
 			UE_LOG(LogTemp, Warning, TEXT("ABossCutsceneManager: Request a Combat to Controller"))
 			Controller->StartCombat();
 		}
 	}
+
+	TryPlayIntroMusic(EBlackoutBossIntroMusicTrigger::OnActivateBossAI);
 }
 
 void ABOBossIntroSequencer::Multicast_PlayerCutscene_Implementation()
+{
+	if (BossCutsceneActor && BossCutsceneActor->GetSequencePlayer())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ABossCutsceneManager: Play a cut scene"))
+		BossCutsceneActor->GetSequencePlayer()->Play();
+	}
+}
+
+void ABOBossIntroSequencer::Multicast_PlayIntroMusic_Implementation()
 {
 	if (UGameInstance* GameInstance = GetGameInstance())
 	{
 		if (UBlackoutMusicSubsystem* MusicSubsystem = GameInstance->GetSubsystem<UBlackoutMusicSubsystem>())
 		{
-			// 보스 종류 하드코딩 대신 시퀀서 인스턴스에 지정된 음악을 그대로 재생합니다.
-			MusicSubsystem->PlayMusicAsset(IntroMusic);
+			// 같은 에셋을 다른 보스가 공유하더라도 시퀀서 인스턴스 단위로 재생 식별자를 분리합니다.
+			const FName TrackName(*FString::Printf(TEXT("%s_IntroMusic"), *GetName()));
+			MusicSubsystem->PlayMusicAsset(IntroMusic, TrackName);
 		}
-	}
-
-	if (BossCutsceneActor && BossCutsceneActor->GetSequencePlayer())
-	{
-		UE_LOG(LogTemp, Warning, TEXT("ABossCutsceneManager: Play a cut scene"))
-		BossCutsceneActor->GetSequencePlayer()->Play();
 	}
 }
 
@@ -89,17 +97,37 @@ void ABOBossIntroSequencer::OnCutsceneTimerExpired()
 	ActivateBossAI();
 }
 
+void ABOBossIntroSequencer::TryPlayIntroMusic(const EBlackoutBossIntroMusicTrigger TriggerPoint)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	if (bHasPlayedIntroMusic || IntroMusicTrigger != TriggerPoint || IntroMusic.IsNull())
+	{
+		return;
+	}
+
+	bHasPlayedIntroMusic = true;
+	Multicast_PlayIntroMusic();
+}
+
 void ABOBossIntroSequencer::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	if (HasAuthority())
+	if (GetNetMode() == NM_Standalone)
+	{
+		PlayBossIntro();
+	}
+	/*if (HasAuthority())
 	{
 		if (ABlackoutBattleGameMode* GM = Cast<ABlackoutBattleGameMode>(GetWorld()->GetAuthGameMode()))
 		{
 			// 전투 시작 타이밍은 BattleGameMode가 소유하고, 시퀀서는 자기 자신을 거기에 등록만 합니다.
 			GM->RegisterCutsceneManager(this);
 		}
-	}
+	}*/
 }
 
