@@ -23,10 +23,7 @@ void UBlackoutPhaseEvaluator::Initialize(AAIController* InAIController, UAbility
             EGameplayTagEventType::NewOrRemoved
         ).AddUObject(this, &UBlackoutPhaseEvaluator::OnPhaseLockTagChanged);
     }
-
-    UE_LOG(LogTemp, Warning, TEXT("UBlackoutPhaseEvaluator Initialize"));
-    // 초기 페이즈 시작
-    //RequestPhaseChange(EBOBossPhase::Phase1);
+    
 }
 
 void UBlackoutPhaseEvaluator::Deinitialize()
@@ -44,15 +41,12 @@ void UBlackoutPhaseEvaluator::RequestPhaseChange(EBOBossPhase NewPhase)
 {
     if (NewPhase == EBOBossPhase::None || NewPhase <= CurrentPhase)
     {
-        UE_LOG(LogTemp, Warning, TEXT("RequestPhaseChange NewPhase == EBOBossPhase::None || NewPhase <= CurrentPhase "));
         return;
     }
     if (PendingPhase != EBOBossPhase::None && NewPhase <= PendingPhase)
     {
-        UE_LOG(LogTemp, Warning, TEXT("PendingPhase != EBOBossPhase::None && NewPhase <= PendingPhase "));
         return;
     }
-    UE_LOG(LogTemp, Warning, TEXT("RequestPhaseChange Accepted! NewPhase: %d"), (int32)NewPhase);
 
     PendingPhase = NewPhase;
     TryApplyPendingPhase();
@@ -70,11 +64,9 @@ void UBlackoutPhaseEvaluator::TryApplyPendingPhase()
 {
     if (PendingPhase == EBOBossPhase::None || IsPhaseTransitionLocked())
     {
-        UE_LOG(LogTemp, Warning, TEXT("TryApplyPendingPhase PendingPhase == EBOBossPhase::None || IsPhaseTransitionLocked() "));
         return;
     }
 
-    UE_LOG(LogTemp, Warning, TEXT("TryApplyPendingPhase"));
     const EBOBossPhase PhaseToApply = PendingPhase;
     PendingPhase = EBOBossPhase::None;
 
@@ -85,13 +77,6 @@ void UBlackoutPhaseEvaluator::ApplyPhaseChange(EBOBossPhase NewPhase)
 {
     CurrentPhase = NewPhase;
     
-    UE_LOG(LogTemp, Warning, TEXT("ApplyPhaseChange"));
-    
-    // if (OnBossPhaseChanged.IsBound())
-    // {
-    //     UE_LOG(LogTemp, Warning, TEXT("ApplyPhaseChange IsBound and BroadCast"));
-    //     OnBossPhaseChanged.Broadcast(NewPhase);
-    // }
     OnBossPhaseChanged.Broadcast(NewPhase);
 }
 

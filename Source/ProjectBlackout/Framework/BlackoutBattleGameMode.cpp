@@ -17,6 +17,8 @@
 #include "EngineUtils.h"
 #include "BlackoutTelemetrySampler.h"
 #include "BOBossIntroSequencer.h"
+#include "Interfaces/BlackoutPoolable.h"
+#include "Pool/BlackoutPoolSubsystem.h"
 
 namespace
 {
@@ -25,6 +27,46 @@ namespace
 		return MatchState == EBlackoutMatchState::InCombat
 			|| MatchState == EBlackoutMatchState::MidBossCombat
 			|| MatchState == EBlackoutMatchState::MainBossCombat;
+	}
+}
+
+void ABlackoutBattleGameMode::BeginPlay()
+{
+	Super::BeginPlay();
+
+	WarmUpCombatPools();
+}
+
+void ABlackoutBattleGameMode::WarmUpCombatPools()
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	UBlackoutPoolSubsystem* PoolSubsystem = World->GetSubsystem<UBlackoutPoolSubsystem>();
+	if (!PoolSubsystem)
+	{
+		BO_LOG_POOL(Warning, "전투 풀 워밍업을 건너뜁니다: PoolSubsystem이 없습니다.");
+		return;
+	}
+
+	for (const FBlackoutPoolWarmupEntry& Entry : PoolWarmupEntries)
+	{
+		if (!Entry.ActorClass || Entry.Count <= 0)
+		{
+			continue;
+		}
+
+		if (!Entry.ActorClass->ImplementsInterface(UBlackoutPoolableInterface::StaticClass()))
+		{
+			BO_LOG_POOL(Warning, "전투 풀 워밍업을 건너뜁니다: %s 클래스가 Poolable 인터페이스를 구현하지 않았습니다.",
+			            *GetNameSafe(Entry.ActorClass));
+			continue;
+		}
+
+		PoolSubsystem->WarmUp(Entry.ActorClass, Entry.Count);
 	}
 }
 

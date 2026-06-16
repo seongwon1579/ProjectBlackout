@@ -24,8 +24,6 @@ void ABlackoutBossAIController::OnPossess(APawn* InPawn)
 {
 	Super::OnPossess(InPawn);
 
-	UE_LOG(LogTemp, Warning, TEXT("ABlackoutBossAIController OnPossess"))
-
 	PreInitialize(InPawn);
 
 	// Aggro
