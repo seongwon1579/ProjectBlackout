@@ -251,6 +251,20 @@ void ABlackoutBattleGameMode::BeginBossDefeatResultFlow(EBossType DefeatedBossTy
 	GetWorldTimerManager().ClearTimer(MatchResultDisplayTimerHandle);
 	GetWorldTimerManager().ClearTimer(MatchResultAutoTravelTimerHandle);
 
+	if (!IsValid(CurrentCutsceneManager))
+	{
+		for (TActorIterator<ABOBossIntroSequencer> It(GetWorld()); It; ++It)
+		{
+			CurrentCutsceneManager = *It;
+			break;
+		}
+	}
+
+	if (IsValid(CurrentCutsceneManager))
+	{
+		CurrentCutsceneManager->PlayOutroMusic();
+	}
+
 	BO_LOG_NET(Log,
 	           "보스 처치 결과창 예약: Boss=%s DisplayDelay=%.2f AutoTravelDelay=%.2f",
 	           *UEnum::GetValueAsString(PendingResultBossType),

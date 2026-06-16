@@ -91,12 +91,15 @@ void UBlackoutMatchmakingSubsystem::PreloadLoadingScreenTextures()
 	auto PreloadTexture = [](const TCHAR* Path) -> UTexture2D*
 	{
 		UTexture2D* Texture = LoadObject<UTexture2D>(nullptr, Path);
-		if (Texture)
+		if (!Texture)
 		{
-			// 스트리밍/메모리 압박으로 밉이 빠지지 않도록 항상 최고 해상도 유지.
-			Texture->bForceMiplevelsToBeResident = true;
-			Texture->SetForceMipLevelsToBeResident(30.0f);
+			BO_LOG_NET(Error, "로딩 화면 텍스처 로드 실패: %s", Path);
+			return nullptr;
 		}
+
+		// 스트리밍/메모리 압박으로 밉이 빠지지 않도록 항상 최고 해상도 유지.
+		Texture->bForceMiplevelsToBeResident = true;
+		Texture->SetForceMipLevelsToBeResident(30.0f);
 		return Texture;
 	};
 
@@ -206,6 +209,11 @@ void UBlackoutMatchmakingSubsystem::StartMatchmaking()
 		OnMatchmakingError.Broadcast(401, TEXT("로그인 필요"));
 		return;
 	}
+	
+	if (!IsLobbyConnected())
+	{
+		ConnectLobby();
+	}
 
 	const UBlackoutNetworkSettings* Settings = GetDefault<
 		UBlackoutNetworkSettings>();
@@ -314,29 +322,25 @@ void UBlackoutMatchmakingSubsystem::TravelToActiveSession()
 // 로비 WebSocket 연결. 이벤트 콜백 바인딩 + Connect 호출.
 void UBlackoutMatchmakingSubsystem::ConnectLobby()
 {
-	if (WebSocket.IsValid() && WebSocket->IsConnected())
+	if ((WebSocket.IsValid() && WebSocket->IsConnected()) || bIsConnecting)
 	{
-		BO_LOG_NET(Log, "이미 연결됨");
+		BO_LOG_NET(Log, "이미 연결됨/연결 중 — skip");
 		return;
 	}
 
 	const UBlackoutNetworkSettings* Settings = GetDefault<
 		UBlackoutNetworkSettings>();
-	if (!Settings) { return; }
-
+	if (!Settings)
+	{
+		return;
+	}
+	
+	bIsConnecting = true;
 	WebSocket = FWebSocketsModule::Get().CreateWebSocket(Settings->LobbyWsUrl);
 	WebSocket->OnConnected().AddUObject(
 		this, &UBlackoutMatchmakingSubsystem::HandleWsConnected);
-	WebSocket->OnConnectionError().AddLambda([](const FString& Error)
-	{
-		BO_LOG_NET(Error, "WS 연결 에러: %s", *Error);
-	});
-	WebSocket->OnClosed().AddLambda(
-		[](int32 StatusCode, const FString& Reason, bool bWasClean)
-		{
-			BO_LOG_NET(Warning, "WS 종료 %d (%s, clean=%d)", StatusCode, *Reason,
-			           bWasClean);
-		});
+	WebSocket->OnConnectionError().AddUObject(this, &UBlackoutMatchmakingSubsystem::HandleWsConnectionError);
+	WebSocket->OnClosed().AddUObject(this, &UBlackoutMatchmakingSubsystem::HandleWsClosed);
 	WebSocket->OnMessage().AddUObject(
 		this, &UBlackoutMatchmakingSubsystem::HandleWsMessage);
 	WebSocket->Connect();
@@ -345,6 +349,7 @@ void UBlackoutMatchmakingSubsystem::ConnectLobby()
 // WebSocket 닫기 + 현재 세션 식별자 초기화.
 void UBlackoutMatchmakingSubsystem::DisconnectLobby()
 {
+	bIsConnecting = false;
 	if (WebSocket.IsValid())
 	{
 		if (WebSocket->IsConnected())
@@ -757,8 +762,23 @@ void UBlackoutMatchmakingSubsystem::HandleWsMessage(const FString& MessageStr)
 // WebSocket 연결 성공 콜백. 예약된 join_session 송신.
 void UBlackoutMatchmakingSubsystem::HandleWsConnected()
 {
+	bIsConnecting  = false;
 	BO_LOG_NET(Log, "WS 연결 성공");
 	FlushPendingJoin();
+}
+
+void UBlackoutMatchmakingSubsystem::HandleWsConnectionError(
+	const FString& Error)
+{
+	bIsConnecting = false;
+	BO_LOG_NET(Error, "WS 연결 에러: %s", *Error);
+}
+
+void UBlackoutMatchmakingSubsystem::HandleWsClosed(int32 StatusCode,
+	const FString& Reason, bool bWasClean)
+{
+	bIsConnecting = false;
+	BO_LOG_NET(Warning, "WS 종료 %d (%s, clean=%d)", StatusCode, *Reason, bWasClean);
 }
 
 void UBlackoutMatchmakingSubsystem::FlushPendingJoin()

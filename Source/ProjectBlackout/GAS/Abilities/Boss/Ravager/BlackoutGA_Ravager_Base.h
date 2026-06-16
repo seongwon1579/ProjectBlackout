@@ -16,6 +16,9 @@ class PROJECTBLACKOUT_API UBlackoutGA_Ravager_Base : public UBlackoutEnemyGamepl
 	GENERATED_BODY()
 public:
 	UBlackoutGA_Ravager_Base();
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|Debug")
+	bool IsBossDebugEnabled() const { return bEnableBossDebug; }
 	
 protected:
 	virtual void OnAvatarSet(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec) override;
@@ -40,6 +43,10 @@ protected:
 	
 	UPROPERTY(EditDefaultsOnly, Category = "Blackout|Data", meta = (Categories = "Ability"))
 	FGameplayTag PatternDataTag;
+
+	/** 보스 GA의 화면 로그와 디버그 도형 표시 여부입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Debug")
+	bool bEnableBossDebug = false;
 	
 	UPROPERTY(Transient)
 	TObjectPtr<UBORavagerPatternData> CachedPatternData;

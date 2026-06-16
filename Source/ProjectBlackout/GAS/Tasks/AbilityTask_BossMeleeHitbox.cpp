@@ -5,14 +5,23 @@
 
 #include "Components/PrimitiveComponent.h"
 #include "Components/SphereComponent.h"
+#include "DrawDebugHelpers.h"
+#include "GAS/Abilities/Boss/Ravager/BlackoutGA_Ravager_Base.h"
 
 UAbilityTask_BossMeleeHitbox* UAbilityTask_BossMeleeHitbox::InitCustomTask(
 	UGameplayAbility* OwningAbility,
 	UPrimitiveComponent* InHitbox)
 {
-	UE_LOG(LogTemp, Warning, TEXT("UAbilityTask_BossMeleeHitbox: Init"))
 	UAbilityTask_BossMeleeHitbox* Task = NewAbilityTask<UAbilityTask_BossMeleeHitbox>(OwningAbility);
 	Task->Hitbox = InHitbox;
+	if (const UBlackoutGA_Ravager_Base* RavagerAbility = Cast<UBlackoutGA_Ravager_Base>(OwningAbility))
+	{
+		Task->bEnableBossDebug = RavagerAbility->IsBossDebugEnabled();
+	}
+	if (Task->bEnableBossDebug)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("UAbilityTask_BossMeleeHitbox: Init"))
+	}
 	return Task;
 }
 
@@ -23,13 +32,20 @@ void UAbilityTask_BossMeleeHitbox::Activate()
 	bTickingTask = true;
 
 	HitboxComp = Hitbox.Get();
-	UE_LOG(LogTemp, Warning, TEXT("Collision Profile: %s"),
-	*HitboxComp->GetCollisionProfileName().ToString());
+	if (!HitboxComp)
+	{
+		EndTask();
+		return;
+	}
+
+	if (bEnableBossDebug)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Collision Profile: %s"),
+		*HitboxComp->GetCollisionProfileName().ToString());
 	
-	UE_LOG(LogTemp, Warning, TEXT("Hitbox Component Name: %s"),
-	*HitboxComp->GetName());
-	
-	if (!HitboxComp) EndTask();
+		UE_LOG(LogTemp, Warning, TEXT("Hitbox Component Name: %s"),
+		*HitboxComp->GetName());
+	}
 	
 	HitActors.Empty();
 	
@@ -41,23 +57,27 @@ void UAbilityTask_BossMeleeHitbox::Activate()
 	HitboxComp->SetGenerateOverlapEvents(true);
 	
 	
-	UE_LOG(LogTemp, Warning, TEXT("Collision Enabled After Set: %d"),
-	(int32)HitboxComp->GetCollisionEnabled());
+	if (bEnableBossDebug)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Collision Enabled After Set: %d"),
+		(int32)HitboxComp->GetCollisionEnabled());
 	
-	UE_LOG(LogTemp, Warning, TEXT("UAbilityTask_BossMeleeHitbox: On Hit Box"))
+		UE_LOG(LogTemp, Warning, TEXT("UAbilityTask_BossMeleeHitbox: On Hit Box"))
+	}
 }
 
 void UAbilityTask_BossMeleeHitbox::OnDestroy(bool bInOwnerFinished)
 {
-	UE_LOG(LogTemp, Warning, TEXT("UAbilityTask_BossMeleeHitbox: OnDestroy"))
+	if (bEnableBossDebug)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("UAbilityTask_BossMeleeHitbox: OnDestroy"))
+	}
 	
-	// if (UPrimitiveComponent* HitboxComp = Hitbox.Get())
-	// {
-	// 	HitboxComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	// 	HitboxComp->OnComponentBeginOverlap.RemoveDynamic(this, &UAbilityTask_BossMeleeHitbox::OnHitboxBeginOverlap);
-	// }
-	HitboxComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	HitboxComp->OnComponentBeginOverlap.RemoveDynamic(this, &UAbilityTask_BossMeleeHitbox::OnHitboxBeginOverlap);
+	if (HitboxComp)
+	{
+		HitboxComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		HitboxComp->OnComponentBeginOverlap.RemoveDynamic(this, &UAbilityTask_BossMeleeHitbox::OnHitboxBeginOverlap);
+	}
 
 	HitActors.Empty();
 	Super::OnDestroy(bInOwnerFinished);
@@ -66,44 +86,51 @@ void UAbilityTask_BossMeleeHitbox::OnDestroy(bool bInOwnerFinished)
 void UAbilityTask_BossMeleeHitbox::TickTask(float DeltaTime)
 {
 	Super::TickTask(DeltaTime);
+
+	if (!bEnableBossDebug)
+	{
+		return;
+	}
 	
-	// if (USphereComponent* Sphere = Cast<USphereComponent>(HitboxComp))
-	// {
-	// 	DrawDebugSphere(
-	// 		GetWorld(),
-	// 		Sphere->GetComponentLocation(),
-	// 		Sphere->GetScaledSphereRadius(),
-	// 		16,
-	// 		FColor::Green,
-	// 		false,
-	// 		3.f,
-	// 		0,
-	// 		2.f
-	// 	);
-	// }
-	//
-	// if (!HitboxComp) return;
-	//
-	// const FVector Loc = HitboxComp->GetComponentLocation();
-	// const FQuat Rot = HitboxComp->GetComponentQuat();
-	// const float Lifetime = 2.f; 
-	//
-	// if (USphereComponent* Sphere = Cast<USphereComponent>(HitboxComp))
-	// {
-	// 	DrawDebugSphere(GetWorld(), Loc, Sphere->GetScaledSphereRadius(),
-	// 		16, FColor::Green, false, Lifetime, 0, 1.5f);
-	// }
-	// else if (UBoxComponent* Box = Cast<UBoxComponent>(HitboxComp))
-	// {
-	// 	DrawDebugBox(GetWorld(), Loc, Box->GetScaledBoxExtent(), Rot,
-	// 		FColor::Green, false, Lifetime, 0, 1.5f);
-	// }
-	// else if (UCapsuleComponent* Cap = Cast<UCapsuleComponent>(HitboxComp))
-	// {
-	// 	DrawDebugCapsule(GetWorld(), Loc,
-	// 		Cap->GetScaledCapsuleHalfHeight(), Cap->GetScaledCapsuleRadius(),
-	// 		Rot, FColor::Green, false, Lifetime, 0, 1.5f);
-	// }
+#if ENABLE_DRAW_DEBUG
+	if (USphereComponent* Sphere = Cast<USphereComponent>(HitboxComp))
+	{
+		DrawDebugSphere(
+			GetWorld(),
+			Sphere->GetComponentLocation(),
+			Sphere->GetScaledSphereRadius(),
+			16,
+			FColor::Green,
+			false,
+			3.f,
+			0,
+			2.f
+		);
+	}
+	
+	if (!HitboxComp) return;
+
+	const FVector Loc = HitboxComp->GetComponentLocation();
+	const FQuat Rot = HitboxComp->GetComponentQuat();
+	const float Lifetime = 2.f; 
+
+	if (USphereComponent* Sphere = Cast<USphereComponent>(HitboxComp))
+	{
+		DrawDebugSphere(GetWorld(), Loc, Sphere->GetScaledSphereRadius(),
+			16, FColor::Green, false, Lifetime, 0, 1.5f);
+	}
+	else if (UBoxComponent* Box = Cast<UBoxComponent>(HitboxComp))
+	{
+		DrawDebugBox(GetWorld(), Loc, Box->GetScaledBoxExtent(), Rot,
+			FColor::Green, false, Lifetime, 0, 1.5f);
+	}
+	else if (UCapsuleComponent* Cap = Cast<UCapsuleComponent>(HitboxComp))
+	{
+		DrawDebugCapsule(GetWorld(), Loc,
+			Cap->GetScaledCapsuleHalfHeight(), Cap->GetScaledCapsuleRadius(),
+			Rot, FColor::Green, false, Lifetime, 0, 1.5f);
+	}
+#endif
 }
 
 void UAbilityTask_BossMeleeHitbox::OnHitboxBeginOverlap(
@@ -125,7 +152,10 @@ void UAbilityTask_BossMeleeHitbox::OnHitboxBeginOverlap(
 	}
 
 	HitActors.Add(OtherActor);
-	UE_LOG(LogTemp, Warning, TEXT("UAbilityTask_BossMeleeHitbox: HitHit"))
+	if (bEnableBossDebug)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("UAbilityTask_BossMeleeHitbox: HitHit"))
+	}
 	
 	if (ShouldBroadcastAbilityTaskDelegates())
 	{

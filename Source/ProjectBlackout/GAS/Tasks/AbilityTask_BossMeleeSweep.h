@@ -49,6 +49,7 @@ private:
 
 	TArray<TWeakObjectPtr<AActor>> HitActors;
 
+	bool bEnableBossDebug = false;
 	bool bFirstTick = true;
 	FVector PrevStartLoc = FVector::ZeroVector;
 	FVector PrevEndLoc   = FVector::ZeroVector;
