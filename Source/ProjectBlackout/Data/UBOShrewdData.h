@@ -16,6 +16,11 @@ class PROJECTBLACKOUT_API UUBOShrewdData : public UDataAsset
 	GENERATED_BODY()
 
 public:
+	bool IsValid(){ return MaxHealth > 0.f && MovementSpeed > 0.f && !Name.IsEmpty(); }
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Stats")
+	FText Name;
+	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Stats")
 	float MaxHealth = 2000.f;
 
