@@ -26,7 +26,6 @@ void ABlackoutRavagerAIController::StartCombat()
 	
 	if (!PhaseEvaluator)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Blackout: PhaseEvaluator is not set In ABlackoutRavagerAIController"));
 		return;
 	}
 	PhaseEvaluator->RequestPhaseChange(EBOBossPhase::Phase1);
@@ -72,10 +71,8 @@ void ABlackoutRavagerAIController::HandleAggroTargetChanged(APawn* NewTarget)
 
 void ABlackoutRavagerAIController::HandlePhaseChanged(EBOBossPhase NewPhase)
 {
-	UE_LOG(LogTemp, Warning, TEXT("HandlePhaseChanged"));
 	if (BTRunner)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("HandlePhaseChanged BTRunner"));
 		BTRunner->RunPhaseBT(NewPhase);
 	}
 }
