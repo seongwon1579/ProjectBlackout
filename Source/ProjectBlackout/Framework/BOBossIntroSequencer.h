@@ -36,9 +36,8 @@ protected:
 	
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_PlayerCutscene();
-
-	UFUNCTION(NetMulticast, Reliable)
-	void Multicast_PlayIntroMusic();
+	
+	void PlayIntroMusic();
 	
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_EndCutscene();

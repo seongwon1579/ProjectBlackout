@@ -31,12 +31,9 @@ void ABOBossIntroSequencer::PlayBossIntro()
 	if (Player)
 	{
 		Player->OnFinished.AddDynamic(this, &ABOBossIntroSequencer::OnCutsceneTimerExpired);
+		Multicast_PlayerCutscene();
 	}
-	
-	Multicast_PlayerCutscene();
-
-	// 컷신 액터가 없더라도 인트로 음악은 재생하고 AI 활성화만 즉시 진행합니다.
-	if (!Player)
+	else
 	{
 		UE_LOG(LogTemp, Warning, TEXT("ABossCutsceneManager: do not exist cut scene, so do Combat instantly"))
 		OnCutsceneTimerExpired();
@@ -68,17 +65,6 @@ void ABOBossIntroSequencer::Multicast_PlayerCutscene_Implementation()
 		UE_LOG(LogTemp, Warning, TEXT("ABossCutsceneManager: Play a cut scene"))
 		BossCutsceneActor->GetSequencePlayer()->Play();
 	}
-}
-
-void ABOBossIntroSequencer::Multicast_PlayIntroMusic_Implementation()
-{
-	if (UGameInstance* GameInstance = GetGameInstance())
-	{
-		if (UBlackoutMusicSubsystem* MusicSubsystem = GameInstance->GetSubsystem<UBlackoutMusicSubsystem>())
-		{
-			MusicSubsystem->PlayMusicAsset(IntroMusic);
-		}
-	}
 	
 	if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
 	{
@@ -93,13 +79,10 @@ void ABOBossIntroSequencer::Multicast_PlayIntroMusic_Implementation()
 		PC->SetCinematicMode(true, false, true, true, true);
 		PC->DisableInput(PC);
 	}
-
-	if (BossCutsceneActor && BossCutsceneActor->GetSequencePlayer())
-	{
-		UE_LOG(LogTemp, Warning, TEXT("ABossCutsceneManager: Play a cut scene"))
-		BossCutsceneActor->GetSequencePlayer()->Play();
-	}
+	
+	PlayIntroMusic();
 }
+
 
 void ABOBossIntroSequencer::Multicast_EndCutscene_Implementation()
 {
@@ -137,6 +120,17 @@ void ABOBossIntroSequencer::BeginPlay()
 	if (bIsTestMode)
 	{
 		PlayBossIntro();
+	}
+}
+
+void ABOBossIntroSequencer::PlayIntroMusic()
+{
+	if (UGameInstance* GameInstance = GetGameInstance())
+	{
+		if (UBlackoutMusicSubsystem* MusicSubsystem = GameInstance->GetSubsystem<UBlackoutMusicSubsystem>())
+		{
+			MusicSubsystem->PlayMusicAsset(IntroMusic);
+		}
 	}
 }
 
