@@ -221,11 +221,16 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Ravager_BiteSingle, "GameplayCue.Ravager.BiteSingle");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Ravager_Evade, "GameplayCue.Ravager.Evade");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Ravager_FlashKick, "GameplayCue.Ravager.FlashKick");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Ravager_Flea, "GameplayCue.Ravager.Flea");
 	
 	// ─── Hollow Abilities ──────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Hollow_Spawn, "Ability.Hollow.Spawn");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Hollow_PreRoll, "Ability.Hollow.PreRoll");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Hollow_Attack, "Ability.Hollow.Attack");
+	
+	// ─── Hollow Gameplay Cues ─────────────────────────────────────────────────────────
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Hollow_Spawn, "GameplayCue.Hollow.Spawn");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Hollow_Projectile, "GameplayCue.Hollow.Projectile");
 	
 	// ─── Shrewd Abilities ──────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Shrewd_Teleport_ToPoint, "Ability.Shrewd.Teleport.ToPoint");

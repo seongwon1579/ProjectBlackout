@@ -16,6 +16,16 @@
 #include "UI/SBlackoutLoadingScreen.h"
 #include "Engine/Texture2D.h"
 
+bool UBlackoutMatchmakingSubsystem::ShouldCreateSubsystem(UObject* Outer) const
+{
+	if (!Super::ShouldCreateSubsystem(Outer))
+	{
+		return false;
+	}
+
+	return !IsRunningDedicatedServer();
+}
+
 // GameInstance 부팅 시 호출. WebSockets 모듈 로드 + NetworkSettings 기본값 적용.
 void UBlackoutMatchmakingSubsystem::Initialize(
 	FSubsystemCollectionBase& Collection)
