@@ -153,5 +153,5 @@ void ABOShrewdBoss::OnDeath()
 
 FText ABOShrewdBoss::GetBossDisplayName() const
 {
-	return FText::FromString(TEXT("Shrewd"));
+	return FText::FromString(TEXT("약삭빠름"));
 }
