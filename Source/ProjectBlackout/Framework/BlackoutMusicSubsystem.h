@@ -35,7 +35,15 @@ public:
 
 	/** 외부 액터가 지정한 임의의 음악 에셋을 현재 BGM 슬롯으로 재생합니다. */
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Audio")
-	void PlayMusicAsset(const TSoftObjectPtr<USoundBase>& MusicAsset, FName TrackName = NAME_None);
+	void PlayMusicAsset(const TSoftObjectPtr<USoundBase>& MusicAsset, FName TrackName = NAME_None, float FadeInDurationOverride = -1.0f);
+
+	/** 현재 BGM을 페이드아웃한 뒤 다른 음악으로 자연스럽게 전환합니다. */
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Audio")
+	void TransitionToMusicAsset(const TSoftObjectPtr<USoundBase>& MusicAsset, float FadeOutDuration = 0.0f, FName TrackName = NAME_None, float FadeInDurationOverride = -1.0f);
+
+	/** 현재 재생 중인 BGM을 페이드아웃만 수행하고 종료합니다. */
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Audio")
+	void FadeOutCurrentMusic(float FadeOutDuration = 0.0f);
 
 	/** 현재 재생 중인 BGM을 즉시 정지합니다. */
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Audio")
@@ -52,7 +60,7 @@ private:
 	void UnbindFromGameState();
 
 	/** 메뉴/로비 트랙을 공통 경로로 재생합니다. */
-	void PlayConfiguredMusic(const TSoftObjectPtr<class USoundBase>& MusicAsset, const FName TrackName);
+	void PlayConfiguredMusic(const TSoftObjectPtr<class USoundBase>& MusicAsset, const FName TrackName, float FadeInDurationOverride = -1.0f);
 
 	/** 로컬 재생에 쓸 게임 월드를 찾습니다. */
 	UWorld* ResolvePlaybackWorld() const;
@@ -73,6 +81,14 @@ private:
 	/** 현재 매치 상태 변경을 구독 중인 GameState입니다. */
 	TWeakObjectPtr<ABlackoutGameState> BoundGameState;
 
+	/** 지연 전환 타이머를 걸어둔 월드입니다. */
+	TWeakObjectPtr<UWorld> TransitionTimerWorld;
+
+	/** 페이드아웃 뒤 재생할 다음 트랙 정보입니다. */
+	TSoftObjectPtr<USoundBase> PendingTransitionMusic;
+	FName PendingTransitionTrackName = NAME_None;
+	float PendingTransitionFadeInDurationOverride = -1.0f;
+
 	/** 현재 활성 BGM을 재생 중인 2D 오디오 컴포넌트입니다. */
 	UPROPERTY(Transient)
 	TObjectPtr<UAudioComponent> MusicComponent = nullptr;
@@ -82,6 +98,12 @@ private:
 
 	/** GameState 재바인딩 최대 재시도 횟수입니다. */
 	int32 RemainingBindRetries = 0;
+
+	/** 현재 BGM 페이드아웃 후 다른 트랙으로 넘길 때 쓰는 타이머입니다. */
+	FTimerHandle MusicTransitionTimerHandle;
+
+	/** 타이머 만료 후 저장해 둔 다음 트랙 전환을 실행합니다. */
+	void ExecutePendingMusicTransition();
 
 	static constexpr int32 MaxBindRetries = 30;
 };

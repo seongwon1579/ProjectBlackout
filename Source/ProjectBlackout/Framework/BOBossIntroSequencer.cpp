@@ -58,6 +58,22 @@ void ABOBossIntroSequencer::ActivateBossAI()
 	}
 }
 
+void ABOBossIntroSequencer::PlayOutroMusic()
+{
+	if (!HasAuthority())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ABossCutsceneManager: Does not have Authority"))
+		return;
+	}
+
+	if (OutroMusic.IsNull())
+	{
+		return;
+	}
+
+	Multicast_PlayOutroMusic();
+}
+
 void ABOBossIntroSequencer::Multicast_PlayerCutscene_Implementation()
 {
 	if (BossCutsceneActor && BossCutsceneActor->GetSequencePlayer())
@@ -98,6 +114,22 @@ void ABOBossIntroSequencer::Multicast_EndCutscene_Implementation()
 		
 		PC->SetCinematicMode(false, false, false, true, true);
 		PC->EnableInput(PC);
+	}
+}
+
+void ABOBossIntroSequencer::Multicast_PlayOutroMusic_Implementation()
+{
+	if (UGameInstance* GameInstance = GetGameInstance())
+	{
+		if (UBlackoutMusicSubsystem* MusicSubsystem = GameInstance->GetSubsystem<UBlackoutMusicSubsystem>())
+		{
+			const FName OutroTrackName(*FString::Printf(TEXT("%s_Outro"), *GetName()));
+			MusicSubsystem->TransitionToMusicAsset(
+				OutroMusic,
+				OutroFadeOutDuration,
+				OutroTrackName,
+				OutroFadeInDuration);
+		}
 	}
 }
 

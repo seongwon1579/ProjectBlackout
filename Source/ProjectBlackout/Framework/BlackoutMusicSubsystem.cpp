@@ -69,7 +69,7 @@ void UBlackoutMusicSubsystem::PlayLobbyMusic()
 	PlayConfiguredMusic(AudioSettings->LobbyMusic, TEXT("Lobby"));
 }
 
-void UBlackoutMusicSubsystem::PlayMusicAsset(const TSoftObjectPtr<USoundBase>& MusicAsset, FName TrackName)
+void UBlackoutMusicSubsystem::PlayMusicAsset(const TSoftObjectPtr<USoundBase>& MusicAsset, FName TrackName, const float FadeInDurationOverride)
 {
 	if (TrackName.IsNone())
 	{
@@ -77,11 +77,86 @@ void UBlackoutMusicSubsystem::PlayMusicAsset(const TSoftObjectPtr<USoundBase>& M
 		TrackName = AssetName.IsEmpty() ? TEXT("DynamicMusic") : FName(*AssetName);
 	}
 
-	PlayConfiguredMusic(MusicAsset, TrackName);
+	PlayConfiguredMusic(MusicAsset, TrackName, FadeInDurationOverride);
+}
+
+void UBlackoutMusicSubsystem::TransitionToMusicAsset(const TSoftObjectPtr<USoundBase>& MusicAsset, float FadeOutDuration, FName TrackName, const float FadeInDurationOverride)
+{
+	if (TrackName.IsNone())
+	{
+		const FString AssetName = MusicAsset.GetAssetName();
+		TrackName = AssetName.IsEmpty() ? TEXT("DynamicMusicTransition") : FName(*AssetName);
+	}
+
+	FadeOutDuration = FMath::Max(0.0f, FadeOutDuration);
+	if (FadeOutDuration <= KINDA_SMALL_NUMBER || !IsValid(MusicComponent))
+	{
+		if (MusicAsset.IsNull())
+		{
+			StopCurrentMusic();
+			return;
+		}
+
+		PlayConfiguredMusic(MusicAsset, TrackName, FadeInDurationOverride);
+		return;
+	}
+
+	if (UWorld* PreviousTransitionWorld = TransitionTimerWorld.Get())
+	{
+		PreviousTransitionWorld->GetTimerManager().ClearTimer(MusicTransitionTimerHandle);
+	}
+
+	UWorld* PlaybackWorld = IsValid(MusicComponent) ? MusicComponent->GetWorld() : nullptr;
+	if (!PlaybackWorld)
+	{
+		PlaybackWorld = ResolvePlaybackWorld();
+	}
+	if (!PlaybackWorld)
+	{
+		BO_LOG_CORE(Warning, "BGM 전환 실패: 재생할 월드를 찾지 못했습니다. Track=%s", *TrackName.ToString());
+		return;
+	}
+
+	MusicComponent->FadeOut(FadeOutDuration, 0.0f);
+	CurrentTrackName = NAME_None;
+
+	TransitionTimerWorld = PlaybackWorld;
+	PendingTransitionMusic = MusicAsset;
+	PendingTransitionTrackName = TrackName;
+	PendingTransitionFadeInDurationOverride = FadeInDurationOverride;
+	if (MusicAsset.IsNull())
+	{
+		PlaybackWorld->GetTimerManager().SetTimer(
+			MusicTransitionTimerHandle,
+			FTimerDelegate::CreateUObject(this, &UBlackoutMusicSubsystem::StopCurrentMusic),
+			FadeOutDuration,
+			false);
+		return;
+	}
+
+	PlaybackWorld->GetTimerManager().SetTimer(
+		MusicTransitionTimerHandle,
+		FTimerDelegate::CreateUObject(this, &UBlackoutMusicSubsystem::ExecutePendingMusicTransition),
+		FadeOutDuration,
+		false);
+}
+
+void UBlackoutMusicSubsystem::FadeOutCurrentMusic(const float FadeOutDuration)
+{
+	TransitionToMusicAsset(TSoftObjectPtr<USoundBase>(), FadeOutDuration, NAME_None, -1.0f);
 }
 
 void UBlackoutMusicSubsystem::StopCurrentMusic()
 {
+	if (UWorld* TransitionWorld = TransitionTimerWorld.Get())
+	{
+		TransitionWorld->GetTimerManager().ClearTimer(MusicTransitionTimerHandle);
+	}
+	TransitionTimerWorld.Reset();
+	PendingTransitionMusic.Reset();
+	PendingTransitionTrackName = NAME_None;
+	PendingTransitionFadeInDurationOverride = -1.0f;
+
 	if (!IsValid(MusicComponent))
 	{
 		CurrentTrackName = NAME_None;
@@ -103,6 +178,12 @@ void UBlackoutMusicSubsystem::HandlePostLoadMapWithWorld(UWorld* LoadedWorld)
 	}
 
 	UnbindFromGameState();
+
+	if (UWorld* TransitionWorld = TransitionTimerWorld.Get())
+	{
+		TransitionWorld->GetTimerManager().ClearTimer(MusicTransitionTimerHandle);
+	}
+	TransitionTimerWorld.Reset();
 
 	// 월드가 바뀌면 이전 월드에 묶인 오디오 컴포넌트는 새로 생성하도록 비웁니다.
 	if (IsValid(MusicComponent) && MusicComponent->GetWorld() != LoadedWorld)
@@ -158,8 +239,14 @@ void UBlackoutMusicSubsystem::UnbindFromGameState()
 	BoundGameState.Reset();
 }
 
-void UBlackoutMusicSubsystem::PlayConfiguredMusic(const TSoftObjectPtr<USoundBase>& MusicAsset, const FName TrackName)
+void UBlackoutMusicSubsystem::PlayConfiguredMusic(const TSoftObjectPtr<USoundBase>& MusicAsset, const FName TrackName, const float FadeInDurationOverride)
 {
+	if (UWorld* TransitionWorld = TransitionTimerWorld.Get())
+	{
+		TransitionWorld->GetTimerManager().ClearTimer(MusicTransitionTimerHandle);
+	}
+	TransitionTimerWorld.Reset();
+
 	if (MusicAsset.IsNull())
 	{
 		BO_LOG_CORE(Verbose, "BGM 재생 건너뜀: %s 트랙이 아직 설정되지 않았습니다.", *TrackName.ToString());
@@ -186,9 +273,12 @@ void UBlackoutMusicSubsystem::PlayConfiguredMusic(const TSoftObjectPtr<USoundBas
 	}
 
 	const UBlackoutAudioSettings* AudioSettings = UBlackoutAudioSettings::GetBlackoutAudioSettings();
-	const float FadeInDuration = AudioSettings
+	const float ConfiguredFadeInDuration = AudioSettings
 		? FMath::Max(0.0f, AudioSettings->BackgroundMusicFadeInDuration)
 		: 0.0f;
+	const float FadeInDuration = FadeInDurationOverride >= 0.0f
+		? FMath::Max(0.0f, FadeInDurationOverride)
+		: ConfiguredFadeInDuration;
 	USoundClass* MusicSoundClass = AudioSettings
 		? AudioSettings->MusicSoundClass.LoadSynchronous()
 		: nullptr;
@@ -235,6 +325,20 @@ void UBlackoutMusicSubsystem::PlayConfiguredMusic(const TSoftObjectPtr<USoundBas
 	}
 
 	CurrentTrackName = TrackName;
+}
+
+void UBlackoutMusicSubsystem::ExecutePendingMusicTransition()
+{
+	const TSoftObjectPtr<USoundBase> MusicAsset = PendingTransitionMusic;
+	const FName TrackName = PendingTransitionTrackName;
+	const float FadeInDurationOverride = PendingTransitionFadeInDurationOverride;
+
+	TransitionTimerWorld.Reset();
+	PendingTransitionMusic.Reset();
+	PendingTransitionTrackName = NAME_None;
+	PendingTransitionFadeInDurationOverride = -1.0f;
+
+	PlayConfiguredMusic(MusicAsset, TrackName, FadeInDurationOverride);
 }
 
 UWorld* UBlackoutMusicSubsystem::ResolvePlaybackWorld() const

@@ -31,6 +31,9 @@ public:
 
 	void ActivateBossAI();
 
+	/** 보스 처치 시 현재 BGM을 정리하고 전용 아웃트로를 재생합니다. */
+	void PlayOutroMusic();
+
 protected:
 	virtual void BeginPlay() override;
 	
@@ -41,6 +44,9 @@ protected:
 	
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_EndCutscene();
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_PlayOutroMusic();
 	
 	UFUNCTION()
 	void OnCutsceneTimerExpired();
@@ -56,9 +62,21 @@ public:
 	UPROPERTY(EditInstanceOnly, Category = "Blackout|Cutscene|Audio")
 	TSoftObjectPtr<USoundBase> IntroMusic;
 
+	/** 보스 처치 시 현재 BGM을 마무리하며 재생할 전용 아웃트로입니다. */
+	UPROPERTY(EditInstanceOnly, Category = "Blackout|Cutscene|Audio")
+	TSoftObjectPtr<USoundBase> OutroMusic;
+
 	/** 같은 시퀀서 클래스를 쓰더라도 보스별로 BGM 시작 타이밍을 다르게 설정합니다. */
 	UPROPERTY(EditInstanceOnly, Category = "Blackout|Cutscene|Audio")
 	EBlackoutBossIntroMusicTrigger IntroMusicTrigger = EBlackoutBossIntroMusicTrigger::OnPlayBossIntro;
+
+	/** 아웃트로가 시작되기 전 기존 전투 BGM을 줄이는 시간입니다. */
+	UPROPERTY(EditInstanceOnly, Category = "Blackout|Cutscene|Audio", meta = (ClampMin = "0.0"))
+	float OutroFadeOutDuration = 0.75f;
+
+	/** 아웃트로 진입 시 추가로 걸 페이드 인 시간입니다. */
+	UPROPERTY(EditInstanceOnly, Category = "Blackout|Cutscene|Audio", meta = (ClampMin = "0.0"))
+	float OutroFadeInDuration = 0.0f;
 	
 private:
 	FTimerHandle CutsceneTimerHandle;
