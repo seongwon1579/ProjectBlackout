@@ -67,43 +67,43 @@ void UAbilityTask_BossMeleeHitbox::TickTask(float DeltaTime)
 {
 	Super::TickTask(DeltaTime);
 	
-	if (USphereComponent* Sphere = Cast<USphereComponent>(HitboxComp))
-	{
-		DrawDebugSphere(
-			GetWorld(),
-			Sphere->GetComponentLocation(),
-			Sphere->GetScaledSphereRadius(),
-			16,
-			FColor::Green,
-			false,
-			3.f,
-			0,
-			2.f
-		);
-	}
-	
-	if (!HitboxComp) return;
-
-	const FVector Loc = HitboxComp->GetComponentLocation();
-	const FQuat Rot = HitboxComp->GetComponentQuat();
-	const float Lifetime = 2.f; 
-
-	if (USphereComponent* Sphere = Cast<USphereComponent>(HitboxComp))
-	{
-		DrawDebugSphere(GetWorld(), Loc, Sphere->GetScaledSphereRadius(),
-			16, FColor::Green, false, Lifetime, 0, 1.5f);
-	}
-	else if (UBoxComponent* Box = Cast<UBoxComponent>(HitboxComp))
-	{
-		DrawDebugBox(GetWorld(), Loc, Box->GetScaledBoxExtent(), Rot,
-			FColor::Green, false, Lifetime, 0, 1.5f);
-	}
-	else if (UCapsuleComponent* Cap = Cast<UCapsuleComponent>(HitboxComp))
-	{
-		DrawDebugCapsule(GetWorld(), Loc,
-			Cap->GetScaledCapsuleHalfHeight(), Cap->GetScaledCapsuleRadius(),
-			Rot, FColor::Green, false, Lifetime, 0, 1.5f);
-	}
+	// if (USphereComponent* Sphere = Cast<USphereComponent>(HitboxComp))
+	// {
+	// 	DrawDebugSphere(
+	// 		GetWorld(),
+	// 		Sphere->GetComponentLocation(),
+	// 		Sphere->GetScaledSphereRadius(),
+	// 		16,
+	// 		FColor::Green,
+	// 		false,
+	// 		3.f,
+	// 		0,
+	// 		2.f
+	// 	);
+	// }
+	//
+	// if (!HitboxComp) return;
+	//
+	// const FVector Loc = HitboxComp->GetComponentLocation();
+	// const FQuat Rot = HitboxComp->GetComponentQuat();
+	// const float Lifetime = 2.f; 
+	//
+	// if (USphereComponent* Sphere = Cast<USphereComponent>(HitboxComp))
+	// {
+	// 	DrawDebugSphere(GetWorld(), Loc, Sphere->GetScaledSphereRadius(),
+	// 		16, FColor::Green, false, Lifetime, 0, 1.5f);
+	// }
+	// else if (UBoxComponent* Box = Cast<UBoxComponent>(HitboxComp))
+	// {
+	// 	DrawDebugBox(GetWorld(), Loc, Box->GetScaledBoxExtent(), Rot,
+	// 		FColor::Green, false, Lifetime, 0, 1.5f);
+	// }
+	// else if (UCapsuleComponent* Cap = Cast<UCapsuleComponent>(HitboxComp))
+	// {
+	// 	DrawDebugCapsule(GetWorld(), Loc,
+	// 		Cap->GetScaledCapsuleHalfHeight(), Cap->GetScaledCapsuleRadius(),
+	// 		Rot, FColor::Green, false, Lifetime, 0, 1.5f);
+	// }
 }
 
 void UAbilityTask_BossMeleeHitbox::OnHitboxBeginOverlap(

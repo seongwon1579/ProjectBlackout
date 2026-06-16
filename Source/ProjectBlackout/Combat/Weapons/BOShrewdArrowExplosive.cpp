@@ -78,22 +78,22 @@ void ABOShrewdArrowExplosive::ApplyImpactDamage(const FHitResult& Hit)
 
 	const FVector ExplosionLocation = Hit.ImpactPoint;
 	
-#if ENABLE_DRAW_DEBUG
-	if (bShowDebugExplosion)
-	{
-		DrawDebugSphere(
-			GetWorld(),
-			ExplosionLocation,
-			ExplosionRadius,
-			24,                
-			FColor::Red,
-			false,              
-			2.0f,               
-			0,                   
-			2.0f              
-		);
-	}
-#endif
+// #if ENABLE_DRAW_DEBUG
+// 	if (bShowDebugExplosion)
+// 	{
+// 		DrawDebugSphere(
+// 			GetWorld(),
+// 			ExplosionLocation,
+// 			ExplosionRadius,
+// 			24,                
+// 			FColor::Red,
+// 			false,              
+// 			2.0f,               
+// 			0,                   
+// 			2.0f              
+// 		);
+// 	}
+// #endif
 
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(ExplosiveOverlap), false, this);
 	Params.AddIgnoredActor(this);
