@@ -91,12 +91,15 @@ void UBlackoutMatchmakingSubsystem::PreloadLoadingScreenTextures()
 	auto PreloadTexture = [](const TCHAR* Path) -> UTexture2D*
 	{
 		UTexture2D* Texture = LoadObject<UTexture2D>(nullptr, Path);
-		if (Texture)
+		if (!Texture)
 		{
-			// 스트리밍/메모리 압박으로 밉이 빠지지 않도록 항상 최고 해상도 유지.
-			Texture->bForceMiplevelsToBeResident = true;
-			Texture->SetForceMipLevelsToBeResident(30.0f);
+			BO_LOG_NET(Error, "로딩 화면 텍스처 로드 실패: %s", Path);
+			return nullptr;
 		}
+
+		// 스트리밍/메모리 압박으로 밉이 빠지지 않도록 항상 최고 해상도 유지.
+		Texture->bForceMiplevelsToBeResident = true;
+		Texture->SetForceMipLevelsToBeResident(30.0f);
 		return Texture;
 	};
 
