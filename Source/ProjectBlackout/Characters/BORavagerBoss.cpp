@@ -138,7 +138,7 @@ FText ABORavagerBoss::GetBossDisplayName() const
 	{
 		return BossStatData->Name;
 	}
-	return FText::FromString(TEXT("Ravager"));
+	return FText::FromString(TEXT("타락한 약탈자"));
 }
 
 EBOBossPhase ABORavagerBoss::DetermineTargetPhase(float HealthRatio)

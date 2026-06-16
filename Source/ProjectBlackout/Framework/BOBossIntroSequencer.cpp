@@ -92,7 +92,7 @@ void ABOBossIntroSequencer::Multicast_PlayerCutscene_Implementation()
 			}
 		}
 		
-		PC->SetCinematicMode(true, false, true, true, true);
+		PC->SetCinematicMode(true, false, false, true, true);
 		PC->DisableInput(PC);
 	}
 	
