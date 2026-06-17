@@ -1,5 +1,11 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: Ravager 패턴 데이터 에셋 전반 구현 — 추적 범위·기본 공격·투사체·미니언 스폰·Gorenado(Pull)·EnergyBurst·차징 설정 구조체 일체
+//  - 김민영: 타락한 약탈자 엘리트 미니언 스폰 필드(EliteMinionSpawnData·SpawnCount·SpawnRadius) 추가
+//  - 허혁: 각 공격 설정에 스턴 게이지(StunMagnitude) 필드 추가
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

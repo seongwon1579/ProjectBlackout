@@ -1,5 +1,9 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 최승현: 캐릭터 선택 명단 데이터 에셋 구현 — 노출 순서 배열 + ClassTag로 캐릭터 데이터/Pawn 클래스 조회 헬퍼
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

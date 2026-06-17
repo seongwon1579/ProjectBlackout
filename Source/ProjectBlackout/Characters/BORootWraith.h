@@ -1,3 +1,8 @@
+// ─── 구현 내역 ───────────────────────
+//  - 최승현: Wraith 점멸 / 근접공격 / Phase B StateTree 통합 및 근접 감지 반경 추가
+//  - 김민영: Root Wraith 엘리트 미니언 클래스와 스폰 GCN 호출 주체 캡슐화 / BP 노출
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
