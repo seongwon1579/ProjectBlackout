@@ -81,12 +81,13 @@ void UBlackoutGA_Ravager_Gorenado::UpdatePulling()
 		if (!Cast<IBlackoutPullable>(Target)) continue;
 		
 		if (PulledThisUpdate.Contains(Target)) continue; 
+		
+		if (IsTargetBlocked(Target)) continue;;
+		
 		PulledThisUpdate.Add(Target);
 		
 		SetBeingPulledTag(Target, true);
 		PulledActors.Add(Target);
-		
-		if (IsTargetBlocked(Target)) continue;;
 		
 		PullTarget(Target, UpdateInterval);
 	}
