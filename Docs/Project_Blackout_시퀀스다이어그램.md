@@ -174,26 +174,29 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant Aggro as AggroComponent (0.25초 주기)
+    participant Aggro as UBlackoutAggroEvaluator (가중치 점수)
+    participant Ctrl as BossAIController
     participant Boss as BossCharacter
     actor P1 as Player1 (어썰트)
     actor P2 as Player2 (스나이퍼)
 
-    Note over Aggro: 누적 피해: P1=500, P2=200 (격차 60% > 15%)
+    Note over Aggro: 최근 3초 DPS: P1=500, P2=200 → 점수 P1 우세<br/>(DPS×5.0 + 거리×0.5 + 저체력×0.3)
 
-    Aggro->>Aggro: 1순위 판정 → P1 (누적 피해 최대)
-    Aggro->>Boss: BB_CurrentTarget = P1
+    Boss->>Ctrl: OnDamageReceived → RecordDamage(P1, dmg)
+    Aggro->>Aggro: CalculateBestTarget → P1 (최고 점수)
+    Aggro->>Ctrl: OnAggroTargetChanged(P1)
+    Ctrl->>Boss: HandleAggroTargetChanged → BB Target = P1 (Ravager)
     Boss->>P1: 공격 패턴 실행
 
     Note over P1: P1 다운됨!
 
-    Aggro->>Aggro: 현 타겟 다운 → 쿨다운 무시 즉시 전환
-    Aggro->>Aggro: 1순위 재평가 → P2만 생존
-    Aggro->>Aggro: 2순위 (거리) → P2
-    Aggro->>Boss: BB_CurrentTarget = P2
+    Aggro->>Aggro: 현 타겟 Down 태그 감지 → 즉시 재선정
+    Aggro->>Aggro: P2만 생존 → 최고 점수 P2
+    Aggro->>Ctrl: OnAggroTargetChanged(P2)
+    Ctrl->>Boss: BB Target = P2
     Boss->>P2: 공격 패턴 실행
 
-    Note over Aggro: 1초마다 DamageAccumulator 2% 감쇠
+    Note over Aggro: 전환 잠금 태그(TargetChangeTag) 동안 타겟 유지<br/>3초 윈도우 밖 피해 기록은 자동 제거
 ```
 
 ---

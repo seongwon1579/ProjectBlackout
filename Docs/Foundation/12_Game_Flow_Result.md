@@ -1,7 +1,7 @@
 # Foundation — 12. 게임 플로우 및 결과창 이동 정책
 
 > TDD v5 §7 전투 세션 플로우, UI §05 게임 클리어 결과 및 통계 창 기반.
-> 단일 전투 맵 안에서 접속 대기 → 쉘터 준비 → 중간 보스 → 메인 보스 → 결과창 → 로비/타이틀 이동까지의 서버 권위 흐름을 정의합니다.
+> 로비 준비 → 보스 전투 맵 → 결과창 → 로비/타이틀 이동까지의 서버 권위 흐름을 정의합니다.
 
 ## 클래스 다이어그램
 
@@ -10,6 +10,7 @@ classDiagram
     direction TB
 
     AGameModeBase <|-- ABlackoutGameMode
+    ABlackoutGameMode <|-- ABlackoutLobbyGameMode
     ABlackoutGameMode <|-- ABlackoutBattleGameMode
     AGameStateBase <|-- ABlackoutGameState
     APlayerState <|-- ABlackoutPlayerState
@@ -53,12 +54,21 @@ classDiagram
         -SnapshotMatchResultParticipants(...) void
     }
 
+    class ABlackoutLobbyGameMode {
+        <<Server Only>>
+        -TArray~FSoftObjectPath~ BossStageMapPaths
+        -bool bTravelInitiated
+        +StartBattle() void
+        #OnPlayerJoined(APlayerController*) void
+        #OnAllPlayersReady() void
+        #OnSeamlessArrival(APlayerController*) void
+    }
+
     class ABlackoutGameState {
         +TArray~APlayerState*~ PlayerArray
         +EBlackoutMatchState CurrentMatchState
         +float MatchTimer
         +TArray~int32~ DestroyedPillarIds
-        +bool bRedMistPhaseActive
         +EBossType DefeatedBossType
         +bool bIsMatchResultVisible
         +float MatchResultVisibleServerTime
@@ -120,6 +130,8 @@ classDiagram
         +OnDefeated
     }
 
+    ABlackoutLobbyGameMode --> UBlackoutMatchFlowSubsystem : reads current stage
+    ABlackoutLobbyGameMode --> ABlackoutGameState : sets lobby/starting replicated state
     ABlackoutBattleGameMode --> ABlackoutGameState : sets match/result replicated state
     ABlackoutBattleGameMode --> ABlackoutPlayerState : applies transition policy / reads confirm state
     ABlackoutBattleGameMode --> ABlackoutPlayerController : opens UI / fade / travel commands
@@ -137,15 +149,15 @@ classDiagram
 ```mermaid
 stateDiagram-v2
     [*] --> WaitingForPlayers : Dedicated Server ready
-    WaitingForPlayers --> ShelterPrep : ExpectedPlayers reached
-    ShelterPrep --> MidBossCombat : All players ready
+    WaitingForPlayers --> ShelterPrep : lobby players ready phase
+    ShelterPrep --> MidBossCombat : LobbyGameMode StartBattle
     MidBossCombat --> ResultPending : Mid boss defeated
     MainBossCombat --> ResultPending : Main boss defeated
     ResultPending --> ResultVisible : 3 seconds elapsed
     ResultVisible --> AutoTravel : 10 seconds elapsed
     AutoTravel --> LobbyTravel : defeated boss is Mid
     AutoTravel --> TitleTravel : defeated boss is Main
-    LobbyTravel --> ShelterPrep : lobby/shelter arrival
+    LobbyTravel --> ShelterPrep : LobbyGameMode arrival
     TitleTravel --> [*] : title travel and server idle reset
 ```
 
@@ -156,6 +168,7 @@ sequenceDiagram
     autonumber
     participant Boss as ABlackoutBossCharacter
     participant GM as ABlackoutBattleGameMode
+    participant LGM as ABlackoutLobbyGameMode
     participant Flow as UBlackoutMatchFlowSubsystem
     participant GS as ABlackoutGameState
     participant PC as ABlackoutPlayerController
@@ -176,6 +189,8 @@ sequenceDiagram
     alt 중간 보스 결과
         GM->>Flow: AdvanceStage()
         GM->>GM: TravelToLobby(White)
+        LGM->>LGM: HandleLobbyArrival(Players)
+        LGM->>Flow: GetCurrentStageIndex()
     else 메인 보스 결과
         GM->>GM: EndMatch(BossDefeated)
         GM->>GM: TravelToTitle()
@@ -188,11 +203,12 @@ sequenceDiagram
 | 책임 | 소유자 | 비고 |
 |---|---|---|
 | 매치 생애주기 상태 전환 | `ABlackoutBattleGameMode` | 서버 권위. `ABlackoutGameState::SetMatchState`만 통해 복제 상태 변경 |
+| 로비 준비 및 전투 시작 | `ABlackoutLobbyGameMode` | 도착 처리, Ready 집계, 현재 보스 단계별 `ServerTravel` |
 | 현재 보스 단계 판정 | `UBlackoutMatchFlowSubsystem` | `CurrentStageIndex` 기준으로 중간/메인 보스 구분 |
 | 결과창 표시 여부/자동 이동 시각 복제 | `ABlackoutGameState` | UI는 서버 타이머 값을 읽어 카운트다운 표시 |
 | 플레이어별 표시 대상 | `ABlackoutGameState::MatchResultParticipants` | 결과창 표시 시점의 참가자 스냅샷 |
 | 통계 수집 | `ABlackoutPlayerState` | `FBlackoutMatchStats` 복제. UI 상세는 `Docs/UI/05_Game_Result_Stats_Window.md` 참조 |
-| 실제 이동 | `ABlackoutBattleGameMode` | 중간 보스는 로비/쉘터, 메인 보스는 타이틀 이동 및 서버 idle 복귀 |
+| 실제 이동 | `ABlackoutLobbyGameMode` / `ABlackoutBattleGameMode` | 로비→보스전은 LobbyGameMode, 중간 보스 후 로비/메인 보스 후 타이틀 이동은 BattleGameMode |
 
 ## 구현 노트
 

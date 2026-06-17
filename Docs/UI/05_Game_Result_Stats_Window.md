@@ -294,6 +294,6 @@ flowchart TB
 - **갱신 방식**: `ABlackoutPlayerState::OnMatchStatsChangedNative`와 `OnPlayerNameChangedNative`를 바인딩해 늦게 도착한 복제 값도 결과창에 반영합니다. 결과창 표시 시점에는 `RefreshResult()`로 전체 스냅샷을 한 번 재구성합니다.
 - **명중률 처리**: 발포 횟수가 0이면 0%로 표시해 0 나누기를 방지합니다. UI 표기는 정수 또는 소수점 한 자리 등 블루프린트 위젯에서 결정합니다.
 - **팀 요약**: 팀 명중률은 플레이어별 명중률 평균이 아니라 `전체 ShotsHit / 전체 ShotsFired`로 계산합니다.
-- **서버 집계 확인**: 현재 서버 코드에는 근접 처치(`MeleeKills`)와 소모품 사용(`ConsumablesUsed`) 집계 경로가 존재합니다. 향후 해당 필드 또는 기록 함수가 제거된 브랜치에서는 UI 항목을 임의 계산하지 말고 표시 항목에서 제외하거나 "집계 미지원"으로 노출합니다.
-- **현재 구현 상태**: `ABlackoutBattleGameMode`는 `MatchResultDisplayDelay` 후 결과창 상태를 복제하고, `MatchResultAutoTravelDelay` 후 `ExecuteMatchResultTravel()`을 호출합니다. 확인 RPC/확인자 집계는 현재 C++ 구조에 포함되어 있지 않습니다.
+- **서버 집계 확인**: 근접 처치(`MeleeKills`)와 소모품 사용(`ConsumablesUsed`)은 서버 집계 값을 기준으로 표시합니다. UI는 임의 계산을 수행하지 않습니다.
+- **결과창 상태 전환**: `ABlackoutBattleGameMode`는 `MatchResultDisplayDelay` 후 결과창 상태를 복제하고, `MatchResultAutoTravelDelay` 후 `ExecuteMatchResultTravel()`을 호출합니다.
 - **소멸 처리**: 컨트롤러는 `BeginDestroy` 또는 HUD 해제 시 `GameState::OnMatchStateChanged`, `OnPlayerArrayChanged`, 각 `PlayerState`의 통계/이름 델리게이트에서 `RemoveAll(this)` 또는 저장한 `FDelegateHandle`로 바인딩을 해제합니다.

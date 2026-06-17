@@ -88,5 +88,5 @@ classDiagram
 - `UBlackoutBaseAttributeSet::PostGameplayEffectExecute`: Health 클램핑(0 이하 → OnDeath 델리게이트) 처리.
 - `GE_Damage`의 `SetByCaller(HitPartTag)`: `Body.WeakSpot` → ×1.5, `Body.ArmoredLimb` → ×0.5 (TDD §5.2).
 - `UBlackoutGameplayAbility`: 플레이어 GA(`UBlackoutGA_Dodge` 등)와 보스 패턴 GA 모두 이 클래스에서 파생.
-- `UBlackoutAbilitySystemComponent`: 플레이어 재입력 이벤트를 GAS 표준 `EAbilityGenericReplicatedEvent::InputPressed` 경로(`AbilitySpecInputPressed` + `ServerSetReplicatedEvent`)로 서버에 전파합니다. `bReplicateInputDirectly` 는 사용하지 않습니다. `FBlackoutAbilityInputSyncPayload` 는 부가 메타데이터 채널이며, `Server_RecordAbilityInputSyncPayload` 가 `SequenceId` 단조성·timestamp clamp 값만 기록합니다. 콤보/체인 입력 트리거 자체는 표준 GAS 복제 이벤트가 담당합니다 (자세한 권위 모델은 TDD v5 §4.1 참조).
+- `UBlackoutAbilitySystemComponent`: 플레이어 재입력 이벤트를 GAS 표준 `EAbilityGenericReplicatedEvent::InputPressed` 경로(`AbilitySpecInputPressed` + `ServerSetReplicatedEvent`)로 서버에 전파합니다. `FBlackoutAbilityInputSyncPayload` 는 부가 메타데이터 채널이며, `Server_RecordAbilityInputSyncPayload` 가 `SequenceId` 단조성·timestamp clamp 값만 기록합니다. 콤보/체인 입력 트리거 자체는 표준 GAS 복제 이벤트가 담당합니다 (자세한 권위 모델은 TDD v5 §4.1 참조).
 - 플레이어 전용 `UBlackoutPlayerAttributeSet` / `UBlackoutAmmoAttributeSet`는 **Combat 에픽**에서 `UBlackoutBaseAttributeSet`와 별도로 추가.

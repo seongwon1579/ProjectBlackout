@@ -72,15 +72,15 @@ classDiagram
 |---|---|
 | `UBOCharacterData` | `ABlackoutPlayerState::ApplyBattleTransitionPolicy`, `ABlackoutLobbyGameMode::PostLogin` GA 부여 |
 | `UBOMinionData` | `ABlackoutMinionCharacter::BeginPlay` / `OnSpawnFromPool` 어트리뷰트 및 GA 주입 |
-| `UBOBossData` | `ABlackoutBossCharacter` 페이즈 컷라인, `UBlackoutAggroEvaluator` / `UBlackoutAggroComponent` 튜닝 |
+| `UBOBossData` | `ABlackoutBossCharacter` 페이즈 컷라인·부위 배율. (어그로 가중치는 `UBlackoutAggroEvaluator` 인스턴스에서 직접 노출 — 이 에셋의 `Aggro*` 필드는 평가기 미참조 잔여 항목) |
 | `UBOConsumableData` | `ABlackoutPlayerState` 초기/최대 소지량 정책, `UBlackoutHUDWidgetController` 소모품 아이콘·수치 표시, `UBlackoutGA_UseBloodRoot` / `UBlackoutGA_UseGulSerum` 회복/버프 수치와 쿨다운 적용 |
 | `DT_WeaponStats` | `UBlackoutCombatComponent` 무기 스탯 조회 |
 
 ## 구현 노트
 
 - 모든 에셋은 `Content/_BP/Core/Data/` 에 배치.
-- `UBOBossData.AggroSwitchCooldown` 기본값 `5.0`, `AggroDamageThreshold` `0.15`, `AggroDecayRate` `0.02` (TDD §6.1).
-- `UBOBossData.PhaseHealthCutlines`: Phase A→B 60%, B→C 30% 기준.
+- `UBOBossData`에 `AggroSwitchCooldown`(5.0) 등 어그로 필드가 정의돼 있으나, 현재 어그로는 `UBlackoutAggroEvaluator` 인스턴스 가중치(DPS/거리/저체력)를 사용하므로 이 필드들은 평가기에서 참조되지 않습니다(TDD §6.1).
+- `UBOBossData.PhaseHealthCutlines`: Phase1→2 60%, 2→3 30% 기준 (`ABORavagerBoss::DetermineTargetPhase`와 일치).
 - `UBOConsumableData`는 소모품별 정적 정의만 보관합니다. 현재 소지 수량은 `ABlackoutPlayerState`의 Replicated 프로퍼티가 소유합니다.
 - 블러드 루트와 굴 세럼처럼 효과 종류가 다른 소모품은 각각 `DA_BloodRoot`, `DA_GulSerum`처럼 별도 DataAsset으로 정의하고, `UseAbility`는 `UBlackoutGA_UseBloodRoot`, `UBlackoutGA_UseGulSerum` 같은 전용 자식 GA를 지정합니다.
 - `InitialCount`는 전투 진입/캐릭터 초기화 시 최소 지급량으로 사용하고, `MaxCount`는 획득·보상·체크포인트 보정 시 상한으로 사용합니다.
