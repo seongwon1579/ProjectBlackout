@@ -34,7 +34,7 @@ protected:
 	virtual void HandleAggroTargetChanged(APawn* NewTarget) {}
 	
 private:
-	UPROPERTY(Transient)
+	UPROPERTY(EditDefaultsOnly, Instanced, Category= "Blackout")
 	TObjectPtr<UBlackoutAggroEvaluator> AggroEvaluator;
 	
 };
