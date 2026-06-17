@@ -6,10 +6,10 @@
 classDiagram
     direction TB
 
-    UBlackoutGameplayAbility <|-- UGA_FireWeapon
-    UBlackoutGameplayAbility <|-- UGA_Reload
-    UBlackoutGameplayAbility <|-- UGA_Melee_Player
-    UBlackoutGameplayAbility <|-- UGA_Dodge
+    UBlackoutGameplayAbility <|-- UBlackoutGA_FireWeapon
+    UBlackoutGameplayAbility <|-- UBlackoutGA_Reload
+    UBlackoutGameplayAbility <|-- UBlackoutGA_MeleePlayer
+    UBlackoutGameplayAbility <|-- UBlackoutGA_Dodge
 
     class UBlackoutAbilitySystemComponent {
         +HandleAbilityInputPressed(EBlackoutAbilityInputID) void
@@ -38,7 +38,7 @@ classDiagram
         +FireShotgun(const FVector& BaseDirection, const FGameplayEffectSpecHandle& DamageSpec) TArray~FBlackoutShotgunPelletHit~
     }
 
-    class UGA_FireWeapon {
+    class UBlackoutGA_FireWeapon {
         -TSubclassOf~UGameplayEffect~ DamageEffectClass
         -float ParallaxMaxDistance
         +ActivateAbility(...) void
@@ -50,7 +50,7 @@ classDiagram
         #PlayFireMontage() void
     }
 
-    class UGA_Reload {
+    class UBlackoutGA_Reload {
         -TSubclassOf~UGameplayEffect~ ReloadEffectClass
         -UAnimMontage* ReloadMontage
         +ActivateAbility(...) void
@@ -58,7 +58,7 @@ classDiagram
         -OnReloadMontageCompleted() void
     }
 
-    class UGA_Melee_Player {
+    class UBlackoutGA_MeleePlayer {
         -UAnimMontage* MeleeMontage
         -TArray~FBlackoutComboSectionDef~ ComboSections
         -float ClientInputBufferDuration
@@ -81,7 +81,7 @@ classDiagram
         -SetNextSectionAuthoritative() void
     }
 
-    class UGA_Dodge {
+    class UBlackoutGA_Dodge {
         -UAnimMontage* DodgeMontage
         -float ClientInputBufferDuration
         -float ServerReceiveBufferDuration
@@ -102,27 +102,27 @@ classDiagram
         -TryStartChainedDodge() bool
     }
 
-    UGA_FireWeapon ..> UBlackoutCombatComponent : GetMuzzleTransform / GetAimImpactPoint
-    UGA_FireWeapon ..> ABOFirearm : Fire / SpawnProjectile
-    UGA_FireWeapon ..> ABOShotgunFirearm : FireShotgun
-    UGA_FireWeapon ..> UBlackoutAmmoAttributeSet : Cost(ClipAmmo -1)
-    UGA_Reload ..> UBlackoutAmmoAttributeSet : ReserveAmmo → ClipAmmo
-    UGA_Melee_Player ..> ABOMeleeWeapon : PerformSweep
-    UGA_Melee_Player ..> FBlackoutComboSectionDef : 윈도우 시각 정의
-    UGA_Melee_Player ..> UBlackoutAbilitySystemComponent : WaitInputPress (표준 GAS 경로)
-    UGA_Dodge ..> UBlackoutAbilitySystemComponent : WaitInputPress (표준 GAS 경로)
+    UBlackoutGA_FireWeapon ..> UBlackoutCombatComponent : GetMuzzleTransform / GetAimImpactPoint
+    UBlackoutGA_FireWeapon ..> ABOFirearm : Fire / SpawnProjectile
+    UBlackoutGA_FireWeapon ..> ABOShotgunFirearm : FireShotgun
+    UBlackoutGA_FireWeapon ..> UBlackoutAmmoAttributeSet : Cost(ClipAmmo -1)
+    UBlackoutGA_Reload ..> UBlackoutAmmoAttributeSet : ReserveAmmo → ClipAmmo
+    UBlackoutGA_MeleePlayer ..> ABOMeleeWeapon : PerformSweep
+    UBlackoutGA_MeleePlayer ..> FBlackoutComboSectionDef : 윈도우 시각 정의
+    UBlackoutGA_MeleePlayer ..> UBlackoutAbilitySystemComponent : WaitInputPress (표준 GAS 경로)
+    UBlackoutGA_Dodge ..> UBlackoutAbilitySystemComponent : WaitInputPress (표준 GAS 경로)
     UBlackoutAbilitySystemComponent ..> FBlackoutAbilityInputSyncPayload : timestamp 메타데이터
 ```
 
 ## 구현 노트
 
-- **`UGA_FireWeapon`**:
+- **`UBlackoutGA_FireWeapon`**:
   - Cost: `PrimaryClipAmmo` 또는 `SecondaryClipAmmo` 1 차감 (`EquippedWeapon` 슬롯 태그로 분기).
   - `Body.WeakSpot` / `Body.ArmoredLimb` 태그 배율은 `BuildDamageSpec`에서 `SetByCaller` 키로 주입.
   - 산탄 무기(`ABOShotgunFirearm`)는 탄약 Cost를 1회만 적용한 뒤 `FireShotgun`으로 펠릿별 히트스캔을 수행합니다. `BuildPelletDamageSpec`은 펠릿당 피해량을 `Data.Damage`로 주입하고, `FireShotgun` 결과의 `FBlackoutShotgunPelletHit` 배열은 디버그 표시와 멀티타겟 보상 집계의 입력으로 사용합니다.
   - 로비에서는 `LobbyTag.InfiniteAmmo` 분기로 Cost 체크 스킵(TDD §7.1).
   - Cue: 무기별 `FBlackoutWeaponCueSet`을 읽어 발사/탄 궤적/피격 Cue를 서버에서 실행합니다. 상세 구조는 [10_Weapon_GameplayCue_Set.md](10_Weapon_GameplayCue_Set.md)를 참조합니다.
-- **`UGA_Reload`**:
+- **`UBlackoutGA_Reload`**:
   - 완료 시 `ExecCalc_Reload`(`UGameplayEffectExecutionCalculation`)가 `ReserveAmmo -= Missing`, `ClipAmmo += Missing` 을 단일 트랜잭션으로 처리.
   - Cue: `GCN_Weapon_Reload [Static]`.
   - 시전 중 사격 입력은 `ActiveTag: State.Reloading` 으로 차단.
@@ -130,10 +130,10 @@ classDiagram
   - `ConsumeAndApplyEffect()`에서 PlayerState 수량 차감과 효과 적용이 성공한 순간 `GameplayCue.Consumable.Use`를 1회 실행합니다.
   - 서버 권위에서 PlayerState 소유 ASC의 `ExecuteGameplayCue` 경로로 복제하며, Cue 파라미터의 `EffectCauser`는 캐릭터를 가리킵니다.
   - BP `GameplayCueNotify_Burst` 에셋은 TargetActor 대신 Cue 파라미터의 `EffectCauser`에서 캐릭터 Mesh를 찾아 오른손 `WeaponSocket`에 Snap/Attach 되도록 구성합니다.
-- **`UGA_UseRelic`**:
+- **`UBlackoutGA_UseRelic`**:
   - `ApplyRelicEffect()`에서 유물 충전 차감과 회복 적용이 성공한 순간 `GameplayCue.Relic.Use`를 1회 실행합니다.
   - Cue 복제와 부착 규칙은 소모품과 동일하게 ASC `ExecuteGameplayCue`와 `EffectCauser` 기준 오른손 `WeaponSocket` 부착으로 처리합니다.
-- **`UGA_Melee_Player`** (TDD v5 §4.1 v2):
+- **`UBlackoutGA_MeleePlayer`** (TDD v5 §4.1 v2):
   - 몽타주 재생은 `UAbilityTask_PlayMontageAndWait` 로 처리합니다. **`Multicast_PlayMeleeMontage` / `Multicast_JumpMeleeMontageSection` / `Multicast_StopMeleeMontage` 는 폐기**합니다. 시뮬레이트 프록시는 `FRepAnimMontageInfo` OnRep으로 자연 따라잡습니다.
   - 콤보 섹션은 `ComboSections : TArray<FBlackoutComboSectionDef>` 로 정의하며, 각 항목이 섹션 이름과 `WindowOpenAtSeconds` / `WindowCloseAtSeconds` 및 해당 단계의 데미지 배율인 `DamageMultiplier` 를 담습니다.
   - 서버는 섹션 진입 시점(`GetServerWorldTimeSeconds()`)을 기준으로 `ScheduleComboWindowTimers` 가 윈도우 open/close 와 grace close 타이머를 `SetTimer` 합니다. **AnimNotifyState 는 콤보 상태 머신에 사용하지 않습니다** — 히트박스 활성/비활성(`HandleMeleeAttackWindowBegin/End`)과 시각 effect 트리거 전용.
@@ -141,7 +141,7 @@ classDiagram
   - 입력이 어디에도 매칭되지 않으면 **EndAbility 를 호출하지 않고** 현재 섹션의 `RecoveryEndAtSeconds` 까지 자연 종료되도록 두고, 입력 버퍼만 비웁니다.
   - **Gameplay Event 기반 조기 캔슬**: 몽타주 후반부의 딜레이/복귀 포즈에 도달했을 때, 몽타주에 배치된 AnimNotify가 `Event_Montage_AbilityCancelable` 게임플레이 이벤트를 보냅니다. GA 내부에서 `WaitGameplayEvent` 태스크를 통해 이 이벤트를 감지하면 즉시 `EndAbility`를 조기 호출하여 캐릭터의 제어권(차단 태그 해제)을 복구합니다.
   - `AnimNotify` 가 AbilityTask 로 히트 노티를 호출 → `ABOMeleeWeapon::PerformSweep` 결과에 `GE_Damage` 적용(기존 유지).
-- **`UGA_Dodge`** (TDD v5 §4.1 v2):
+- **`UBlackoutGA_Dodge`** (TDD v5 §4.1 v2):
   - 몽타주 재생은 `UAbilityTask_PlayMontageAndWait` 로 처리하고, `Multicast_PlayDodgeMontage` 는 폐기합니다. RepAnimMontageInfo 가 시뮬레이트 프록시에 전파합니다.
   - 체인 윈도우 open/close 는 `ChainWindowOpenAtSeconds`/`ChainWindowCloseAtSeconds` 데이터값을 사용한 서버 World Time 타이머로 관리합니다. `BOAnimNotify_DodgeChainWindowOpen` 등 노티파이는 시각 effect 보조 전용입니다.
   - 클라이언트 재입력은 멜리와 동일한 표준 GAS 경로(`AbilitySpecInputPressed` + `ServerSetReplicatedEvent`)로 서버에 전파합니다.

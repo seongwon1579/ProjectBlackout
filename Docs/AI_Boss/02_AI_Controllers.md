@@ -46,7 +46,7 @@ classDiagram
     ABlackoutBossAIController *-- UBlackboardComponent : 하위 BT 공유 BB
 ```
 
-> 어그로(타겟 선정)는 컴포넌트가 아닌 **`FBSTEval_AggroTarget` StateTree Evaluator**가 전담합니다. Evaluator가 Controller의 Blackboard에 `BB_CurrentTarget`을 기록하여 하위 BT가 참조합니다. **Shrewd와 Ravager 모두 동일 Evaluator를 재사용**(GDD §6.0 공통 규칙)하며, 보스별 차이는 `UBOBossData`의 튜닝 파라미터로만 조정합니다. 상세는 03 다이어그램 참조.
+> 어그로(타겟 선정)는 `ABlackoutBossAIController`의 `UBlackoutAggroEvaluator`와 StateTree Evaluator(`FBSTEval_ShrewdAggroTarget`)가 담당합니다. Evaluator가 Controller의 Blackboard에 `BB_CurrentTarget`을 기록하여 하위 BT가 참조합니다. Shrewd/Ravager의 튜닝 차이는 `UBOBossData`의 파라미터로 조정합니다. 상세는 03 다이어그램 참조.
 
 ## 실행 모델
 
@@ -87,10 +87,10 @@ flowchart TB
 ## 구현 노트
 
 - **`UStateTreeAIComponent`**: 엔진 `GameplayStateTree` 플러그인 제공. `OnPossess`에서 `SetStateTreeAsset` 후 `StartLogic()` 호출.
-- **`InitStateTreeContext`**: StateTree가 참조하는 외부 데이터 핸들(ASC, Pawn, Controller, BlackboardComp 등)을 바인딩. BP가 아닌 C++ 가상 함수로 서브클래스별 확장. `FBSTEval_AggroTarget`도 이 경로로 ASC·BBComp 핸들을 받음.
+- **`InitStateTreeContext`**: StateTree가 참조하는 외부 데이터 핸들(ASC, Pawn, Controller, BlackboardComp 등)을 바인딩. BP가 아닌 C++ 가상 함수로 서브클래스별 확장. Aggro Evaluator도 이 경로로 ASC·BBComp 핸들을 받음.
 - **`ABlackoutBossAIController::RunSubBehaviorTree`**: `UBSTTask_RunSubBehaviorTree::EnterState`에서 호출됨. 이미 다른 BT가 돌고 있다면 `StopTree` 후 교체.
-- **Blackboard 스코프**: 보스의 Blackboard는 **하위 BT 전용**으로 사용. 어그로 Evaluator(`FBSTEval_AggroTarget`)가 `BB_CurrentTarget`을 기록하고, `UBTService_LineOfSightCheck`가 `BB_HasLineOfSight`를 기록. 하위 BT Task(MoveTo/Attack)가 이를 소비.
+- **Blackboard 스코프**: 보스의 Blackboard는 **하위 BT 전용**으로 사용. 어그로 Evaluator(`UBlackoutAggroEvaluator` / `FBSTEval_ShrewdAggroTarget`)가 `BB_CurrentTarget`을 기록하고, `UBTService_LineOfSightCheck`가 `BB_HasLineOfSight`를 기록. 하위 BT Task(MoveTo/Attack)가 이를 소비.
 - **`WriteTargetToBlackboard`**: Controller의 public 메서드. Evaluator가 외부 데이터 핸들로 Controller를 받아 이 함수를 호출하여 BB 키를 갱신.
-- **Perception**: 미니언만 Sight 감각 활성화. 보스는 `FBSTEval_AggroTarget`이 타겟을 전담 → Perception 비활성화 또는 제거.
+- **Perception**: 미니언만 Sight 감각 활성화. 보스는 Aggro Evaluator가 타겟을 전담 → Perception 비활성화 또는 제거.
 - **서버 전용**: AI 로직은 서버 Authority. `OnPossess`는 `HasAuthority()` 가드로 조기 리턴.
 - **디버깅**: StateTree Debugger (UE 5.3+)로 페이즈 전이/활성 상태 라이브 추적 가능. BT 대비 가시성 개선.

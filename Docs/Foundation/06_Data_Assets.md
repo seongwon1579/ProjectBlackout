@@ -71,8 +71,8 @@ classDiagram
 | 데이터 에셋 | 주요 참조처 |
 |---|---|
 | `UBOCharacterData` | `ABlackoutPlayerState::ApplyBattleTransitionPolicy`, `ABlackoutLobbyGameMode::PostLogin` GA 부여 |
-| `UBOMinionData` | `ABlackoutEnemyCharacter::BeginPlay` 어트리뷰트 주입 |
-| `UBOBossData` | `ABlackoutBossCharacter` 페이즈 컷라인, `UBlackoutAggroComponent` 튜닝 |
+| `UBOMinionData` | `ABlackoutMinionCharacter::BeginPlay` / `OnSpawnFromPool` 어트리뷰트 및 GA 주입 |
+| `UBOBossData` | `ABlackoutBossCharacter` 페이즈 컷라인, `UBlackoutAggroEvaluator` / `UBlackoutAggroComponent` 튜닝 |
 | `UBOConsumableData` | `ABlackoutPlayerState` 초기/최대 소지량 정책, `UBlackoutHUDWidgetController` 소모품 아이콘·수치 표시, `UBlackoutGA_UseBloodRoot` / `UBlackoutGA_UseGulSerum` 회복/버프 수치와 쿨다운 적용 |
 | `DT_WeaponStats` | `UBlackoutCombatComponent` 무기 스탯 조회 |
 

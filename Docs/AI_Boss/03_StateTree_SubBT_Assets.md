@@ -36,7 +36,9 @@ classDiagram
     FStateTreeConditionCommonBase <|-- FBSTCond_HasLineOfSight
 
     FStateTreeEvaluatorCommonBase <|-- FBSTEval_HealthRatio
-    FStateTreeEvaluatorCommonBase <|-- FBSTEval_AggroTarget
+    FStateTreeEvaluatorCommonBase <|-- FBSTEval_ShrewdAggroTarget
+    FStateTreeEvaluatorCommonBase <|-- FBSTEval_WraithAggroTarget
+    UObject <|-- UBlackoutAggroEvaluator
 
     class FBSTTask_MoveToTarget {
         <<이동 Task>>
@@ -93,37 +95,41 @@ classDiagram
         +FStateTreeOutputDataHandle~float~ OutRatio
     }
 
-    class FBSTEval_AggroTarget {
-        <<보스 전용 — 어그로 평가·퍼블리시 일체>>
+    class UBlackoutAggroEvaluator {
+        <<보스 전용 — 어그로 평가·퍼블리시>>
         -TMap~TWeakObjectPtr~APlayerState~, float~ DamageAccumulator
         -TWeakObjectPtr~APlayerState~ CurrentTargetPS
         -float LastSwitchTime
         +float EvaluationInterval = 0.25
-        +FStateTreeExternalDataHandle~UAbilitySystemComponent~ OwnerASC
-        +FStateTreeExternalDataHandle~ABlackoutBossAIController~ Controller
-        +FStateTreeExternalDataHandle~UBOBossData~ BossData
-        +FStateTreeOutputDataHandle~APawn~ OutTarget
-        +TreeStart(Context) void
-        +TreeStop(Context) void
-        +Tick(Context, DeltaSeconds) void
+        +StartAggroEvaluation() void
+        +StopAggroEvaluation() void
         #HandleDamageReceived(FGameplayEffectSpec) void
         #ApplyDecay(float DeltaSeconds) void
-        #SelectByDamage() APlayerState*
-        #SelectByDistance() APlayerState*
-        #SelectByLowestHealth() APlayerState*
+        #CalculateAggroScore(APawn*) float
+    }
+
+    class FBSTEval_ShrewdAggroTarget {
+        <<StateTree Evaluator>>
+        +Tick(Context, DeltaSeconds) void
+    }
+
+    class FBSTEval_WraithAggroTarget {
+        <<StateTree Evaluator>>
+        +Tick(Context, DeltaSeconds) void
     }
 
     FBSTTask_ActivateAbility ..> UBlackoutAbilitySystemComponent : TryActivateAbilitiesByTag
     FBSTTask_RunSubBehaviorTree ..> ABlackoutBossAIController : RunSubBehaviorTree / StopSubBehaviorTree
-    FBSTEval_AggroTarget ..> UAbilitySystemComponent : OnGameplayEffectAppliedDelegateToSelf
-    FBSTEval_AggroTarget ..> ABlackoutBossAIController : WriteTargetToBlackboard
-    FBSTEval_AggroTarget ..> UBOBossData : reads tuning
+    UBlackoutAggroEvaluator ..> UAbilitySystemComponent : OnGameplayEffectAppliedDelegateToSelf
+    UBlackoutAggroEvaluator ..> ABlackoutBossAIController : current target delegate
+    UBlackoutAggroEvaluator ..> UBOBossData : reads tuning
+    FBSTEval_ShrewdAggroTarget ..> ABlackoutBossAIController : WriteTargetToBlackboard
+    FBSTEval_WraithAggroTarget ..> ABlackoutMinionAIController : select wraith target
 ```
 
-## 어그로 Evaluator 상세 (`FBSTEval_AggroTarget`)
+## 어그로 Evaluator 상세 (`UBlackoutAggroEvaluator` / `FBSTEval_ShrewdAggroTarget`)
 
-> GDD §6.0·TDD §6.1의 누적 피해·거리·체력 기반 3순위 타겟 선정을 StateTree Evaluator로 구현.
-> 보스 StateTree의 **최상위 Evaluator로 등록**되어 모든 페이즈에서 지속 실행됨. 별도 ActorComponent를 두지 않음.
+> GDD §6.0·TDD §6.1의 누적 피해·거리·체력 기반 타겟 선정을 `UBlackoutAggroEvaluator`와 StateTree Evaluator가 함께 수행합니다.
 
 ### 타겟 선정 3단계 (GDD §6.0 1:1 매핑)
 
@@ -137,23 +143,23 @@ classDiagram
 
 | 훅 | 동작 |
 |---|---|
-| `TreeStart` | Owner ASC에 `OnGameplayEffectAppliedDelegateToSelf` 바인딩, `LastSwitchTime` 초기화 |
-| `Tick` | `ApplyDecay(DeltaSeconds)` → 3순위 재평가 → 쿨다운(`AggroSwitchCooldown`) 통과 시에만 `CurrentTargetPS` 교체 → `OutTarget` 퍼블리시 + `Controller->WriteTargetToBlackboard(NewTarget)` |
-| `TreeStop` | ASC 델리게이트 언바인딩, `DamageAccumulator` 클리어 |
+| `StartAggroEvaluation` | Owner ASC에 `OnGameplayEffectAppliedDelegateToSelf` 바인딩, `LastSwitchTime` 초기화 |
+| `Tick` | `ApplyDecay(DeltaSeconds)` → 타겟 재평가 → 쿨다운(`AggroSwitchCooldown`) 통과 시에만 CurrentTarget 교체 → 컨트롤러/Blackboard에 퍼블리시 |
+| `StopAggroEvaluation` | ASC 델리게이트 언바인딩, `DamageAccumulator` 클리어 |
 
 ### 튜닝 파라미터 (`UBOBossData` 주입)
 
 - `AggroSwitchCooldown` (기본 **5.0초** — GDD §6.0 "최소 5초 간격" 규정값) — 마지막 전환 후 쿨다운 경과 전 타겟 유지. 현재 타겟이 **다운/사망**이면 쿨다운 무시.
 - `AggroDamageThreshold` (기본 0.15 = 15%) — 1위와 2위 누적 피해 격차 임계.
 - `AggroDecayRate` (기본 0.02 /sec) — `Accumulator *= (1 - AggroDecayRate * DeltaSeconds)` 선형 감쇠.
-- **Shrewd / Ravager 동일 Evaluator 인스턴스 사용**: 보스별 차이는 위 파라미터 값만 변경해서 `UBOBossData`로 주입. 로직/코드 분기 없음.
+- **Shrewd / Ravager 튜닝 공유**: 보스별 차이는 위 파라미터 값만 변경해서 `UBOBossData`로 주입합니다.
 
 ### 데이터 흐름
 
 ```mermaid
 flowchart LR
     GE[GE_Damage 적용] --> ASC[Owner ASC Delegate]
-    ASC --> Eval[FBSTEval_AggroTarget<br/>HandleDamageReceived]
+    ASC --> Eval[UBlackoutAggroEvaluator<br/>HandleDamageReceived]
     Eval --> Map[DamageAccumulator 갱신]
     TickEv[ST Tick] --> Decay[ApplyDecay]
     Decay --> Select[3순위 평가 + 쿨다운]
@@ -222,7 +228,7 @@ stateDiagram-v2
 
 - 하위 BT는 **페이즈 전환 관심 없음**. 오직 해당 페이즈의 패턴 선택·실행만 담당. 페이즈 경계 감시는 StateTree가 전담.
 - 하위 BT의 **Blackboard는 Controller 소유** (`ABlackoutBossAIController::BlackboardComp`). 핵심 키:
-  - `BB_CurrentTarget` (Object) — `FBSTEval_AggroTarget`이 Tick마다 `Controller->WriteTargetToBlackboard`로 기록
+  - `BB_CurrentTarget` (Object) — Aggro Evaluator가 Tick마다 `Controller->WriteTargetToBlackboard`로 기록
   - `BB_HasLineOfSight` (Bool) — `UBTService_LineOfSightCheck`가 업데이트 (Shrewd 전용)
 - 하위 BT 내부는 전통적 Selector / Sequence 구성. Ability 발동은 `UBTTask_ActivateBossAbility(AbilityTag=GA.Ravager.DoubleSwipe)`로 호출.
 
