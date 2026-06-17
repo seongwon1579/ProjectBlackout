@@ -1,3 +1,7 @@
+// ─── 구현 내역 ───────────────────────
+//  - 최승현: 로비 GameMode — 전원 Ready 집계 후 보스맵 ServerTravel·복귀 시 선택 클래스 spawn·로비 도착 회복/ShelterPrep
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

@@ -1,3 +1,7 @@
+// ─── 구현 내역 ───────────────────────
+//  - 허혁: 그래픽 설정 BP 라이브러리 — DLSS/Reflex/Frame Generation 가용성 조회·사용자 설정 적용
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

@@ -1,5 +1,9 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 최승현: 캐릭터 변경 상호작용 비석(쉘터 캐릭터 교체 UI 진입점)
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

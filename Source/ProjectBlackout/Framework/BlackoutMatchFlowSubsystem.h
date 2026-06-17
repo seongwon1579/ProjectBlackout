@@ -1,5 +1,9 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 최승현: 매치 진행 상태 GameInstance 보관 — 보스 스테이지 인덱스·정원(ExpectedPlayers)·정원별 보스 HP 배율
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

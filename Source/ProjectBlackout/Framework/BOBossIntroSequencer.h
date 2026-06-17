@@ -1,5 +1,10 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: 보스 레벨 진입 시 인트로 시퀀스 서버 권위 등록·재생 + 컷신 중 입력·이동 잠금·HUD 숨김
+//  - 허혁: 보스 인트로 컷신 전용 BGM 연동(트리거 타이밍 분기)
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

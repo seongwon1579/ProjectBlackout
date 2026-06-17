@@ -1,5 +1,9 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 최승현: 텔레메트리 히트맵 에디터 툴 — 그리드 CSV 로드·막대 빌드(데이터 Z 배치)·정리
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

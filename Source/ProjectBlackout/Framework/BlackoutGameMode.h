@@ -1,3 +1,7 @@
+// ─── 구현 내역 ───────────────────────
+//  - 최승현: GameMode 베이스 — 세션ID/Acc 파싱·Ready/Loaded 집계 훅·매치 상태 전이 단일 권위(TransitionTo)·전원 퇴장 Idle 복귀·화면 페이드 브로드캐스트
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

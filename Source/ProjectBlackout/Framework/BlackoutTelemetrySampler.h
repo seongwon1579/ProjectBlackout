@@ -1,5 +1,9 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 최승현: 플레이어 텔레메트리 데디 샘플러 — 1Hz 위치 샘플·사망/다운 이벤트 수집·배치 flush 백엔드 전송
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
