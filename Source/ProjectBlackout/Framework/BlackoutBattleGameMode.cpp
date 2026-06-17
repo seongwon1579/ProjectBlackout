@@ -566,6 +566,7 @@ void ABlackoutBattleGameMode::EndMatch(EBlackoutMatchEndReason Reason)
 			GameInstance->GetSubsystem<UBlackoutDedicatedSessionSubsystem>())
 		{
 			DedicatedSessionSubsystem->ReportFinishToMatchmakingServer();
+			DedicatedSessionSubsystem->ReportIdleToMatchmakingServer();   // 세션 만료에도 status idle 보장
 		}
 	}
 	if (UBlackoutTelemetrySampler* Sampler = GetTelemetrySampler())
