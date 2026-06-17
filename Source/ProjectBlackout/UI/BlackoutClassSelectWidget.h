@@ -1,5 +1,9 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 최승현: 캐릭터 선택 UI 위젯과 3D 프리뷰 표시 구현
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

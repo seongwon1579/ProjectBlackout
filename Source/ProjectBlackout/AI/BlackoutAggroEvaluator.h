@@ -1,5 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: 거리/DPS/저체력 가중 점수로 어그로 타겟을 산정하는 평가기 (ST·BT 공용, 사망/다운 타겟 제외)
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

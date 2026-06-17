@@ -1,5 +1,10 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: 라인 트레이스로 좌/우 회피 가능 방향을 판정하는 데코레이터 + 회피 가능 영역 디버그 시각화
+//  - 김민영: 회피 판정 디버그 드로우 토글 추가
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

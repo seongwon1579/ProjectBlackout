@@ -1,3 +1,7 @@
+// ─── 구현 내역 ───────────────────────
+//  - 김민영: 풀 스폰/반환 시점 콜백(OnSpawnFromPool·OnReturnToPool)을 받는 풀링 대상 공용 인터페이스 정의
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

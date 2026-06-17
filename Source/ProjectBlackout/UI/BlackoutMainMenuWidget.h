@@ -1,5 +1,10 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 최승현: 메인 메뉴 위젯·매칭 시작·싱글 모드·재접속/타이틀 복귀 동작 구현
+//  - 허혁: 인게임 ESC 메뉴 및 설정 진입 연동
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

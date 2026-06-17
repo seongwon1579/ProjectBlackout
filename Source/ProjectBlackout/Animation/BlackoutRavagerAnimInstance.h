@@ -1,5 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: Ravager 블렌드스페이스용 속도·이동/조준 방향 계산을 구현
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

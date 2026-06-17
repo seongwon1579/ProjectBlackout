@@ -1,5 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 허혁: 근접 공격 판정 구간을 NotifyState로 구현해 윈도우 동안 히트 판정을 수행
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

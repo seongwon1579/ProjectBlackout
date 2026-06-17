@@ -1,4 +1,8 @@
-﻿#pragma once
+﻿// ─── 구현 내역 ───────────────────────
+//  - 최승현: 거리 가중치로 Wraith의 어그로 타겟을 산정해 출력하는 StateTree 평가기
+// ──────────────────────────────────────
+
+#pragma once
 
 #include "CoreMinimal.h"
 #include "StateTreeEvaluatorBase.h"

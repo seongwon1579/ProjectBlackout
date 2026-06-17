@@ -1,4 +1,8 @@
-﻿#pragma once
+﻿// ─── 구현 내역 ───────────────────────
+//  - 최승현: 타겟에서 안전 거리까지 후퇴하는 StateTree Task (여유 후퇴 버퍼 포함)
+// ──────────────────────────────────────
+
+#pragma once
 
 #include "CoreMinimal.h"
 #include "StateTreeTaskBase.h"

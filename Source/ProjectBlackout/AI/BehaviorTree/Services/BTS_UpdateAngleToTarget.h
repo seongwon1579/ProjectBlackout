@@ -1,5 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: 타겟 방향까지의 부호각을 매 틱 계산해 블랙보드에 기록하는 서비스
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

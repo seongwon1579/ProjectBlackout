@@ -1,5 +1,9 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 최승현: 로그인 모달 위젯 구현 (시연용 단순 로그인 처리)
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

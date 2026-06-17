@@ -1,5 +1,10 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 최승현: 클래스 선택 데이터 제공·3D 프리뷰·싱글 모드 연동 컨트롤러 구현
+//  - 김민영: 산탄 무기 펠릿 수 조회 기능 추가
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

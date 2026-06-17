@@ -1,5 +1,10 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 최승현: Wraith 근접공격 — Fire 캔슬 후 발동, 임팩트 시 knockback + 경직, BowMesh 소켓 기반 Sweep, Phase B ST 통합
+//  - 허혁: 적중 시 플레이어 스턴 게이지/피격 단계 처리
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

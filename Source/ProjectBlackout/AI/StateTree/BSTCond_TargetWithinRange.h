@@ -1,4 +1,8 @@
-﻿#pragma once
+﻿// ─── 구현 내역 ───────────────────────
+//  - 최승현: 타겟까지의 거리가 Min/Max 사거리(2D·3D 선택) 안인지 판정하는 StateTree 조건
+// ──────────────────────────────────────
+
+#pragma once
 
 #include "CoreMinimal.h"
 #include "StateTreeConditionBase.h"
