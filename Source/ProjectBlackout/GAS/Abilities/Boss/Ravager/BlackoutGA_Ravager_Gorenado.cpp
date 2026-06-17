@@ -72,22 +72,28 @@ void UBlackoutGA_Ravager_Gorenado::UpdatePulling()
 		FCollisionShape::MakeSphere(Settings.PullRadius),
 		QueryParams);
 	
-	TSet<AActor*> PulledThisUpdate; 
+	TSet<AActor*> PulledThisUpdate;
+	TArray<AActor*> TargetsToPull;
+	
 	for (const FOverlapResult& Overlap : Overlaps)
 	{
 		AActor* Target = Overlap.GetActor();
 		if (!Target) continue;
-		
+
 		if (!Cast<IBlackoutPullable>(Target)) continue;
-		
-		if (PulledThisUpdate.Contains(Target)) continue; 
+
+		if (PulledThisUpdate.Contains(Target)) continue;
+
+		if (IsTargetBlocked(Target)) continue;
+
 		PulledThisUpdate.Add(Target);
-		
+		TargetsToPull.Add(Target);
+	}
+	
+	for (AActor* Target : TargetsToPull)
+	{
 		SetBeingPulledTag(Target, true);
 		PulledActors.Add(Target);
-		
-		if (IsTargetBlocked(Target)) continue;;
-		
 		PullTarget(Target, UpdateInterval);
 	}
 	

@@ -16,7 +16,7 @@ class AGameModeBase;
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnAggroTargetChanged, APawn* /*NewTarget*/);
 
-UCLASS()
+UCLASS(EditInlineNew, DefaultToInstanced)
 class PROJECTBLACKOUT_API UBlackoutAggroEvaluator : public UObject
 {
 	GENERATED_BODY()
@@ -66,19 +66,19 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<UAbilitySystemComponent> CachedASC;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Blackout|Aggro", meta =(ClampMin = "0.0"))
-	float DistanceWeight = 1.f;
+	UPROPERTY(EditAnywhere, Category = "Blackout|Aggro", meta =(ClampMin = "0.0"))
+	float DistanceWeight = 0.5f;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Blackout|Aggro", meta =(ClampMin = "0.0"))
-	float DPSWeight = 2.0f;
+	UPROPERTY(EditAnywhere, Category = "Blackout|Aggro", meta =(ClampMin = "0.0"))
+	float DPSWeight = 5.0f;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Blackout|Aggro", meta =(ClampMin = "0.0"))
-	float LowHPWeight = 1.f;
+	UPROPERTY(EditAnywhere, Category = "Blackout|Aggro", meta =(ClampMin = "0.0"))
+	float LowHPWeight = 0.3f;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Blackout|Aggro", meta =(ClampMin = "0.0"))
+	UPROPERTY(EditAnywhere, Category = "Blackout|Aggro", meta =(ClampMin = "0.0"))
 	float DPSWindowDuration = 3.0f;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Blackout|Aggro", meta =(ClampMin = "0.0"))
+	UPROPERTY(EditAnywhere, Category = "Blackout|Aggro", meta =(ClampMin = "0.0"))
 	float MaxAggroRange = 10000.f;
 	
 	void OnAggroTargetChangeTagChanged(const FGameplayTag Tag, int32 NewCount);

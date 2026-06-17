@@ -25,11 +25,12 @@ void ABlackoutBossAIController::OnPossess(APawn* InPawn)
 	Super::OnPossess(InPawn);
 
 	PreInitialize(InPawn);
-
-	// Aggro
-	AggroEvaluator = NewObject<UBlackoutAggroEvaluator>(this);
-	AggroEvaluator->OnAggroTargetChanged.AddUObject(this, &ABlackoutBossAIController::HandleAggroTargetChanged);
-	AggroEvaluator->Initialize(this, CachedASC);
+	
+	if (AggroEvaluator)
+	{
+		AggroEvaluator->OnAggroTargetChanged.AddUObject(this, &ABlackoutBossAIController::HandleAggroTargetChanged);
+		AggroEvaluator->Initialize(this, CachedASC);
+	}
 }
 
 void ABlackoutBossAIController::OnUnPossess()
