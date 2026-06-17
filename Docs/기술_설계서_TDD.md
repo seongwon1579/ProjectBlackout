@@ -8,11 +8,11 @@
 ## 1. 프레임워크 및 네트워크 아키텍처
 Unreal Engine **5.7.4 바이너리 빌드(버전 고정)** 기반의 **Dedicated Server(데디케이티드 서버) 전용** 구조를 채택합니다. *(Listen Server 미지원)* 프로토타입 단계에서는 고정 IP 직접 접속으로 테스트하며, 정식 서비스 전환 시 AWS 상에 전용 매치메이킹 서버를 별도 구축합니다. 게임 플레이 로직 전반에 **GAS(Gameplay Ability System)** 와 **데이터 기반 설계(Data-Driven Design)** 를 적용하여 모듈화 및 확장성을 극대화합니다.
 
-- **GameMode 계층 구조**: 공통 로직은 부모 클래스에 집중하고, 실제 전투 세션은 단일 전투 맵의 `ABlackoutBattleGameMode`가 총괄합니다.
+- **GameMode 계층 구조**: 공통 로직은 부모 클래스에 집중하고, 준비 로비와 보스 전투는 각각 `ABlackoutLobbyGameMode`, `ABlackoutBattleGameMode`가 담당합니다.
   - **`ABlackoutGameMode` (부모)**: 서버 전용 베이스 클래스. 공통 기능(파티 전멸 판정, PlayerState 초기화, Server RPC 공통 처리) 담당.
-  - **`ABlackoutBattleGameMode` : `ABlackoutGameMode`**: 단일 전투 맵 전용. 시작 쉘터 캐릭터 선택, Ready Check, 구역 게이트 개방, 중간 보스 → 메인 보스 흐름, 파티 전멸 체크포인트 복귀, 승리 시 결과창/메인 메뉴 복귀 담당.
-  - **`ABlackoutLobbyGameMode` : `ABlackoutGameMode`**: 레거시/프로토타입 로비 전용 클래스입니다. 현재 설계의 기본 흐름에서는 별도 로비 맵과 전투 맵 이동을 사용하지 않습니다.
-- **GameState (`ABlackoutGameState`)**: 매치 타이머, 전역 기믹(파괴된 기둥 상태 배열), 붉은 안개 페이즈 전환 여부, 매치 결과/통계 상태 등을 동기화합니다.
+  - **`ABlackoutLobbyGameMode` : `ABlackoutGameMode`**: 단일 로비 전용. 플레이어 도착 처리, 병과 선택 UI 오픈, 로비 자원 샌드박스 적용, Ready 집계, 현재 보스 단계에 맞는 전투 맵 `ServerTravel` 담당.
+  - **`ABlackoutBattleGameMode` : `ABlackoutGameMode`**: 보스 전투 맵 전용. 전투 진입 자원 정책, 보스 등록/처치 결과, 파티 전멸 체크포인트 복귀, 중간 보스 후 로비 복귀, 메인 보스 승리 시 결과창/메인 메뉴 복귀 담당.
+- **GameState (`ABlackoutGameState`)**: 매치 타이머, 전역 기믹(파괴된 기둥 상태 배열), 매치 결과/통계 상태 등을 동기화합니다.
 - **PlayerState (`ABlackoutPlayerState`)**: AbilitySystemComponent(ASC)를 소유하며, 게임 내내 유지되어야 하는 자원 데이터를 보관 및 **서버와 완전 동기화**합니다.
   - **ASC 소유 어트리뷰트**: HP, Stamina, 탄약 4종, 유물 충전 횟수
   - **Replicated 프로퍼티**: 선택한 병과(`SelectedClassTag`), 소모품 소지 수량(블러드 루트 / 굴 혈청), Ready 상태 플래그
@@ -90,10 +90,9 @@ Unreal Engine **5.7.4 바이너리 빌드(버전 고정)** 기반의 **Dedicated
   - `GA_Wraith_FireArrow`: 엘리트 미니언(Root Wraith)의 원거리 2연발 화살 투사체 발사. 풀비용(Cost) 없이 쿨다운만 적용.
   - `GA_Wraith_Teleport`: 엘리트 미니언의 순간이동. **NavMesh `GetRandomReachablePointInRadius()`** 사용, 반경 600cm 이내 측방/후방 지점 선택. 모든 전투 레벨에 NavMesh Bake 필수. 시전/도착 시 `GCN_Wraith_Teleport [Static]` 호출.
 - **중간 보스(약삭빠름, Shrewd) 패턴 GA**:
-  - `UBlackoutGA_Shrewd_FireExplosiveArrow`: 발판 위에서 곡사로 원거리 폭발 화살 발사. `AnimNotify` 시점에 풀링된 발사체 스폰. 착탄 시 스플래시 피해.
+  - `UBlackoutGA_Shrewd_FireExplosiveArrow`: 공중에서 곡사로 원거리 폭발 화살 발사. `AnimNotify` 시점에 풀링된 발사체 스폰. 착탄 시 스플래시 피해.
   - `UBOGA_Shrewd_FireStraightArrow`: 짧은 예비 딜레이 후 직선 화살을 발사하는 Shrewd 기본 원거리 공격. 발사 수/간격은 Shrewd 데이터와 패턴 데이터에서 관리.
   - `UBlackoutGA_Shrewd_TeleportToPoint` / `UBlackoutGA_Shrewd_TeleportByEQS`: 지정 지점 또는 EQS 결과 지점으로 순간이동합니다. `State.Invulnerable`은 텔레포트 연출 중에만 일시 적용합니다.
-  - **씨앗 기믹**: 현재 C++ 구현 범위에는 씨앗 투하 GA/Seed Pod 클래스가 없으므로, 발표 기준에서는 보류 기믹으로 취급합니다. 후속 구현 시 별도 GA와 풀링 액터를 추가합니다.
 - **메인 보스(타락한 약탈자, Corrupted Ravager) 패턴 GA**:
   - `UBlackoutGA_Ravager_BasicAttack` / `UBlackoutGA_Ravager_HitboxAttack`: 넓은 할퀴기·물기 등 근접 히트박스 기반 공격의 공통 처리.
   - `UBlackoutGA_Ravager_ChaseAttack` / `UBlackoutGA_Ravager_Charge`: 추격·돌진형 이동 공격. 근접 히트박스가 `ABOBreakablePillarActor`에 적중하면 기둥 파괴도 함께 트리거합니다.
@@ -104,7 +103,7 @@ Unreal Engine **5.7.4 바이너리 빌드(버전 고정)** 기반의 **Dedicated
   - `UBlackoutGA_Ravager_Gorenado`: Phase C 궁극기. 다단 히트(Tick) 볼텍스 장판 생성. 플레이어 끌어당김은 `AddForce`/`AddImpulse` 대신 **서버에서 매 Tick마다 `SetActorLocation()`으로 강제 위치 이동** 처리(네트워크 물리 오차 방지). 끌어당김 강도는 볼텍스 중심 거리 반비례 점증.
 
 ### 4.1 플레이어 콤보 입력 동기화 (v2)
-플레이어 근접 공격(`UBlackoutGA_MeleePlayer`)과 연속 구르기(`UBlackoutGA_Dodge`)는 `LocalPredicted` GA로 즉시 로컬 반응을 제공하되, 콤보 섹션 진행·체인 회피 재시작·스태미나/무적/데미지 판정은 모두 서버 권위로 확정합니다. v1에서 사용하던 `Multicast_*Montage` 직접 호출 경로와 `AnimNotifyState` 기반 콤보 윈도우 권위는 **클라/서버 비대칭과 이중 점프 충돌**의 원인이 되어 v2에서 폐기합니다.
+플레이어 근접 공격(`UBlackoutGA_MeleePlayer`)과 연속 구르기(`UBlackoutGA_Dodge`)는 `LocalPredicted` GA로 즉시 로컬 반응을 제공하되, 콤보 섹션 진행·체인 회피 재시작·스태미나/무적/데미지 판정은 모두 서버 권위로 확정합니다. 몽타주 재생과 섹션 진행은 GAS 표준 복제 경로와 서버 World Time 타이머로 일원화합니다.
 
 #### 4.1.1 권위 모델
 | 영역 | 권위 |
@@ -117,11 +116,11 @@ Unreal Engine **5.7.4 바이너리 빌드(버전 고정)** 기반의 **Dedicated
 
 #### 4.1.2 몽타주 동기화
 - 몽타주 재생은 GAS 표준 `UAbilityTask_PlayMontageAndWait`로 일원화합니다. 서버 GA는 자기 ASC에서 `PlayMontage`를 호출하고, `UAbilitySystemComponent::RepAnimMontageInfo`가 시뮬레이트 프록시에 자동 복제됩니다.
-- 콤보 섹션 점프는 **서버에서만 `Montage_SetNextSectionName(CurrentSection, NextSection)`** 으로 수행합니다. 로컬 예측 클라이언트는 OnRep으로 자연 따라잡고, 별도 `Multicast_JumpMeleeMontageSection`/`Multicast_PlayMeleeMontage`/`Multicast_StopMeleeMontage`는 사용하지 않습니다.
+- 콤보 섹션 점프는 **서버에서만 `Montage_SetNextSectionName(CurrentSection, NextSection)`** 으로 수행합니다. 로컬 예측 클라이언트는 OnRep으로 자연 따라잡습니다.
 - 시뮬레이트 프록시 렐러번시 누락 시에도 RepAnimMontageInfo의 OnRep이 NextSectionID를 따라잡아 줍니다.
 
 #### 4.1.3 입력 전파 경로
-- 입력은 `UAbilityTask_WaitInputPress` + GAS `EAbilityGenericReplicatedEvent::InputPressed` 표준 경로로 일원화합니다. `bReplicateInputDirectly`는 사용하지 않습니다.
+- 입력은 `UAbilityTask_WaitInputPress` + GAS `EAbilityGenericReplicatedEvent::InputPressed` 표준 경로로 일원화합니다.
 - 클라이언트의 `UBlackoutAbilitySystemComponent::HandleAbilityInputPressed`는 활성 GA를 발견하면 `AbilitySpecInputPressed` 호출 직후 **명시적으로 `ServerSetReplicatedEvent(InputPressed, Handle, ScopedPredictionKey, OriginalActivationPredictionKey)`** 를 호출합니다. 이 RPC가 서버 ASC에서 `InvokeReplicatedEvent`를 발화시키고, 서버 GA의 `WaitInputPress::OnPress` 가 자동으로 호출됩니다.
 - `FBlackoutAbilityInputSyncPayload`(`SequenceId`, `ClientInputTimeSeconds`, `ClientEstimatedServerTimeSeconds`, `InputTag`, `AbilitySpecHandle`)는 **메타데이터 부가 채널**로 격하합니다. `Server_RecordAbilityInputSyncPayload` 는 timestamp/시퀀스만 기록하며, 표준 RPC와 중복되는 서버 측 `InputPressed` 재발화는 수행하지 않습니다.
 - 메타데이터는 서버 grace clamp 계산에만 사용하고, 입력 트리거 자체는 표준 GAS 경로가 담당합니다.
@@ -144,7 +143,7 @@ Unreal Engine **5.7.4 바이너리 빌드(버전 고정)** 기반의 **Dedicated
 
 #### 4.1.6 권위 경계
 - timestamp·ping 기반 보정은 “입력 수락 여부” 결정에만 사용합니다.
-- 히트 판정, I-Frame 부여, 스태미나 소모, 데미지 적용은 서버 현재 상태에서 확정하며, 클라이언트가 보낸 애니메이션 Notify나 적중 결과를 권위 데이터로 사용하지 않습니다.
+- 히트 판정, I-Frame 부여, 스태미나 소모, 데미지 적용은 서버 현재 상태에서 확정하며, 권위 데이터는 서버 산출값을 기준으로 합니다.
 - 클라이언트의 로컬 예측(섹션 점프 표시, 입력 버퍼 표시)은 서버 RepAnimMontageInfo가 도달하면 자연 reconcile 됩니다. 클라이언트가 자체적으로 `Montage_JumpToSection`을 호출해 권위 결정을 앞서지 않습니다.
 
 ## 5. 데미지 판정 및 조건부 자원 보상 (Gameplay Effect)
@@ -204,68 +203,68 @@ GE와 ExecCalc(실행 계산기)를 사용해, 피격 처리와 기믹 보상을
 | **타락한 약탈자 (Ravager)** | `Body.WeakSpot` | 등 종양(Back Pustules) | **1.5배** | 어그로 전환 시 등이 플레이어에게 노출되는 순간 |
 | **타락한 약탈자 (Ravager)** | `Body.ArmoredLimb` | 앞발 장갑(Armored Legs) | **0.5배** | 상시 활성 (피해 감쇠용) |
 
-## 6. 인공지능 (AI) 기믹 제어 (StateTree + 하위 BehaviorTree)
-> **AI 프레임워크 원칙**: 미니언은 **순수 StateTree**, 보스는 **StateTree(페이즈 관리) + 하위 BehaviorTree(페이즈별 패턴)** 하이브리드. 상세 자산/노드 설계는 `Docs/AI_Boss/` 참조.
+## 6. 인공지능 (AI) 기믹 제어 (StateTree + BehaviorTree 분리 운용)
+> **AI 프레임워크 원칙 (v6 갱신)**: 미니언은 **순수 StateTree**, **중간 보스(Shrewd)도 순수 StateTree**, **메인 보스(Ravager)는 순수 BehaviorTree**(C++ 페이즈 관리 모듈 + 페이즈별 BehaviorTree 교체)로 운용합니다. 상세 자산/노드 설계는 `Docs/AI_Boss/` 참조.
 
 - **미니언 (Minions, 순수 StateTree)**
   - `Root Hollow (일반)`: 플레이어와 거리를 좁힌 뒤 도약/구르기 박치기 Task(`FBSTTask_Charge`)를 수행하여 자세 무너짐(Stagger)을 유발합니다. 보스가 몸을 털 때 붉은 구근(Bulb) 형태로 뿌려진 뒤 즉시 부화.
-  - `Root Wraith (엘리트)`: 원거리에서는 2연발 투사체(`FBSTTask_FireTwinArrows`) 발사 후 시야 밖 NavMesh 쿼리 지점으로 즉시 점멸(`FBSTTask_Teleport`). **근접 접근 감지 시 활대를 휘둘러 플레이어를 강하게 밀쳐내는 Push Task(`FBSTTask_BowShove`)** 로 거리를 재확보합니다.
-- **중간 보스 (슈루드 - Shrewd, StateTree 페이즈 + 하위 BT)**: 메인 전투 돌입 전 파티 화력 검증 관문. StateTree의 최상위 상태가 원거리(발판) / 근접(지면) **2-Phase Cycling** 을 관리하고, 각 페이즈가 하위 BT를 실행합니다. 타겟팅은 §6.1 **공통 어그로 시스템**을 Ravager와 동일하게 적용합니다.
-  - `원거리 페이즈 (Platform)`: 발판 위로 도약 후 `UBlackoutGA_Shrewd_FireExplosiveArrow`(폭발 속성 단발 화살), `UBOGA_Shrewd_FireStraightArrow`(직선 화살) 순환. `UBTService_LineOfSightCheck`가 0.5초 주기로 타겟의 LoS를 체크하여, 차단 시 `UBlackoutGA_Shrewd_TeleportToPoint` 또는 `UBlackoutGA_Shrewd_TeleportByEQS`로 위치를 재선정합니다.
-  - `근접 페이즈 (Ground)`: 발판에서 내려와 타겟에게 근접 교전합니다. 근접 콤보/강습 도약은 Shrewd 전용 GA 확장 지점으로 남기며, 현재 구현 범위에서는 원거리 공격과 텔레포트 압박을 우선합니다.
-  - **씨앗 기믹**: **기획 보류(GDD §5). 현재 C++ 구현 없음** — 발표 기준의 필수 클리어 기믹에서 제외하고, 후속 범위로 이동합니다.
-- **메인 보스 (타락한 약탈자 - Corrupted Ravager, StateTree 3-Phase + 하위 BT)**: StateTree의 `FBSTEval_HealthRatio`가 HP 비율을 지속 퍼블리시하고, `FBSTCond_HealthBelow` 전이로 페이즈 분기.
+  - `Root Wraith (엘리트)`: 원거리에서는 2연발 투사체(`FBSTTask_FireTwinArrows`) 발사 후 시야 밖 NavMesh 쿼리 지점으로 즉시 점멸(`FBSTTask_Teleport`). **근접 접근 감지 시 활대를 휘둘러 플레이어를 강하게 밀쳐내는 Push Task(`FBSTTask_BowShove`)** 로 거리를 재확보합니다. 타겟 선정은 StateTree Evaluator(`FBSTEval_WraithAggroTarget`)가 담당합니다.
+- **중간 보스 (슈루드 - Shrewd, 순수 StateTree)**: 메인 전투 돌입 전 파티 화력 검증 관문. `ABlackoutShrewdAIController`가 `StateTreeComp->StartLogic()`으로 구동하며, 전투 내내 비행하는 단일 페이즈 패턴을 StateTree Task로 순환합니다. 타겟팅은 §6.1 **공통 어그로 시스템**을 사용하되, Shrewd StateTree Evaluator(`FBSTEval_ShrewdAggroTarget`)는 현재 Pawn의 `UBlackoutAggroComponent::GetCurrentTarget()`을 읽어 StateTree 컨텍스트에 퍼블리시합니다.
+  - `원거리 패턴`: `UBlackoutGA_Shrewd_FireExplosiveArrow`(폭발 속성 단발 화살), `UBOGA_Shrewd_FireStraightArrow`(직선 화살) 순환. LoS 차단 시 `UBlackoutGA_Shrewd_TeleportToPoint` 또는 `UBlackoutGA_Shrewd_TeleportByEQS`로 위치를 재선정합니다.
+- **메인 보스 (타락한 약탈자 - Corrupted Ravager, 순수 BehaviorTree + C++ 페이즈 관리)**: `ABlackoutRavagerAIController`가 StateTree 없이 다음 두 C++ 모듈로 페이즈를 운용합니다.
+  - **`UBlackoutPhaseEvaluator` (페이즈 관리)**: 페이즈 전환 요청을 받아 단조 증가(Phase1→2→3)만 허용하고, 보스 ASC에 `Ability.PhaseLock` 게임플레이 태그가 있으면 전환 적용을 대기시켰다가 태그가 풀리면 적용합니다. 적용 시 `OnBossPhaseChanged` 델리게이트를 브로드캐스트합니다.
+  - **`UBlackoutBossBTRunner` (페이즈별 BT 교체)**: `TMap<EBOBossPhase, UBehaviorTree>`를 보관하다가 `HandlePhaseChanged` 수신 시 해당 페이즈 BehaviorTree를 `Controller->RunBehaviorTree()`로 통째로 교체 실행합니다.
+  - **페이즈 결정 주체**: StateTree Evaluator/Condition이 아니라 **보스 캐릭터(`ABORavagerBoss`)** 가 담당합니다. ASC Health 어트리뷰트 변경 델리게이트(`OnDamageReceived`)에서 `DetermineTargetPhase(HealthRatio)`(≤0.3→Phase3, ≤0.6→Phase2, else Phase1)를 계산해 `AIController->RequestPhaseChange()`를 호출합니다.
+  - **페이즈 내 패턴 선택·실행 (BehaviorTree 노드)**: `UBTT_PickNextPattern`(패턴 번호를 Blackboard에 기록) → `UBTT_SelectAbility`(능력 GameplayTag를 Blackboard에 기록) → `UBTT_ActivateAbility`(태그로 GA를 Gameplay Event 발동, `bWaitForEnd`로 종료 대기)의 흐름으로 구성하고, 이동·회피·회전은 `UBTT_ActivateEvadeAbility`/`UBTT_ActivateRotateAbility`, 거리·각도·추격 판단은 BT Service(`BTS_UpdateTargetData`, `BTS_UpdateAngleToTarget`, `BTS_CheckChaseDistance`)와 Decorator(`BTD_IsInRange`, `BTD_NeedsRotation`, `BTD_CanEvade`, `BTD_RandomChance`)로 처리합니다.
   - `Phase A` (100~60%): **기동성 압박**. 주요 패턴은 `UBlackoutGA_Ravager_BasicAttack`/`UBlackoutGA_Ravager_HitboxAttack` 기반 근접 콤보입니다.
     - `UBlackoutGA_Ravager_ChaseAttack` / `UBlackoutGA_Ravager_Charge`(도약·추격·돌진형 복합 공격)
     - `UBlackoutGA_Ravager_Evade`(회피 이동) → `UBlackoutGA_Ravager_Shockwave`(앞발 충전 후 바닥을 타고 날아가는 가로 형태 장풍) **연계기**
     - `UBlackoutGA_Ravager_SummonMinion`(Root Hollow/Root Wraith 간헐 스폰).
-  - `Phase B` (60~30%): 붉은 안개 포효/전환 연출 후 `GE_Enrage` 적용으로 공격/이동 속도 증가.
-    - `GCN_RedMist [Actor]` 지속 이펙트 활성화.
-    - 신규 광역기 **`UBlackoutGA_Ravager_EnergyBurst`(제자리에서 웅크리며 붉은 에너지를 충전 후 주변 넓은 반경에 치명적 피해를 주는 에너지 파동)** 주기적 발동.
-    - **일반+엘리트(Root Wraith) 미니언 혼합 스폰** 분기 실행 (`UBTTask_SpawnMinionWave` WaveType = `Mixed`).
+  - `Phase B` (60~30%): `GE_Enrage` 적용으로 공격/이동 속도 증가.
+    - 신규 광역기 **`UBlackoutGA_Ravager_EnergyBurst`(제자리에서 웅크리며 에너지를 충전 후 주변 넓은 반경에 치명적 피해를 주는 에너지 파동)** 주기적 발동.
+    - **일반+엘리트(Root Wraith) 미니언 혼합 스폰** 분기 실행 (`UBlackoutGA_Ravager_SummonMinion`을 혼합 웨이브 데이터로 발동).
   - `Phase C` (30% 이하): 체력이 30% 이하로 감소시 광폭화 진입, 선후딜 감소(애니메이션 PlayRate 승수 1.0 → 1.3 적용).
     - Phase A/B 패턴 전체 유지 + 궁극기 `UBlackoutGA_Ravager_Gorenado`(볼텍스 소용돌이로 플레이어를 중앙으로 끌어당김) 신규 추가.
     - 맵의 기둥은 Phase A/B 전투 동안 `UBlackoutGA_Ravager_Charge` 또는 `UBlackoutGA_Ravager_HitboxAttack` 계열 공격의 **히트 부차 효과**로 순차 파괴됩니다. 별도 전용 기둥 돌진 GA를 두지 않고 해당 GA들의 히트 판정이 `ABOBreakablePillarActor`에 적중하면 파괴를 트리거합니다(§8).
 
-### 6.1 보스 공통 — 타겟팅(어그로) 시스템 ⭐ (신규)
+### 6.1 보스 공통 — 타겟팅(어그로) 시스템 ⭐
 GDD §6.0을 구현하는 전용 모듈입니다. 중간 보스(Shrewd)와 메인 보스(Ravager) 모두에 동일하게 적용됩니다.
 
-- **`UBlackoutAggroEvaluator` / StateTree Evaluator (`FBSTEval_ShrewdAggroTarget`, `FBSTEval_WraithAggroTarget`)**: 보스 AI 컨트롤러가 소유하는 `UBlackoutAggroEvaluator`가 공통 타겟 선정을 담당하고, StateTree Evaluator가 이를 페이즈/패턴 그래프에 주입합니다. 서버 Authority 전용이며, 0.25초 주기(`EvaluationInterval`)로 타겟을 평가하여 Controller의 Blackboard Key `BB_CurrentTarget`에 결과를 기록합니다.
+- **소유 구조**: `ABlackoutBossAIController`가 `Instanced` 프로퍼티로 `UBlackoutAggroEvaluator`(`EditInlineNew, DefaultToInstanced` UObject)를 소유합니다. `OnPossess` 시 `Initialize(Controller, ASC)`로 초기화하고 `OnAggroTargetChanged` 델리게이트를 컨트롤러의 `HandleAggroTargetChanged`에 바인딩합니다. 타겟 결과 소비는 보스별로 다릅니다.
+  - **Ravager**: `HandleAggroTargetChanged`가 Blackboard의 `Target` 오브젝트 키에 기록 → BehaviorTree가 소비.
+  - **Shrewd**: `HandleAggroTargetChanged`가 컨트롤러 멤버 `CurrentAggroTarget`에 기록. 단, 현재 Shrewd StateTree Evaluator(`FBSTEval_ShrewdAggroTarget`)는 Pawn에 부착된 `UBlackoutAggroComponent::GetCurrentTarget()`을 읽어 StateTree 컨텍스트에 퍼블리시합니다(두 경로 공존).
+  - **Root Wraith(엘리트 미니언)**: 별도 StateTree Evaluator(`FBSTEval_WraithAggroTarget`)가 타겟을 선정.
 
-- **누적 피해 트래킹**: `UBlackoutAggroEvaluator` 내부에 `TMap<TWeakObjectPtr<APlayerState>, float> DamageAccumulator`를 보관합니다. 보스가 `GE_Damage`를 수신할 때 `RecordDamage(APawn* Source, float Amount)` 경로로 Instigator PlayerState별 누적치를 갱신합니다.
+- **피해 트래킹 (슬라이딩 윈도우 DPS)**: 평가기는 `TMap<TWeakObjectPtr<APawn>, FPlayerCombatData>`에 플레이어별 **타임스탬프가 찍힌 피해 기록**을 보관합니다. 보스 캐릭터의 ASC Health 변경 델리게이트(`OnDamageReceived`)에서 `RecordDamage(Source, Amount)`를 호출해 기록을 추가하고, 평가 시 최근 `DPSWindowDuration`(기본 **3.0초**) 윈도우 안의 피해 합만 집계합니다(오래된 기록은 자동 제거). 누적치 + 선형 감쇠 방식이 아니라 **고정 윈도우 합산** 방식입니다.
 
-- **타겟 선정 우선순위** (GDD §6.0 1:1 매핑):
+- **타겟 선정 (가중치 점수제)**: GDD §6.0의 3대 요소(피해·거리·체력)를 우선순위 분기 대신 **가중치 합산 점수**(`CalculateAggroScore`)로 종합 판정해 최고 점수 플레이어를 타겟으로 선택합니다.
 
-  | 우선순위 | 조건 | 판정 로직 |
+  | 요소 | 가중치 변수(기본값) | 의미 |
   |---|---|---|
-  | **1순위** | 누적 피해량 최대 | `DamageAccumulator`에서 최대값 플레이어. 단, 2위와의 격차가 임계값(기본 15%) 미만이면 2순위로 넘어감. |
-  | **2순위** | 가장 가까운 거리 | `FVector::DistSquared` 기준 최근접 생존 플레이어. |
-  | **3순위** | 가장 낮은 현재 체력 | `Health` 어트리뷰트 최저 생존 플레이어. |
+  | 윈도우 내 피해(DPS) | `DPSWeight` (5.0) | 최근 3초 누적 피해가 클수록 가중 — A캐릭터 지속 화력이 자연스럽게 어그로 유지 |
+  | 거리 | `DistanceWeight` (0.5) | 가까울수록 가중 (`MaxAggroRange` 10000 밖은 후보 제외) |
+  | 저체력 | `LowHPWeight` (0.3) | 체력이 낮을수록 가중 |
 
-- **타겟 전환 쿨다운**: `TargetSwitchCooldown = 5.0f` 서버 변수로 관리. 마지막 전환 시점(`LastSwitchTime`) 기록 후, 쿨다운이 끝나기 전에는 1~3순위 재평가 결과가 바뀌어도 타겟을 유지합니다(핑퐁 방지). 단, 현재 타겟이 **다운/사망**한 경우는 쿨다운 무시하고 즉시 전환합니다.
+- **타겟 전환 게이팅**: 마지막 전환 후 고정 초 단위 쿨다운 변수가 아니라 **게임플레이 태그 이벤트**로 제어합니다. 전환 잠금 태그(`TargetChangeTag`)가 걸려 있는 동안에는 재평가 결과가 바뀌어도 타겟을 유지하고, 현재 타겟의 다운/사망 태그(`DownTag`)를 감시(`WatchTargetDownState`)하다가 무효(`IsTargetInvalid`)가 되면 즉시 재선정합니다.
 
-- **누적 피해 감쇠**: 장기전에서 초반 누적 피해량이 지나치게 굳어지는 것을 막기 위해, `DamageAccumulator` 값은 1초마다 2%씩 선형 감쇠(Decay) 됩니다. (데이터 에셋 `UBOBossData.AggroDecayRate`에서 튜닝 가능)
+- **튜닝 파라미터**(`UBlackoutAggroEvaluator`에 `EditAnywhere`로 노출): `DPSWeight`, `DistanceWeight`, `LowHPWeight`, `DPSWindowDuration`, `MaxAggroRange`. 보스별 차이는 인스턴스 값으로 조정합니다.
 
-- **튜닝 파라미터**(`UBOBossData`에 등록):
-  - `AggroSwitchCooldown` (기본 5.0초)
-  - `AggroDamageThreshold` (기본 0.15 = 15%)
-  - `AggroDecayRate` (기본 0.02 /sec)
+- **서버 Authority 전용**: `RecordDamage`/평가 경로는 모두 서버에서만 호출됩니다(`GE_Damage` 적용이 서버에서만 발생).
 
-- **디자인 의도 검증**: A캐릭터가 지속적으로 화력을 뿜으면 1순위에서 자연스럽게 어그로를 유지하고, B/C는 뒤에서 약점/미니언을 안전하게 처리하는 구도가 형성됩니다. A가 다운되면 2순위(근접도) → 다른 전방 플레이어로 자동 인계됩니다.
+- **디자인 의도 검증**: A캐릭터가 지속적으로 화력을 뿜으면 DPS 가중치(5.0)가 지배적이어서 자연스럽게 어그로를 유지하고, B/C는 뒤에서 약점/미니언을 안전하게 처리하는 구도가 형성됩니다. A가 다운/사망하면 무효 감시 경로가 즉시 재선정을 유발해 다른 전방 플레이어로 어그로가 인계됩니다.
 
-## 7. 전투 세션 플로우 및 체크포인트 제어 ⭐ (신규)
-GDD §2의 게임 플로우(단일 맵 + 쉘터 집결)를 구현하는 섹션입니다. 별도 로비 GameMode/맵 없이 `ABlackoutBattleGameMode`가 진입·집결·체크포인트를 일원화합니다.
+## 7. 로비-전투 세션 플로우 및 체크포인트 제어 ⭐
+GDD §2의 게임 플로우(단일 로비 준비 → 보스 전투 맵 이동 → 결과창 → 로비/타이틀 복귀)를 구현하는 섹션입니다. 로비 단계는 `ABlackoutLobbyGameMode`, 보스전 단계는 `ABlackoutBattleGameMode`가 담당합니다.
 
-### 7.1 전투 진입 흐름 (`ABlackoutBattleGameMode`, 시작 쉘터)
-1. **자동 매치메이킹 완료**: 4명이 데디 서버(단일 전투 맵)에 직접 접속. 별도 로비 맵/레벨 이동 없음. `ABlackoutBattleGameMode::OnPlayerJoined`에서 각 `APlayerController`에게 `Client_OpenClassSelectUI` RPC 호출 → 시작 쉘터에서 캐릭터 선택 UI 팝업.
-2. **캐릭터 선택 리플리케이션**: 플레이어가 병과를 고르면 `Server_SelectClass(FGameplayTag)` RPC → `ABlackoutPlayerState::SelectedClassTag`에 저장 후 리플리케이트. 다른 클라이언트는 `OnRep_SelectedClassTag`로 UI 갱신. **중복 픽 허용**, 서버는 중복 검증을 하지 않습니다.
-3. **선택 확정 시 장비 지급**: 서버가 `UBOCharacterData`를 참조하여 해당 캐릭터의 무기/어트리뷰트를 주입. 인게임 조작 가능 상태로 전환.
-4. **시작 쉘터 자원 정책**: 시작 쉘터(`ABlackoutShelterZone`)는 휴식 효과(탄약/유물/소모품 보정, §7.2)를 적용합니다. 시작 쉘터와 체크포인트 쉘터는 동일한 자원 보정 규칙을 사용합니다.
-5. **쉘터 재선택**: 시작 쉘터의 클래스 선택 오브젝트(`ABlackoutClassSelectStone`, `IBlackoutInteractable`)와 `E` 상호작용 시 `Server_RequestReopenClassSelect` RPC → 해당 플레이어만 선택 UI 재호출. (이후 거점 쉘터의 런-중 캐릭터 교체는 동일 경로 재사용.)
-6. **Ready Check 및 구역 개방**: 시작 쉘터에서 4인 전원 준비 완료 시 `ABlackoutBattleGameMode::AllPlayersReady` 충족 → `ABlackoutAreaGate`가 **중간 보스 구역 게이트를 언락**합니다(맵 트래블 아님, 단일 맵 내 구역 개방).
+### 7.1 로비 진입 및 전투 시작 흐름 (`ABlackoutLobbyGameMode`)
+1. **자동 매치메이킹 완료**: 4명이 데디 서버의 로비 맵에 접속합니다. `ABlackoutLobbyGameMode::OnPlayerJoined`와 seamless 복귀 경로 `OnSeamlessArrival`은 공통으로 `HandleLobbyArrival`을 호출합니다.
+2. **로비 도착 처리**: 로비에 도착한 플레이어 폰은 `RestoreToFullState()`로 회복되고, 로비 조작 확인용 자원 샌드박스가 적용됩니다. 로비 자원 샌드박스는 `StartBattle()` 직전에 전원 해제됩니다.
+3. **캐릭터 선택 리플리케이션**: 플레이어가 병과를 고르면 `Server_SelectClass(FGameplayTag)` RPC → `ABlackoutPlayerState::SelectedClassTag`에 저장 후 리플리케이트합니다. 다른 클라이언트는 `OnRep_SelectedClassTag`로 UI를 갱신합니다. **중복 픽 허용**, 서버는 중복 검증을 하지 않습니다.
+4. **Ready Check**: `ABlackoutGameMode::AllPlayersReady()`가 정원과 Ready 상태를 집계합니다. 전원 Ready가 성립하면 `ABlackoutLobbyGameMode::OnAllPlayersReady()`가 `StartBattle()`을 호출합니다.
+5. **전투 맵 이동**: `StartBattle()`은 `UBlackoutMatchFlowSubsystem::GetCurrentStageIndex()`로 현재 보스 단계를 확인하고, `BossStageMapPaths[StageIndex]`에 해당하는 보스 전투 맵으로 `ServerTravel`합니다.
 
-### 7.2 시작 쉘터 진입 시 자원 초기화 (`ABlackoutBattleGameMode`)
-GDD §2의 자원 초기화 규칙을 구현합니다 (트리거: 시작 쉘터 최초 진입 / 체크포인트 전환):
+### 7.2 전투 맵 진입 시 자원 초기화 (`ABlackoutBattleGameMode`)
+GDD §2의 자원 초기화 규칙을 구현합니다 (트리거: 로비 → 보스 전투 맵 진입 / 체크포인트 전환):
 
 | 자원 | 초기화 정책 |
 |---|---|
@@ -276,7 +275,7 @@ GDD §2의 자원 초기화 규칙을 구현합니다 (트리거: 시작 쉘터 
 
 구현은 `ABlackoutPlayerState::ApplyBattleTransitionPolicy(EBattleTransitionType)`로 일원화.
 
-### 7.3 쉘터 체크포인트 및 리스폰 (`ABlackoutShelterZone` + `ABlackoutBattleGameMode`)
+### 7.3 전투 체크포인트 및 리스폰 (`ABlackoutShelterZone` + `ABlackoutBattleGameMode`)
 - **체크포인트 등록**: 전투 맵에는 구역별 쉘터 존이 배치되어 있으며, `BeginPlay`에서 자신의 구역 태그(`Checkpoint.MidBoss` / `Checkpoint.MainBoss`)를 `ABlackoutBattleGameMode::RegisterCheckpoint`로 등록.
 - **마지막 통과 체크포인트 추적**: 플레이어가 쉘터 존에 진입하거나 휴식 상호작용을 완료하면 `GameMode::CurrentCheckpointTag`를 해당 구역으로 갱신.
 - **휴식 시 효과** (상호작용 `E`):
@@ -287,7 +286,7 @@ GDD §2의 자원 초기화 규칙을 구현합니다 (트리거: 시작 쉘터 
 - **관전 중 과반수 재시작 투표**: §5.1의 `Server_VoteRestart`가 호출되면 동일하게 `Server_RestartAtCheckpoint` 경로를 재사용. 관전 중 플레이어는 다운→완전사망 시퀀스를 건너뛰고 바로 활성 폰으로 복구됩니다.
 
 ### 7.4 보스 클리어 및 세션 종료
-- **중간 보스 → 메인 보스**: `ABlackoutBattleGameMode::OnMidBossDefeated` 델리게이트 수신 시, **단일 맵 내** 메인 보스 구역 게이트 언락 + 메인 보스방 쉘터를 현재 체크포인트로 갱신. 레벨 트래블/스트리밍 없이 같은 월드에서 구역만 개방하므로 장비/어트리뷰트 지속성이 자연 보장됨.
+- **중간 보스 → 로비 복귀 → 메인 보스 준비**: `ABlackoutBattleGameMode`가 중간 보스 처치 결과창을 표시한 뒤 `UBlackoutMatchFlowSubsystem::AdvanceStage()`를 호출하고 `TravelToLobby()`로 로비 맵에 복귀합니다. 로비에서 다시 병과/Ready를 정리하면 `ABlackoutLobbyGameMode::StartBattle()`이 다음 `BossStageMapPaths` 항목으로 이동합니다.
   - **아레나 캡슐화 (`IArenaResettable`)**: 각 보스 구역은 자기 상태 초기화를 캡슐화한 단위(보스/미니언 풀/파괴물). `HandlePartyWipe`·`HandleCheckpoint`가 `CurrentArena->Reset()`을 호출해 결정적 재시작을 보장. *(이 추상화 덕에 후일 메모리/리셋 결정성 문제가 측정되면 해당 구역을 스트리밍 서브레벨로 전환하는 것이 재작성 없이 가능 — 단일 맵이 최종 구조이되 전환 탈출구는 열어 둠.)*
 - **메인 보스 처치 (완전 승리)**: `OnMainBossDefeated` 델리게이트 수신 시:
   1. 5초 축하 연출(`GCN_Victory [Static]`) 재생
@@ -316,7 +315,7 @@ GDD §6 메인 보스 핵심 기믹인 "돌진/근접 공격에 의한 엄폐물
 GDD §8.3의 미니멀리즘 HUD 전체 구성 요소를 UI 위젯 레이어로 명세합니다.
 
 - **`UBlackoutHUDWidget`** (전체 HUD 루트). 각 서브 위젯을 자식으로 포함.
-- **플레이어 상태 바인딩** (`Attribute Delegate` 기반, Tick 미사용):
+- **플레이어 상태 바인딩** (`Attribute Delegate` 기반):
   - `UW_HealthBar` ← `OnHealthChanged`
   - `UW_StaminaBar` ← `OnStaminaChanged` (고갈 임계치 이하 시 점멸 애니메이션 토글)
   - `UW_RelicCounter` ← `OnRelicChargesChanged`
@@ -343,7 +342,7 @@ GDD §8.3의 미니멀리즘 HUD 전체 구성 요소를 UI 위젯 레이어로 
 - **`UBOCharacterData` (PrimaryDataAsset)**: 플레이어 클래스별 초기 체력, 스태미나 배율, 소모품 기본 지급량, 시작 기본 무기 종류, `GrantedAbilities` 배열.
 - **`DT_WeaponStats` (DataTable)**: 무기별 `BaseDamage`, `FireRate`, `MagazineSize`, `SplashRadius`, `CrosshairType`(0~5).
 - **`UBOMinionData` (PrimaryDataAsset)**: 미니언 스탯(`MaxHealth`, 이동속도), `TMap<GameplayTag, float> AbilityDamageMap`.
-- **`UBOBossData` (PrimaryDataAsset)**: 페이즈 체력 컷라인, 부위별 피해 배율, 패턴별 데미지 `TMap<GameplayTag, float>`, 어그로 튜닝(`AggroSwitchCooldown`, `AggroDamageThreshold`, `AggroDecayRate`).
+- **`UBOBossData` (PrimaryDataAsset)**: 페이즈 체력 컷라인(`PhaseHealthCutlines`), 부위별 피해 배율(`HitPartMultipliers`), 패턴별 데미지 `TMap<GameplayTag, float>`(`AbilityDamageMap`). 자산에 어그로 필드(`AggroSwitchCooldown` 등)도 정의되어 있으나, **현재 어그로 평가는 `UBlackoutAggroEvaluator` 인스턴스 자체 가중치(`DPSWeight`/`DistanceWeight`/`LowHPWeight`/`DPSWindowDuration`/`MaxAggroRange`)를 사용**하므로 해당 필드는 평가기에서 참조되지 않는 잔여 항목입니다(§6.1).
 - **`UBORavagerStatData` / `UBORavagerPatternData`**: Ravager 전용 스탯, 페이즈별 패턴 후보, 미니언 스폰/투사체/히트박스 세부값을 분리 보관합니다.
 - **`UUBOShrewdData`**: Shrewd 전용 발사체/텔레포트/원거리 패턴 수치를 보관합니다.
 
@@ -357,7 +356,6 @@ GDD §8.3의 미니멀리즘 HUD 전체 구성 요소를 UI 위젯 레이어로 
 | 발사체 (화살, 충격파 등) | 액터 수 × 수명(초) × 연사속도(1/초) | 타입별 개별 계산 |
 | 탄약 드랍 아이템 | 20 | 최대 동시 바닥 잔존 수 |
 | 소모품 드랍 아이템 | 5 | 최대 동시 바닥 잔존 수 |
-| Seed Pod (씨앗 포드) | 보류 | 현재 구현 범위 제외. 후속 씨앗 기믹 확정 시 풀 대상에 추가 |
 
 - **`IBlackoutPoolableInterface` 의무 구현**
   - `OnSpawnFromPool()`: Hidden 해제, Collision 켜기, Tick 활성화, 액터별 런타임 상태 리셋
@@ -385,7 +383,7 @@ GDD §8.3의 미니멀리즘 HUD 전체 구성 요소를 UI 위젯 레이어로 
 - **블렌드 스페이스**: 8방향 이동 모션.
 - **에임 오프셋**: 카메라 Pitch/Yaw에 따른 상반신 동기화.
 - **레이어 블렌딩**: 하반신(이동/구르기) / 상반신(장전/유물/사격 반동) 분리.
-- **접지 보정 (Foot IK)**: 1차 구현은 AnimBP `Two Bone IK`. 필요 시 Control Rig 기반 Full Body IK로 마이그레이션 검토(1차 범위 제외).
+- **접지 보정 (Foot IK)**: AnimBP `Two Bone IK`로 경사면 발 위치를 보정합니다.
 
 ## 14. 시각 및 음향 효과 (VFX & SFX) 설계
 
@@ -407,9 +405,8 @@ GDD §8.3의 미니멀리즘 HUD 전체 구성 요소를 UI 위젯 레이어로 
 | `GCN_Ravager_Shockwave_Launch` | **Static** | 일회성 지면 파쇄 |
 | `GCN_Victory` | **Static** | 메인 보스 클리어 일회성 승리 연출 |
 | `GCN_HealLoop` | **Actor** | GE 지속 중 루프 치유 오라 |
-| `GCN_RedMist` | **Actor** | Phase B 동안 지속 붉은 안개 |
 
-- **주요 효과 분류**: 총기(Muzzle Flash, Tracer, Shell Ejection), 피격(Physical Material별 분기), 보스 기믹(Red Mist, 중력파, 소용돌이).
+- **주요 효과 분류**: 총기(Muzzle Flash, Tracer, Shell Ejection), 피격(Physical Material별 분기), 보스 기믹(중력파, 소용돌이).
 - **최적화**: 오버드로우 방지를 위한 레이어별 입자 수 제어, `Cull Proxy`.
 
 ### 14.2 음향 효과 (SFX - Sound Cue & MetaSounds)

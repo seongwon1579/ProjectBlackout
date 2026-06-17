@@ -1,6 +1,6 @@
 # Foundation — 02. 캐릭터 상속 계층 (Character Hierarchy)
 
-> TDD v5 §2 참조. 1차 구현 범위는 **Base + 빈 자식 스켈레톤**까지. 상세 무기/AI 로직은 각 에픽에서 확장.
+> TDD v5 §2 참조. 공통 베이스와 구체 자식 타입의 상속 관계를 정의합니다.
 
 ```mermaid
 classDiagram

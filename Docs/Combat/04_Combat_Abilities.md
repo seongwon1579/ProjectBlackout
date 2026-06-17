@@ -134,15 +134,15 @@ classDiagram
   - `ApplyRelicEffect()`에서 유물 충전 차감과 회복 적용이 성공한 순간 `GameplayCue.Relic.Use`를 1회 실행합니다.
   - Cue 복제와 부착 규칙은 소모품과 동일하게 ASC `ExecuteGameplayCue`와 `EffectCauser` 기준 오른손 `WeaponSocket` 부착으로 처리합니다.
 - **`UBlackoutGA_MeleePlayer`** (TDD v5 §4.1 v2):
-  - 몽타주 재생은 `UAbilityTask_PlayMontageAndWait` 로 처리합니다. **`Multicast_PlayMeleeMontage` / `Multicast_JumpMeleeMontageSection` / `Multicast_StopMeleeMontage` 는 폐기**합니다. 시뮬레이트 프록시는 `FRepAnimMontageInfo` OnRep으로 자연 따라잡습니다.
+  - 몽타주 재생은 `UAbilityTask_PlayMontageAndWait` 로 처리합니다. 시뮬레이트 프록시는 `FRepAnimMontageInfo` OnRep으로 자연 따라잡습니다.
   - 콤보 섹션은 `ComboSections : TArray<FBlackoutComboSectionDef>` 로 정의하며, 각 항목이 섹션 이름과 `WindowOpenAtSeconds` / `WindowCloseAtSeconds` 및 해당 단계의 데미지 배율인 `DamageMultiplier` 를 담습니다.
-  - 서버는 섹션 진입 시점(`GetServerWorldTimeSeconds()`)을 기준으로 `ScheduleComboWindowTimers` 가 윈도우 open/close 와 grace close 타이머를 `SetTimer` 합니다. **AnimNotifyState 는 콤보 상태 머신에 사용하지 않습니다** — 히트박스 활성/비활성(`HandleMeleeAttackWindowBegin/End`)과 시각 effect 트리거 전용.
+  - 서버는 섹션 진입 시점(`GetServerWorldTimeSeconds()`)을 기준으로 `ScheduleComboWindowTimers` 가 윈도우 open/close 와 grace close 타이머를 `SetTimer` 합니다. AnimNotifyState는 히트박스 활성/비활성(`HandleMeleeAttackWindowBegin/End`)과 시각 effect 트리거 전용입니다.
   - 콤보 입력은 표준 `UAbilityTask_WaitInputPress` + ASC `EAbilityGenericReplicatedEvent::InputPressed` 경로로 수집합니다. 클라이언트는 활성 GA에 대해 `AbilitySpecInputPressed` 직후 명시적으로 `ServerSetReplicatedEvent(InputPressed, ...)` 를 호출하여 서버 GA의 `WaitInputPress` 를 발화시킵니다.
   - 입력이 어디에도 매칭되지 않으면 **EndAbility 를 호출하지 않고** 현재 섹션의 `RecoveryEndAtSeconds` 까지 자연 종료되도록 두고, 입력 버퍼만 비웁니다.
   - **Gameplay Event 기반 조기 캔슬**: 몽타주 후반부의 딜레이/복귀 포즈에 도달했을 때, 몽타주에 배치된 AnimNotify가 `Event_Montage_AbilityCancelable` 게임플레이 이벤트를 보냅니다. GA 내부에서 `WaitGameplayEvent` 태스크를 통해 이 이벤트를 감지하면 즉시 `EndAbility`를 조기 호출하여 캐릭터의 제어권(차단 태그 해제)을 복구합니다.
   - `AnimNotify` 가 AbilityTask 로 히트 노티를 호출 → `ABOMeleeWeapon::PerformSweep` 결과에 `GE_Damage` 적용(기존 유지).
 - **`UBlackoutGA_Dodge`** (TDD v5 §4.1 v2):
-  - 몽타주 재생은 `UAbilityTask_PlayMontageAndWait` 로 처리하고, `Multicast_PlayDodgeMontage` 는 폐기합니다. RepAnimMontageInfo 가 시뮬레이트 프록시에 전파합니다.
+  - 몽타주 재생은 `UAbilityTask_PlayMontageAndWait` 로 처리하고, RepAnimMontageInfo 가 시뮬레이트 프록시에 전파합니다.
   - 체인 윈도우 open/close 는 `ChainWindowOpenAtSeconds`/`ChainWindowCloseAtSeconds` 데이터값을 사용한 서버 World Time 타이머로 관리합니다. `BOAnimNotify_DodgeChainWindowOpen` 등 노티파이는 시각 effect 보조 전용입니다.
   - 클라이언트 재입력은 멜리와 동일한 표준 GAS 경로(`AbilitySpecInputPressed` + `ServerSetReplicatedEvent`)로 서버에 전파합니다.
   - 스태미나 소모는 GE Cost 로 처리합니다. `ApplyModToAttribute` 직접 호출은 금지합니다. I-Frame 태그·루트 모션·`LaunchCharacter` 는 서버 검증 성공 후에만 트리거하며, 클라이언트는 prediction 경로로 자연 복제됩니다.

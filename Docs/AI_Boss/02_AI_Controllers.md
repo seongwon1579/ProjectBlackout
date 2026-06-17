@@ -1,7 +1,7 @@
-# AI/Boss — 02. AI 컨트롤러 계층 (StateTree 기반)
+# AI/Boss — 02. AI 컨트롤러 계층
 
-> TDD v5 §6 확장 설계.
-> **미니언 = 순수 StateTree**, **보스 = StateTree(페이즈 관리) + 하위 BehaviorTree(페이즈별 전투 패턴)**.
+> TDD v6 §6 확장 설계.
+> **미니언 = 순수 StateTree**, **중간 보스(Shrewd) = 순수 StateTree**, **메인 보스(Ravager) = 순수 BehaviorTree(C++ 페이즈 관리 모듈 + 페이즈별 BT 교체)**.
 > 플러그인: `StateTree` + `GameplayStateTree` (`.uproject`에 이미 활성화됨).
 
 ```mermaid
@@ -11,42 +11,62 @@ classDiagram
     AAIController <|-- ABlackoutAIController
     ABlackoutAIController <|-- ABlackoutMinionAIController
     ABlackoutAIController <|-- ABlackoutBossAIController
+    ABlackoutBossAIController <|-- ABlackoutShrewdAIController
+    ABlackoutBossAIController <|-- ABlackoutRavagerAIController
 
     class ABlackoutAIController {
-        <<Base — StateTree 기동 책임>>
+        <<Abstract — StateTree 컴포넌트 보유>>
         #UStateTreeAIComponent* StateTreeComp
-        #UAIPerceptionComponent* Perception
-        +OnPossess(APawn*) override void
-        +OnUnPossess() override void
-        #InitStateTreeContext() virtual void
-        #InitPerception() virtual void
+        +StartCombat() virtual void
     }
 
     class ABlackoutMinionAIController {
         <<미니언 — 순수 StateTree 실행>>
-        +OnPerceptionUpdated(AActor*, FAIStimulus) void
+        +OnPossess(APawn*) override void
+        +OnUnPossess() override void
+        +StartCombat() override void
         +SetCombatTarget(APawn*) void
-        #InitStateTreeContext() override void
     }
 
     class ABlackoutBossAIController {
-        <<보스 — StateTree(페이즈) + 하위 BT 보유>>
-        #UBehaviorTreeComponent* SubBehaviorTreeComp
-        #UBlackboardComponent* BlackboardComp
-        +OnPossess(APawn*) override void
-        +RunSubBehaviorTree(UBehaviorTree* SubTree) void
-        +StopSubBehaviorTree() void
-        +WriteTargetToBlackboard(APawn*) void
-        #InitStateTreeContext() override void
+        <<보스 베이스 — 어그로 평가기 소유>>
+        -UBlackoutAggroEvaluator* AggroEvaluator
+        #UAbilitySystemComponent* CachedASC
+        +RecordDamage(APawn*, float) virtual void
+        +StartCombat() override void
+        #OnPossess(APawn*) override void
+        #PreInitialize(APawn*) virtual void
+        #HandleAggroTargetChanged(APawn*) virtual void
+    }
+
+    class ABlackoutShrewdAIController {
+        <<중간 보스 — 순수 StateTree>>
+        -APawn* CurrentAggroTarget
+        +GetCurrentAggroTarget() APawn*
+        +StartCombat() override void
+        #HandleAggroTargetChanged(APawn*) override void
+    }
+
+    class ABlackoutRavagerAIController {
+        <<메인 보스 — 순수 BehaviorTree + C++ 페이즈>>
+        -UBlackoutBossBTRunner* BTRunner
+        -UBlackoutPhaseEvaluator* PhaseEvaluator
+        -TMap~EBOBossPhase,UBehaviorTree~ PhaseBehaviorTrees
+        +RequestPhaseChange(EBOBossPhase) void
+        +GetCurrentPhase() EBOBossPhase
+        +StartCombat() override void
+        #PreInitialize(APawn*) override void
+        #HandleAggroTargetChanged(APawn*) override void
+        -HandlePhaseChanged(EBOBossPhase) void
     }
 
     ABlackoutAIController *-- UStateTreeAIComponent
-    ABlackoutAIController *-- UAIPerceptionComponent
-    ABlackoutBossAIController *-- UBehaviorTreeComponent : sub-BT per phase
-    ABlackoutBossAIController *-- UBlackboardComponent : 하위 BT 공유 BB
+    ABlackoutBossAIController *-- UBlackoutAggroEvaluator : Instanced, 소유
+    ABlackoutRavagerAIController *-- UBlackoutPhaseEvaluator : 페이즈 관리
+    ABlackoutRavagerAIController *-- UBlackoutBossBTRunner : 페이즈별 BT 교체
 ```
 
-> 어그로(타겟 선정)는 `ABlackoutBossAIController`의 `UBlackoutAggroEvaluator`와 StateTree Evaluator(`FBSTEval_ShrewdAggroTarget`)가 담당합니다. Evaluator가 Controller의 Blackboard에 `BB_CurrentTarget`을 기록하여 하위 BT가 참조합니다. Shrewd/Ravager의 튜닝 차이는 `UBOBossData`의 파라미터로 조정합니다. 상세는 03 다이어그램 참조.
+> 어그로(타겟 선정)는 `ABlackoutBossAIController`가 `Instanced`로 소유하는 `UBlackoutAggroEvaluator`가 담당합니다. 평가기는 `OnAggroTargetChanged` 델리게이트로 새 타겟을 알리고, 각 보스 컨트롤러의 `HandleAggroTargetChanged` 오버라이드가 이를 소비합니다(Ravager → Blackboard `Target`, Shrewd → 멤버 `CurrentAggroTarget`). 상세는 03 다이어그램 참조.
 
 ## 실행 모델
 
@@ -54,43 +74,57 @@ classDiagram
 
 ```mermaid
 flowchart LR
-    Possess[OnPossess] --> InitST[InitStateTreeContext]
-    InitST --> StartST[StateTreeComp.StartLogic]
+    Possess[OnPossess] --> StartCombat[StartCombat]
+    StartCombat --> StartST[StateTreeComp.StartLogic]
     StartST --> MinionST[(ST_RootHollow<br/>/ ST_RootWraith)]
-    MinionST --> Tasks[StateTreeTasks:<br/>MoveTo / Charge / Teleport / Attack]
+    MinionST --> Tasks[StateTreeTasks:<br/>MoveTo / Charge / Teleport / FireTwinArrows / BowShove]
 ```
 
-- `ABlackoutMinionAIController`는 **BehaviorTreeComponent를 보유하지 않음**. 모든 상태·행동이 StateTree Task로 구현됨.
-- 경량·단순한 미니언 AI에 적합. 상태 수가 적고(2~4개) Task가 선형 조합되므로 StateTree 표현력만으로 충분.
+- `ABlackoutMinionAIController`는 모든 상태·행동을 StateTree Task로 실행합니다.
+- `OnPossess`에서 곧바로 `StartCombat()`을 호출하여 `StateTreeComp->StartLogic()` 실행. 서버 Authority 가드.
 
-### 보스 (Boss)
+### 중간 보스 (Shrewd)
+
+```mermaid
+flowchart LR
+    Possess[OnPossess<br/>= 베이스에서 AggroEvaluator 초기화] --> StartCombat[StartCombat]
+    StartCombat --> AggroStart[AggroEvaluator.StartAggroEvaluation]
+    StartCombat --> StartST[StateTreeComp.StartLogic]
+    StartST --> ShrewdST[(ST_Shrewd<br/>단일 비행 페이즈)]
+    ShrewdST --> Patterns[원거리 화살 / LoS 텔레포트<br/>패턴 순환 Task]
+```
+
+- Shrewd는 전투 내내 비행하는 단일 페이즈 보스이며, 패턴 순환을 **순수 StateTree**로 실행합니다.
+- `StartCombat`에서 `Super::StartCombat()`(어그로 평가 시작) 후 `StateTreeComp->StartLogic()` 호출.
+- 어그로 타겟은 베이스의 `HandleAggroTargetChanged`가 멤버 `CurrentAggroTarget`에 기록하고, `FBSTEval_ShrewdAggroTarget`이 Pawn의 `UBlackoutAggroComponent::GetCurrentTarget()`을 읽어 StateTree에 퍼블리시합니다.
+
+### 메인 보스 (Ravager)
 
 ```mermaid
 flowchart TB
-    Possess[OnPossess] --> InitBoss[InitStateTreeContext<br/>= ASC / Pawn / BBComp 핸들 등록]
-    InitBoss --> StartST[StateTreeComp.StartLogic]
-    StartST --> BossST[(ST_Ravager_Phases<br/>/ ST_Shrewd_Phases)]
-    BossST --> PhaseA[State: Phase A / Platform]
-    BossST --> PhaseB[State: Phase B / Ground]
-    BossST --> PhaseC[State: Phase C<br/>(Ravager 전용)]
-    PhaseA --> SubBT_A[[BT_Ravager_PhaseA<br/>또는 BT_Shrewd_Platform]]
-    PhaseB --> SubBT_B[[BT_Ravager_PhaseB<br/>또는 BT_Shrewd_Ground]]
-    PhaseC --> SubBT_C[[BT_Ravager_PhaseC]]
-    SubBT_A -. EnterState Task .-> RunBT["SubBehaviorTreeComp.StartTree(BT)"]
-    SubBT_B -. ExitState Task .-> StopBT["SubBehaviorTreeComp.StopTree()"]
+    Possess[OnPossess] --> PreInit[PreInitialize<br/>BTRunner / PhaseEvaluator 생성]
+    PreInit --> Bind[PhaseEvaluator.OnBossPhaseChanged<br/>→ HandlePhaseChanged 바인딩]
+    StartCombat[StartCombat] --> ReqP1[PhaseEvaluator.RequestPhaseChange Phase1]
+    Damage[ABORavagerBoss.OnDamageReceived] --> Determine[DetermineTargetPhase HealthRatio]
+    Determine --> ReqPhase[AIController.RequestPhaseChange]
+    ReqPhase --> Eval[PhaseEvaluator<br/>Ability.PhaseLock 태그로 전환 게이팅]
+    Eval -->|적용| Broadcast[OnBossPhaseChanged]
+    Broadcast --> HandleP[HandlePhaseChanged]
+    HandleP --> RunBT[BTRunner.RunPhaseBT]
+    RunBT --> SwapBT["Controller.RunBehaviorTree(PhaseBehaviorTrees[Phase])"]
 ```
 
-- 보스는 **StateTree의 최상위 상태 = 페이즈**. 페이즈 전이(체력 컷라인·이벤트)는 StateTree의 Transition으로 선언적으로 정의.
-- 각 페이즈 상태는 `UBSTTask_RunSubBehaviorTree`(커스텀 StateTree Task) 진입 시 하위 BT를 기동, 이탈 시 정지. 하위 BT는 해당 페이즈의 전투 패턴 조합을 담당.
-- BehaviorTreeComponent와 BlackboardComponent는 **Controller에 위치**하여 페이즈 전환 시 하위 BT만 교체.
+- Ravager는 페이즈 관리와 패턴 실행을 모두 BehaviorTree 레이어로 처리합니다.
+- **페이즈 관리(`UBlackoutPhaseEvaluator`)**: 페이즈 단조 증가만 허용. 보스 ASC에 `Ability.PhaseLock` 태그가 있으면 전환을 `PendingPhase`로 대기시켰다가 태그 해제 시 적용 → `OnBossPhaseChanged` 브로드캐스트.
+- **페이즈별 BT 교체(`UBlackoutBossBTRunner`)**: `TMap<EBOBossPhase, UBehaviorTree>`에서 새 페이즈 BT를 찾아 `Controller->RunBehaviorTree()`로 통째로 교체.
+- **페이즈 결정**: 보스 캐릭터 `ABORavagerBoss::OnDamageReceived`(ASC Health 변경 델리게이트)에서 `DetermineTargetPhase(HealthRatio)`를 계산해 `AIController->RequestPhaseChange()` 호출.
 
 ## 구현 노트
 
-- **`UStateTreeAIComponent`**: 엔진 `GameplayStateTree` 플러그인 제공. `OnPossess`에서 `SetStateTreeAsset` 후 `StartLogic()` 호출.
-- **`InitStateTreeContext`**: StateTree가 참조하는 외부 데이터 핸들(ASC, Pawn, Controller, BlackboardComp 등)을 바인딩. BP가 아닌 C++ 가상 함수로 서브클래스별 확장. Aggro Evaluator도 이 경로로 ASC·BBComp 핸들을 받음.
-- **`ABlackoutBossAIController::RunSubBehaviorTree`**: `UBSTTask_RunSubBehaviorTree::EnterState`에서 호출됨. 이미 다른 BT가 돌고 있다면 `StopTree` 후 교체.
-- **Blackboard 스코프**: 보스의 Blackboard는 **하위 BT 전용**으로 사용. 어그로 Evaluator(`UBlackoutAggroEvaluator` / `FBSTEval_ShrewdAggroTarget`)가 `BB_CurrentTarget`을 기록하고, `UBTService_LineOfSightCheck`가 `BB_HasLineOfSight`를 기록. 하위 BT Task(MoveTo/Attack)가 이를 소비.
-- **`WriteTargetToBlackboard`**: Controller의 public 메서드. Evaluator가 외부 데이터 핸들로 Controller를 받아 이 함수를 호출하여 BB 키를 갱신.
-- **Perception**: 미니언만 Sight 감각 활성화. 보스는 Aggro Evaluator가 타겟을 전담 → Perception 비활성화 또는 제거.
-- **서버 전용**: AI 로직은 서버 Authority. `OnPossess`는 `HasAuthority()` 가드로 조기 리턴.
-- **디버깅**: StateTree Debugger (UE 5.3+)로 페이즈 전이/활성 상태 라이브 추적 가능. BT 대비 가시성 개선.
+- **`UStateTreeAIComponent`**: 엔진 `GameplayStateTree` 플러그인 제공. 베이스 `ABlackoutAIController`가 보유하며, 미니언과 Shrewd가 사용. Ravager는 베이스를 상속하지만 StateTree를 시작하지 않음.
+- **`ABlackoutBossAIController::PreInitialize`**: `OnPossess`에서 호출. Pawn의 `IAbilitySystemInterface`로 `CachedASC`를 캐싱. 서브클래스(Ravager)가 오버라이드하여 `BTRunner`/`PhaseEvaluator`를 추가 생성.
+- **어그로 평가기 수명**: `OnPossess`에서 `AggroEvaluator->Initialize(this, CachedASC)`, `OnUnPossess`에서 `Deinitialize()` 후 nullptr 처리. Ravager는 추가로 `PhaseEvaluator->Deinitialize()`, `BTRunner->StopBT()`.
+- **Blackboard 키(Ravager 전용)**: `HandleAggroTargetChanged`가 `Target`(Object) 키를 갱신 → BehaviorTree Task/Service/Decorator가 소비.
+- **Perception**: 보스는 어그로 평가기가 타겟을 전담하므로 Perception 비활성. 미니언만 필요 시 Sight 사용.
+- **서버 전용**: AI 로직은 서버 Authority. `StartCombat`/`PreInitialize` 경로는 `HasAuthority()` 가드.
+- **디버깅**: 미니언·Shrewd는 StateTree Debugger, Ravager는 BT Visual Logger로 각각 추적.

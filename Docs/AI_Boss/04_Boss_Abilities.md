@@ -77,7 +77,7 @@ classDiagram
 
 - **Ability Tag 네이밍**: C++ 클래스명은 `UBlackoutGA_*` 계열을 사용하고, 실제 발동/데미지 데이터는 `UBOBossData::AbilityDamageMap`의 GameplayTag Key와 일치시켜 조회합니다.
 - **데미지 적용**: 각 GA는 `GE_Damage` 스펙을 만들고 `SetByCaller`로 `BossData->AbilityDamageMap[AbilityTag]` 값을 주입합니다.
-- **Grant 경로**: `ABlackoutBossCharacter::BeginPlay`에서 해당 보스 전용 `GrantedAbilities` 배열을 순회하여 ASC에 `GiveAbility`합니다.
-- **Phase 전이**: `FBSTCond_HealthBelow` / `UBlackoutPhaseEvaluator`가 체력 비율을 감시하고, `ABORavagerBoss::DetermineTargetPhase`가 목표 `EBOBossPhase`를 결정합니다.
-- **기둥 파괴 경로**: `UBlackoutGA_Ravager_Base` 계열에서 만든 Ravager 피해 스펙이 `ABOBreakablePillarActor::ReceiveDamageFromHitbox`에 전달되면 서버가 출처를 검증한 뒤 `BreakPillar()`를 호출합니다. 별도의 PillarCharge GA는 없습니다.
-- **AI 호출 경로**: BT/StateTree Task가 Ability Tag로 ASC의 `TryActivateAbilitiesByTag`를 호출하고, GA는 `InstancedPerActor` 정책으로 각 보스/미니언 인스턴스에서 실행됩니다.
+- **Grant 경로**: 보스 캐릭터의 데이터 주입 시점(`SetData`/`BeginPlay`)에 해당 보스 전용 패턴 데이터의 `GrantedAbility`를 순회하여 ASC에 `GiveAbility`합니다(Ravager는 `BossPatternData` 맵 순회).
+- **Phase 전이(Ravager)**: `ABORavagerBoss::OnDamageReceived` → `DetermineTargetPhase(HealthRatio)`가 목표 `EBOBossPhase`를 결정 → `ABlackoutRavagerAIController::RequestPhaseChange` → `UBlackoutPhaseEvaluator`(`Ability.PhaseLock` 게이팅) → `UBlackoutBossBTRunner`가 페이즈 BehaviorTree 교체. **StateTree Condition(`FBSTCond_HealthBelow`)은 Ravager 페이즈 전이에 사용되지 않습니다**(StateTree 빌딩 블록으로만 잔존).
+- **기둥 파괴 경로**: Ravager 돌진/히트박스 계열 GA(`UBlackoutGA_Ravager_Charge` / `UBlackoutGA_Ravager_HitboxAttack`)가 만든 피해 스펙이 `ABOBreakablePillarActor::ReceiveDamageFromHitbox`에 전달되면 서버가 출처를 검증한 뒤 `BreakPillar()`를 호출합니다. 별도의 PillarCharge GA는 없습니다.
+- **AI 호출 경로**: Ravager는 BehaviorTree 노드(`UBTT_ActivateAbility`)가, 미니언/Shrewd는 StateTree Task(`FBSTTask_ActivateAbility`)가 Ability Tag로 GA를 발동하고, GA는 `InstancedPerActor` 정책으로 각 인스턴스에서 실행됩니다.

@@ -169,7 +169,7 @@ flowchart TB
 
 - **책임 분리**: `UBlackoutHUDWidgetController`는 로컬 플레이어 자신의 HUD만 담당하고, 파티원 목록은 `UBlackoutPartyRosterWidgetController`가 담당합니다.
 - **파티 구성 기준**: `ABlackoutGameState::PlayerArray`를 기준으로 삼고, 로컬 플레이어의 `ABlackoutPlayerState`는 기본적으로 표시 대상에서 제외합니다.
-- **체력 갱신**: 각 `ABlackoutPlayerState`의 ASC에서 `UBlackoutBaseAttributeSet::Health`, `MaxHealth` Attribute Delegate를 바인딩합니다. Tick 갱신은 사용하지 않습니다.
+- **체력 갱신**: 각 `ABlackoutPlayerState`의 ASC에서 `UBlackoutBaseAttributeSet::Health`, `MaxHealth` Attribute Delegate를 바인딩합니다.
 - **다운 상태 갱신**: 현재 다운 상태는 `ABlackoutPlayerCharacter::bIsDowned`에 있으므로, UI가 직접 polling하지 않도록 캐릭터에 `OnDownedStateChanged(bool)` 델리게이트를 추가합니다.
 - **초기값 브로드캐스트**: 멤버 바인딩 직후 `BuildStatusData()`로 현재 HP, MaxHP, 다운 상태를 즉시 전달해 첫 프레임 빈 패널을 방지합니다.
 - **PlayerArray 변경**: `ABlackoutGameState::AddPlayerState`, `RemovePlayerState`를 override하고 `OnPlayerArrayChanged`를 브로드캐스트하면 중도 접속/이탈에도 로스터를 재구성할 수 있습니다.

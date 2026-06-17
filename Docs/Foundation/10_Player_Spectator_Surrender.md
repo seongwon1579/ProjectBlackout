@@ -98,7 +98,7 @@ classDiagram
 - 완전 사망한 플레이어의 `PlayerController`는 자기 Pawn 소유권을 유지합니다.
 - 관전은 Pawn 재소유가 아니라 `ChangeState(NAME_Spectating)` + `SetViewTargetWithBlend(SpectateTarget)`로 처리합니다.
 - 자기 Pawn은 사망 몽타주와 전멸 복귀에 필요하므로 즉시 Destroy하지 않습니다.
-- TDD의 `HiddenInGame = true` / 물리 불가 처리는 사망 몽타주가 끝난 뒤 적용하는 후속 연출 단계로 둡니다.
+- 사망 몽타주가 끝나면 `HiddenInGame = true` / 물리 불가 처리를 적용합니다.
 - 전멸 복귀 시 `ChangeState(NAME_Playing)` 또는 엔진 기본 Playing 상태 복구 경로를 호출한 뒤 `SetViewTargetWithBlend(GetPawn())`로 자기 Pawn 시점을 되돌립니다.
 
 ## 입력 설계

@@ -58,7 +58,7 @@ const FString Url = Settings->ApiBaseUrl + TEXT("/auth/login");
 
 런타임 수정은 권장 안함. 설정은 시작 시점에 고정.
 
-## 후속 확장 여지
+## 운영 튜닝 값
 
 - JWT 만료 시간, 재시도 횟수, WS 재연결 간격 같은 튜닝 값 추가 가능
 - 프로덕션 이후 HTTPS / WSS 엔드포인트 전환도 URL 교체만으로 완료

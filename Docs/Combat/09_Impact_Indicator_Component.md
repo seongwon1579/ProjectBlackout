@@ -189,7 +189,7 @@ sequenceDiagram
 
 ## 구현 노트
 
-- **로컬 계산 전용**: HUD 지원용 시각 피드백이므로 서버 권한 판정에 사용하지 않습니다. 실제 피해 판정은 기존 `UBlackoutGA_FireWeapon`/`ABOFirearm::Fire`/`ABOProjectile` 흐름이 유지합니다.
+- **로컬 계산 전용**: HUD 지원용 시각 피드백이며, 실제 피해 판정은 기존 `UBlackoutGA_FireWeapon`/`ABOFirearm::Fire`/`ABOProjectile` 흐름이 유지합니다.
 - **조건부 갱신**: `GetImpactIndicatorData()`는 매 Tick 호출될 수 있지만, 카메라 회전, 총구 위치, 장착 무기, 조준 상태를 묶은 `FBlackoutImpactIndicatorUpdateKey`가 바뀌지 않으면 이전 `CachedIndicatorData`를 반환합니다. 라인트레이스와 `PredictProjectilePath`는 입력 키가 변경된 경우에만 다시 수행합니다.
 - **히트스캔**: 카메라 조준 대상 라인트레이스와 총구 기준 라인트레이스를 각각 수행하고, 두 결과의 대표 Actor가 다르면 `bTargetMismatch = true`.
 - **투사체**: `UGameplayStatics::PredictProjectilePath` 계열을 사용해 총구 위치, 발사 방향, 초기 속도, 중력 스케일, 충돌 반경을 기반으로 예측 착탄점을 계산합니다.

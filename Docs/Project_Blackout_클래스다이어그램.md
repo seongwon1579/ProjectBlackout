@@ -72,10 +72,11 @@ classDiagram
     }
 
     class ABORavagerBoss {
-        -UBORavagerStatData* RavagerStatData
-        -UBORavagerPatternData* PatternData
+        -TMap~FGameplayTag,UBORavagerPatternData~ BossPatternData
+        -UBORavagerStatData* BossStatData
+        +GetPatternData(FGameplayTag) UBORavagerPatternData*
         +DetermineTargetPhase(float) EBOBossPhase
-        +Multicast_PlayPhaseChangedEffect() void
+        +Multicast_SetCollisionState(bool) void
     }
 ```
 
@@ -91,6 +92,8 @@ classDiagram
     ABlackoutGameMode <|-- ABlackoutLobbyGameMode
     ABlackoutGameMode <|-- ABlackoutBattleGameMode
 
+    ABlackoutLobbyGameMode --> UBlackoutMatchFlowSubsystem : reads CurrentStageIndex
+    ABlackoutLobbyGameMode --> ABlackoutPlayerState : applies lobby ready/class state
     ABlackoutBattleGameMode --> ABlackoutPlayerState : calls ApplyBattleTransitionPolicy
 
     class ABlackoutGameMode {
@@ -102,11 +105,15 @@ classDiagram
     }
 
     class ABlackoutLobbyGameMode {
-        +Server_SelectClass(FGameplayTag) void
-        +Server_RequestReopenClassSelect() void
-        +AllPlayersReady() bool
-        -OnReadyCheckComplete() void
-        -ServerTravel(FString MapURL) void
+        -TArray~FSoftObjectPath~ BossStageMapPaths
+        -bool bTravelInitiated
+        +StartBattle() void
+        +BO_ForceStartBattle() void
+        #OnPlayerJoined(APlayerController*) void
+        #OnAllPlayersReady() void
+        #OnSeamlessArrival(APlayerController*) void
+        -HandleLobbyArrival(APlayerController*) void
+        -DoStartBattleTravel() void
     }
 
     class ABlackoutBattleGameMode {
@@ -140,7 +147,6 @@ classDiagram
     class ABlackoutGameState {
         +TArray DestroyedPillarIds
         +float MatchTimer
-        +bool bRedMistActive
         +bool bIsMatchResultVisible
         +EBossType DefeatedBossType
         +float MatchResultVisibleServerTime
@@ -527,45 +533,72 @@ classDiagram
 
 ---
 
-### 8. 어그로 시스템
+### 8. 보스 AI — 어그로 / 페이즈 (v6)
+
+미니언·Shrewd는 순수 StateTree로 구동하고, Ravager는 순수 BehaviorTree + C++ 페이즈 모듈로 구동합니다. 상세는 [AI_Boss/02](AI_Boss/02_AI_Controllers.md)·[03](AI_Boss/03_StateTree_SubBT_Assets.md).
 
 ```mermaid
 classDiagram
     direction LR
 
+    AAIController <|-- ABlackoutAIController
+    ABlackoutAIController <|-- ABlackoutBossAIController
+    ABlackoutBossAIController <|-- ABlackoutShrewdAIController
+    ABlackoutBossAIController <|-- ABlackoutRavagerAIController
+
+    class ABlackoutBossAIController {
+        <<보스 베이스>>
+        -UBlackoutAggroEvaluator* AggroEvaluator
+        +RecordDamage(APawn*, float) void
+        #HandleAggroTargetChanged(APawn*) void
+    }
+
+    class ABlackoutRavagerAIController {
+        <<순수 BehaviorTree>>
+        -UBlackoutBossBTRunner* BTRunner
+        -UBlackoutPhaseEvaluator* PhaseEvaluator
+        +RequestPhaseChange(EBOBossPhase) void
+    }
+
     class UBlackoutAggroEvaluator {
-        <<UObject, Server Only>>
-        -TMap DamageAccumulator
-        -float AggroSwitchCooldown
-        -float AggroDamageThreshold
-        -float AggroDecayRate
+        <<UObject, Instanced, Server Only>>
+        -TMap~APawn,FPlayerCombatData~ CombatDataMap
+        -float DPSWeight = 5.0
+        -float DistanceWeight = 0.5
+        -float LowHPWeight = 0.3
+        -float DPSWindowDuration = 3.0
+        +FOnAggroTargetChanged OnAggroTargetChanged
+        +RecordDamage(APawn*, float) void
         +StartAggroEvaluation() void
-        +GetCurrentTarget() APawn*
         -CalculateAggroScore(APawn*) float
-        -EvaluateAggroTarget() void
+    }
+
+    class UBlackoutPhaseEvaluator {
+        <<UObject — Ability.PhaseLock 게이팅>>
+        +RequestPhaseChange(EBOBossPhase) void
+        +FOnBossPhaseChanged OnBossPhaseChanged
+    }
+
+    class UBlackoutBossBTRunner {
+        <<UObject — 페이즈별 BT 교체>>
+        -TMap~EBOBossPhase,UBehaviorTree~ PhaseBehaviorTrees
+        +RunPhaseBT(EBOBossPhase) void
     }
 
     class UBlackoutAggroComponent {
-        <<ActorComponent, Shrewd 보조 경로>>
-        +OnTargetChanged
-        +EvaluateTarget() APawn*
-    }
-
-    class FBSTEval_ShrewdAggroTarget {
-        <<StateTree Evaluator>>
-        +Tick(...) void
-    }
-
-    class FBSTEval_WraithAggroTarget {
-        <<StateTree Evaluator>>
-        +Tick(...) void
+        <<ActorComponent, Shrewd ST가 읽는 경로>>
+        +GetCurrentTarget() APawn*
     }
 
     ABlackoutBossAIController *-- UBlackoutAggroEvaluator
+    ABlackoutRavagerAIController *-- UBlackoutPhaseEvaluator
+    ABlackoutRavagerAIController *-- UBlackoutBossBTRunner
     ABOShrewdBoss *-- UBlackoutAggroComponent
-    UBlackoutAggroEvaluator --> UBOBossData : reads tuning
-    FBSTEval_ShrewdAggroTarget --> ABlackoutBossAIController : writes target
-    FBSTEval_WraithAggroTarget --> ABlackoutMinionAIController : writes target
+    UBlackoutAggroEvaluator ..> ABlackoutBossAIController : OnAggroTargetChanged
+    ABORavagerBoss ..> ABlackoutRavagerAIController : OnDamageReceived → RequestPhaseChange
+    UBlackoutPhaseEvaluator ..> UBlackoutBossBTRunner : OnBossPhaseChanged → RunPhaseBT
+    FBSTEval_ShrewdAggroTarget ..> UBlackoutAggroComponent : reads GetCurrentTarget
+    FBSTEval_WraithAggroTarget ..> ABlackoutMinionAIController : wraith target
 ```
 
 ---
