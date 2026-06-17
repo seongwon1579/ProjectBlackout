@@ -14,8 +14,8 @@ classDiagram
     ABOMeleeWeapon --> FBlackoutWeaponCueSet : Swing / Impact Cue 조회
     ABOProjectile --> FBlackoutWeaponCueSet : Init 시 복사
 
-    UGA_FireWeapon --> ABOFirearm : Fire / FireShotgun
-    UGA_FireWeapon --> UBlackoutWeaponCueLibrary : Cue 실행 요청
+    UBlackoutGA_FireWeapon --> ABOFirearm : Fire / FireShotgun
+    UBlackoutGA_FireWeapon --> UBlackoutWeaponCueLibrary : Cue 실행 요청
     ABOProjectile --> UBlackoutWeaponCueLibrary : 충돌/투사체 Cue 실행 요청
     UBlackoutCombatComponent --> ABOMeleeWeapon : Melee 공격 판정 및 GCN 트리거
     UBlackoutCombatComponent --> UBlackoutWeaponCueLibrary : Swing / Impact Cue 실행 요청
@@ -99,7 +99,7 @@ classDiagram
         #ExecuteProjectileGameplayCue(FGameplayTag CueTag, FGameplayCueParameters Params) void
     }
 
-    class UGA_FireWeapon {
+    class UBlackoutGA_FireWeapon {
         +ActivateAbility(...) void
         -ExecuteFireCue(ABOFirearm*) void
         -ExecuteTrailCue(ABOFirearm*, FHitResult) void
@@ -159,7 +159,7 @@ classDiagram
 ```mermaid
 sequenceDiagram
     participant Client as 발사 클라이언트
-    participant GA as UGA_FireWeapon
+    participant GA as UBlackoutGA_FireWeapon
     participant Weapon as ABOFirearm
     participant CueLib as UBlackoutWeaponCueLibrary
     participant ASC as Source ASC

@@ -51,7 +51,7 @@ classDiagram
 
 - **`GE_Damage`**:
   - `DurationPolicy=Instant`. Source 기준 `Spec.SetSetByCallerMagnitude(Data.Damage, ...)` 로 기본값 세팅 → GA에서 주입.
-  - 히트박스 부위 태그는 `ABOProjectile::OnHit` 또는 `UGA_FireWeapon` 이 SpecHandle에 `SetByCaller`로 주입.
+  - 히트박스 부위 태그는 `ABOProjectile::OnHit` 또는 `UBlackoutGA_FireWeapon`이 SpecHandle에 `SetByCaller`로 주입.
   - Cue 태그 `GameplayCue.Character.Hit` 로 `UGCN_HitImpact [Static]` 트리거.
 - **`ExecCalc_CombatReward` (TDD §5.1)**:
   - 서버 사망 확정 경로는 직접 드롭을 생성하지 않고, `UBlackoutCombatRewardSettings::CombatRewardEffectClass`에 지정된 `GE_CombatReward`를 적용합니다.

@@ -9,8 +9,8 @@ classDiagram
 
     IAbilitySystemInterface <|.. ABlackoutPlayerState
     UAttributeSet <|-- UBlackoutPlayerAttributeSet
-    UGameplayAbility <|-- GA_UseRelic
-    UGameplayAbility <|-- GA_Revive
+    UBlackoutGameplayAbility <|-- UBlackoutGA_UseRelic
+    UBlackoutGameplayAbility <|-- UBlackoutGA_Revive
     UUserWidget <|-- UBlackoutHUDWidget
     UUserWidget <|-- UBlackoutRelicWidget
     UObject <|-- UBlackoutHUDWidgetController
@@ -31,7 +31,7 @@ classDiagram
         +PostGameplayEffectExecute(FGameplayEffectModCallbackData) void
     }
 
-    class GA_UseRelic {
+    class UBlackoutGA_UseRelic {
         +CanActivateAbility(...) bool
         +ActivateAbility(...) void
         -CommitRelicCost() bool
@@ -39,7 +39,7 @@ classDiagram
         -PlayLockInMontage() void
     }
 
-    class GA_Revive {
+    class UBlackoutGA_Revive {
         +CanActivateAbility(...) bool
         +ActivateAbility(...) void
         -StartHoldToRevive() void
@@ -95,9 +95,9 @@ classDiagram
     ABlackoutPlayerState o-- UBlackoutAbilitySystemComponent : owns
     ABlackoutPlayerState o-- UBlackoutPlayerAttributeSet : has
     UBlackoutAbilitySystemComponent --> UBlackoutPlayerAttributeSet : replicates attributes
-    GA_UseRelic --> GE_RelicCost : applies cost
-    GA_UseRelic --> GE_RelicHeal : applies heal
-    GA_Revive --> GE_RelicCost : rescuer cost
+    UBlackoutGA_UseRelic --> GE_RelicCost : applies cost
+    UBlackoutGA_UseRelic --> GE_RelicHeal : applies heal
+    UBlackoutGA_Revive --> GE_RelicCost : rescuer cost
     ABlackoutPlayerState --> UBlackoutPlayerAttributeSet : transition reset to max
     UBlackoutHUDWidgetController --> ABlackoutPlayerState : resolves ASC owner
     UBlackoutHUDWidgetController --> UBlackoutPlayerAttributeSet : reads Relic attributes
@@ -138,8 +138,8 @@ sequenceDiagram
 
 ```mermaid
 flowchart TB
-    UseRelic["GA_UseRelic"] --> Cost["GE_RelicCost: RelicCharges -1"]
-    Revive["GA_Revive"] --> Cost
+    UseRelic["UBlackoutGA_UseRelic"] --> Cost["GE_RelicCost: RelicCharges -1"]
+    Revive["UBlackoutGA_Revive"] --> Cost
     Transition["ABlackoutPlayerState::ApplyBattleTransitionPolicy"] --> Reset["RelicCharges = MaxRelicCharges"]
     Cost --> Attr["UBlackoutPlayerAttributeSet"]
     Reset --> Attr

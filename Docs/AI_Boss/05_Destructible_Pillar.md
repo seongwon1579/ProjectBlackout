@@ -1,44 +1,47 @@
-# AI/Boss — 05. 파괴 가능 기둥 (Destructible Pillar)
+# AI/Boss — 05. 파괴 가능 기둥 (Breakable Pillar)
 
-> TDD v5 §8 참조. Chaos Destruction(Geometry Collection)으로 **Ravager의 돌진 계열 GA(`UGA_Ravager_LungeAttackCombo`, `UGA_Ravager_ChargedShockwave`)의 히트 부차 효과로** 파괴.
-> **2026-04-21 GDD 개정**: GDD §6 "보스의 돌진 공격에 의해 영구적으로 파괴"를 반영하여 별도의 `GA_Ravager_PillarCharge`를 제거하고, 돌진 계열 GA 히트 판정에 통합.
+> TDD v5 §8 참조. 현재 C++ 구현은 `ABOBreakablePillarActor`가 통짜 ChildActor와 파편 ChildActor 목록을 전환하고, Ravager 계열 피해 스펙만 수용해 서버 권한으로 파괴합니다.
 
 ```mermaid
 classDiagram
     direction TB
 
-    AActor <|-- ABlackoutDestructiblePillar
-    ABlackoutDestructiblePillar ..|> IBlackoutDamageable : implements
+    AActor <|-- ABOBreakablePillarActor
+    ABOBreakablePillarActor ..|> IBlackoutDamageable : implements
 
-    class ABlackoutDestructiblePillar {
+    class ABOBreakablePillarActor {
         <<AActor>>
-        -UGeometryCollectionComponent* GCComponent
-        -UStaticMeshComponent* IntactMesh
-        -UBoxComponent* BlockingCollision
-        -float BOPillarHealth
-        -bool bIsShattered
+        -USceneComponent* Root
+        -UBoxComponent* PillarHitbox
+        -UChildActorComponent* WholeMesh
+        -TArray~UChildActorComponent*~ BreakPieces
         -int32 PillarId
+        -bool bIsBroken
+        -bool bAreBrokenPiecesHidden
         +BeginPlay() override void
-        +TakeDamage_FromCharge(float Amount, FVector Impact, FVector Force) void
-        +Multicast_Shatter(FVector ImpactPoint, FVector ImpactForce) void
-        +Instant_Shatter() void
-        +OnRep_IsShattered() void
-        #SettleDebris() void
+        +ReceiveDamageFromHitbox(FGameplayEffectSpecHandle, FName) void
+        +BreakPillar() void
+        +ResetPillar() void
+        +RefreshBreakPieces() void
+        +OnRep_IsBroken() void
+        +OnRep_AreBrokenPiecesHidden() void
+        -ApplyBreakImpulse() void
+        -HideBrokenPieces() void
     }
 
     class IBlackoutDamageable {
         <<Interface>>
-        +ReceiveDamage(float, AActor* Instigator) void
+        +GetHitPartTag(FName BoneName) FGameplayTag
+        +ReceiveDamageFromHitbox(FGameplayEffectSpecHandle, FName) void
     }
 
-    class UGeometryCollectionComponent {
-        <<Chaos — 런타임 분할 시뮬레이션>>
+    class UChildActorComponent {
+        <<WholeMesh / BreakPieces>>
     }
 
-    ABlackoutDestructiblePillar *-- UGeometryCollectionComponent
-    ABlackoutDestructiblePillar o-- ABlackoutGameState : reports PillarId to DestroyedPillarIds
-    UGA_Ravager_LungeAttackCombo ..> ABlackoutDestructiblePillar : 히트 시 Multicast_Shatter
-    UGA_Ravager_ChargedShockwave ..> ABlackoutDestructiblePillar : 히트 시 Multicast_Shatter
+    ABOBreakablePillarActor *-- UChildActorComponent
+    ABOBreakablePillarActor o-- ABlackoutGameState : reports PillarId to DestroyedPillarIds
+    UBlackoutGA_Ravager_Base ..> ABOBreakablePillarActor : Ravager 피해 스펙 전달
 ```
 
 ## 파괴 플로우
@@ -46,26 +49,27 @@ classDiagram
 ```mermaid
 sequenceDiagram
     participant Ravager as ABORavagerBoss
-    participant GA as GA_Ravager_LungeAttackCombo<br/>or GA_Ravager_ChargedShockwave
-    participant Pillar as ABlackoutDestructiblePillar
+    participant GA as UBlackoutGA_Ravager_Base 계열
+    participant Pillar as ABOBreakablePillarActor
     participant GS as ABlackoutGameState
 
-    Ravager->>GA: BT Activate (돌진 계열 GA)
-    GA->>Pillar: Hit Trace (bBreaksPillarOnHit=true) → TakeDamage_FromCharge
-    Pillar->>Pillar: BOPillarHealth -= Amount
-    alt HP <= 0 (Server)
-        Pillar->>Pillar: bIsShattered = true (Replicated)
-        Pillar->>Pillar: Multicast_Shatter(ImpactPoint, ImpactForce)
+    Ravager->>GA: BT Activate (Ravager GA)
+    GA->>Pillar: Hitbox damage spec → ReceiveDamageFromHitbox
+    Pillar->>Pillar: IsDamageSpecFromRavager 검증
+    alt Ravager 피해 스펙이고 서버 권한
+        Pillar->>Pillar: BreakPillar()
+        Pillar->>Pillar: bIsBroken = true (Replicated)
+        Pillar->>Pillar: WholeMesh 숨김 / BreakPieces 표시 + 임펄스
+        Pillar->>Pillar: Multicast_PlayBreakDustEffect()
         Pillar-->>GS: DestroyedPillarIds.AddUnique(PillarId)
     end
-    Note over Pillar: Client: GC ApplyExternalStrain() → 시뮬레이션
-    Pillar->>Pillar: SettleDebris() (5s 지연 후 SetSimulatePhysics=false)
+    Pillar->>Pillar: HideBrokenPieces() 예약
 ```
 
 ## 구현 노트
 
-- **결정적 시뮬레이션 아님**: Chaos 시뮬레이션은 클라이언트별로 독립 실행. 서버는 `bIsShattered` 플래그만 리플리케이트하여 대역폭 절감.
-- **Late-join / 관전자**: 신규 접속자는 `OnRep_IsShattered`에서 `Instant_Shatter()` 호출 → 시뮬레이션 없이 즉시 잔해 상태 스폰.
-- **피해 필터**: `TakeDamage_FromCharge`는 **돌진 계열 GA**(`UGA_Ravager_LungeAttackCombo`, `UGA_Ravager_ChargedShockwave`) 인스티게이터만 수용. 각 GA 스펙의 `SetByCaller(Pillar.Damage)` 값과 `bBreaksPillarOnHit` 플래그를 확인하여 판정. 플레이어 총격/폭발·다른 GA 히트는 `IBlackoutDamageable::ReceiveDamage`에서 무시.
-- **성능 가드**: `SettleDebris()`는 5초 뒤 물리 비활성화. 추가로 8초 경과 잔해는 서버 Tick에서 `SetActorHiddenInGame(true)`.
-- **`ABlackoutGameState::DestroyedPillarIds`**: Phase C 진입 시 Ravager가 이 배열 길이를 참조하여 회피 난이도 로직 (예: 카메라 세이프티 영역 축소)에 반영.
+- **결정적 상태 복원**: Chaos Geometry Collection 시뮬레이션이 아니라, 사전에 배치된 `WholeMesh`와 `BreakPieces` ChildActorComponent의 표시/물리 상태를 전환합니다. `ResetPillar()`가 파편 트랜스폼을 초기 상태로 되돌립니다.
+- **Late-join / 관전자**: 신규 접속자는 `bIsBroken`, `bAreBrokenPiecesHidden` 복제를 통해 `ApplyCurrentState()`에서 현재 기둥 상태를 즉시 맞춥니다.
+- **피해 필터**: `ReceiveDamageFromHitbox`는 `IsDamageSpecFromRavager`로 Ravager 계열 피해 스펙만 수용합니다. 플레이어 총격/폭발·다른 GA 히트는 무시합니다.
+- **성능 가드**: `BrokenPieceVisibleDuration` 이후 서버가 `HideBrokenPieces()`를 호출하고, `bAreBrokenPiecesHidden` 복제로 클라이언트 표시 상태를 맞춥니다.
+- **`ABlackoutGameState::DestroyedPillarIds`**: Phase C 진입 시 Ravager가 이 배열 길이를 참조하여 회피 난이도 로직에 반영할 수 있습니다.

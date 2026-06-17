@@ -90,18 +90,16 @@ classDiagram
     }
 
     class ABlackoutBattleGameMode {
-        -float BossDefeatResultDelaySeconds
-        -float ResultAutoTravelDelaySeconds
-        -float MainBossResultTravelDelaySeconds
+        -float MatchResultDisplayDelay
+        -float MatchResultAutoTravelDelay
         -FTimerHandle ResultDisplayTimerHandle
         -FTimerHandle ResultAutoTravelTimerHandle
-        -FTimerHandle ResultTravelTimerHandle
-        +OnBossDefeated() void
+        +RegisterBoss(ABlackoutBossCharacter*) void
         -BeginBossDefeatResultFlow(EBossType) void
-        -ShowResultWindowAfterDelay() void
-        -HandleResultConfirmed(ABlackoutPlayerController*) void
-        -ScheduleResultTravel() void
-        -ExecuteResultTravel() void
+        -ShowMatchResultAfterDelay() void
+        -AutoTravelAfterMatchResult() void
+        -ExecuteMatchResultTravel() void
+        -SnapshotMatchResultParticipants(...) void
     }
 
     class ABlackoutGameState {
@@ -112,7 +110,6 @@ classDiagram
         +float MatchResultVisibleServerTime
         +float MatchResultAutoTravelServerTime
         +TArray~ABlackoutPlayerState*~ MatchResultParticipants
-        +TArray~ABlackoutPlayerState*~ ResultConfirmedPlayers
         +OnMatchStateChanged(EBlackoutMatchState)
         +OnPlayerArrayChanged()
         +OnMatchResultStateChanged()
@@ -121,7 +118,6 @@ classDiagram
     class ABlackoutPlayerState {
         +FGameplayTag SelectedClassTag
         +FBlackoutMatchStats MatchStats
-        +bool bHasConfirmedMatchResult
         +OnMatchStatsChangedNative()
         +OnPlayerNameChangedNative()
     }
@@ -148,8 +144,6 @@ classDiagram
         +int32 TotalRevives
         +float TeamAccuracyPercent
         +float AutoTravelRemainingTime
-        +int32 ConfirmedPlayerCount
-        +int32 RequiredConfirmPlayerCount
     }
 
     class FBlackoutMatchResultPlayerStatsData {
@@ -166,7 +160,6 @@ classDiagram
         +float AccuracyPercent
         +int32 ConsumablesUsed
         +int32 Revives
-        +bool bHasConfirmedResult
         +bool bIsLocalPlayer
         +bool bIsValid
     }
@@ -189,8 +182,7 @@ classDiagram
     UBlackoutMatchResultWidget --> UBlackoutMatchResultWidgetController : receives result events
     UBlackoutMatchResultWidget o-- UBlackoutMatchResultStatsTableWidget : owns
     UBlackoutMatchResultStatsTableWidget o-- UBlackoutMatchResultPlayerColumnWidget : creates per player
-    UBlackoutMatchResultWidgetController --> ABlackoutBattleGameMode : requests confirm via controller RPC
-    ABlackoutBattleGameMode --> ABlackoutGameState : publishes result visibility and confirm state
+    ABlackoutBattleGameMode --> ABlackoutGameState : publishes result visibility and timer state
     UBlackoutMatchResultWidgetController --> ABlackoutGameState : watches match result participant snapshot
     UBlackoutMatchResultWidgetController --> ABlackoutPlayerState : reads replicated stats
     UBlackoutMatchResultWidgetController --> FBlackoutMatchResultSummaryData : builds team summary
@@ -230,7 +222,7 @@ flowchart LR
 | 열 | 내용 |
 |---|---|
 | 고정 통계 라벨 열 | 입힌 데미지, 처치 수, 근접 처치, 명중률, 발포 수, 명중 수, 소모품 사용, 부활 수 |
-| 플레이어 열 | 닉네임, 병과 표시, 확인 완료 아이콘, 해당 플레이어의 `FBlackoutMatchStats` 값 |
+| 플레이어 열 | 닉네임, 병과 표시, 해당 플레이어의 `FBlackoutMatchStats` 값 |
 
 ## 데이터 흐름
 
@@ -263,24 +255,7 @@ sequenceDiagram
     RW->>Table: RebuildColumns(PlayerStatsData 배열)
     Table->>Column: CreateWidget / SetPlayerStatsData
 
-    alt 로컬 플레이어가 확인 버튼 클릭
-        RW->>RC: RequestConfirmResult()
-        RC->>PC: Server_ConfirmMatchResult()
-        PC->>GM: HandleResultConfirmed(PC)
-        GM->>GS: ResultConfirmedPlayers 갱신
-        GS-->>RC: OnMatchResultStateChanged()
-        RC-->>RW: OnLocalConfirmStateChanged(true)
-        GM->>GM: 첫 확인이면 이동 예약 시작
-        alt 중간 보스 처치
-            GM->>GM: 로비 이동 예약
-        else 메인 보스 처치
-            GM->>GM: 5초 후 타이틀 이동 예약
-        end
-    end
-
-    alt 모든 플레이어가 결과창 확인
-        GM->>GM: ExecuteResultTravel() 즉시 호출
-    else 아무도 확인하지 않고 10초 경과
+    alt 10초 자동 이동 타이머 경과
         GM->>GM: ExecuteResultTravel() 자동 호출
     end
 
@@ -296,10 +271,8 @@ sequenceDiagram
 | 상태 | 결과창 표시 | 이동 예약 | 입력 |
 |---|---|---|---|
 | 보스 처치 직후 3초 | 숨김 | 없음 | 기존 전투 입력 차단 또는 보스 사망 연출 입력 유지 |
-| 결과창 표시 직후 | 표시 | 10초 자동 이동 타이머 시작 | 확인 버튼 클릭 가능 |
-| 첫 플레이어 확인 | 표시 유지 | 중간 보스는 로비 이동 예약, 메인 보스는 5초 후 타이틀 이동 예약 | 확인한 플레이어의 버튼 비활성화 |
-| 모든 플레이어 확인 | 표시 유지 또는 페이드 아웃 | 예약 대기 없이 즉시 이동 | 입력 잠금 가능 |
-| 확인자 없이 10초 경과 | 표시 유지 또는 페이드 아웃 | 자동 이동 즉시 실행 | 입력 잠금 가능 |
+| 결과창 표시 직후 | 표시 | 10초 자동 이동 타이머 시작 | 결과 통계 확인 |
+| 10초 경과 | 표시 유지 또는 페이드 아웃 | 자동 이동 즉시 실행 | 입력 잠금 가능 |
 
 ## 이동 규칙
 
@@ -307,33 +280,20 @@ sequenceDiagram
 flowchart TB
     Defeated["보스 처치"] --> Delay["3초 대기"]
     Delay --> Show["결과창 표시 + 10초 자동 이동 타이머 시작"]
-    Show --> AnyConfirm{"누군가 확인 클릭?"}
-    AnyConfirm -->|예| Schedule{"처치한 보스"}
-    Schedule -->|중간 보스| Lobby["로비 이동 예약"]
-    Schedule -->|메인 보스| TitleDelay["5초 후 타이틀 이동 예약"]
-    AnyConfirm -->|아니오, 10초 경과| Auto["자동 이동"]
-    Lobby --> AllConfirmed{"전원 확인?"}
-    TitleDelay --> AllConfirmed
-    AllConfirmed -->|예| Immediate["즉시 이동"]
-    AllConfirmed -->|아니오| Wait["예약 시간까지 대기"]
-    Wait --> Travel["예약된 목적지로 이동"]
+    Show --> Auto["10초 경과 자동 이동"]
     Auto --> Travel
-    Immediate --> Travel
 ```
 
 ## 구현 노트
 
 - **표시 트리거**: 중간/메인 보스 모두 처치 직후 바로 이동하지 않고, 서버가 3초 지연 후 `ABlackoutGameState::bIsMatchResultVisible`을 복제해 결과창 표시를 시작합니다. 기존 `CurrentMatchState == Ended`만으로 표시 여부를 결정하면 중간 보스 결과창과 구분하기 어려우므로 결과창 전용 복제 상태를 둡니다.
-- **확인 버튼**: `UBlackoutMatchResultWidget`은 결과창 확인 버튼을 소유합니다. 클릭 시 로컬 컨트롤러 RPC(`Server_ConfirmMatchResult`)를 통해 서버에 확인을 알리고, 서버는 해당 `ABlackoutPlayerState::bHasConfirmedMatchResult` 또는 `ResultConfirmedPlayers`를 갱신합니다.
-- **첫 확인 이동 예약**: 결과창 표시 후 누군가 확인 버튼을 처음 클릭하면 서버는 목적지 이동을 예약합니다. 중간 보스 처치 결과창은 로비 이동, 메인 보스 처치 결과창은 5초 후 타이틀 이동을 예약합니다.
-- **전원 확인 즉시 이동**: 결과창 대상 플레이어 전원이 확인하면 남은 예약 시간과 자동 이동 타이머를 취소하고 즉시 목적지로 이동합니다.
-- **자동 이동**: 아무도 확인하지 않으면 결과창 표시 10초 후 자동 이동합니다. 자동 이동 목적지는 처치한 보스 타입에 따라 중간 보스는 로비, 메인 보스는 타이틀입니다.
+- **자동 이동**: 결과창 표시 10초 후 자동 이동합니다. 자동 이동 목적지는 처치한 보스 타입에 따라 중간 보스는 로비, 메인 보스는 타이틀입니다.
 - **컨트롤러 책임**: `UBlackoutMatchResultWidgetController`는 `ABlackoutGameState::MatchResultParticipants`를 기준으로 게임에 참가한 모든 플레이어의 닉네임과 통계를 표시합니다. 로컬 플레이어만 강조하기 위해 `bIsLocalPlayer`를 별도 전달합니다.
 - **참가자 스냅샷**: 결과창 표시 시점에 서버가 참가 플레이어 목록을 고정합니다. 단순히 현재 `PlayerArray`만 매 프레임 순회하면 결과창 표시 중 이탈/복제 지연으로 열 순서가 흔들릴 수 있으므로, `DisplayOrder`를 포함한 스냅샷을 기준으로 컬럼을 구성합니다.
-- **헬다이버즈 2 스타일 테이블**: `UBlackoutMatchResultStatsTableWidget`은 고정 통계 라벨 열과 플레이어별 컬럼들을 같은 행 높이로 맞춥니다. 각 `UBlackoutMatchResultPlayerColumnWidget`은 상단 닉네임, 병과/확인 상태, 통계 값을 세로로 렌더링합니다.
+- **헬다이버즈 2 스타일 테이블**: `UBlackoutMatchResultStatsTableWidget`은 고정 통계 라벨 열과 플레이어별 컬럼들을 같은 행 높이로 맞춥니다. 각 `UBlackoutMatchResultPlayerColumnWidget`은 상단 닉네임, 병과, 통계 값을 세로로 렌더링합니다.
 - **갱신 방식**: `ABlackoutPlayerState::OnMatchStatsChangedNative`와 `OnPlayerNameChangedNative`를 바인딩해 늦게 도착한 복제 값도 결과창에 반영합니다. 결과창 표시 시점에는 `RefreshResult()`로 전체 스냅샷을 한 번 재구성합니다.
 - **명중률 처리**: 발포 횟수가 0이면 0%로 표시해 0 나누기를 방지합니다. UI 표기는 정수 또는 소수점 한 자리 등 블루프린트 위젯에서 결정합니다.
 - **팀 요약**: 팀 명중률은 플레이어별 명중률 평균이 아니라 `전체 ShotsHit / 전체 ShotsFired`로 계산합니다.
 - **서버 집계 확인**: 현재 서버 코드에는 근접 처치(`MeleeKills`)와 소모품 사용(`ConsumablesUsed`) 집계 경로가 존재합니다. 향후 해당 필드 또는 기록 함수가 제거된 브랜치에서는 UI 항목을 임의 계산하지 말고 표시 항목에서 제외하거나 "집계 미지원"으로 노출합니다.
-- **현재 코드와의 차이**: 현재 `ABlackoutBattleGameMode`는 중간 보스 처치 시 `MidBossDeathDelay` 뒤 로비 이동, 메인 보스 처치 시 `EndMatch` 후 5초 뒤 타이틀 이동을 예약합니다. 이 문서의 정책을 구현하려면 3초 결과창 표시 타이머, 확인 RPC, 확인자 집계, 10초 자동 이동 타이머를 추가해야 합니다.
+- **현재 구현 상태**: `ABlackoutBattleGameMode`는 `MatchResultDisplayDelay` 후 결과창 상태를 복제하고, `MatchResultAutoTravelDelay` 후 `ExecuteMatchResultTravel()`을 호출합니다. 확인 RPC/확인자 집계는 현재 C++ 구조에 포함되어 있지 않습니다.
 - **소멸 처리**: 컨트롤러는 `BeginDestroy` 또는 HUD 해제 시 `GameState::OnMatchStateChanged`, `OnPlayerArrayChanged`, 각 `PlayerState`의 통계/이름 델리게이트에서 `RemoveAll(this)` 또는 저장한 `FDelegateHandle`로 바인딩을 해제합니다.

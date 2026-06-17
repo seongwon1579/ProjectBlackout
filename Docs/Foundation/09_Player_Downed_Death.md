@@ -1,7 +1,7 @@
 # Foundation — 09. 플레이어 다운 / 완전 사망
 
 > HP 0 도달 시 즉시 매치 실패로 처리하지 않고, `State.Downed` 상태에서 부활 가능 시간을 제공한 뒤 타이머가 만료되면 완전 사망으로 전환하는 책임 구조입니다.
-> 현재 코드에는 `State.Downed`, `State.Reviving`, `State.BeingRevived`와 `GA_Revive`가 존재하며, 본 문서는 후속 구현 대상인 완전 사망 타이머와 전멸 감지 훅을 함께 정의합니다.
+> 현재 코드에는 `State.Downed`, `State.Reviving`, `State.BeingRevived`와 `UBlackoutGA_Revive`가 존재하며, 본 문서는 후속 구현 대상인 완전 사망 타이머와 전멸 감지 훅을 함께 정의합니다.
 > 완전 사망 이후 관전, 관전 대상 변경 입력, 항복 투표는 [10_Player_Spectator_Surrender.md](10_Player_Spectator_Surrender.md)를 기준으로 합니다.
 
 ## 클래스 다이어그램
@@ -148,7 +148,7 @@ classDiagram
 - **UI 타이머 데이터**: 다운 사망 타이머는 서버 권위로 유지하되, 소유 클라이언트 HUD가 남은 시간을 그릴 수 있도록 시작 시각/종료 시각 또는 남은 시간을 복제·RPC로 제공합니다. UI는 로컬 월드 시간이 아니라 서버 월드 시간 보정값을 기준으로 프로그래스를 계산합니다.
 - **완전 사망 표현**: 후속 구현에서는 `State.Dead` 네이티브 태그를 추가해 GA 차단, UI 표시, 파티 전멸 평가의 공통 판정값으로 사용합니다. `bIsDead`는 서버 중복 처리 가드로 유지합니다.
 - **GA 차단**: `UBlackoutGameplayAbility` 기본 차단 태그에 `State.Dead`를 넣어 플레이어/AI 공통으로 완전 사망 후 새 어빌리티 시작을 막습니다.
-- **부활과 타이머 우선순위**: 부활 진행이 시작되면 서버는 다운 사망 타이머를 일시정지하고 정지 시점의 남은 시간을 보관합니다. 부활이 취소되면 보관한 남은 시간으로 다운 사망 타이머를 재개합니다. 부활 성공 시 타이머를 완전히 해제하고, 완전 사망 시 `GA_Revive`를 캔슬합니다.
+- **부활과 타이머 우선순위**: 부활 진행이 시작되면 서버는 다운 사망 타이머를 일시정지하고 정지 시점의 남은 시간을 보관합니다. 부활이 취소되면 보관한 남은 시간으로 다운 사망 타이머를 재개합니다. 부활 성공 시 타이머를 완전히 해제하고, 완전 사망 시 `UBlackoutGA_Revive`를 캔슬합니다.
 - **다운 HUD 모드 복구**: 부활 성공으로 `State.Downed`와 `State.BeingRevived`가 해제되면 소유 클라이언트 HUD는 기본 전투 HUD로 복구합니다. `State.Dead`가 적용되면 다운 HUD가 아니라 관전 HUD로 전환합니다.
 - **전멸 감지**: 완전 사망 전환이 발생한 서버 경로에서 `ABlackoutBattleGameMode::NotifyPlayerFullyDead`를 호출하고, `EvaluatePartyWipe()`가 `GameState->PlayerArray` 기준으로 생존자를 계산합니다.
 - **전멸 복귀**: 생존자가 0명이면 기존 `HandlePartyWipe()` 경로를 재사용합니다. 이 경로는 체크포인트 텔레포트, `ApplyBattleTransitionPolicy(PartyWipeRestart)`, Ready 리셋, `InCombatReady` 복귀를 담당합니다.
