@@ -7,6 +7,7 @@
 #include "GameFramework/GameModeBase.h"
 #include  "Characters/BlackoutPlayerCharacter.h"
 #include "Kismet/GameplayStatics.h"
+#include "BlackoutDedicatedSessionSubsystem.h"
 
 void ABlackoutLobbyGameMode::StartBattle()
 {
@@ -99,6 +100,27 @@ void ABlackoutLobbyGameMode::HandleLobbyArrival(APlayerController* PC)
 				TransitionTo(EBlackoutMatchState::ShelterPrep);
 			}
 		}
+	}
+}
+
+void ABlackoutLobbyGameMode::HandleEmptyServerReset()
+{
+	// 로비에서 전원 퇴장 — 매칭 서버에 finish/idle 보고해야 markIdle 됨(안 하면 status='playing' 좀비).
+	// /finish 는 세션·플레이어키 정리(세션 살아있을 때), /idle 는 serverId 로 status 직접 복구(세션 만료에도).
+	if (UGameInstance* GI = GetGameInstance())
+	{
+		if (UBlackoutDedicatedSessionSubsystem* Dedi =
+				GI->GetSubsystem<UBlackoutDedicatedSessionSubsystem>())
+		{
+			Dedi->ReportFinishToMatchmakingServer();
+			Dedi->ReportIdleToMatchmakingServer();
+		}
+	}
+
+	// 다음 파티 위해 깨끗한 상태로 reload (InitGame 이 MatchState/스테이지 초기화). 빈 서버라 비용 무관.
+	if (UWorld* World = GetWorld())
+	{
+		World->ServerTravel(TEXT("?restart"));
 	}
 }
 

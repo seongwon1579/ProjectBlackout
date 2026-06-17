@@ -29,6 +29,10 @@ protected:
 	virtual void OnAllPlayersReady() override;
 
 	virtual void OnSeamlessArrival(APlayerController* PC) override;
+
+	// 빈 서버(로비) 복귀 — 매칭 서버에 finish/idle 보고(안 하면 status='playing' 좀비) + 로비 reload.
+	virtual void HandleEmptyServerReset() override;
+
 	UPROPERTY(EditDefaultsOnly, Category = "Blackout|Lobby")
 	TArray<FSoftObjectPath> BossStageMapPaths;
 	

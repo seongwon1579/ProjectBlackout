@@ -83,7 +83,9 @@ void UBlackoutMainMenuWidget::NativeConstruct()
 			
 			MatchmakingSubsystem->OnActiveSessionFound.AddDynamic(
 				this, &UBlackoutMainMenuWidget::HandleActiveSessionFound);
+			MatchmakingSubsystem->CheckActiveSession();
 		}
+		
 	}
 
 	// 타이틀 전용 메뉴에서만 메인 메뉴 BGM을 시작하고, 인게임 ESC 메뉴에서는 현재 게임 음악을 유지합니다.
