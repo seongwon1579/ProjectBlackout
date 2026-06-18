@@ -10,9 +10,11 @@
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "Interfaces/IHttpRequest.h"
 #include "HttpFwd.h"
+#include "AI/Enum/BOBossPhase.h"
 #include "BlackoutTelemetrySampler.generated.h"
 
 class ABlackoutPlayerCharacter;
+class AActor;
 
 // 1Hz 위치 샘플 - movement_sample DTO
 USTRUCT()
@@ -28,6 +30,15 @@ struct FBlackoutMovementSample
 	UPROPERTY() double Z = 0.0;
 	UPROPERTY() FString LevelName;
 	UPROPERTY() FString State;
+	
+};
+
+USTRUCT()
+struct FBlackoutEventContext
+{
+	GENERATED_BODY()
+	UPROPERTY() int32 Phase = 0;
+	
 };
 
 // 이벤트 - match_event DTO
@@ -45,6 +56,7 @@ struct FBlackoutMatchEvent
 	UPROPERTY() double  Z = 0.0;
 	UPROPERTY() FString LevelName;
 	UPROPERTY() FString EventType;
+	UPROPERTY() FBlackoutEventContext  Context; // 발생 시점 보스 페이즈(EBOBossPhase, 0=None). Ravager 전용
 };
 
 /**
@@ -74,6 +86,9 @@ public:
 	// 사망 , 다운 이벤트 기록 
 	void AddEvent(ABlackoutPlayerCharacter* Player , const FString& EventType);
 	
+	// 보스 페이즈 전환 통지
+	void RecordBossPhaseChange(EBOBossPhase NewPhase , AActor* Boss);
+	
 private:
 	void SampleTick();
 	void Flush(bool bFinal);
@@ -96,4 +111,5 @@ private:
 	FTimerHandle SampleTimerHandle;
 	FTimerHandle FlushTimerHandle;
 	bool bFlushInFlight = false;
+	EBOBossPhase CurrentBossPhase = EBOBossPhase::None;
 };

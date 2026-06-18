@@ -166,6 +166,33 @@ void UBlackoutTelemetrySampler::AddEvent(ABlackoutPlayerCharacter* Player,
 	Event.Z = Loc.Z;
 	Event.LevelName = GetNormalizedLevelName();
 	Event.EventType = EventType;
+	Event.Context.Phase = (int32)CurrentBossPhase;
+	MatchEventBuffer.Add(MoveTemp(Event));
+}
+
+void UBlackoutTelemetrySampler::RecordBossPhaseChange(EBOBossPhase NewPhase,
+	AActor* Boss)
+{
+	CurrentBossPhase = NewPhase;
+	
+	if (!RunId.IsValid())
+	{
+		return;
+	}
+	
+	FBlackoutMatchEvent Event;
+	Event.EventId = FGuid::NewGuid().ToString();
+	Event.MatchId = RunId.ToString();
+	Event.AccountId = FString();
+	Event.TSec = (FDateTime::UtcNow() - MatchStartTime).GetTotalSeconds();
+	if (Boss)
+	{
+		const FVector Loc = Boss -> GetActorLocation();
+		Event.X = Loc.X; Event.Y = Loc.Y; Event.Z = Loc.Z;
+	}
+	Event.LevelName = GetNormalizedLevelName();
+	Event.EventType = TEXT("phase");
+	Event.Context.Phase = (int32)NewPhase;
 	MatchEventBuffer.Add(MoveTemp(Event));
 }
 
