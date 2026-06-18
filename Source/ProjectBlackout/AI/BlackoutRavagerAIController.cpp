@@ -6,6 +6,9 @@
 #include "BlackoutBossBTRunner.h"
 #include "BlackoutPhaseEvaluator.h"
 #include "BehaviorTree/BlackboardComponent.h"
+#include "Framework/BlackoutTelemetrySampler.h"
+#include "Engine/GameInstance.h"
+
 
 void ABlackoutRavagerAIController::RequestPhaseChange(EBOBossPhase NewPhase)
 {
@@ -74,5 +77,16 @@ void ABlackoutRavagerAIController::HandlePhaseChanged(EBOBossPhase NewPhase)
 	if (BTRunner)
 	{
 		BTRunner->RunPhaseBT(NewPhase);
+	}
+	
+	if (const UWorld* World = GetWorld())
+	{
+		if (UGameInstance* GI =World->GetGameInstance())
+		{
+			if (UBlackoutTelemetrySampler* Sampler = GI -> GetSubsystem<UBlackoutTelemetrySampler>())
+			{
+				Sampler->RecordBossPhaseChange(NewPhase,GetPawn());
+			}
+		}
 	}
 }
