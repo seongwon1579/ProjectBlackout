@@ -1,5 +1,9 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 최승현: 거리/DPS/저체력 가중 점수로 서버에서 어그로 타겟을 산정하는 컴포넌트 (마진·드웰·다운/사망 제외 포함)
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

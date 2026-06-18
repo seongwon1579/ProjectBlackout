@@ -1,5 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: Ravager 보스 컨트롤러 — 페이즈별 BT 러너 구동, 페이즈 전환 요청 처리, 어그로 타겟 반영
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

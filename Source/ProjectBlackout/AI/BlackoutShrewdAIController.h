@@ -1,5 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: Shrewd 보스 컨트롤러 — 현재 어그로 타겟 캐싱 및 StateTree로의 타겟 전달
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

@@ -1,5 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: 미니언 블렌드스페이스용 속도·방향 계산과 사망 처리(OnDeath)를 구현
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

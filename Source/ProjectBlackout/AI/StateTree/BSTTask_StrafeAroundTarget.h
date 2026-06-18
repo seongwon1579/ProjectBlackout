@@ -1,4 +1,8 @@
-﻿#pragma once
+﻿// ─── 구현 내역 ───────────────────────
+//  - 최승현: 타겟 주위를 좌/우 주기적으로 전환하며 선회하는 스트레이프 StateTree Task
+// ──────────────────────────────────────
+
+#pragma once
 
 #include  "CoreMinimal.h"
 #include "StateTreeTaskBase.h"

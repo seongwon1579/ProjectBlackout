@@ -1,5 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: Ravager가 대상을 끌어당기는 Pull 패턴 데이터를 적용받는 대상용 인터페이스(ApplyPull) 정의
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

@@ -1,3 +1,8 @@
+// ─── 구현 내역 ───────────────────────
+//  - 김민영: 공통 기본 어트리뷰트셋 — Health/MaxHealth/MovementSpeed/BaseDamage/DamageReduction 정의·복제 및 체력 클램프
+//  - 허혁: 무한 체력 치트 연동 및 MaxHealth 변경 시 체력 재클램프 처리
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

@@ -1,3 +1,7 @@
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: 보스 애님 갱신 루프와 하위 클래스용 UpdateAnimationProperties 훅을 구현
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

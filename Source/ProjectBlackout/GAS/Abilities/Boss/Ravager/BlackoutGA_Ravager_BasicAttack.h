@@ -1,5 +1,10 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: 히트박스 베이스를 상속한 Ravager 기본 공격 어빌리티
+//  - 허혁: 공격 적중 시 플레이어 스턴 게이지 부여
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

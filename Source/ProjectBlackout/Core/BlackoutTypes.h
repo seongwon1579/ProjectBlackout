@@ -1,3 +1,8 @@
+// ─── 구현 내역 ───────────────────────
+//  - 김민영: 어빌리티 입력 ID(EBlackoutAbilityInputID)와 전투 전환 유형(EBattleTransitionType) enum 정의
+//  - 최승현: 매치 생애주기 상태/종료 사유/보스 종류 enum과 매치 통계 집계 구조체(FBlackoutMatchStats) 정의
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

@@ -1,5 +1,9 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 최승현: Custom Depth 스텐실로 진영/상태별 외곽선을 칠하고 로컬 조종 폰은 외곽선을 제외하는 하이라이트 컴포넌트
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

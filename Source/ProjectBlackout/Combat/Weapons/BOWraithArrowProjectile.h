@@ -1,5 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 최승현: Wraith 전용 화살 발사체(풀 재사용 시 수명 타이머 재시작/정지) 구현
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

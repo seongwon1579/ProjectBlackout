@@ -1,5 +1,9 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 최승현: 데디 세션 서브시스템 — 세션 메타데이터·매칭서버 자동 등록/Heartbeat·종료 보고(finish)
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

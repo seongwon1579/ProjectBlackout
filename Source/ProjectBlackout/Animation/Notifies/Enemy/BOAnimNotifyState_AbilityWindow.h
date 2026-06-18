@@ -1,5 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: 시작/종료 태그로 ASC에 GameplayEvent를 보내는 적 능력 윈도우 NotifyState를 구현
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

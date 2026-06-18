@@ -1,4 +1,9 @@
-﻿#pragma once
+﻿// ─── 구현 내역 ───────────────────────
+//  - 최승현: 클래스 선택 표시 데이터 타입 정의
+//  - 김민영: 산탄 무기 펠릿 수 표시 필드 추가
+// ──────────────────────────────────────
+
+#pragma once
 
 #include "CoreMinimal.h"
 #include "Data/BlackoutWeaponStat.h"

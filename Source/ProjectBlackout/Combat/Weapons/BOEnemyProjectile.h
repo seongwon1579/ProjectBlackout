@@ -1,5 +1,10 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: 적 발사체 베이스(서버 권위 이동·리플리케이션, 박스 콜리전 오버랩/피직스 분기, 스탯 기반 데미지) 구현
+//  - 허혁: 오브젝트 풀 프리로드 및 스턴 게이지 적용 연동
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

@@ -1,5 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 김민영: 맵 로드 완료 시 사용자 설정(그래픽/오디오/입력) 자동 재적용 서브시스템
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

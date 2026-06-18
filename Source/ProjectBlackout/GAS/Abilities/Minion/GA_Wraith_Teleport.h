@@ -1,5 +1,10 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 최승현: Wraith 점멸 — Vanish~Appear 무적 구간, 텔포 군집 방지(RandomBest + RVO 회피), 헤드샷 히트박스 연계
+//  - 김민영: 순간이동 중 체력바 유지
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

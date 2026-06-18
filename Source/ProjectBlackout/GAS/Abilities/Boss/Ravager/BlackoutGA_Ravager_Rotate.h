@@ -1,5 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: Ravager 타겟 방향 회전(Rotate) 어빌리티
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

@@ -1,5 +1,9 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 최승현: 매칭 대기 위젯·게임 시작 시 로딩 텍스트 전환 구현
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

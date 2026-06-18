@@ -1,5 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: 소환 미니언(Hollow) 스폰 어빌리티
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

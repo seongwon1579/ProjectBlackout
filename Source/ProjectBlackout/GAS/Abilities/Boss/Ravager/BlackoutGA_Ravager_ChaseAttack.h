@@ -1,5 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: FlashKick 추격 공격 — NotifyState 기간 동안 두 객체 거리를 보간 이동
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

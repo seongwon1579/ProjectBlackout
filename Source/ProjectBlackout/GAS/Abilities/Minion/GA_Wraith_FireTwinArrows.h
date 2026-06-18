@@ -1,5 +1,10 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 최승현: Wraith 쌍화살 사격 GA — Projectile 발사, Bowshot 몽타주 + AimDelay 조준 선딜, AnimNotify 통합, ASC 쿨다운 + 타겟 응시 Task
+//  - 허혁: 적중 시 플레이어 스턴 게이지/피격 단계 처리
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

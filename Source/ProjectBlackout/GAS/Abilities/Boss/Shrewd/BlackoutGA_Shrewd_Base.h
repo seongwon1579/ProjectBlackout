@@ -1,5 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: Shrewd 어빌리티 베이스 — 타겟 설정, 선행 로직 없는 자식 구현체 즉시 시작 흐름
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

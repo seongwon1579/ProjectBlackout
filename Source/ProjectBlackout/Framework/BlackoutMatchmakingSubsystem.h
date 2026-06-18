@@ -1,3 +1,8 @@
+// ─── 구현 내역 ───────────────────────
+//  - 최승현: 매칭 서브시스템 — 로그인·자동 합방·로비 WebSocket·데디 ClientTravel·재접속(자동/수동/active-session)·MoviePlayer 로딩 화면
+//  - 김민영: 로딩 화면 텍스처 프리로드
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

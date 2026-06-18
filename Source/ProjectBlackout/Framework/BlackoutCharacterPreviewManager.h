@@ -1,5 +1,10 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 최승현: 캐릭터 선택 3D 프리뷰 매니저 — Per-client 동적 RT·프리뷰 폰 라이프사이클·SceneCapture 전환
+//  - 김민영: 프리뷰 렌더링 전환(월드 카메라 ↔ 캡처)
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

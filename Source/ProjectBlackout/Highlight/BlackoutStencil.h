@@ -1,4 +1,8 @@
-﻿#pragma once
+﻿// ─── 구현 내역 ───────────────────────
+//  - 최승현: 외곽선 진영 구분용 스텐실 값(None/Enemy/Player) enum 정의
+// ──────────────────────────────────────
+
+#pragma once
 
 #include "CoreMinimal.h"
 #include "BlackoutStencil.generated.h"

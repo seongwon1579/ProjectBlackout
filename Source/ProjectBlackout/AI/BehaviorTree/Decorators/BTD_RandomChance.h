@@ -1,5 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: 설정 확률로 조건 통과 여부를 결정하는 랜덤 확률 데코레이터
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

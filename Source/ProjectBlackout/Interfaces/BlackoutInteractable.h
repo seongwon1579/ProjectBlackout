@@ -1,3 +1,8 @@
+// ─── 구현 내역 ───────────────────────
+//  - 김민영: [E] 상호작용 공용 인터페이스와 프롬프트 텍스트 조회(GetInteractionPrompt) 정의
+//  - 최승현: 체크포인트 상호작용용 가능여부 판정/실행(CanInteract·OnInteract) 시그니처 정립
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
