@@ -1,0 +1,109 @@
+<svg viewBox="0 0 1080 900" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="t d" font-family="'Segoe UI','Malgun Gothic',sans-serif">
+  <title id="t">구르기 &amp; 근접 콤보 — 몽타주 타임라인</title>
+  <desc id="d">근접 콤보는 섹션별 히트박스 활성 구간과 콤보 입력 윈도우(서버 World Time 타이머)로 구성되며, 윈도우 안에서 입력하면 다음 섹션으로 점프하고 밖이면 무시되어 복구까지 재생된다. 구르기는 시작부 무적(I-Frame)과 체인 윈도우(연속 구르기)를 가진다.</desc>
+
+  <defs>
+    <marker id="mGold" viewBox="0 0 10 10" refX="5" refY="9" markerWidth="8" markerHeight="8" orient="0">
+      <path d="M0,0 L10,0 L5,10 z" fill="#f4b740"/>
+    </marker>
+    <marker id="mGray" viewBox="0 0 10 10" refX="5" refY="9" markerWidth="8" markerHeight="8" orient="0">
+      <path d="M0,0 L10,0 L5,10 z" fill="#8c909b"/>
+    </marker>
+    <marker id="aGold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#f4b740"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1080" height="900" fill="#14141a"/>
+  <rect x="0" y="0" width="8" height="900" fill="#ff463b"/>
+  <text x="44" y="50" fill="#f4f4f7" font-size="31" font-weight="700">플레이어 전투 — 구르기 &amp; 근접 콤보</text>
+
+  <!-- ===== Panel A: Melee combo ===== -->
+  <rect x="40" y="74" width="1000" height="384" rx="14" fill="#1d1d26" stroke="#33333f" stroke-width="1.5"/>
+  <text x="70" y="110" fill="#f4f4f7" font-size="19" font-weight="700">근접 콤보 <tspan fill="#aeb3bf" font-weight="400" font-size="15">(Melee Combo)</tspan></text>
+
+  <!-- legend -->
+  <g font-size="13">
+    <rect x="688" y="92" width="14" height="14" rx="2" fill="#ff463b"/>
+    <text x="708" y="104" fill="#c9cdd6">판정 (히트박스 / 무적)</text>
+    <rect x="688" y="113" width="14" height="14" rx="2" fill="#f4b740"/>
+    <text x="708" y="125" fill="#c9cdd6">입력 윈도우 (서버 타이머)</text>
+    <rect x="688" y="134" width="14" height="14" rx="2" fill="#3a3a47"/>
+    <text x="708" y="146" fill="#c9cdd6">시전 / 복구</text>
+  </g>
+
+  <!-- section labels -->
+  <text x="240" y="206" fill="#e6e8ed" font-size="14.5" font-weight="600" text-anchor="middle">Combo 1</text>
+  <text x="540" y="206" fill="#e6e8ed" font-size="14.5" font-weight="600" text-anchor="middle">Combo 2</text>
+  <text x="840" y="206" fill="#e6e8ed" font-size="14.5" font-weight="600" text-anchor="middle">Combo 3</text>
+
+  <!-- input press into window (Combo1) -->
+  <text x="270" y="178" fill="#f4b740" font-size="13" text-anchor="middle" font-weight="600">입력 ✔</text>
+  <line x1="270" y1="184" x2="270" y2="224" stroke="#f4b740" stroke-width="2.4" marker-end="url(#mGold)"/>
+  <!-- advance to next section -->
+  <path d="M 318 250 C 360 234, 372 234, 388 248" fill="none" stroke="#f4b740" stroke-width="2.2" marker-end="url(#aGold)"/>
+  <text x="470" y="172" fill="#f4d28a" font-size="13" text-anchor="middle">다음 섹션 점프 (서버 SetNextSectionName)</text>
+  <line x1="392" y1="240" x2="452" y2="180" stroke="#5a5036" stroke-width="1.1" stroke-dasharray="3 3"/>
+
+  <!-- miss input (Combo3, after grace) -->
+  <text x="965" y="178" fill="#8c909b" font-size="13" text-anchor="middle">입력 ✖</text>
+  <line x1="965" y1="184" x2="965" y2="224" stroke="#8c909b" stroke-width="2.4" marker-end="url(#mGray)"/>
+
+  <!-- track base -->
+  <rect x="90" y="228" width="900" height="52" rx="4" fill="#2b2b34"/>
+  <!-- combo1 bands -->
+  <rect x="165" y="228" width="60" height="52" fill="#ff463b" opacity="0.85"/>
+  <rect x="225" y="228" width="90" height="52" fill="#f4b740" opacity="0.9"/>
+  <rect x="315" y="228" width="30" height="52" fill="#f4b740" opacity="0.32"/>
+  <!-- combo2 bands -->
+  <rect x="465" y="228" width="60" height="52" fill="#ff463b" opacity="0.85"/>
+  <rect x="525" y="228" width="90" height="52" fill="#f4b740" opacity="0.9"/>
+  <rect x="615" y="228" width="30" height="52" fill="#f4b740" opacity="0.32"/>
+  <!-- combo3 bands -->
+  <rect x="765" y="228" width="60" height="52" fill="#ff463b" opacity="0.85"/>
+  <rect x="825" y="228" width="90" height="52" fill="#f4b740" opacity="0.9"/>
+  <rect x="915" y="228" width="30" height="52" fill="#f4b740" opacity="0.32"/>
+  <!-- track outline + dividers -->
+  <rect x="90" y="228" width="900" height="52" rx="4" fill="none" stroke="#4a4a58" stroke-width="1.5"/>
+  <line x1="390" y1="228" x2="390" y2="280" stroke="#4a4a58" stroke-width="1.5"/>
+  <line x1="690" y1="228" x2="690" y2="280" stroke="#4a4a58" stroke-width="1.5"/>
+
+  <!-- combo1 callouts -->
+  <text x="195" y="306" fill="#ff8e86" font-size="12.5" text-anchor="middle">히트박스</text>
+  <text x="270" y="306" fill="#f4d28a" font-size="12.5" text-anchor="middle">입력 윈도우</text>
+  <text x="332" y="306" fill="#cbb277" font-size="12" text-anchor="middle">grace</text>
+  <text x="240" y="326" fill="#8c909b" font-size="11.5" text-anchor="middle">AnimNotifyState · 서버 World Time 타이머 · late grace ≤150ms</text>
+
+  <!-- rule note -->
+  <text x="540" y="362" fill="#aeb3bf" font-size="13.5" text-anchor="middle">입력이 윈도우·grace 밖이면 → <tspan fill="#e6e8ed">EndAbility 없이 RecoveryEnd까지 자연 종료</tspan></text>
+  <text x="540" y="386" fill="#aeb3bf" font-size="13.5" text-anchor="middle">조기 캔슬: 복구 구간의 <tspan fill="#e6e8ed">AN_AbilityCancelable → Event → EndAbility</tspan> (다음 행동 빠른 연계)</text>
+
+  <!-- ===== Panel B: Dodge ===== -->
+  <rect x="40" y="474" width="1000" height="286" rx="14" fill="#1d1d26" stroke="#33333f" stroke-width="1.5"/>
+  <text x="70" y="510" fill="#f4f4f7" font-size="19" font-weight="700">구르기 <tspan fill="#aeb3bf" font-weight="400" font-size="15">(Dodge / 연속 구르기)</tspan></text>
+
+  <!-- stamina cost marker -->
+  <text x="150" y="556" fill="#aeb3bf" font-size="12.5" text-anchor="middle">스태미나 GE Cost</text>
+  <line x1="100" y1="560" x2="100" y2="600" stroke="#8c909b" stroke-width="2" stroke-dasharray="3 3"/>
+  <line x1="150" y1="560" x2="108" y2="596" stroke="#565666" stroke-width="1.1" stroke-dasharray="3 3"/>
+
+  <!-- chain input -->
+  <text x="590" y="552" fill="#f4b740" font-size="13" text-anchor="middle" font-weight="600">입력 ✔</text>
+  <line x1="590" y1="558" x2="590" y2="598" stroke="#f4b740" stroke-width="2.4" marker-end="url(#mGold)"/>
+
+  <!-- dodge track -->
+  <rect x="90" y="602" width="900" height="52" rx="4" fill="#2b2b34"/>
+  <rect x="130" y="602" width="170" height="52" fill="#ff463b" opacity="0.85"/>
+  <rect x="520" y="602" width="140" height="52" fill="#f4b740" opacity="0.9"/>
+  <rect x="90" y="602" width="900" height="52" rx="4" fill="none" stroke="#4a4a58" stroke-width="1.5"/>
+
+  <!-- dodge callouts -->
+  <text x="215" y="680" fill="#ff8e86" font-size="13" text-anchor="middle">무적 I-Frame</text>
+  <text x="215" y="700" fill="#8c909b" font-size="11.5" text-anchor="middle">State.Invulnerable · 루트 모션</text>
+  <text x="590" y="680" fill="#f4d28a" font-size="13" text-anchor="middle">체인 윈도우</text>
+  <text x="590" y="700" fill="#8c909b" font-size="11.5" text-anchor="middle">윈도우 내 입력 → 연속 구르기 재시작</text>
+
+  <!-- ===== footer ===== -->
+  <text x="540" y="792" fill="#c9cdd6" font-size="13" text-anchor="middle">몽타주 <tspan fill="#e6e8ed">PlayMontageAndWait → RepAnimMontageInfo</tspan> 자동 복제   ·   입력 = 클라 예측 / 판정·무적·스태미나 = 서버 권위</text>
+  <text x="540" y="816" fill="#8c909b" font-size="12.5" text-anchor="middle">핑 보정 — 클라 ring 250ms · 서버 receive 150ms · late grace = BaseGrace + RTT·0.5 + Jitter (≤150ms)</text>
+</svg>
