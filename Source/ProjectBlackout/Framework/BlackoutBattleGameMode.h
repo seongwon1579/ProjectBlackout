@@ -1,14 +1,38 @@
+// ─── 구현 내역 ───────────────────────
+//  - 최승현: 전투 GameMode 코어 — 보스 전투 시작 집계·매치 종료/결과창 자동 이동·체크포인트 파티 전멸 복귀·캐릭터 자동 분배 및 재접속 클래스 복원·데디 세션 위임
+//  - 김민영: 항복 투표·빠른 재도전(Fast-Retry) + 사망 후 관전 대상 순환
+//  - 허혁: 전투 진입 오브젝트 풀 프리로드
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
 #include "BlackoutGameMode.h"
+#include "Core/BlackoutTypes.h"
 #include "UObject/SoftObjectPath.h"
+#include "GameplayTagContainer.h"
 #include "BlackoutBattleGameMode.generated.h"
 
 enum class EBlackoutMatchEndReason : uint8;
 class ABlackoutPlayerCharacter;
 class ABlackoutPlayerController;
 class ABlackoutBossCharacter;
+class ABOBossIntroSequencer;
+class ABlackoutPlayerState;
+
+USTRUCT(BlueprintType)
+struct FBlackoutPoolWarmupEntry
+{
+	GENERATED_BODY()
+
+	// 프리로드할 풀 대상 액터 클래스입니다.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Pool")
+	TSubclassOf<AActor> ActorClass;
+
+	// 전투 시작 전에 미리 생성해 둘 개수입니다.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Pool", meta = (ClampMin = "1"))
+	int32 Count = 1;
+};
 /**
  * 전투 레벨 전용 GameMode. 전투 진입 자원 초기화 / 체크포인트 등록 / 파티 전멸 복귀 처리.
  */
@@ -43,6 +67,11 @@ public:
 	// 플레이어가 다운 타이머 만료로 완전 사망했을 때 호출. 생존자 0명 여부를 평가한다.
 	void NotifyPlayerFullyDead(ABlackoutPlayerCharacter* DeadPlayer);
 	
+	// 다운 알림 
+	void NotifyPlayerDowned(ABlackoutPlayerCharacter* DownedPlayer);
+	
+	void NotifyPlayerLoaded();   
+	
 	// ClientTravel URL SessionId DedicatedSessionSubsystem에 위임
 	// 데디만 사용
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
@@ -56,10 +85,13 @@ public:
 	virtual UClass* GetDefaultPawnClassForController_Implementation(AController* InController) override;
 
 protected:
+	virtual void BeginPlay() override;
+
 	// 플레이어 접속 시 전투 진입 자원 초기화 정책 적용 (LobbyToBattle).
 	virtual void OnPlayerJoined(APlayerController* NewPlayer) override;
 	
-	virtual void OnPlayerLeft(AController* Exiting) override;
+	// 전원 퇴장 grace 만료 시 베이스 가 호출. EndMatch , Idle 복귀
+	virtual void HandleEmptyServerReset() override;
 
 	// GameState 생성 직후 초기 상태를 WaitingForPlayers 로 세팅.
 	virtual void InitGameState() override;
@@ -72,9 +104,17 @@ protected:
 	UPROPERTY(EditDefaultsOnly , Category="Blackout|Battle")
 	FSoftObjectPath LobbyMapPath;
 
-	// 중간보스 사망 → 페이드 시작까지 대기(초). 사망 애님 자연스럽게 보이도록.
-	UPROPERTY(EditDefaultsOnly, Category="Blackout|Battle")
-	float MidBossDeathDelay = 2.0f;
+	// 보스 처치 후 결과창을 표시하기 전까지 대기하는 시간입니다.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Battle|Result", meta = (ClampMin = "0.0"))
+	float MatchResultDisplayDelay = 3.0f;
+
+	// 결과창 표시 후 아무도 진행을 확정하지 않아도 자동 이동되는 시간입니다.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Battle|Result", meta = (ClampMin = "0.0"))
+	float MatchResultAutoTravelDelay = 10.0f;
+
+	// 전투 시작 전에 서버가 미리 생성해 둘 풀 엔트리 목록입니다.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Pool")
+	TArray<FBlackoutPoolWarmupEntry> PoolWarmupEntries;
 
 	void TravelToLobby(FLinearColor FadeColor);
 	
@@ -87,6 +127,14 @@ protected:
 	bool bTravelInitiated  = false;
 	
 	virtual void OnSeamlessArrival(APlayerController* PC) override;
+	
+	bool bIsEncounterStarted = false;
+	
+	// 끊긴 플레이어 UniqueId -> SelectedClassTag 재접속 클래스 복원용 매치 종료시 Clear
+	TMap<FString , FGameplayTag> ReconnectStash;
+	
+	// 로그인 ID -> stash 키. 빈 ID는 빈 문자열 (호출부에서 스킵)
+	static FString MakeReconnectKey(const FString& AccountId);
 
 	
 	
@@ -106,6 +154,8 @@ public:
 	void CastSurrenderVote(ABlackoutPlayerController* Voter, bool bAgree);
 
 private:
+	void WarmUpCombatPools();
+
 	void EvaluateSurrenderVote();
 	void HandleSurrenderSuccess();
 	void HandleSurrenderFailed(bool bIsTimeout);
@@ -114,12 +164,26 @@ private:
 	void TimeoutSurrenderVote();
 	
 	void StartBossCombat();
+
+	void BeginBossDefeatResultFlow(EBossType DefeatedBossType);
+	void ShowMatchResultAfterDelay();
+	void AutoTravelAfterMatchResult();
+	void ExecuteMatchResultTravel();
+	void SnapshotMatchResultParticipants(TArray<ABlackoutPlayerState*>& OutParticipants) const;
+	
+	void OnLoadingTimeout();   
+	
+	FTimerHandle LoadingTimeoutHandle;
+	bool bBossCombatStarted = false;   
+
+	UPROPERTY(EditDefaultsOnly, Category="Blackout|GameMode")
+	float LoadingTimeout = 15.0f;     
 	
 	void TravelToTitle();
-	FTimerHandle TitleTravelTimerHandle;
 
-	void DoMidBossTravelToLobby();
-	FTimerHandle MidBossDeathDelayHandle;
+	FTimerHandle MatchResultDisplayTimerHandle;
+	FTimerHandle MatchResultAutoTravelTimerHandle;
+	EBossType PendingResultBossType = EBossType::Mid;
 
 	FTimerHandle SurrenderVoteTimerHandle;
 
@@ -140,5 +204,16 @@ private:
 	
 	void DoTravelToTitle();
 	
+	// 매치 종료 후 복귀 공통 정리 : 텔레메트리 run 종료 + 매치 진행 스테이지 리셋
+	void ResetMatchProgressForReturn();
+
+	// 데디 서버측 Idle 복귀 : 매치 인덱스 리셋 , 로비맵 ServerTravel  (타이틀/전원퇴장 공용)
+	void ReturnServerToIdleLobby();
+	
 	FTimerHandle FadeTravelTimerHandle;
+	
+	class UBlackoutTelemetrySampler* GetTelemetrySampler() const;
+	
+	UPROPERTY(Transient)
+	ABOBossIntroSequencer* CurrentCutsceneManager;
 };

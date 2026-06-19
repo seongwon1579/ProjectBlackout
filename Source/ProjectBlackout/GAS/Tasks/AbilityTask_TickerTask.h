@@ -1,5 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: 차징 공격용 AbilityTask — 매 틱 OnTick 델리게이트로 DeltaTime 전달
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

@@ -1,4 +1,5 @@
 #include "GAS/Attributes/BlackoutAmmoAttributeSet.h"
+#include "Framework/BlackoutPlayerState.h"
 #include "Net/UnrealNetwork.h"
 #include "GameplayEffectExtension.h"
 
@@ -44,7 +45,22 @@ void UBlackoutAmmoAttributeSet::PostGameplayEffectExecute(const FGameplayEffectM
 {
 	Super::PostGameplayEffectExecute(Data);
 
-	// 이펙트 적용 후 커스텀 로직 구현
+	const ABlackoutPlayerState* OwningPlayerState = Cast<ABlackoutPlayerState>(GetOwningActor());
+	if (!OwningPlayerState || !OwningPlayerState->HasInfiniteAmmoCheat())
+	{
+		return;
+	}
+
+	if (Data.EvaluatedData.Attribute == GetPrimaryClipAmmoAttribute()
+		|| Data.EvaluatedData.Attribute == GetPrimaryMaxClipAttribute())
+	{
+		SetPrimaryClipAmmo(GetPrimaryMaxClip());
+	}
+	else if (Data.EvaluatedData.Attribute == GetSecondaryClipAmmoAttribute()
+		|| Data.EvaluatedData.Attribute == GetSecondaryMaxClipAttribute())
+	{
+		SetSecondaryClipAmmo(GetSecondaryMaxClip());
+	}
 }
 
 void UBlackoutAmmoAttributeSet::OnRep_PrimaryClipAmmo(const FGameplayAttributeData& OldValue)

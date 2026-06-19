@@ -46,6 +46,10 @@ void ABlackoutPlayerState::CopyProperties(APlayerState* NewPlayerState)
 	if (ABlackoutPlayerState* NewPS = Cast<ABlackoutPlayerState>(NewPlayerState))
 	{
 		NewPS->SelectedClassTag = SelectedClassTag;
+		NewPS->bInfiniteHealthCheat = bInfiniteHealthCheat;
+		NewPS->bInfiniteStaminaCheat = bInfiniteStaminaCheat;
+		NewPS->bInfiniteAmmoCheat = bInfiniteAmmoCheat;
+		NewPS->MatchStats = MatchStats;  
 	}
 }
 
@@ -60,6 +64,34 @@ void ABlackoutPlayerState::GetLifetimeReplicatedProps(
 	DOREPLIFETIME(ABlackoutPlayerState, bIsReady);
 	DOREPLIFETIME(ABlackoutPlayerState, bRequestedSurrender);
 	DOREPLIFETIME(ABlackoutPlayerState, bVotedAgainstSurrender);
+	DOREPLIFETIME(ABlackoutPlayerState, MatchStats);
+	DOREPLIFETIME_CONDITION(ABlackoutPlayerState, bInfiniteHealthCheat, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(ABlackoutPlayerState, bInfiniteStaminaCheat, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(ABlackoutPlayerState, bInfiniteAmmoCheat, COND_OwnerOnly);
+}
+
+void ABlackoutPlayerState::SetDebugCheatFlags(bool bNewInfiniteHealth, bool bNewInfiniteStamina, bool bNewInfiniteAmmo)
+{
+	const bool bFlagsChanged =
+		bInfiniteHealthCheat != bNewInfiniteHealth
+		|| bInfiniteStaminaCheat != bNewInfiniteStamina
+		|| bInfiniteAmmoCheat != bNewInfiniteAmmo;
+
+	bInfiniteHealthCheat = bNewInfiniteHealth;
+	bInfiniteStaminaCheat = bNewInfiniteStamina;
+	bInfiniteAmmoCheat = bNewInfiniteAmmo;
+
+	ApplyActiveCheatState();
+
+	if (bFlagsChanged)
+	{
+		BO_LOG_CORE(Log,
+			"플레이어 치트 상태 갱신: Player=%s Health=%s Stamina=%s Ammo=%s",
+			*GetPlayerName(),
+			bInfiniteHealthCheat ? TEXT("On") : TEXT("Off"),
+			bInfiniteStaminaCheat ? TEXT("On") : TEXT("Off"),
+			bInfiniteAmmoCheat ? TEXT("On") : TEXT("Off"));
+	}
 }
 
 void ABlackoutPlayerState::SetReadyState(bool bNewReady)
@@ -77,6 +109,17 @@ void ABlackoutPlayerState::SetReadyState(bool bNewReady)
 
 	bIsReady = bNewReady;
 	BroadcastReadyStateChanged();
+}
+
+void ABlackoutPlayerState::SetLoadedState(bool bNewLoaded)
+{
+	if (!HasAuthority())
+	{
+		BO_LOG_NET(Warning, "SetLoadedState 무시: 서버 권한 없음. PlayerState=%s", *GetName());
+		return;
+	}
+	
+	bIsLoaded = bNewLoaded;
 }
 
 void ABlackoutPlayerState::ApplyBattleTransitionPolicy(
@@ -250,6 +293,81 @@ bool ABlackoutPlayerState::IsBeingRevived() const
 	return HasStateTag(BlackoutGameplayTags::State_BeingRevived);
 }
 
+void ABlackoutPlayerState::AddDamageDealt(float Amount)
+{
+	if (!HasAuthority() || Amount <= 0.f)
+	{
+		return;
+	}
+	MatchStats.DamageDealt += FMath::RoundToInt(Amount);   
+	BroadcastMatchStatsChanged();
+}
+
+void ABlackoutPlayerState::RecordKill(bool bWasMeleeKill)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+	++MatchStats.Kills;
+	if (bWasMeleeKill)
+	{
+		++MatchStats.MeleeKills;
+	}
+	BroadcastMatchStatsChanged();
+}
+
+void ABlackoutPlayerState::RecordShotsFired(int32 Count)
+{
+	if (!HasAuthority() || Count <= 0)
+	{
+		return;
+	}
+	MatchStats.ShotsFired += Count;
+	BroadcastMatchStatsChanged();
+}
+
+void ABlackoutPlayerState::RecordShotsHit(int32 Count)
+{
+	if (!HasAuthority() || Count <= 0)
+	{
+		return;
+	}
+	MatchStats.ShotsHit += Count;  
+	BroadcastMatchStatsChanged();
+}
+
+void ABlackoutPlayerState::RecordConsumableUsed()
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+	++MatchStats.ConsumablesUsed;
+	BroadcastMatchStatsChanged();
+}
+
+void ABlackoutPlayerState::RecordRevive()
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+	++MatchStats.Revives;
+	BroadcastMatchStatsChanged();
+}
+
+void ABlackoutPlayerState::OnRep_MatchStats()
+{
+	BroadcastMatchStatsChanged();
+}
+
+void ABlackoutPlayerState::OnRep_PlayerName()
+{
+	Super::OnRep_PlayerName();
+	OnPlayerNameChangedNative.Broadcast();   // 닉네임 늦게 도착 → 로스터 그 멤버 갱신
+}
+
 void ABlackoutPlayerState::OnRep_IsReady()
 {
 	BroadcastReadyStateChanged();
@@ -268,6 +386,30 @@ void ABlackoutPlayerState::OnRep_GulSerumCount()
 void ABlackoutPlayerState::BroadcastConsumableCounts()
 {
 	OnConsumableCountsChanged.Broadcast(BloodRootCount, GulSerumCount);
+}
+
+void ABlackoutPlayerState::BroadcastMatchStatsChanged()
+{
+	OnMatchStatsChangedNative.Broadcast();
+}
+
+void ABlackoutPlayerState::SnapshotMatchStats()
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+	CheckpointStats = MatchStats;
+}
+
+void ABlackoutPlayerState::RollbackMatchStats()
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+	MatchStats = CheckpointStats;
+	BroadcastMatchStatsChanged();
 }
 
 void ABlackoutPlayerState::BroadcastReadyStateChanged()
@@ -384,5 +526,101 @@ void ABlackoutPlayerState::OnRep_SurrenderVoteState()
 			GS->SurrenderVoteNoCount,
 			GS->SurrenderVoteEndTimeSeconds
 		);
+	}
+}
+
+void ABlackoutPlayerState::OnRep_DebugCheatFlags()
+{
+	ApplyActiveCheatState();
+}
+
+void ABlackoutPlayerState::ApplyActiveCheatState()
+{
+	if (bInfiniteHealthCheat)
+	{
+		ApplyInfiniteHealthCheat();
+	}
+
+	if (bInfiniteStaminaCheat)
+	{
+		ApplyInfiniteStaminaCheat();
+	}
+
+	if (bInfiniteAmmoCheat)
+	{
+		ApplyInfiniteAmmoCheat();
+	}
+}
+
+void ABlackoutPlayerState::ApplyInfiniteHealthCheat() const
+{
+	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
+	if (!ASC)
+	{
+		return;
+	}
+
+	const float MaxHealth = ASC->GetNumericAttribute(UBlackoutBaseAttributeSet::GetMaxHealthAttribute());
+	if (MaxHealth > 0.0f)
+	{
+		ASC->SetNumericAttributeBase(UBlackoutBaseAttributeSet::GetHealthAttribute(), MaxHealth);
+	}
+}
+
+void ABlackoutPlayerState::ApplyInfiniteStaminaCheat() const
+{
+	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
+	if (!ASC)
+	{
+		return;
+	}
+
+	const float MaxStamina = ASC->GetNumericAttribute(UBlackoutPlayerAttributeSet::GetMaxStaminaAttribute());
+	if (MaxStamina > 0.0f)
+	{
+		ASC->SetNumericAttributeBase(UBlackoutPlayerAttributeSet::GetStaminaAttribute(), MaxStamina);
+	}
+}
+
+void ABlackoutPlayerState::ApplyInfiniteAmmoCheat() const
+{
+	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
+	if (!ASC)
+	{
+		return;
+	}
+
+	const float PrimaryMaxClip = ASC->GetNumericAttribute(UBlackoutAmmoAttributeSet::GetPrimaryMaxClipAttribute());
+	if (PrimaryMaxClip > 0.0f)
+	{
+		ASC->SetNumericAttributeBase(UBlackoutAmmoAttributeSet::GetPrimaryClipAmmoAttribute(), PrimaryMaxClip);
+	}
+
+	const float SecondaryMaxClip = ASC->GetNumericAttribute(UBlackoutAmmoAttributeSet::GetSecondaryMaxClipAttribute());
+	if (SecondaryMaxClip > 0.0f)
+	{
+		ASC->SetNumericAttributeBase(UBlackoutAmmoAttributeSet::GetSecondaryClipAmmoAttribute(), SecondaryMaxClip);
+	}
+
+	const APawn* OwnedPawn = GetPawn();
+	const ABlackoutPlayerCharacter* PlayerCharacter = OwnedPawn ? Cast<ABlackoutPlayerCharacter>(OwnedPawn) : nullptr;
+	const UBlackoutCombatComponent* CombatComp = PlayerCharacter ? PlayerCharacter->GetCombatComponent() : nullptr;
+	if (!CombatComp)
+	{
+		return;
+	}
+
+	if (const ABOFirearm* Primary = CombatComp->GetPrimaryFirearm())
+	{
+		ASC->SetNumericAttributeBase(
+			UBlackoutAmmoAttributeSet::GetPrimaryReserveAmmoAttribute(),
+			static_cast<float>(Primary->GetMaxReserveAmmo()));
+	}
+
+	if (const ABOFirearm* Secondary = CombatComp->GetSecondaryFirearm())
+	{
+		ASC->SetNumericAttributeBase(
+			UBlackoutAmmoAttributeSet::GetSecondaryReserveAmmoAttribute(),
+			static_cast<float>(Secondary->GetMaxReserveAmmo()));
 	}
 }

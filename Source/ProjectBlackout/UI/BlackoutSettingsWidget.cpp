@@ -2,18 +2,11 @@
 
 #include "Blueprint/WidgetTree.h"
 #include "InputCoreTypes.h"
-#include "Components/Border.h"
 #include "Components/Button.h"
 #include "Components/ComboBoxString.h"
-#include "Components/HorizontalBox.h"
-#include "Components/HorizontalBoxSlot.h"
-#include "Components/ScrollBox.h"
-#include "Components/SizeBox.h"
 #include "Components/Slider.h"
-#include "Components/Spacer.h"
 #include "Components/TextBlock.h"
-#include "Components/VerticalBox.h"
-#include "Components/VerticalBoxSlot.h"
+#include "Components/WidgetSwitcher.h"
 #include "Framework/BlackoutGraphicsBlueprintLibrary.h"
 
 namespace
@@ -28,50 +21,6 @@ namespace
 
 		WidgetPointer = Cast<TWidgetType>(WidgetTree->FindWidget(WidgetName));
 	}
-
-	UTextBlock* CreateTextBlock(UWidgetTree* WidgetTree, const FName Name, const FText& InText)
-	{
-		UTextBlock* TextBlock = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), Name);
-		TextBlock->SetText(InText);
-		return TextBlock;
-	}
-
-	UHorizontalBox* CreateLabeledRow(UWidgetTree* WidgetTree, UVerticalBox* ParentBox, const FName RowName, const FText& LabelText)
-	{
-		UHorizontalBox* RowBox = WidgetTree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass(), RowName);
-		ParentBox->AddChildToVerticalBox(RowBox);
-
-		UTextBlock* LabelTextBlock = CreateTextBlock(
-			WidgetTree,
-			*FString::Printf(TEXT("%s_Label"), *RowName.ToString()),
-			LabelText);
-		if (UHorizontalBoxSlot* LabelSlot = RowBox->AddChildToHorizontalBox(LabelTextBlock))
-		{
-			LabelSlot->SetPadding(FMargin(0.0f, 6.0f, 16.0f, 6.0f));
-			LabelSlot->SetHorizontalAlignment(HAlign_Left);
-			LabelSlot->SetVerticalAlignment(VAlign_Center);
-			LabelSlot->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
-		}
-
-		return RowBox;
-	}
-
-	void AddSectionSpacer(UWidgetTree* WidgetTree, UVerticalBox* ParentBox, const float Height)
-	{
-		USpacer* Spacer = WidgetTree->ConstructWidget<USpacer>(USpacer::StaticClass());
-		Spacer->SetSize(FVector2D(1.0f, Height));
-		ParentBox->AddChildToVerticalBox(Spacer);
-	}
-}
-
-TSharedRef<SWidget> UBlackoutSettingsWidget::RebuildWidget()
-{
-	if (!WidgetTree->RootWidget)
-	{
-		BuildFallbackWidgetTree();
-	}
-
-	return Super::RebuildWidget();
 }
 
 void UBlackoutSettingsWidget::NativeConstruct()
@@ -83,6 +32,7 @@ void UBlackoutSettingsWidget::NativeConstruct()
 	PopulateStaticOptions();
 	BindControlEvents();
 	RefreshFromCurrentSettings();
+	SelectSettingsTab(ActiveSettingsTab);
 	SetKeyboardFocus();
 }
 
@@ -133,6 +83,21 @@ void UBlackoutSettingsWidget::NativeDestruct()
 		AimMouseSensitivitySlider->OnValueChanged.RemoveDynamic(this, &UBlackoutSettingsWidget::HandleAimMouseSensitivityChanged);
 	}
 
+	if (GraphicsTabButton)
+	{
+		GraphicsTabButton->OnClicked.RemoveDynamic(this, &UBlackoutSettingsWidget::HandleGraphicsTabClicked);
+	}
+
+	if (AudioTabButton)
+	{
+		AudioTabButton->OnClicked.RemoveDynamic(this, &UBlackoutSettingsWidget::HandleAudioTabClicked);
+	}
+
+	if (InputTabButton)
+	{
+		InputTabButton->OnClicked.RemoveDynamic(this, &UBlackoutSettingsWidget::HandleInputTabClicked);
+	}
+
 	if (ApplyButton)
 	{
 		ApplyButton->OnClicked.RemoveDynamic(this, &UBlackoutSettingsWidget::HandleApplyClicked);
@@ -164,8 +129,8 @@ FReply UBlackoutSettingsWidget::NativeOnKeyDown(const FGeometry& InGeometry, con
 
 void UBlackoutSettingsWidget::RefreshFromCurrentSettings()
 {
-	const UBlackoutGraphicsUserSettings* GraphicsSettings = UBlackoutGraphicsBlueprintLibrary::GetBlackoutGraphicsUserSettings();
-	if (!GraphicsSettings)
+	const UBlackoutUserSettings* UserSettings = UBlackoutGraphicsBlueprintLibrary::GetBlackoutUserSettings();
+	if (!UserSettings)
 	{
 		// 설정 객체를 찾지 못하더라도 UI가 기본 문구에 머무르지 않도록 기본값과 가용성 텍스트를 갱신합니다.
 		ResetPendingSettingsToDefaults();
@@ -175,15 +140,15 @@ void UBlackoutSettingsWidget::RefreshFromCurrentSettings()
 		return;
 	}
 
-	PendingUpscalerMode = GraphicsSettings->GetUpscalerMode();
-	PendingDLSSMode = GraphicsSettings->GetDLSSQualityMode();
-	PendingFrameGenerationMode = GraphicsSettings->GetFrameGenerationMode();
-	PendingReflexMode = GraphicsSettings->GetReflexModeOption();
-	PendingMasterVolume = GraphicsSettings->GetMasterVolume();
-	PendingMusicVolume = GraphicsSettings->GetMusicVolume();
-	PendingSFXVolume = GraphicsSettings->GetSFXVolume();
-	PendingMouseSensitivity = GraphicsSettings->GetMouseSensitivity();
-	PendingAimMouseSensitivityMultiplier = GraphicsSettings->GetAimMouseSensitivityMultiplier();
+	PendingUpscalerMode = UserSettings->GetUpscalerMode();
+	PendingDLSSMode = UserSettings->GetDLSSQualityMode();
+	PendingFrameGenerationMode = UserSettings->GetFrameGenerationMode();
+	PendingReflexMode = UserSettings->GetReflexModeOption();
+	PendingMasterVolume = UserSettings->GetMasterVolume();
+	PendingMusicVolume = UserSettings->GetMusicVolume();
+	PendingSFXVolume = UserSettings->GetSFXVolume();
+	PendingMouseSensitivity = UserSettings->GetMouseSensitivity();
+	PendingAimMouseSensitivityMultiplier = UserSettings->GetAimMouseSensitivityMultiplier();
 
 	if (!UBlackoutGraphicsBlueprintLibrary::IsFrameGenerationModeRuntimeAvailable(PendingFrameGenerationMode))
 	{
@@ -243,191 +208,6 @@ void UBlackoutSettingsWidget::SyncControlsFromPendingSettings()
 	}
 }
 
-void UBlackoutSettingsWidget::BuildFallbackWidgetTree()
-{
-	UBorder* RootBorder = WidgetTree->ConstructWidget<UBorder>(UBorder::StaticClass(), TEXT("RootBorder"));
-	WidgetTree->RootWidget = RootBorder;
-	RootBorder->SetPadding(FMargin(24.0f));
-
-	USizeBox* ModalSizeBox = WidgetTree->ConstructWidget<USizeBox>(USizeBox::StaticClass(), TEXT("ModalSizeBox"));
-	ModalSizeBox->SetWidthOverride(760.0f);
-	ModalSizeBox->SetHeightOverride(640.0f);
-	RootBorder->SetContent(ModalSizeBox);
-
-	UScrollBox* ScrollBox = WidgetTree->ConstructWidget<UScrollBox>(UScrollBox::StaticClass(), TEXT("SettingsScrollBox"));
-	ModalSizeBox->SetContent(ScrollBox);
-
-	UVerticalBox* ContentBox = WidgetTree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass(), TEXT("ContentBox"));
-	ScrollBox->AddChild(ContentBox);
-
-	UTextBlock* TitleText = CreateTextBlock(
-		WidgetTree,
-		TEXT("SettingsTitleText"),
-		NSLOCTEXT("BlackoutSettings", "Title", "옵션"));
-	ContentBox->AddChildToVerticalBox(TitleText);
-
-	UTextBlock* DescriptionText = CreateTextBlock(
-		WidgetTree,
-		TEXT("SettingsDescriptionText"),
-		NSLOCTEXT("BlackoutSettings", "Description", "DLSS, 프레임 생성, 사운드, 마우스 감도를 한 번에 조정합니다."));
-	DescriptionText->SetAutoWrapText(true);
-	if (UVerticalBoxSlot* DescriptionSlot = ContentBox->AddChildToVerticalBox(DescriptionText))
-	{
-		DescriptionSlot->SetPadding(FMargin(0.0f, 8.0f, 0.0f, 16.0f));
-	}
-
-	RuntimeAvailabilityText = CreateTextBlock(
-		WidgetTree,
-		TEXT("RuntimeAvailabilityText"),
-		NSLOCTEXT("BlackoutSettings", "RuntimeAvailability", ""));
-	RuntimeAvailabilityText->SetAutoWrapText(true);
-	if (UVerticalBoxSlot* AvailabilitySlot = ContentBox->AddChildToVerticalBox(RuntimeAvailabilityText))
-	{
-		AvailabilitySlot->SetPadding(FMargin(0.0f, 0.0f, 0.0f, 16.0f));
-	}
-
-	UTextBlock* GraphicsSectionTitle = CreateTextBlock(
-		WidgetTree,
-		TEXT("GraphicsSectionTitle"),
-		NSLOCTEXT("BlackoutSettings", "GraphicsSection", "그래픽"));
-	ContentBox->AddChildToVerticalBox(GraphicsSectionTitle);
-
-	UHorizontalBox* UpscalerRow = CreateLabeledRow(
-		WidgetTree,
-		ContentBox,
-		TEXT("UpscalerRow"),
-		NSLOCTEXT("BlackoutSettings", "UpscalerLabel", "업스케일러"));
-	UpscalerComboBox = WidgetTree->ConstructWidget<UComboBoxString>(UComboBoxString::StaticClass(), TEXT("UpscalerComboBox"));
-	if (UHorizontalBoxSlot* ComboSlot = UpscalerRow->AddChildToHorizontalBox(UpscalerComboBox))
-	{
-		ComboSlot->SetHorizontalAlignment(HAlign_Fill);
-		ComboSlot->SetVerticalAlignment(VAlign_Center);
-		ComboSlot->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
-	}
-
-	UHorizontalBox* DLSSRow = CreateLabeledRow(
-		WidgetTree,
-		ContentBox,
-		TEXT("DLSSRow"),
-		NSLOCTEXT("BlackoutSettings", "DLSSModeLabel", "DLSS 모드"));
-	DLSSModeComboBox = WidgetTree->ConstructWidget<UComboBoxString>(UComboBoxString::StaticClass(), TEXT("DLSSModeComboBox"));
-	if (UHorizontalBoxSlot* ComboSlot = DLSSRow->AddChildToHorizontalBox(DLSSModeComboBox))
-	{
-		ComboSlot->SetHorizontalAlignment(HAlign_Fill);
-		ComboSlot->SetVerticalAlignment(VAlign_Center);
-		ComboSlot->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
-	}
-
-	UHorizontalBox* FrameGenerationRow = CreateLabeledRow(
-		WidgetTree,
-		ContentBox,
-		TEXT("FrameGenerationRow"),
-		NSLOCTEXT("BlackoutSettings", "FrameGenerationLabel", "프레임 생성"));
-	FrameGenerationComboBox = WidgetTree->ConstructWidget<UComboBoxString>(UComboBoxString::StaticClass(), TEXT("FrameGenerationComboBox"));
-	if (UHorizontalBoxSlot* ComboSlot = FrameGenerationRow->AddChildToHorizontalBox(FrameGenerationComboBox))
-	{
-		ComboSlot->SetHorizontalAlignment(HAlign_Fill);
-		ComboSlot->SetVerticalAlignment(VAlign_Center);
-		ComboSlot->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
-	}
-
-	UHorizontalBox* ReflexRow = CreateLabeledRow(
-		WidgetTree,
-		ContentBox,
-		TEXT("ReflexRow"),
-		NSLOCTEXT("BlackoutSettings", "ReflexModeLabel", "리플렉스"));
-	ReflexComboBox = WidgetTree->ConstructWidget<UComboBoxString>(UComboBoxString::StaticClass(), TEXT("ReflexComboBox"));
-	if (UHorizontalBoxSlot* ComboSlot = ReflexRow->AddChildToHorizontalBox(ReflexComboBox))
-	{
-		ComboSlot->SetHorizontalAlignment(HAlign_Fill);
-		ComboSlot->SetVerticalAlignment(VAlign_Center);
-		ComboSlot->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
-	}
-
-	AddSectionSpacer(WidgetTree, ContentBox, 20.0f);
-
-	UTextBlock* AudioSectionTitle = CreateTextBlock(
-		WidgetTree,
-		TEXT("AudioSectionTitle"),
-		NSLOCTEXT("BlackoutSettings", "AudioSection", "오디오"));
-	ContentBox->AddChildToVerticalBox(AudioSectionTitle);
-
-	UTextBlock* AudioHintText = CreateTextBlock(
-		WidgetTree,
-		TEXT("AudioHintText"),
-		NSLOCTEXT("BlackoutSettings", "AudioHint", "Music/SFX 볼륨은 Project Settings > Blackout > Audio에 SoundMix와 SoundClass를 지정해야 반영됩니다."));
-	AudioHintText->SetAutoWrapText(true);
-	if (UVerticalBoxSlot* AudioHintSlot = ContentBox->AddChildToVerticalBox(AudioHintText))
-	{
-		AudioHintSlot->SetPadding(FMargin(0.0f, 4.0f, 0.0f, 12.0f));
-	}
-
-	auto BuildSliderRow = [this, ContentBox](const FName RowName, const FText& LabelText, TObjectPtr<USlider>& OutSlider, TObjectPtr<UTextBlock>& OutValueText)
-	{
-		UHorizontalBox* SliderRow = CreateLabeledRow(WidgetTree, ContentBox, RowName, LabelText);
-
-		OutSlider = WidgetTree->ConstructWidget<USlider>(USlider::StaticClass(), *FString::Printf(TEXT("%s_Slider"), *RowName.ToString()));
-		if (UHorizontalBoxSlot* SliderSlot = SliderRow->AddChildToHorizontalBox(OutSlider))
-		{
-			SliderSlot->SetHorizontalAlignment(HAlign_Fill);
-			SliderSlot->SetVerticalAlignment(VAlign_Center);
-			SliderSlot->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
-			SliderSlot->SetPadding(FMargin(0.0f, 0.0f, 12.0f, 0.0f));
-		}
-
-		OutValueText = CreateTextBlock(
-			WidgetTree,
-			*FString::Printf(TEXT("%s_Value"), *RowName.ToString()),
-			FText::GetEmpty());
-		if (UHorizontalBoxSlot* ValueSlot = SliderRow->AddChildToHorizontalBox(OutValueText))
-		{
-			ValueSlot->SetHorizontalAlignment(HAlign_Right);
-			ValueSlot->SetVerticalAlignment(VAlign_Center);
-		}
-	};
-
-	BuildSliderRow(TEXT("MasterVolumeRow"), NSLOCTEXT("BlackoutSettings", "MasterVolumeLabel", "전체 볼륨"), MasterVolumeSlider, MasterVolumeValueText);
-	BuildSliderRow(TEXT("MusicVolumeRow"), NSLOCTEXT("BlackoutSettings", "MusicVolumeLabel", "배경음 볼륨"), MusicVolumeSlider, MusicVolumeValueText);
-	BuildSliderRow(TEXT("SFXVolumeRow"), NSLOCTEXT("BlackoutSettings", "SFXVolumeLabel", "효과음 볼륨"), SFXVolumeSlider, SFXVolumeValueText);
-
-	AddSectionSpacer(WidgetTree, ContentBox, 20.0f);
-
-	UTextBlock* InputSectionTitle = CreateTextBlock(
-		WidgetTree,
-		TEXT("InputSectionTitle"),
-		NSLOCTEXT("BlackoutSettings", "InputSection", "조작"));
-	ContentBox->AddChildToVerticalBox(InputSectionTitle);
-
-	BuildSliderRow(TEXT("MouseSensitivityRow"), NSLOCTEXT("BlackoutSettings", "MouseSensitivityLabel", "마우스 감도"), MouseSensitivitySlider, MouseSensitivityValueText);
-	BuildSliderRow(TEXT("AimMouseSensitivityRow"), NSLOCTEXT("BlackoutSettings", "AimMouseSensitivityLabel", "조준 감도"), AimMouseSensitivitySlider, AimMouseSensitivityValueText);
-
-	AddSectionSpacer(WidgetTree, ContentBox, 24.0f);
-
-	UHorizontalBox* ButtonRow = WidgetTree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass(), TEXT("ButtonRow"));
-	if (UVerticalBoxSlot* ButtonRowSlot = ContentBox->AddChildToVerticalBox(ButtonRow))
-	{
-		ButtonRowSlot->SetPadding(FMargin(0.0f, 8.0f, 0.0f, 0.0f));
-	}
-
-	ApplyButton = WidgetTree->ConstructWidget<UButton>(UButton::StaticClass(), TEXT("ApplyButton"));
-	if (UHorizontalBoxSlot* ButtonSlot = ButtonRow->AddChildToHorizontalBox(ApplyButton))
-	{
-		ButtonSlot->SetPadding(FMargin(0.0f, 0.0f, 12.0f, 0.0f));
-	}
-	ApplyButton->SetContent(CreateTextBlock(WidgetTree, TEXT("ApplyButtonText"), NSLOCTEXT("BlackoutSettings", "ApplyButton", "적용")));
-
-	ResetButton = WidgetTree->ConstructWidget<UButton>(UButton::StaticClass(), TEXT("ResetButton"));
-	if (UHorizontalBoxSlot* ButtonSlot = ButtonRow->AddChildToHorizontalBox(ResetButton))
-	{
-		ButtonSlot->SetPadding(FMargin(0.0f, 0.0f, 12.0f, 0.0f));
-	}
-	ResetButton->SetContent(CreateTextBlock(WidgetTree, TEXT("ResetButtonText"), NSLOCTEXT("BlackoutSettings", "ResetButton", "초기화")));
-
-	CloseButton = WidgetTree->ConstructWidget<UButton>(UButton::StaticClass(), TEXT("CloseButton"));
-	ButtonRow->AddChildToHorizontalBox(CloseButton);
-	CloseButton->SetContent(CreateTextBlock(WidgetTree, TEXT("CloseButtonText"), NSLOCTEXT("BlackoutSettings", "CloseButton", "닫기")));
-}
-
 void UBlackoutSettingsWidget::ResolveOptionalBindings()
 {
 	// WBP에서 Is Variable 체크가 빠졌더라도 이름이 일치하면 위젯을 찾아 연결합니다.
@@ -446,6 +226,10 @@ void UBlackoutSettingsWidget::ResolveOptionalBindings()
 	ResolveNamedWidget(WidgetTree, MouseSensitivityValueText, TEXT("MouseSensitivityValueText"));
 	ResolveNamedWidget(WidgetTree, AimMouseSensitivityValueText, TEXT("AimMouseSensitivityValueText"));
 	ResolveNamedWidget(WidgetTree, RuntimeAvailabilityText, TEXT("RuntimeAvailabilityText"));
+	ResolveNamedWidget(WidgetTree, GraphicsTabButton, TEXT("GraphicsTabButton"));
+	ResolveNamedWidget(WidgetTree, AudioTabButton, TEXT("AudioTabButton"));
+	ResolveNamedWidget(WidgetTree, InputTabButton, TEXT("InputTabButton"));
+	ResolveNamedWidget(WidgetTree, SettingsContentSwitcher, TEXT("SettingsContentSwitcher"));
 	ResolveNamedWidget(WidgetTree, ApplyButton, TEXT("ApplyButton"));
 	ResolveNamedWidget(WidgetTree, ResetButton, TEXT("ResetButton"));
 	ResolveNamedWidget(WidgetTree, CloseButton, TEXT("CloseButton"));
@@ -562,6 +346,24 @@ void UBlackoutSettingsWidget::BindControlEvents()
 		AimMouseSensitivitySlider->OnValueChanged.AddDynamic(this, &UBlackoutSettingsWidget::HandleAimMouseSensitivityChanged);
 	}
 
+	if (GraphicsTabButton)
+	{
+		GraphicsTabButton->OnClicked.RemoveDynamic(this, &UBlackoutSettingsWidget::HandleGraphicsTabClicked);
+		GraphicsTabButton->OnClicked.AddDynamic(this, &UBlackoutSettingsWidget::HandleGraphicsTabClicked);
+	}
+
+	if (AudioTabButton)
+	{
+		AudioTabButton->OnClicked.RemoveDynamic(this, &UBlackoutSettingsWidget::HandleAudioTabClicked);
+		AudioTabButton->OnClicked.AddDynamic(this, &UBlackoutSettingsWidget::HandleAudioTabClicked);
+	}
+
+	if (InputTabButton)
+	{
+		InputTabButton->OnClicked.RemoveDynamic(this, &UBlackoutSettingsWidget::HandleInputTabClicked);
+		InputTabButton->OnClicked.AddDynamic(this, &UBlackoutSettingsWidget::HandleInputTabClicked);
+	}
+
 	if (ApplyButton)
 	{
 		ApplyButton->OnClicked.RemoveDynamic(this, &UBlackoutSettingsWidget::HandleApplyClicked);
@@ -618,6 +420,8 @@ void UBlackoutSettingsWidget::UpdateControlState()
 				: NSLOCTEXT("BlackoutSettings", "ReflexUnavailable", "사용 불가"));
 		RuntimeAvailabilityText->SetText(AvailabilityText);
 	}
+
+	UpdateTabButtonState();
 }
 
 void UBlackoutSettingsWidget::UpdateValueTexts()
@@ -648,24 +452,74 @@ void UBlackoutSettingsWidget::UpdateValueTexts()
 	}
 }
 
+void UBlackoutSettingsWidget::SelectSettingsTab(const EBlackoutSettingsTab InTab)
+{
+	ActiveSettingsTab = InTab;
+
+	if (SettingsContentSwitcher)
+	{
+		int32 ActiveWidgetIndex = 0;
+		switch (ActiveSettingsTab)
+		{
+		case EBlackoutSettingsTab::Audio:
+			ActiveWidgetIndex = 1;
+			break;
+
+		case EBlackoutSettingsTab::Input:
+			ActiveWidgetIndex = 2;
+			break;
+
+		case EBlackoutSettingsTab::Graphics:
+		default:
+			ActiveWidgetIndex = 0;
+			break;
+		}
+
+		if (SettingsContentSwitcher->GetNumWidgets() > ActiveWidgetIndex)
+		{
+			SettingsContentSwitcher->SetActiveWidgetIndex(ActiveWidgetIndex);
+		}
+	}
+
+	UpdateTabButtonState();
+}
+
+void UBlackoutSettingsWidget::UpdateTabButtonState()
+{
+	if (GraphicsTabButton)
+	{
+		GraphicsTabButton->SetIsEnabled(ActiveSettingsTab != EBlackoutSettingsTab::Graphics);
+	}
+
+	if (AudioTabButton)
+	{
+		AudioTabButton->SetIsEnabled(ActiveSettingsTab != EBlackoutSettingsTab::Audio);
+	}
+
+	if (InputTabButton)
+	{
+		InputTabButton->SetIsEnabled(ActiveSettingsTab != EBlackoutSettingsTab::Input);
+	}
+}
+
 void UBlackoutSettingsWidget::ApplyPendingSettings()
 {
-	UBlackoutGraphicsUserSettings* GraphicsSettings = UBlackoutGraphicsBlueprintLibrary::GetBlackoutGraphicsUserSettings();
-	if (!GraphicsSettings)
+	UBlackoutUserSettings* UserSettings = UBlackoutGraphicsBlueprintLibrary::GetBlackoutUserSettings();
+	if (!UserSettings)
 	{
 		return;
 	}
 
-	GraphicsSettings->SetUpscalerMode(PendingUpscalerMode);
-	GraphicsSettings->SetDLSSQualityMode(PendingDLSSMode);
-	GraphicsSettings->SetFrameGenerationMode(PendingFrameGenerationMode);
-	GraphicsSettings->SetReflexModeOption(PendingReflexMode);
-	GraphicsSettings->SetMasterVolume(PendingMasterVolume);
-	GraphicsSettings->SetMusicVolume(PendingMusicVolume);
-	GraphicsSettings->SetSFXVolume(PendingSFXVolume);
-	GraphicsSettings->SetMouseSensitivity(PendingMouseSensitivity);
-	GraphicsSettings->SetAimMouseSensitivityMultiplier(PendingAimMouseSensitivityMultiplier);
-	GraphicsSettings->ApplyBlackoutGraphicsSettings(true);
+	UserSettings->SetUpscalerMode(PendingUpscalerMode);
+	UserSettings->SetDLSSQualityMode(PendingDLSSMode);
+	UserSettings->SetFrameGenerationMode(PendingFrameGenerationMode);
+	UserSettings->SetReflexModeOption(PendingReflexMode);
+	UserSettings->SetMasterVolume(PendingMasterVolume);
+	UserSettings->SetMusicVolume(PendingMusicVolume);
+	UserSettings->SetSFXVolume(PendingSFXVolume);
+	UserSettings->SetMouseSensitivity(PendingMouseSensitivity);
+	UserSettings->SetAimMouseSensitivityMultiplier(PendingAimMouseSensitivityMultiplier);
+	UserSettings->ApplyBlackoutUserSettings(true);
 }
 
 void UBlackoutSettingsWidget::ResetPendingSettingsToDefaults()
@@ -935,6 +789,21 @@ void UBlackoutSettingsWidget::HandleAimMouseSensitivityChanged(const float InVal
 {
 	PendingAimMouseSensitivityMultiplier = FMath::Lerp(0.1f, 3.0f, InValue);
 	UpdateValueTexts();
+}
+
+void UBlackoutSettingsWidget::HandleGraphicsTabClicked()
+{
+	SelectSettingsTab(EBlackoutSettingsTab::Graphics);
+}
+
+void UBlackoutSettingsWidget::HandleAudioTabClicked()
+{
+	SelectSettingsTab(EBlackoutSettingsTab::Audio);
+}
+
+void UBlackoutSettingsWidget::HandleInputTabClicked()
+{
+	SelectSettingsTab(EBlackoutSettingsTab::Input);
 }
 
 void UBlackoutSettingsWidget::HandleApplyClicked()

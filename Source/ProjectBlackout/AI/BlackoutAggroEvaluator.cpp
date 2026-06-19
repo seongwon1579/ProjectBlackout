@@ -19,19 +19,15 @@ void UBlackoutAggroEvaluator::Initialize(AAIController* InAIController, UAbility
 {
 	CachedOwnerAIController = InAIController;
 	CachedASC = InASC;
-
+	
 	if (!InAIController || !InAIController->HasAuthority()) return;
 
 	RegisterTagEvents();
-	RegisterPlayerEvents();
-
-	UpdateTarget();
 }
 
 void UBlackoutAggroEvaluator::Deinitialize()
 {
 	UnregisterTagEvents();
-	UnregisterPlayerEvents();
 
 	CachedASC = nullptr;
 	CachedOwnerAIController = nullptr;
@@ -41,7 +37,7 @@ void UBlackoutAggroEvaluator::Deinitialize()
 void UBlackoutAggroEvaluator::UpdateTarget()
 {
 	if (!CachedOwnerAIController) return;
-
+	
 	APawn* BestTarget = CalculateBestTarget(nullptr);
 
 	if (BestTarget && BestTarget != CurrentTarget.Get())
@@ -55,26 +51,6 @@ void UBlackoutAggroEvaluator::UpdateTarget()
 void UBlackoutAggroEvaluator::OnAggroTargetChangeTagChanged(const FGameplayTag Tag, int32 NewCount)
 {
 	if (NewCount == 0)
-	{
-		UpdateTarget();
-	}
-}
-
-void UBlackoutAggroEvaluator::OnPlayerPawnChanged(APawn* OldPawn, APawn* NewPawn)
-{
-	if (NewPawn)
-	{
-		UpdateTarget();
-	}
-}
-
-void UBlackoutAggroEvaluator::OnPostLogin(AGameModeBase* GameMode, APlayerController* NewPC)
-{
-	if (!NewPC) return;
-
-	NewPC->OnPossessedPawnChanged.AddDynamic(this, &UBlackoutAggroEvaluator::OnPlayerPawnChanged);
-
-	if (NewPC->GetPawn())
 	{
 		UpdateTarget();
 	}
@@ -95,9 +71,15 @@ void UBlackoutAggroEvaluator::RecordDamage(APawn* Source, float Amount)
 	Data.DamageRecords.Add(NewRecord);
 }
 
+void UBlackoutAggroEvaluator::StartAggroEvaluation()
+{
+	UpdateTarget();
+}
+
 APawn* UBlackoutAggroEvaluator::CalculateBestTarget(APawn* ExcludeTarget) const
 {
 	if (!CachedOwnerAIController) return nullptr;
+	
 
 	APawn* Owner = CachedOwnerAIController->GetPawn();
 	if (!Owner || !GetWorld()) return nullptr;
@@ -110,7 +92,7 @@ APawn* UBlackoutAggroEvaluator::CalculateBestTarget(APawn* ExcludeTarget) const
 	{
 		APlayerController* PC = It->Get();
 		if (!PC) continue;
-
+		
 		APawn* Target = PC->GetPawn();
 		if (!IsValid(Target)) continue;
 		
@@ -150,39 +132,6 @@ void UBlackoutAggroEvaluator::UnregisterTagEvents()
 		TargetChangeTag,
 		EGameplayTagEventType::NewOrRemoved
 	).Remove(TargetChangeTagChangedHandle);
-}
-
-void UBlackoutAggroEvaluator::RegisterPlayerEvents()
-{
-	UWorld* World = GetWorld();
-	if (!World) return;
-
-	for (FConstPlayerControllerIterator It = World->GetPlayerControllerIterator(); It; ++It)
-	{
-		if (APlayerController* PC = It->Get())
-		{
-			PC->OnPossessedPawnChanged.AddDynamic(this, &UBlackoutAggroEvaluator::OnPlayerPawnChanged);
-		}
-	}
-
-	PostLoginHandle = FGameModeEvents::GameModePostLoginEvent.AddUObject(
-		this, &UBlackoutAggroEvaluator::OnPostLogin);
-}
-
-void UBlackoutAggroEvaluator::UnregisterPlayerEvents()
-{
-	FGameModeEvents::GameModePostLoginEvent.Remove(PostLoginHandle);
-
-	UWorld* World = GetWorld();
-	if (!World) return;
-
-	for (FConstPlayerControllerIterator It = World->GetPlayerControllerIterator(); It; ++It)
-	{
-		if (APlayerController* PC = It->Get())
-		{
-			PC->OnPossessedPawnChanged.RemoveDynamic(this, &UBlackoutAggroEvaluator::OnPlayerPawnChanged);
-		}
-	}
 }
 
 void UBlackoutAggroEvaluator::WatchTargetDownState(APawn* Target)

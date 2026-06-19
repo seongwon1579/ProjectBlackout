@@ -1,3 +1,8 @@
+// ─── 구현 내역 ───────────────────────
+//  - 김민영: 인게임 HUD 루트 위젯·탄약/소모품/유물/착탄 인디케이터·다운/관전/결과 표시 통합
+//  - 허혁: 상호작용 프롬프트·부활 UI 분리 및 데미지 숫자 위젯 연동
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -15,6 +20,8 @@ class UBlackoutConsumableSlotsWidget;
 class UBlackoutDownedStateWidget;
 class UBlackoutHUDWidgetController;
 class UBlackoutInteractionPromptWidget;
+class UBlackoutMatchResultWidget;
+class UBlackoutMatchResultWidgetController;
 class UBlackoutPartyRosterWidget;
 class UBlackoutPartyRosterWidgetController;
 class UBlackoutRelicWidget;
@@ -23,8 +30,6 @@ class UBlackoutSpectatorWidget;
 class UBlackoutValueBarWidget;
 class UBlackoutWeaponAmmoWidget;
 class UCanvasPanel;
-class UProgressBar;
-class UTextBlock;
 class UWidget;
 
 UCLASS(BlueprintType, Blueprintable)
@@ -44,6 +49,12 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Blackout|HUD")
 	UBlackoutPartyRosterWidgetController* GetPartyRosterWidgetController() const { return PartyRosterWidgetController; }
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|HUD")
+	void SetMatchResultWidgetController(UBlackoutMatchResultWidgetController* InMatchResultWidgetController);
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|HUD")
+	UBlackoutMatchResultWidgetController* GetMatchResultWidgetController() const { return MatchResultWidgetController; }
 
 	bool ShowDamageNumberAtWorldLocation(float DamageAmount, const FVector& WorldLocation, bool bIsCritical);
 
@@ -67,6 +78,9 @@ protected:
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|HUD")
 	TObjectPtr<UBlackoutPartyRosterWidgetController> PartyRosterWidgetController;
 
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|HUD")
+	TObjectPtr<UBlackoutMatchResultWidgetController> MatchResultWidgetController;
+
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
 	TObjectPtr<UBlackoutValueBarWidget> HealthBarWidget;
 
@@ -84,6 +98,9 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
 	TObjectPtr<UBlackoutPartyRosterWidget> PartyRosterWidget;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD|Result")
+	TObjectPtr<UBlackoutMatchResultWidget> MatchResultWidget;
 
 	/**
 	 * 다운 상태에서 기본 전투 HUD(크로스헤어/탄약/체력 등)를 한 번에 숨기기 위한 컨테이너 레이어입니다.
@@ -109,18 +126,6 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
 	TObjectPtr<UBlackoutReviveProgressWidget> ReviveProgressWidget;
-
-	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
-	TObjectPtr<UWidget> RevivePromptContainer;
-
-	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
-	TObjectPtr<UTextBlock> RevivePromptTextWidget;
-
-	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
-	TObjectPtr<UTextBlock> ReviveStatusTextWidget;
-
-	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
-	TObjectPtr<UProgressBar> ReviveProgressBarWidget;
 
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Blackout|HUD")
 	TObjectPtr<UCanvasPanel> CNV_DamageNumbers;
@@ -155,12 +160,6 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD")
 	FLinearColor ImpactIndicatorOccludedColor = FLinearColor(1.0f, 0.7f, 0.0f, 1.0f);
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD")
-	FLinearColor RevivePromptDefaultColor = FLinearColor::White;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD")
-	FLinearColor RevivePromptErrorColor = FLinearColor(1.0f, 0.2f, 0.2f, 1.0f);
-
 	/** 부활 프롬프트를 대상 월드 좌표보다 화면에서 얼마나 더 아래로 내릴지 조정합니다. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD")
 	FVector2D RevivePromptScreenOffset = FVector2D(0.0f, 24.0f);
@@ -185,6 +184,9 @@ protected:
 
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Party Roster Controller Set"), Category = "Blackout|HUD")
 	void ReceivePartyRosterControllerSet(UBlackoutPartyRosterWidgetController* InPartyRosterWidgetController);
+
+	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Match Result Controller Set"), Category = "Blackout|HUD")
+	void ReceiveMatchResultControllerSet(UBlackoutMatchResultWidgetController* InMatchResultWidgetController);
 
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Health Changed"), Category = "Blackout|HUD")
 	void ReceiveHealthChanged(float CurrentHealth, float MaxHealth);
@@ -228,9 +230,6 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Interaction Prompt Updated"), Category = "Blackout|HUD|Interaction")
 	void ReceiveInteractionPromptUpdated(const FBlackoutInteractionPromptData& InteractionPromptData);
 
-	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Revive Prompt Updated", DeprecatedFunction, DeprecationMessage = "On Interaction Prompt Updated를 사용하세요."), Category = "Blackout|HUD|Revive")
-	void ReceiveRevivePromptUpdated(const FBlackoutInteractionPromptData& RevivePromptData);
-
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Damage Number Requested"), Category = "Blackout|HUD")
 	void ReceiveDamageNumberRequested(float DamageAmount, FVector2D ScreenPosition, bool bIsCritical);
 
@@ -245,10 +244,6 @@ protected:
 
 private:
 	void UnbindWidgetControllerCallbacks();
-	void EnsureRevivePromptWidget();
-	void EnsureReviveProgressWidget();
-	void ResolveRevivePromptBindingsFromTree();
-	void ResolveReviveProgressBindingsFromTree();
 	void UpdateImpactIndicator(const FBlackoutImpactIndicatorData& ImpactIndicatorData);
 	void UpdateInteractionPrompt(const FBlackoutInteractionPromptData& InteractionPromptData);
 	void ApplyImpactIndicatorColor(const FLinearColor& IndicatorColor) const;

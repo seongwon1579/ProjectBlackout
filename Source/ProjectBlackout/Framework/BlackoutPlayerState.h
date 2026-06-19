@@ -1,3 +1,9 @@
+// ─── 구현 내역 ───────────────────────
+//  - 최승현: 매치 통계 집계·체크포인트 롤백 / Ready·Loaded 상태 / 쉘터 전투 전환 정책 / 닉네임 복제 동기화 / 재접속 키(Acc)
+//  - 김민영: ASC·전용 AttributeSet 초기화 / 소모품 보유 카운트(복제·소모)
+//  - 허혁: 개발용 디버그 치트 플래그(무한 체력·스태미나·탄약)
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -16,6 +22,8 @@ class UBOConsumableData;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FBlackoutConsumableCountsChangedSignature, int32, BloodRootCount, int32, GulSerumCount);
 DECLARE_MULTICAST_DELEGATE_OneParam(FBlackoutReadyStateChangedNativeSignature, bool);
+DECLARE_MULTICAST_DELEGATE(FBlackoutPlayerNameChangedNativeSignature);
+DECLARE_MULTICAST_DELEGATE(FBlackoutMatchStatsChangedNativeSignature);
 
 UCLASS()
 class PROJECTBLACKOUT_API ABlackoutPlayerState : public APlayerState, public IAbilitySystemInterface
@@ -54,8 +62,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Blackout|PlayerState|Ready")
 	void SetReadyState(bool bNewReady);
 
+	void SetLoadedState(bool bNewLoaded);
+	
 	UFUNCTION(BlueprintPure, Category = "Blackout|PlayerState|Ready")
 	bool IsReady() const { return bIsReady; }
+	
+	bool IsLoaded() const { return bIsLoaded; }
 
 	UFUNCTION(BlueprintPure, Category = "Blackout|PlayerState|State")
 	bool IsDowned() const;
@@ -66,8 +78,24 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Blackout|PlayerState|State")
 	bool IsBeingRevived() const;
 
+	UFUNCTION(BlueprintPure, Category = "Blackout|PlayerState|Cheat")
+	bool HasInfiniteHealthCheat() const { return bInfiniteHealthCheat; }
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|PlayerState|Cheat")
+	bool HasInfiniteStaminaCheat() const { return bInfiniteStaminaCheat; }
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|PlayerState|Cheat")
+	bool HasInfiniteAmmoCheat() const { return bInfiniteAmmoCheat; }
+
+	/** 개발용 치트 플래그를 갱신하고 필요한 어트리뷰트를 즉시 보정합니다. */
+	void SetDebugCheatFlags(bool bNewInfiniteHealth, bool bNewInfiniteStamina, bool bNewInfiniteAmmo);
+
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Blackout|PlayerState")
 	FGameplayTag SelectedClassTag;
+	
+	// 로그인 ID = 재접속 키
+	// InitNewPlayer 에서 ?Acc= 파싱으로 설정
+	FString AccountId;
 
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_BloodRootCount, Category = "Blackout|PlayerState")
 	int32 BloodRootCount = 0;
@@ -77,6 +105,9 @@ public:
 
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_IsReady, Category = "Blackout|PlayerState")
 	bool bIsReady = false;
+	
+	bool bIsLoaded = false;
+
 
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_SurrenderVoteState, Category = "Blackout|PlayerState")
 	bool bRequestedSurrender = false;
@@ -90,7 +121,35 @@ public:
 	/** Ready Check 대기 애니메이션처럼 코드 전용 반응이 필요할 때 구독하는 네이티브 이벤트입니다. */
 	FBlackoutReadyStateChangedNativeSignature OnReadyStateChangedNative;
 
+	/** PlayerName 이 복제(변경)될 때 코드로 알림 — 파티 로스터가 닉네임 늦게 도착 시 갱신용. */
+	FBlackoutPlayerNameChangedNativeSignature OnPlayerNameChangedNative;
+	
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_MatchStats, Category = "Blackout|PlayerState|Stats")
+	FBlackoutMatchStats MatchStats;
+
+	/** 매치 통계가 갱신될 때 코드로 알림 — 스코어보드/요약 위젯 갱신용. */
+	FBlackoutMatchStatsChangedNativeSignature OnMatchStatsChangedNative;
+
+	// --- 집계 (기존 서버 경로에서 호출, 클라 RPC 금지) ---
+	void AddDamageDealt(float Amount);
+	void RecordKill(bool bWasMeleeKill);
+	void RecordShotsFired(int32 Count = 1);
+	void RecordShotsHit(int32 Count = 1);
+	void RecordConsumableUsed();
+	void RecordRevive();
+
+	// 보스 진입 스냅샷 / 전멸·항복 재시작 시 롤백 (클리어 구간 유지 + 재도전 보스 구간만 휘발)
+	void SnapshotMatchStats();
+	void RollbackMatchStats();
+
 protected:
+	
+	UFUNCTION()
+	void OnRep_MatchStats();
+	
+	/** 기본 PlayerName 복제 콜백 — 늦게 도착하는 닉네임을 로스터에 알리려 오버라이드. */
+	virtual void OnRep_PlayerName() override;
+
 	UFUNCTION()
 	void OnRep_IsReady();
 
@@ -102,6 +161,9 @@ protected:
 
 	UFUNCTION()
 	void OnRep_SurrenderVoteState();
+
+	UFUNCTION()
+	void OnRep_DebugCheatFlags();
 
 	void BroadcastConsumableCounts();
 
@@ -120,7 +182,25 @@ protected:
 	TObjectPtr<const UBlackoutAmmoAttributeSet> AmmoAttributeSet;
 	
 private:
+	void BroadcastMatchStatsChanged();
+
+	// 보스 진입 시점 스냅샷. 복제 X(서버 전용) — 롤백은 MatchStats 복제로 클라 반영.
+	FBlackoutMatchStats CheckpointStats;
+
 	void BroadcastReadyStateChanged();
 	void RestoreAtCheckpoint();
+	void ApplyActiveCheatState();
+	void ApplyInfiniteHealthCheat() const;
+	void ApplyInfiniteStaminaCheat() const;
+	void ApplyInfiniteAmmoCheat() const;
+
+	UPROPERTY(ReplicatedUsing = OnRep_DebugCheatFlags)
+	bool bInfiniteHealthCheat = false;
+
+	UPROPERTY(ReplicatedUsing = OnRep_DebugCheatFlags)
+	bool bInfiniteStaminaCheat = false;
+
+	UPROPERTY(ReplicatedUsing = OnRep_DebugCheatFlags)
+	bool bInfiniteAmmoCheat = false;
 
 };

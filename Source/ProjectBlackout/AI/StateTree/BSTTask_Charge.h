@@ -1,3 +1,7 @@
+// ─── 구현 내역 ───────────────────────
+//  - 김민영: Root Hollow 미니언의 돌진(Charge) StateTree Task
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

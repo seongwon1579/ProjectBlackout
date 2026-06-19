@@ -6,6 +6,9 @@
 #include "BlackoutBossBTRunner.h"
 #include "BlackoutPhaseEvaluator.h"
 #include "BehaviorTree/BlackboardComponent.h"
+#include "Framework/BlackoutTelemetrySampler.h"
+#include "Engine/GameInstance.h"
+
 
 void ABlackoutRavagerAIController::RequestPhaseChange(EBOBossPhase NewPhase)
 {
@@ -18,6 +21,19 @@ void ABlackoutRavagerAIController::RequestPhaseChange(EBOBossPhase NewPhase)
 EBOBossPhase ABlackoutRavagerAIController::GetCurrentPhase() const
 {
 	return PhaseEvaluator ? PhaseEvaluator->GetCurrentPhase() : EBOBossPhase::None;
+}
+
+void ABlackoutRavagerAIController::StartCombat()
+{
+	if (!HasAuthority()) return;
+	
+	if (!PhaseEvaluator)
+	{
+		return;
+	}
+	PhaseEvaluator->RequestPhaseChange(EBOBossPhase::Phase1);
+	
+	Super::StartCombat();
 }
 
 void ABlackoutRavagerAIController::OnUnPossess()
@@ -44,8 +60,9 @@ void ABlackoutRavagerAIController::PreInitialize(APawn* InPawn)
 	// Phase
 	PhaseEvaluator = NewObject<UBlackoutPhaseEvaluator>(this);
 	PhaseEvaluator->OnBossPhaseChanged.AddUObject(this, &ABlackoutRavagerAIController::HandlePhaseChanged);
-	PhaseEvaluator->Initialize(this, CachedASC);
+	PhaseEvaluator->Initialize(this,CachedASC);
 }
+
 
 void ABlackoutRavagerAIController::HandleAggroTargetChanged(APawn* NewTarget)
 {
@@ -60,5 +77,16 @@ void ABlackoutRavagerAIController::HandlePhaseChanged(EBOBossPhase NewPhase)
 	if (BTRunner)
 	{
 		BTRunner->RunPhaseBT(NewPhase);
+	}
+	
+	if (const UWorld* World = GetWorld())
+	{
+		if (UGameInstance* GI =World->GetGameInstance())
+		{
+			if (UBlackoutTelemetrySampler* Sampler = GI -> GetSubsystem<UBlackoutTelemetrySampler>())
+			{
+				Sampler->RecordBossPhaseChange(NewPhase,GetPawn());
+			}
+		}
 	}
 }

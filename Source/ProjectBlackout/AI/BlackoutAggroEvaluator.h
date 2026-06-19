@@ -1,5 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: 거리/DPS/저체력 가중 점수로 어그로 타겟을 산정하는 평가기 (ST·BT 공용, 사망/다운 타겟 제외)
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -16,7 +20,7 @@ class AGameModeBase;
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnAggroTargetChanged, APawn* /*NewTarget*/);
 
-UCLASS()
+UCLASS(EditInlineNew, DefaultToInstanced)
 class PROJECTBLACKOUT_API UBlackoutAggroEvaluator : public UObject
 {
 	GENERATED_BODY()
@@ -28,6 +32,7 @@ public:
 	void Initialize(AAIController* InAIController, UAbilitySystemComponent* InASC);
 	void Deinitialize();
 	void RecordDamage(APawn* Source, float Amount);
+	void StartAggroEvaluation();
 
 private:
 	struct FDamageRecord
@@ -65,25 +70,22 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<UAbilitySystemComponent> CachedASC;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Blackout|Aggro", meta =(ClampMin = "0.0"))
-	float DistanceWeight = 1.f;
+	UPROPERTY(EditAnywhere, Category = "Blackout|Aggro", meta =(ClampMin = "0.0"))
+	float DistanceWeight = 0.5f;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Blackout|Aggro", meta =(ClampMin = "0.0"))
-	float DPSWeight = 2.0f;
+	UPROPERTY(EditAnywhere, Category = "Blackout|Aggro", meta =(ClampMin = "0.0"))
+	float DPSWeight = 5.0f;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Blackout|Aggro", meta =(ClampMin = "0.0"))
-	float LowHPWeight = 1.5f;
+	UPROPERTY(EditAnywhere, Category = "Blackout|Aggro", meta =(ClampMin = "0.0"))
+	float LowHPWeight = 0.3f;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Blackout|Aggro", meta =(ClampMin = "0.0"))
+	UPROPERTY(EditAnywhere, Category = "Blackout|Aggro", meta =(ClampMin = "0.0"))
 	float DPSWindowDuration = 3.0f;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Blackout|Aggro", meta =(ClampMin = "0.0"))
+	UPROPERTY(EditAnywhere, Category = "Blackout|Aggro", meta =(ClampMin = "0.0"))
 	float MaxAggroRange = 10000.f;
 	
-	UFUNCTION()
-	void OnPlayerPawnChanged(APawn* OldPawn, APawn* NewPawn);
 	void OnAggroTargetChangeTagChanged(const FGameplayTag Tag, int32 NewCount);
-	void OnPostLogin(AGameModeBase* GameMode, APlayerController* NewPC);
 	
 	APawn* CalculateBestTarget(APawn* ExcludeTarget = nullptr) const;
 	float CalculateAggroScore(APawn* Target) const;
@@ -92,17 +94,15 @@ private:
 	
 	void RegisterTagEvents();
 	void UnregisterTagEvents();
-	void RegisterPlayerEvents();
-	void UnregisterPlayerEvents();
-	
-	FGameplayTag TargetChangeTag;
-	FDelegateHandle PostLoginHandle;
-	FDelegateHandle TargetChangeTagChangedHandle;
 	
 	UPROPERTY()
 	TWeakObjectPtr<APawn> CurrentTarget;
-	
+	UPROPERTY()
 	TWeakObjectPtr<UAbilitySystemComponent> CurrentTargetASC;
+	
+	FDelegateHandle TargetChangeTagChangedHandle;
+	FGameplayTag TargetChangeTag;
+	
 	FDelegateHandle TargetDownTagHandle;
 	FGameplayTag DownTag;
 	

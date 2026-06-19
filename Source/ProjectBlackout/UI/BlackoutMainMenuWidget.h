@@ -1,5 +1,10 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 최승현: 메인 메뉴 위젯·매칭 시작·싱글 모드·재접속/타이틀 복귀 동작 구현
+//  - 허혁: 인게임 ESC 메뉴 및 설정 진입 연동
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -70,6 +75,9 @@ protected:
 	TObjectPtr<UButton> StartMatchmakingButton;
 	
 	UPROPERTY(meta=(BindWidgetOptional))
+	TObjectPtr<UButton> ReconnectButton;
+	
+	UPROPERTY(meta=(BindWidgetOptional))
 	TObjectPtr<UButton> SinglePlayButton;
 	
 	UPROPERTY(meta=(BindWidget))
@@ -80,6 +88,9 @@ protected:
 
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UButton> BackButton;
+	
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UButton> ExitToTitleButton;
 	
 	UPROPERTY(meta=(BindWidget))
 	TObjectPtr<UTextBlock> WelcomeText;
@@ -95,6 +106,9 @@ private:
 	void HandleStartMatchmakingClicked();
 	
 	UFUNCTION()
+	void HandleReconnectClicked();
+	
+	UFUNCTION()
 	void HandleSinglePlayClicked();
 	
 	UFUNCTION()
@@ -105,6 +119,9 @@ private:
 
 	UFUNCTION()
 	void HandleBackClicked();
+	
+	UFUNCTION()
+	void HandleExitToTitleClicked();
 
 	UFUNCTION()
 	void HandleSettingsClosed();
@@ -118,6 +135,9 @@ private:
 	UFUNCTION()
 	void HandleMatchmakingWidgetExited(bool bSuccess);
 	
+	UFUNCTION()
+	void HandleActiveSessionFound();
+	
 	// 로그인 상태에 맞춰서 버튼 Visible / Welcome 텍스트 갱신
 	void RefreshForLoginState();
 	
@@ -129,4 +149,5 @@ private:
 
 	UPROPERTY()
 	TObjectPtr<UBlackoutSettingsWidget> ActiveSettingsWidget;
+	
 };

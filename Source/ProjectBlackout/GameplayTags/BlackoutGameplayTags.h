@@ -1,3 +1,10 @@
+// ─── 구현 내역 ───────────────────────
+//  - 김민영: 네이티브 태그 시스템 도입 및 플레이어 상태/병과/어빌리티, 무기·근접·소모품·유물·부활 GameplayCue, 캔슬 윈도우 태그 정의
+//  - 조성원: AI/보스/미니언 어빌리티·어그로·스폰 태그와 모션워핑·GCN 태그 정의
+//  - 최승현: Wraith/Shrewd 어빌리티·Cue·State 태그와 쉘터 존 시스템 태그 정의
+//  - 허혁: 스턴 게이지·피격 단계, 데미지 숫자 UI, 무기별 리로드 슬롯 태그 정의
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -13,12 +20,15 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Invulnerable);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_MovementLocked);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Locked);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Stunned);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_StunBroken);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Aiming);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Sprinting);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Attacking);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Reloading);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_UseConsumable);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_UseRelic);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(State_Pulled);
 	
 	// ─── Character Abilities ───────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Player_Dodge);
@@ -37,6 +47,7 @@ namespace BlackoutGameplayTags
 
 	// ─── GAS SetByCaller 데이터 키 ────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Damage);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Stun);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_MaxHealth);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_Health);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Data_MaxStamina);
@@ -209,15 +220,27 @@ namespace BlackoutGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_EnergyBurst);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_Charged);
 	
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Ravager_Howl);
+	
 	// ─── Ravager Gameplay Cues ─────────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Ravager_Gorenado);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Ravager_EnergyBurst);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Ravager_Shockwave_Launch);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Ravager_Swipe_L);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Ravager_Swipe_R);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Ravager_BiteSingle);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Ravager_Evade);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Ravager_FlashKick);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Ravager_Flea);
 	
 	// ─── Hollow Abilities ──────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Hollow_Spawn);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Hollow_PreRoll);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Hollow_Attack);
+	
+	// ─── Hollow Gameplay Cues ─────────────────────────────────────────────────────────
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Hollow_Spawn);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Hollow_Projectile);
 	
 	// ─── Shrewd Abilities ──────────────────────────────────────────────────────
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Shrewd_Teleport_ToPoint);
@@ -265,6 +288,9 @@ namespace BlackoutGameplayTags
 	
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Enemy_Attack_OnEnergyBurst);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Enemy_Attack_OffEnergyBurst);
+	
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Enemy_Attack_KickFlash_Start);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Enemy_Attack_KickFlash_End);
 	
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Enemy_Shrewd_Attack_FireArrow);
 	

@@ -8,7 +8,9 @@
 #include "Core/BlackoutLog.h"
 #include "Engine/World.h"
 #include "Framework/BlackoutGameState.h"
+#include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
+#include "Sound/SoundBase.h"
 #include "TimerManager.h"
 
 namespace
@@ -298,6 +300,7 @@ void ABOBreakablePillarActor::Multicast_PlayBreakDustEffect_Implementation()
 		static_cast<int32>(GetLocalRole()));
 
 	PlayBreakDustEffect();
+	PlayBreakSound();
 }
 
 void ABOBreakablePillarActor::ApplyCurrentState()
@@ -584,6 +587,34 @@ void ABOBreakablePillarActor::PlayBreakDustEffect()
 			*GetNameSafe(SpawnedDustEffect),
 			BreakDustLifeSpan);
 	}
+}
+
+void ABOBreakablePillarActor::PlayBreakSound()
+{
+	if (!BreakSound)
+	{
+		return;
+	}
+
+	if (GetNetMode() == NM_DedicatedServer)
+	{
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	// 기둥 기준 오프셋을 월드 좌표로 변환해 파괴 사운드를 자연스럽게 배치합니다.
+	const FVector SoundLocation = GetActorTransform().TransformPosition(BreakSoundLocationOffset);
+	UGameplayStatics::PlaySoundAtLocation(
+		World,
+		BreakSound,
+		SoundLocation,
+		BreakSoundVolumeMultiplier,
+		BreakSoundPitchMultiplier);
 }
 
 UPrimitiveComponent* ABOBreakablePillarActor::ResolvePrimitiveFromChild(UChildActorComponent* ChildActorComponent) const

@@ -1,5 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: 블랙보드 거리 값을 Min/Max 범위와 비교해 조건을 판정하는 거리 체크 데코레이터
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

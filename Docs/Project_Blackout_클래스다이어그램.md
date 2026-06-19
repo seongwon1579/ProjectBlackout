@@ -15,9 +15,17 @@ classDiagram
     ACharacter <|-- ABlackoutCharacterBase
     ABlackoutCharacterBase <|-- ABlackoutPlayerCharacter
     ABlackoutCharacterBase <|-- ABlackoutEnemyCharacter
+    ABlackoutEnemyCharacter <|-- ABlackoutMinionCharacter
+    ABlackoutMinionCharacter <|-- ABORootHollow
+    ABlackoutMinionCharacter <|-- ABORootWraith
     ABlackoutEnemyCharacter <|-- ABlackoutBossCharacter
+    ABlackoutBossCharacter <|-- ABOShrewdBoss
+    ABlackoutBossCharacter <|-- ABORavagerBoss
 
     ABlackoutCharacterBase ..|> IAbilitySystemInterface : implements
+    ABlackoutCharacterBase ..|> IBlackoutDamageable : implements
+    ABlackoutPlayerCharacter ..|> IBlackoutPullable : implements
+    ABlackoutMinionCharacter ..|> IBlackoutPoolableInterface : implements
 
     class ABlackoutCharacterBase {
         <<Abstract>>
@@ -39,17 +47,37 @@ classDiagram
 
     class ABlackoutEnemyCharacter {
         -UAbilitySystemComponent* ASC
+        +BeginPlay() void
+    }
+
+    class ABlackoutMinionCharacter {
+        -UBOMinionData* MinionData
+        -UBODissolveComponent* DissolveComponent
+        -UBOMinionHealthBarComponent* HealthBarComponent
         +OnSpawnFromPool() void
         +OnReturnToPool() void
-        +BeginPlay() void
+        #InitializeFromMinionData() void
     }
 
     class ABlackoutBossCharacter {
         -UBOBossData* BossData
-        -UBlackoutAggroComponent* AggroComp
+        -UMotionWarpingComponent* MotionWarpingComponent
+        +GetChaseRanges(FGameplayTag) FBossChaseRanges
+        #OnDamageReceived(FOnAttributeChangeData) void
     }
 
-    ABlackoutEnemyCharacter ..|> IBlackoutPoolableInterface : implements
+    class ABOShrewdBoss {
+        -UBlackoutAggroComponent* AggroComponent
+        +Multicast_DebugAggroTarget(FString) void
+    }
+
+    class ABORavagerBoss {
+        -TMap~FGameplayTag,UBORavagerPatternData~ BossPatternData
+        -UBORavagerStatData* BossStatData
+        +GetPatternData(FGameplayTag) UBORavagerPatternData*
+        +DetermineTargetPhase(float) EBOBossPhase
+        +Multicast_SetCollisionState(bool) void
+    }
 ```
 
 ---
@@ -64,6 +92,8 @@ classDiagram
     ABlackoutGameMode <|-- ABlackoutLobbyGameMode
     ABlackoutGameMode <|-- ABlackoutBattleGameMode
 
+    ABlackoutLobbyGameMode --> UBlackoutMatchFlowSubsystem : reads CurrentStageIndex
+    ABlackoutLobbyGameMode --> ABlackoutPlayerState : applies lobby ready/class state
     ABlackoutBattleGameMode --> ABlackoutPlayerState : calls ApplyBattleTransitionPolicy
 
     class ABlackoutGameMode {
@@ -75,19 +105,31 @@ classDiagram
     }
 
     class ABlackoutLobbyGameMode {
-        +Server_SelectClass(FGameplayTag) void
-        +Server_RequestReopenClassSelect() void
-        +AllPlayersReady() bool
-        -OnReadyCheckComplete() void
-        -ServerTravel(FString MapURL) void
+        -TArray~FSoftObjectPath~ BossStageMapPaths
+        -bool bTravelInitiated
+        +StartBattle() void
+        +BO_ForceStartBattle() void
+        #OnPlayerJoined(APlayerController*) void
+        #OnAllPlayersReady() void
+        #OnSeamlessArrival(APlayerController*) void
+        -HandleLobbyArrival(APlayerController*) void
+        -DoStartBattleTravel() void
     }
 
     class ABlackoutBattleGameMode {
         -AActor* CurrentCheckpointActor
-        +OnMidBossDefeated() void
+        -float MatchResultDisplayDelay
+        -float MatchResultAutoTravelDelay
+        +RegisterBoss(ABlackoutBossCharacter*) void
+        +EndMatch(EBlackoutMatchEndReason) void
         +NotifyPlayerFullyDead(ABlackoutPlayerCharacter*) void
         +HandlePartyWipe() void
-        +RegisterSurrenderVote(ABlackoutPlayerController*) void
+        +StartSurrenderVote(ABlackoutPlayerController*) void
+        +CastSurrenderVote(ABlackoutPlayerController*, bool) void
+        -BeginBossDefeatResultFlow(EBossType) void
+        -ShowMatchResultAfterDelay() void
+        -AutoTravelAfterMatchResult() void
+        -ExecuteMatchResultTravel() void
         -EvaluatePartyWipe() void
         -FindNextSpectateTarget(ABlackoutPlayerController*, int32) ABlackoutPlayerCharacter*
         -EvaluateSurrenderVote() void
@@ -105,9 +147,15 @@ classDiagram
     class ABlackoutGameState {
         +TArray DestroyedPillarIds
         +float MatchTimer
-        +bool bRedMistActive
-        +EBossPhase CurrentPhase
-        +bool bMidBossDefeated
+        +bool bIsMatchResultVisible
+        +EBossType DefeatedBossType
+        +float MatchResultVisibleServerTime
+        +float MatchResultAutoTravelServerTime
+        +TArray MatchResultParticipants
+        +bool bIsSurrenderVoteActive
+        +int32 SurrenderVoteYesCount
+        +int32 SurrenderVoteNoCount
+        +SetMatchResultState(...) void
     }
 
     class ABlackoutPlayerState {
@@ -248,19 +296,19 @@ classDiagram
 classDiagram
     direction LR
 
-    class GA_FireWeapon {
+    class UBlackoutGA_FireWeapon {
         +Hitscan / Projectile / Shotgun Pellet 분기
         +Cost: ClipAmmo -1
         +Cue: GCN_Weapon_Fire
     }
 
-    class GA_Reload {
+    class UBlackoutGA_Reload {
         +ExecCalc_Reload
         +Reserve → Clip 이전
         +Cue: GCN_Weapon_Reload
     }
 
-    class GA_Dodge {
+    class UBlackoutGA_Dodge {
         +I-Frame 무적
         +Root Motion 구르기
         +Tag: State.Invulnerable
@@ -268,7 +316,7 @@ classDiagram
         +timestamp 검증
     }
 
-    class GA_UseRelic {
+    class UBlackoutGA_UseRelic {
         +Lock-in 애니메이션
         +GE_RelicHeal 적용
         +RelicCharges -1
@@ -291,13 +339,13 @@ classDiagram
         +Data.Consumable.StaminaCostMultiplier
     }
 
-    class GA_Revive {
+    class UBlackoutGA_Revive {
         +HoldToRevive 진행도
         +GE_Downed 해제
         +구출자 RelicCharges -1
     }
 
-    class GA_Melee_Player {
+    class UBlackoutGA_MeleePlayer {
         +AnimNotifyState Hitbox
         +강철검 / 고철해머 분기
         +콤보 입력 buffer
@@ -318,13 +366,13 @@ classDiagram
         +InputTag
     }
 
-    class ExecCalc_DamageCalc {
+    class UExecCalc_DamageCalc {
         +BaseDamage x CritMul
         +x HitZoneMultiplier
         +x 1 - DamageReduction
     }
 
-    class ExecCalc_CombatReward {
+    class UExecCalc_CombatReward {
         +DropItemClass (BP 기본값)
         +Kill.Melee → 드롭 후보 1개 랜덤
         +Kill.MultiTarget.Count3 → 드롭 후보 1개 랜덤
@@ -343,16 +391,16 @@ classDiagram
         +TArray~FBlackoutShotgunPelletHit~
     }
 
-    GA_FireWeapon --> ABOShotgunFirearm : 산탄 펠릿 사격
-    GA_FireWeapon --> ExecCalc_DamageCalc : 피격 시
-    GA_Melee_Player --> ExecCalc_DamageCalc : 피격 시
-    GA_Melee_Player ..> UBlackoutAbilitySystemComponent : WaitInputPress
-    GA_Dodge ..> UBlackoutAbilitySystemComponent : WaitInputPress
+    UBlackoutGA_FireWeapon --> ABOShotgunFirearm : 산탄 펠릿 사격
+    UBlackoutGA_FireWeapon --> UExecCalc_DamageCalc : 피격 시
+    UBlackoutGA_MeleePlayer --> UExecCalc_DamageCalc : 피격 시
+    UBlackoutGA_MeleePlayer ..> UBlackoutAbilitySystemComponent : WaitInputPress
+    UBlackoutGA_Dodge ..> UBlackoutAbilitySystemComponent : WaitInputPress
     UBlackoutAbilitySystemComponent ..> FBlackoutAbilityInputSyncPayload : 기록 / 검증
     UBlackoutGA_UseConsumable <|-- UBlackoutGA_UseBloodRoot
     UBlackoutGA_UseConsumable <|-- UBlackoutGA_UseGulSerum
     ABlackoutCharacterBase --> GE_CombatReward : 서버 사망 확정 후
-    GE_CombatReward --> ExecCalc_CombatReward : Execution
+    GE_CombatReward --> UExecCalc_CombatReward : Execution
 ```
 
 ---
@@ -485,28 +533,72 @@ classDiagram
 
 ---
 
-### 8. 어그로 시스템
+### 8. 보스 AI — 어그로 / 페이즈 (v6)
+
+미니언·Shrewd는 순수 StateTree로 구동하고, Ravager는 순수 BehaviorTree + C++ 페이즈 모듈로 구동합니다. 상세는 [AI_Boss/02](AI_Boss/02_AI_Controllers.md)·[03](AI_Boss/03_StateTree_SubBT_Assets.md).
 
 ```mermaid
 classDiagram
     direction LR
 
-    class UBlackoutAggroComponent {
-        <<ActorComponent, Server Only>>
-        -TMap DamageAccumulator
-        -float TargetSwitchCooldown
-        -float LastSwitchTime
-        +EvaluateTarget() APlayerState*
-        -Priority1_DamageAccumulated() APlayerState*
-        -Priority2_ClosestDistance() APlayerState*
-        -Priority3_LowestHealth() APlayerState*
-        -DecayAccumulator(float DeltaTime) void
+    AAIController <|-- ABlackoutAIController
+    ABlackoutAIController <|-- ABlackoutBossAIController
+    ABlackoutBossAIController <|-- ABlackoutShrewdAIController
+    ABlackoutBossAIController <|-- ABlackoutRavagerAIController
+
+    class ABlackoutBossAIController {
+        <<보스 베이스>>
+        -UBlackoutAggroEvaluator* AggroEvaluator
+        +RecordDamage(APawn*, float) void
+        #HandleAggroTargetChanged(APawn*) void
     }
 
-    ABlackoutBossCharacter --> UBlackoutAggroComponent : has
-    UBlackoutAggroComponent --> UBOBossData : reads tuning
+    class ABlackoutRavagerAIController {
+        <<순수 BehaviorTree>>
+        -UBlackoutBossBTRunner* BTRunner
+        -UBlackoutPhaseEvaluator* PhaseEvaluator
+        +RequestPhaseChange(EBOBossPhase) void
+    }
 
-    note for UBlackoutAggroComponent "DamageAccumulator: TMap<TWeakObjectPtr<APlayerState>, float>"
+    class UBlackoutAggroEvaluator {
+        <<UObject, Instanced, Server Only>>
+        -TMap~APawn,FPlayerCombatData~ CombatDataMap
+        -float DPSWeight = 5.0
+        -float DistanceWeight = 0.5
+        -float LowHPWeight = 0.3
+        -float DPSWindowDuration = 3.0
+        +FOnAggroTargetChanged OnAggroTargetChanged
+        +RecordDamage(APawn*, float) void
+        +StartAggroEvaluation() void
+        -CalculateAggroScore(APawn*) float
+    }
+
+    class UBlackoutPhaseEvaluator {
+        <<UObject — Ability.PhaseLock 게이팅>>
+        +RequestPhaseChange(EBOBossPhase) void
+        +FOnBossPhaseChanged OnBossPhaseChanged
+    }
+
+    class UBlackoutBossBTRunner {
+        <<UObject — 페이즈별 BT 교체>>
+        -TMap~EBOBossPhase,UBehaviorTree~ PhaseBehaviorTrees
+        +RunPhaseBT(EBOBossPhase) void
+    }
+
+    class UBlackoutAggroComponent {
+        <<ActorComponent, Shrewd ST가 읽는 경로>>
+        +GetCurrentTarget() APawn*
+    }
+
+    ABlackoutBossAIController *-- UBlackoutAggroEvaluator
+    ABlackoutRavagerAIController *-- UBlackoutPhaseEvaluator
+    ABlackoutRavagerAIController *-- UBlackoutBossBTRunner
+    ABOShrewdBoss *-- UBlackoutAggroComponent
+    UBlackoutAggroEvaluator ..> ABlackoutBossAIController : OnAggroTargetChanged
+    ABORavagerBoss ..> ABlackoutRavagerAIController : OnDamageReceived → RequestPhaseChange
+    UBlackoutPhaseEvaluator ..> UBlackoutBossBTRunner : OnBossPhaseChanged → RunPhaseBT
+    FBSTEval_ShrewdAggroTarget ..> UBlackoutAggroComponent : reads GetCurrentTarget
+    FBSTEval_WraithAggroTarget ..> ABlackoutMinionAIController : wraith target
 ```
 
 ---
@@ -517,15 +609,23 @@ classDiagram
 classDiagram
     direction LR
 
-    class ABlackoutDestructiblePillar {
-        -UGeometryCollectionComponent* GC
-        -float BOPillarHealth
-        -bool bIsShattered
-        +Multicast_Shatter(FVector ImpactPoint, FVector ImpactForce) void
-        +Instant_Shatter() void
+    AActor <|-- ABOBreakablePillarActor
+    ABOBreakablePillarActor ..|> IBlackoutDamageable : implements
+
+    class ABOBreakablePillarActor {
+        -UBoxComponent* PillarHitbox
+        -UChildActorComponent* WholeMesh
+        -TArray~UChildActorComponent*~ BreakPieces
+        -int32 PillarId
+        -bool bIsBroken
+        +ReceiveDamageFromHitbox(FGameplayEffectSpecHandle, FName) void
+        +BreakPillar() void
+        +ResetPillar() void
+        +RefreshBreakPieces() void
+        +OnRep_IsBroken() void
     }
 
-    ABlackoutDestructiblePillar --> ABlackoutGameState : updates DestroyedPillarIds
+    ABOBreakablePillarActor --> ABlackoutGameState : updates DestroyedPillarIds
 ```
 
 ---
@@ -657,33 +757,42 @@ classDiagram
 
 ## 🌐 서버 인프라
 
-### 11. 화톳불 / 포털 (Interactable)
+### 11. 전투 진입 / 병과 선택 상호작용 (Interactable)
 
 ```mermaid
 classDiagram
     direction LR
 
-    class ABlackoutBonfire {
-        +FGameplayTag CheckpointTag
+    class ABlackoutAreaGate {
+        <<Ready Gate>>
         +Interact(APlayerController*) void
-        -ApplyRestEffect() void
-        -ReopenClassSelect() void
+        +CanInteract(AActor*) bool
+        +GetInteractionPrompt() FText
     }
 
-    class ABlackoutPortal {
-        -TArray ReadyFlags
+    class ABlackoutClassSelectStone {
+        <<Class Select>>
         +Interact(APlayerController*) void
-        +CheckAllReady() bool
+        +CanInteract(AActor*) bool
+        +GetInteractionPrompt() FText
+    }
+
+    class ABlackoutDropItem {
+        <<Pickup>>
+        +OnInteract(AActor*) void
+        +CanInteract(AActor*) bool
     }
 
     class IBlackoutInteractable {
         <<Interface>>
-        +Interact(APlayerController*) void
-        +GetInteractionWidget() UUserWidget*
+        +CanInteract(AActor* Interactor) bool
+        +OnInteract(AActor* Interactor) void
+        +GetInteractionPrompt() FText
     }
 
-    ABlackoutBonfire ..|> IBlackoutInteractable : implements
-    ABlackoutPortal ..|> IBlackoutInteractable : implements
+    ABlackoutAreaGate ..|> IBlackoutInteractable : implements
+    ABlackoutClassSelectStone ..|> IBlackoutInteractable : implements
+    ABlackoutDropItem ..|> IBlackoutInteractable : implements
 ```
 
 ---
@@ -752,4 +861,73 @@ classDiagram
     SessionExpirationListener --> Redis : subscribes expired events
     SessionExpirationListener --> EventsGateway : emitToSession
     EventsGateway --> Redis : room management
+```
+
+---
+
+## ⚙️ 사용자 설정 / 오디오
+
+### 13. SoundMix 기반 볼륨 설정
+
+> 상세 설계는 [Foundation/11_User_Audio_Settings.md](Foundation/11_User_Audio_Settings.md)를 기준으로 합니다. 루트 문서는 설정 저장 클래스와 SoundMix/SoundClass 적용 경계만 요약합니다.
+
+```mermaid
+classDiagram
+    direction LR
+
+    UGameUserSettings <|-- UBlackoutUserSettings
+    UDeveloperSettings <|-- UBlackoutAudioSettings
+    UGameInstanceSubsystem <|-- UBlackoutUserSettingsSubsystem
+    UUserWidget <|-- UBlackoutSettingsWidget
+    USoundBase <|-- USoundCue
+
+    class UBlackoutSettingsWidget {
+        <<UserWidget>>
+        -float PendingMasterVolume
+        -float PendingMusicVolume
+        -float PendingSFXVolume
+        -ApplyPendingSettings() void
+    }
+
+    class UBlackoutUserSettingsSubsystem {
+        <<GameInstanceSubsystem>>
+        -FDelegateHandle PostLoadMapHandle
+        +ShouldCreateSubsystem(UObject*) bool
+        +Initialize(FSubsystemCollectionBase&) void
+        +Deinitialize() void
+        -HandlePostLoadMapWithWorld(UWorld*) void
+    }
+
+    class UBlackoutUserSettings {
+        <<GameUserSettings>>
+        -float MasterVolume
+        -float MusicVolume
+        -float SFXVolume
+        +ApplyBlackoutUserSettings(bool) void
+        -ApplyAudioSettings() void
+    }
+
+    class UBlackoutAudioSettings {
+        <<DeveloperSettings>>
+        +TSoftObjectPtr~USoundMix~ SettingsSoundMix
+        +TSoftObjectPtr~USoundClass~ MasterSoundClass
+        +TSoftObjectPtr~USoundClass~ MusicSoundClass
+        +TSoftObjectPtr~USoundClass~ SFXSoundClass
+        +GetBlackoutAudioSettings() UBlackoutAudioSettings*
+        +HasRequiredAudioAssets() bool
+        +SetAudioMixAssets(...) void
+    }
+
+    class UGameplayStatics {
+        <<Engine API>>
+        +SetSoundMixClassOverride(...) void
+    }
+
+    UBlackoutSettingsWidget --> UBlackoutUserSettings : 저장 / 적용
+    UBlackoutUserSettingsSubsystem --> UBlackoutUserSettings : 맵 로드마다 자동 재적용
+    UBlackoutUserSettings --> UBlackoutAudioSettings : SoundMix / SoundClass 참조 조회
+    UBlackoutUserSettings --> UGameplayStatics : SoundMix override 적용
+    UBlackoutAudioSettings o-- USoundMix
+    UBlackoutAudioSettings o-- USoundClass
+    USoundCue --> USoundClass : 에셋 SoundClass 지정 필요
 ```

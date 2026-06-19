@@ -33,10 +33,14 @@ public class ProjectBlackout : ModuleRules
 			"Json",
 			"JsonUtilities",
 			"WebSockets",
+			"CoreOnline",
 			"DeveloperSettings",
 			// Plugin
 			"MotionWarping",
-			"NavigationSystem"
+			"NavigationSystem",
+			// Level Sequence
+			"LevelSequence",
+			"MovieScene"
 		});
 
 		if (Target.Platform == UnrealTargetPlatform.Win64 && Target.Type != TargetType.Server)
@@ -46,7 +50,11 @@ public class ProjectBlackout : ModuleRules
 			PublicDependencyModuleNames.Add("StreamlineReflexBlueprint");
 		}
 
-		PrivateDependencyModuleNames.AddRange(new string[] {"MoviePlayer" });
+		PrivateDependencyModuleNames.AddRange(new string[] {"MoviePlayer" , "EngineSettings" });
+		if (Target.bBuildEditor)
+		{
+			PrivateDependencyModuleNames.AddRange(new string[] { "UnrealEd", "DesktopPlatform" });
+		}
 
 		PublicIncludePaths.AddRange(new string[] {
 			"ProjectBlackout",

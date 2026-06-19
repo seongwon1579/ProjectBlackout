@@ -13,7 +13,7 @@ void UBlackoutBossBTRunner::Initialize(ABlackoutBossAIController* InController,
 void UBlackoutBossBTRunner::RunPhaseBT(EBOBossPhase NewPhase)
 {
 	if (!OwnerController || NewPhase == EBOBossPhase::None) return;
-
+	
 	TObjectPtr<UBehaviorTree>* Tree = PhaseBehaviorTrees.Find(NewPhase);
 
 	if (!Tree || !*Tree) return;

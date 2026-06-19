@@ -12,6 +12,7 @@
 #include "Engine/GameInstance.h"
 #include "BlackoutDedicatedSessionSubsystem.h"
 #include "BlackoutMatchFlowSubsystem.h"
+#include "BlackoutTelemetrySampler.h"
 
 namespace
 {
@@ -87,6 +88,25 @@ void ABlackoutGameMode::PreLogin(const FString& Options, const FString& Address,
 	}
 }
 
+FString ABlackoutGameMode::InitNewPlayer(APlayerController* NewPlayerController,
+	const FUniqueNetIdRepl& UniqueId, const FString& Options,
+	const FString& Portal)
+{
+	FString ErrorMessage  =Super::InitNewPlayer(NewPlayerController, UniqueId, Options, Portal);
+	
+	// ?Acc=<로그인ID> 보관 - 재접속 시 프로세스 재실행해도 남아있음
+	if (ABlackoutPlayerState *PS = NewPlayerController ? NewPlayerController ->GetPlayerState<ABlackoutPlayerState>() : nullptr)
+	{
+		const FString Acc = UGameplayStatics::ParseOption(Options, TEXT("Acc"));
+		if (!Acc.IsEmpty())
+		{
+			PS->AccountId = Acc;
+			BO_LOG_NET(Log, "InitNewPlayer — Acc 보관: %s", *Acc);
+		}
+	}
+	return  ErrorMessage;
+}
+
 void ABlackoutGameMode::PostLogin(APlayerController* NewPlayer)
 {
 	Super::PostLogin(NewPlayer);
@@ -108,6 +128,12 @@ void ABlackoutGameMode::Logout(AController* Exiting)
 	           *GetNameSafe(Exiting), ConnectedPlayers.Num());
 
 	OnPlayerLeft(Exiting);
+	
+	// 전원 퇴장이면 grace 타이머 . 이미 도는중이면 중복 무시
+	if (ConnectedPlayers.Num() == 0 && !GetWorldTimerManager().IsTimerActive(EmptyServerGraceHandle))
+	{
+		GetWorldTimerManager().SetTimer(EmptyServerGraceHandle,this ,&ABlackoutGameMode::ConfirmEmptyServer, EmptyServerGracePeriod, false);
+	}
 }
 
 void ABlackoutGameMode::HandleSeamlessTravelPlayer(AController*& C)
@@ -201,6 +227,27 @@ bool ABlackoutGameMode::AllPlayersReady() const
 	return true;
 }
 
+bool ABlackoutGameMode::AllPlayersLoaded() const
+{
+	if (ConnectedPlayers.Num() < MaxPlayers)
+	{
+		return false;
+	}
+	if (!GameState)
+	{
+		return false;
+	}
+	for (APlayerState* PS : GameState->PlayerArray)
+	{
+		const ABlackoutPlayerState* BlackoutPS = Cast<ABlackoutPlayerState>(PS);
+		if (!BlackoutPS || !BlackoutPS->IsLoaded())
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
 // Ready 상태 갱신 직후 호출. 성립 시 자식 GameMode 훅 실행.
 void ABlackoutGameMode::NotifyReadyChanged()
 {
@@ -208,6 +255,26 @@ void ABlackoutGameMode::NotifyReadyChanged()
 	{
 		OnAllPlayersReady();
 	}
+}
+
+void ABlackoutGameMode::ConfirmEmptyServer()
+{
+	// grace 동안 접속이 들어와 1명이라도 있으면 Idle 복귀 취소
+	if (ConnectedPlayers.Num() >0)
+	{
+		BO_LOG_NET(Log, "EmptyServer grace 취소 — 접속 %d명 복귀", ConnectedPlayers.Num());
+		return;
+	}
+	
+	
+	BO_LOG_NET(Log, "EmptyServer 확정 — idle 복귀 트리거");
+	// 런 중 로비 포함 모든 모드에서 RunId 정리
+	if (UBlackoutTelemetrySampler* Sampler = GetGameInstance()
+		? GetGameInstance()->GetSubsystem<UBlackoutTelemetrySampler>() : nullptr)
+	{
+		Sampler->EndRun();
+	}
+	HandleEmptyServerReset();
 }
 
 // 매치 상태 전이 단일 권위. SetMatchState 직접 호출을 이 진입점으로 일원화한다.
@@ -247,14 +314,14 @@ void ABlackoutGameMode::TransitionTo(EBlackoutMatchState NewState)
 	}
 }
 
-void ABlackoutGameMode::BroadcastScreenFadeOut(FLinearColor FadeColor)
+void ABlackoutGameMode::BroadcastScreenFadeOut(FLinearColor FadeColor, bool bHoldUntilReady)
 {
 	
 	for (const TObjectPtr<APlayerController>& PC : ConnectedPlayers)
 	{
 		if (ABlackoutPlayerController* BlackoutPlayerController = Cast<ABlackoutPlayerController>(PC))
 		{
-			BlackoutPlayerController->Client_StartScreenFadeOut(FadeColor);
+			BlackoutPlayerController->Client_StartScreenFadeOut(FadeColor , bHoldUntilReady);
 		}
 	}
 }

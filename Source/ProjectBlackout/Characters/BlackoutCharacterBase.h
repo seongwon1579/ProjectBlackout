@@ -1,3 +1,9 @@
+// ─── 구현 내역 ───────────────────────
+//  - 김민영: 캐릭터 최상위 베이스 — ASC 접근 인터페이스 + 데미지 GE Spec 적용 경로 + 다운/완전사망 상태 및 복제 브리지
+//  - 허혁: 피격 리액션(데미지·에임·방향 분기) 및 스턴 게이지/피격 단계 공통 훅
+//  - 최승현: 사망 처리 경로의 매치 통계(처치) 집계 연동
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -74,6 +80,9 @@ protected:
 
 	/** 피격 시 실제 적용된 데미지와 공격자 위치를 기준으로 히트 리액션 몽타주 재생 등 공통 처리를 수행합니다. */
 	virtual void OnHitReact(float AppliedDamage, const FVector& DamageSourceLocation);
+
+	/** 데미지/스턴 적용이 끝난 뒤 캐릭터별 반응 분기를 수행합니다. */
+	virtual void HandlePostDamageReaction(float AppliedDamage, float StunBefore, float StunAfter, const FVector& DamageSourceLocation);
 
 	/** 기절(State.Stun) 태그 부여 시 이동/액션 봉쇄 처리. */
 	virtual void OnStun();

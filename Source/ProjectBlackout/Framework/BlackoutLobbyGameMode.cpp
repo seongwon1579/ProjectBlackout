@@ -7,6 +7,7 @@
 #include "GameFramework/GameModeBase.h"
 #include  "Characters/BlackoutPlayerCharacter.h"
 #include "Kismet/GameplayStatics.h"
+#include "BlackoutDedicatedSessionSubsystem.h"
 
 void ABlackoutLobbyGameMode::StartBattle()
 {
@@ -31,10 +32,20 @@ void ABlackoutLobbyGameMode::StartBattle()
 	if (ABlackoutGameState* GS = GetGameState<ABlackoutGameState>())
 	{
 		GS->SetMatchState(EBlackoutMatchState::Starting);
+
+		// 로비에서 부여한 무한 치트가 보스전으로 넘어가지 않도록 travel 직전 전원 해제.
+		// (CopyProperties 가 seamless travel 시 치트 플래그를 새 PS 로 복사하므로 여기서 차단)
+		for (APlayerState* PS : GS->PlayerArray)
+		{
+			if (ABlackoutPlayerState* BlackoutPS = Cast<ABlackoutPlayerState>(PS))
+			{
+				BlackoutPS->SetDebugCheatFlags(false, false, false);
+			}
+		}
 	}
 	
 	// 일반 이동 = 흰색 페이드 -> 대기후 travel
-	BroadcastScreenFadeOut(FLinearColor::White);
+	BroadcastScreenFadeOut(FLinearColor::White ,true);
 	GetWorldTimerManager().SetTimer(FadeTravelTimerHandle ,this ,&ABlackoutLobbyGameMode::DoStartBattleTravel , FadeOutTravelDelay , false);
 }
 
@@ -74,6 +85,12 @@ void ABlackoutLobbyGameMode::HandleLobbyArrival(APlayerController* PC)
 		PlayerCharacter->RestoreToFullState();
 	}
 
+	// 로비는 안전한 샌드박스 — 탄/체력/스테미나 무한 적용. 보스전 travel 직전 StartBattle 에서 해제.
+	if (ABlackoutPlayerState* PS = PC->GetPlayerState<ABlackoutPlayerState>())
+	{
+		PS->SetDebugCheatFlags(true, true, true);
+	}
+
 	if (ConnectedPlayers.Num() == MaxPlayers)
 	{
 		if (ABlackoutGameState* GS = GetGameState<ABlackoutGameState>())
@@ -83,6 +100,27 @@ void ABlackoutLobbyGameMode::HandleLobbyArrival(APlayerController* PC)
 				TransitionTo(EBlackoutMatchState::ShelterPrep);
 			}
 		}
+	}
+}
+
+void ABlackoutLobbyGameMode::HandleEmptyServerReset()
+{
+	// 로비에서 전원 퇴장 — 매칭 서버에 finish/idle 보고해야 markIdle 됨(안 하면 status='playing' 좀비).
+	// /finish 는 세션·플레이어키 정리(세션 살아있을 때), /idle 는 serverId 로 status 직접 복구(세션 만료에도).
+	if (UGameInstance* GI = GetGameInstance())
+	{
+		if (UBlackoutDedicatedSessionSubsystem* Dedi =
+				GI->GetSubsystem<UBlackoutDedicatedSessionSubsystem>())
+		{
+			Dedi->ReportFinishToMatchmakingServer();
+			Dedi->ReportIdleToMatchmakingServer();
+		}
+	}
+
+	// 다음 파티 위해 깨끗한 상태로 reload (InitGame 이 MatchState/스테이지 초기화). 빈 서버라 비용 무관.
+	if (UWorld* World = GetWorld())
+	{
+		World->ServerTravel(TEXT("?restart"));
 	}
 }
 

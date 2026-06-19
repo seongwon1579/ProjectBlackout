@@ -1,5 +1,9 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 최승현: EQS 쿼리에 플레이어들을 컨텍스트로 제공하는 EnvQueryContext
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

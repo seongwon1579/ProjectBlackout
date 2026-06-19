@@ -1,5 +1,10 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: 히트박스 기반 공격 베이스 어빌리티 — 다중 노티파이 콜백 처리
+//  - 허혁: 적중 시 플레이어 스턴 게이지 부여
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -30,6 +35,7 @@ protected:
 
 	virtual TSubclassOf<UGameplayEffect> GetDamageEffect() const { return nullptr; }
 	virtual float GetDamageMagnitude() const { return 0.f; }
+	virtual float GetStunMagnitude() const { return 0.f; }
 	virtual const TArray<FName>& GetHitboxComponentNames() const;
 	virtual bool HasValidSettings() const override;
 	

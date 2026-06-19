@@ -8,7 +8,9 @@
 #include "BlackoutMatchFlowSubsystem.h"
 #include "BlackoutMatchmakingWidget.h"
 #include "BlackoutSettingsWidget.h"
+#include "Framework/BlackoutMusicSubsystem.h"
 #include "Framework/BlackoutMatchmakingSubsystem.h"
+#include "Framework/BlackoutPlayerController.h"
 
 #include  "Components/Button.h"
 #include "Components/TextBlock.h"
@@ -37,7 +39,12 @@ void UBlackoutMainMenuWidget::NativeConstruct()
 		StartMatchmakingButton->OnClicked.AddDynamic(
 			this, &UBlackoutMainMenuWidget::HandleStartMatchmakingClicked);
 	}
-
+	
+	if (ReconnectButton)
+	{
+		ReconnectButton->OnClicked.AddDynamic(this, &UBlackoutMainMenuWidget::HandleReconnectClicked);
+	}
+	
 	if (SinglePlayButton)
 	{
 		SinglePlayButton->OnClicked.AddDynamic(
@@ -59,6 +66,12 @@ void UBlackoutMainMenuWidget::NativeConstruct()
 		BackButton->OnClicked.AddDynamic(
 			this, &UBlackoutMainMenuWidget::HandleBackClicked);
 	}
+	
+	if (ExitToTitleButton)
+	{
+		ExitToTitleButton->OnClicked.AddDynamic(
+			this, &UBlackoutMainMenuWidget::HandleExitToTitleClicked);
+	}
 
 	if (UGameInstance* GameInstance = GetGameInstance())
 	{
@@ -67,6 +80,23 @@ void UBlackoutMainMenuWidget::NativeConstruct()
 		{
 			MatchmakingSubsystem->OnMatchmakingError.AddDynamic(
 				this, &UBlackoutMainMenuWidget::HandleMatchmakingError);
+			
+			MatchmakingSubsystem->OnActiveSessionFound.AddDynamic(
+				this, &UBlackoutMainMenuWidget::HandleActiveSessionFound);
+			MatchmakingSubsystem->CheckActiveSession();
+		}
+		
+	}
+
+	// 타이틀 전용 메뉴에서만 메인 메뉴 BGM을 시작하고, 인게임 ESC 메뉴에서는 현재 게임 음악을 유지합니다.
+	if (!bUseAsInGameMenu)
+	{
+		if (UGameInstance* GameInstance = GetGameInstance())
+		{
+			if (UBlackoutMusicSubsystem* MusicSubsystem = GameInstance->GetSubsystem<UBlackoutMusicSubsystem>())
+			{
+				MusicSubsystem->PlayMainMenuMusic();
+			}
 		}
 	}
 
@@ -83,6 +113,9 @@ void UBlackoutMainMenuWidget::NativeDestruct()
 		{
 			MatchmakingSubsystem->OnMatchmakingError.RemoveDynamic(
 				this, &UBlackoutMainMenuWidget::HandleMatchmakingError);
+			
+			MatchmakingSubsystem->OnActiveSessionFound.RemoveDynamic(
+				this , &UBlackoutMainMenuWidget::HandleActiveSessionFound);
 		}
 	}
 	if (ActiveLoginWidget)
@@ -103,10 +136,17 @@ void UBlackoutMainMenuWidget::NativeDestruct()
 			this, &UBlackoutMainMenuWidget::HandleSettingsClosed);
 		ActiveSettingsWidget = nullptr;
 	}
+	
 	if (BackButton)
 	{
 		BackButton->OnClicked.RemoveDynamic(
 			this, &UBlackoutMainMenuWidget::HandleBackClicked);
+	}
+	
+	if (ExitToTitleButton)
+	{
+		ExitToTitleButton->OnClicked.RemoveDynamic(
+			this, &UBlackoutMainMenuWidget::HandleExitToTitleClicked);
 	}
 	Super::NativeDestruct();
 }
@@ -171,6 +211,17 @@ void UBlackoutMainMenuWidget::HandleStartMatchmakingClicked()
 	ActiveMatchmakingWidget->AddToViewport(100);
 }
 
+void UBlackoutMainMenuWidget::HandleReconnectClicked()
+{
+	if (UGameInstance* GameInstance = GetGameInstance())
+	{
+		if (UBlackoutMatchmakingSubsystem* MatchmakingSubsystem = GameInstance->GetSubsystem<UBlackoutMatchmakingSubsystem>())
+		{
+			MatchmakingSubsystem->TravelToActiveSession();
+		}
+	}
+}
+
 void UBlackoutMainMenuWidget::HandleSinglePlayClicked()
 {
 	UGameInstance* GameInstance = GetGameInstance();
@@ -204,15 +255,14 @@ void UBlackoutMainMenuWidget::HandleOptionsClicked()
 		return;
 	}
 
-	TSubclassOf<UBlackoutSettingsWidget> ResolvedSettingsClass =
-		SettingsWidgetClass;
-	if (!ResolvedSettingsClass)
+	if (!SettingsWidgetClass)
 	{
-		ResolvedSettingsClass = UBlackoutSettingsWidget::StaticClass();
+		BO_LOG_CORE(Warning, "옵션 메뉴: SettingsWidgetClass 미지정 — 설정 위젯 생성을 중단합니다.");
+		return;
 	}
 
 	ActiveSettingsWidget = CreateWidget<UBlackoutSettingsWidget>(
-		GetOwningPlayer(), ResolvedSettingsClass);
+		GetOwningPlayer(), SettingsWidgetClass);
 	if (!ActiveSettingsWidget)
 	{
 		return;
@@ -233,6 +283,14 @@ void UBlackoutMainMenuWidget::HandleQuitClicked()
 void UBlackoutMainMenuWidget::HandleBackClicked()
 {
 	CloseMenu();
+}
+
+void UBlackoutMainMenuWidget::HandleExitToTitleClicked()
+{
+	if (ABlackoutPlayerController* PC = Cast<ABlackoutPlayerController>(GetOwningPlayer()))
+	{
+		PC->LeaveToTitleScreen();
+	}
 }
 
 void UBlackoutMainMenuWidget::CloseMenu()
@@ -267,6 +325,14 @@ void UBlackoutMainMenuWidget::HandleLoginAttemptFinished(bool bSuccess,
 	if (bSuccess)
 	{
 		RefreshForLoginState();
+		
+		if (UGameInstance* GameInstance = GetGameInstance())
+		{
+			if (UBlackoutMatchmakingSubsystem* MatchmakingSubsystem = GameInstance->GetSubsystem<UBlackoutMatchmakingSubsystem>())
+			{
+				MatchmakingSubsystem->CheckActiveSession();
+			}
+		}
 	}
 }
 
@@ -303,6 +369,14 @@ void UBlackoutMainMenuWidget::HandleMatchmakingWidgetExited(bool bSuccess)
 	}
 }
 
+void UBlackoutMainMenuWidget::HandleActiveSessionFound()
+{
+	if (ReconnectButton)
+	{
+		ReconnectButton ->SetVisibility(ESlateVisibility::Visible);
+	}
+}
+
 void UBlackoutMainMenuWidget::RefreshForLoginState()
 {
 	if (bUseAsInGameMenu)
@@ -319,6 +393,10 @@ void UBlackoutMainMenuWidget::RefreshForLoginState()
 		{
 			StartMatchmakingButton->SetVisibility(ESlateVisibility::Collapsed);
 		}
+		if (ReconnectButton)
+		{
+			ReconnectButton ->SetVisibility(ESlateVisibility::Collapsed);
+		}
 		if (SinglePlayButton)
 		{
 			SinglePlayButton->SetVisibility(ESlateVisibility::Collapsed);
@@ -330,6 +408,10 @@ void UBlackoutMainMenuWidget::RefreshForLoginState()
 		if (BackButton)
 		{
 			BackButton->SetVisibility(ESlateVisibility::Visible);
+		}
+		if (ExitToTitleButton)
+		{
+			ExitToTitleButton->SetVisibility(ESlateVisibility::Visible);
 		}
 		return;
 	}
@@ -357,6 +439,12 @@ void UBlackoutMainMenuWidget::RefreshForLoginState()
 	{
 		StartMatchmakingButton->SetIsEnabled(bLoggedIn);
 	}
+	
+	if (ReconnectButton)
+	{
+		ReconnectButton ->SetVisibility(ESlateVisibility::Collapsed);
+	}
+	
 	if (WelcomeText)
 	{
 		WelcomeText->SetVisibility(bLoggedIn
@@ -369,5 +457,9 @@ void UBlackoutMainMenuWidget::RefreshForLoginState()
 					TEXT("Welcome, %s"),
 					*MatchmakingSubsystem->GetPlayerName())));
 		}
+	}
+	if (ExitToTitleButton)
+	{
+		ExitToTitleButton->SetVisibility(ESlateVisibility::Collapsed);
 	}
 }

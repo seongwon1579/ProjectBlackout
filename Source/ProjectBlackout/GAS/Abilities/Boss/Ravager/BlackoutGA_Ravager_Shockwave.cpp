@@ -1,10 +1,11 @@
 #include "GAS/Abilities/Boss/Ravager/BlackoutGA_Ravager_Shockwave.h"
 
-#include "BlackoutBossCharacter.h"
+#include "Characters/BORavagerBoss.h"
 #include "BlackoutGameplayTags.h"
 #include "BOEnemyProjectile.h"
 #include "Abilities/Tasks/AbilityTask.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
+#include "Pool/BlackoutPoolSubsystem.h"
 
 void UBlackoutGA_Ravager_Shockwave::PreActivateAbility(const FGameplayAbilitySpecHandle Handle,
                                                const FGameplayAbilityActorInfo* ActorInfo,
@@ -49,23 +50,36 @@ void UBlackoutGA_Ravager_Shockwave::OnSpawnProjectileNotify(FGameplayEventData P
 	FRotator SpawnRotation;
 	ResolveSpawnTransform(SpawnLocation, SpawnRotation);
 
-	FActorSpawnParameters SpawnParams;
-	SpawnParams.Owner = CachedOwner;
-	SpawnParams.Instigator = CachedOwner;
-	SpawnParams.SpawnCollisionHandlingOverride =
-		ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
-
 	UWorld* World = GetWorld();
 	if (!World) return;
 
-	ABOEnemyProjectile* Projectile = World->SpawnActor<ABOEnemyProjectile>(
-		ProjectileClass,
-		SpawnLocation,
-		SpawnRotation,
-		SpawnParams);
+	ABOEnemyProjectile* Projectile = nullptr;
+	const FTransform SpawnTransform(SpawnRotation, SpawnLocation);
+
+	if (UBlackoutPoolSubsystem* PoolSubsystem = World->GetSubsystem<UBlackoutPoolSubsystem>())
+	{
+		Projectile = Cast<ABOEnemyProjectile>(PoolSubsystem->SpawnFromPool(ProjectileClass, SpawnTransform));
+	}
+
+	if (!Projectile)
+	{
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.Owner = CachedOwner;
+		SpawnParams.Instigator = CachedOwner;
+		SpawnParams.SpawnCollisionHandlingOverride =
+			ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+
+		Projectile = World->SpawnActor<ABOEnemyProjectile>(
+			ProjectileClass,
+			SpawnLocation,
+			SpawnRotation,
+			SpawnParams);
+	}
 	
 	if (Projectile)
 	{
+		Projectile->SetOwner(CachedOwner);
+		Projectile->SetInstigator(CachedOwner);
 		Projectile->InitializeProjectile(CachedPatternData->ProjectileSettings.ProjectileSpawnData);
 	}
 }

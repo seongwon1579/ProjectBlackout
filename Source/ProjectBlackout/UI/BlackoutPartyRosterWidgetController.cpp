@@ -159,6 +159,19 @@ void UBlackoutPartyRosterWidgetController::BindMember(ABlackoutPlayerState* Memb
 	Binding.PlayerState = MemberPlayerState;
 	Binding.AbilitySystemComponent = ResolveAbilitySystemComponent(MemberPlayerState);
 
+	// 닉네임(PlayerName)이 늦게 복제될 때 그 멤버만 갱신 (ASC 유무와 무관)
+	{
+		const TWeakObjectPtr<ABlackoutPlayerState> WeakNamePlayerState(MemberPlayerState);
+		Binding.NameChangedHandle = MemberPlayerState->OnPlayerNameChangedNative.AddLambda(
+			[this, WeakNamePlayerState]()
+			{
+				if (ABlackoutPlayerState* BoundPlayerState = WeakNamePlayerState.Get())
+				{
+					BroadcastMemberStatus(BoundPlayerState);
+				}
+			});
+	}
+
 	UAbilitySystemComponent* ASC = Binding.AbilitySystemComponent.Get();
 	if (ASC)
 	{
@@ -232,6 +245,14 @@ void UBlackoutPartyRosterWidgetController::UnbindMember(ABlackoutPlayerState* Me
 	if (!MemberBindings.RemoveAndCopyValue(MemberPlayerState, Binding))
 	{
 		return;
+	}
+
+	if (Binding.NameChangedHandle.IsValid())
+	{
+		if (ABlackoutPlayerState* BoundPlayerState = Binding.PlayerState.Get())
+		{
+			BoundPlayerState->OnPlayerNameChangedNative.Remove(Binding.NameChangedHandle);
+		}
 	}
 
 	if (UAbilitySystemComponent* ASC = Binding.AbilitySystemComponent.Get())

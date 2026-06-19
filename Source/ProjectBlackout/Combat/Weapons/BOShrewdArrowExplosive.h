@@ -1,5 +1,10 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: Shrewd 곡사형 폭발 화살 발사체(중력 적용 발사·복제) 구현
+//  - 김민영: 착탄 폭발 데미지 및 폭발 Gameplay Cue 실행 경로 구현
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

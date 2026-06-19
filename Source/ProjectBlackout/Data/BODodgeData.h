@@ -1,3 +1,8 @@
+// ─── 구현 내역 ───────────────────────
+//  - 김민영: 구르기/연속 구르기 데이터 정의 — 회피 몽타주·스태미나 비용·체인 입력 윈도우, 입력 동기화 v2용 버퍼·grace·핑 보정·timestamp 검증 파라미터
+//  - 허혁: 백스텝 전용 몽타주·시작 섹션 필드 추가
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -17,9 +22,17 @@ class PROJECTBLACKOUT_API UBODodgeData : public UPrimaryDataAsset
 	GENERATED_BODY()
 
 public:
-	/** 회피 몽타주. 체인 시에도 동일 몽타주를 처음부터 다시 재생합니다. */
+	/** 일반 방향 회피 몽타주. 체인 시에도 동일 몽타주를 처음부터 다시 재생합니다. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Dodge")
 	TObjectPtr<UAnimMontage> DodgeMontage;
+
+	/** 방향 입력이 없을 때 사용할 백스텝 몽타주. 비어 있으면 일반 회피 몽타주를 fallback 으로 사용합니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Dodge|Backstep")
+	TObjectPtr<UAnimMontage> BackstepMontage;
+
+	/** 백스텝 시작 시 재생할 섹션 이름. None 이면 몽타주의 기본 시작 지점을 사용합니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Dodge|Backstep")
+	FName BackstepStartSection = NAME_None;
 
 	/** 스태미나 소모량. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Dodge|Cost", meta = (ClampMin = 0.0))

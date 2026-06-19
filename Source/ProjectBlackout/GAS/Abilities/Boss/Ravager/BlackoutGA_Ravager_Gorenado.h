@@ -1,3 +1,9 @@
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: Gorenado 어빌리티 구현, 시전 중 태그 부여로 회피 루트모션 너프, 첫 데미지 선판정
+//  - 김민영: Gorenado GameplayCue SFX/VFX 연동
+//  - 허혁: 적중 시 플레이어 스턴 게이지 부여
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -35,13 +41,20 @@ protected:
 	
 	void PullTarget(AActor* Target, float DeltaTime);
 	
-	
+	void SetBeingPulledTag(AActor* Target, bool bApply);
+
 private:
+	
+	void ClearAllPulledTags();
+	
 	UPROPERTY(Transient)
 	TObjectPtr<UAbilityTask_WaitGameplayEvent> WaitBeginEvent;
 	
 	UPROPERTY(Transient)
 	TObjectPtr<UAbilityTask_WaitGameplayEvent> WaitEndEvent;
+	
+	UPROPERTY()
+	TSet<TWeakObjectPtr<AActor>> PulledActors;
 	
 	FTimerHandle UpdateTimer;
 	

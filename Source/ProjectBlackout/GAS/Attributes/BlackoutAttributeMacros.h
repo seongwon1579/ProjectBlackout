@@ -1,3 +1,7 @@
+// ─── 구현 내역 ───────────────────────
+//  - 김민영: 어트리뷰트 접근자(Getter/Setter/Initter)를 일괄 생성하는 ATTRIBUTE_ACCESSORS 매크로
+// ──────────────────────────────────────
+
 #pragma once
 
 #define ATTRIBUTE_ACCESSORS(ClassName, PropertyName)           \

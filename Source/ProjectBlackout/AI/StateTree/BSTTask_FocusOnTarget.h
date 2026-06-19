@@ -1,4 +1,8 @@
-﻿#pragma once
+﻿// ─── 구현 내역 ───────────────────────
+//  - 최승현: 타겟을 지속 응시하도록 컨트롤러 포커스를 유지하는 글로벌 StateTree Task
+// ──────────────────────────────────────
+
+#pragma once
 
 #include "CoreMinimal.h"
 #include "StateTreeTaskBase.h"

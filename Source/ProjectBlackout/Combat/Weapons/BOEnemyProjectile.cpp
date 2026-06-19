@@ -7,10 +7,12 @@
 #include "AbilitySystemComponent.h"
 #include "BlackoutDamageable.h"
 #include "BlackoutGameplayTags.h"
+#include "BlackoutPlayerCharacter.h"
 #include "NiagaraComponent.h"
 #include "Components/BoxComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/ProjectileMovementComponent.h"
+#include "Pool/BlackoutPoolSubsystem.h"
 
 ABOEnemyProjectile::ABOEnemyProjectile()
 {
@@ -20,7 +22,6 @@ ABOEnemyProjectile::ABOEnemyProjectile()
 	
 	CollisionComp = CreateDefaultSubobject<UBoxComponent>(TEXT("Collision"));
 	CollisionComp->SetCollisionProfileName(TEXT("EnemyProjectile"));
-	CollisionComp->SetBoxExtent(FVector(50.f, 150.f, 30.f)); 
 	RootComponent = CollisionComp;
     
 	ProjectileMovement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("Movement"));
@@ -31,13 +32,64 @@ ABOEnemyProjectile::ABOEnemyProjectile()
     
 	Effect = CreateDefaultSubobject<UNiagaraComponent>(TEXT("Effect"));
 	Effect->SetupAttachment(RootComponent);
-    
-	InitialLifeSpan = 5.f;  
+
+	// 풀 재사용 시 수명 타이머는 InitializeProjectile에서 서버가 다시 무장합니다.
+	InitialLifeSpan = 0.f;
+	DefaultCollisionEnabled = CollisionComp->GetCollisionEnabled();
+}
+
+void ABOEnemyProjectile::OnSpawnFromPool_Implementation()
+{
+	bReturnedToPool = false;
+
+	SetLifeSpan(0.0f);
+	SetActorHiddenInGame(false);
+	SetActorEnableCollision(true);
+
+	if (CollisionComp)
+	{
+		// 소유자/속도 설정이 끝나기 전 조기 오버랩을 막기 위해 InitializeProjectile에서 다시 켭니다.
+		CollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
+
+	if (ProjectileMovement)
+	{
+		ProjectileMovement->StopMovementImmediately();
+		ProjectileMovement->Deactivate();
+		ProjectileMovement->Velocity = FVector::ZeroVector;
+	}
+}
+
+void ABOEnemyProjectile::OnReturnToPool_Implementation()
+{
+	SetLifeSpan(0.0f);
+	SetActorHiddenInGame(true);
+	SetActorEnableCollision(false);
+
+	if (CollisionComp)
+	{
+		CollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
+
+	if (ProjectileMovement)
+	{
+		ProjectileMovement->StopMovementImmediately();
+		ProjectileMovement->Deactivate();
+		ProjectileMovement->Velocity = FVector::ZeroVector;
+	}
+
+	SpawnParams = FProjectileSpawnData();
+	SetOwner(nullptr);
+	SetInstigator(nullptr);
 }
 
 void ABOEnemyProjectile::InitializeProjectile(const FProjectileSpawnData& InSpawnParams)
 {
+	bReturnedToPool = false;
 	SpawnParams = InSpawnParams;
+
+	SetActorHiddenInGame(false);
+	SetActorEnableCollision(true);
 	
 	if (InSpawnParams.Speed > 0.f)
 	{
@@ -46,10 +98,25 @@ void ABOEnemyProjectile::InitializeProjectile(const FProjectileSpawnData& InSpaw
 		
 		ProjectileMovement->Velocity = GetActorForwardVector() * InSpawnParams.Speed;
 	}
+
+	if (CollisionComp)
+	{
+		CollisionComp->SetCollisionEnabled(DefaultCollisionEnabled);
+	}
+
+	if (ProjectileMovement)
+	{
+		ProjectileMovement->UpdateComponentVelocity();
+		ProjectileMovement->Activate(true);
+	}
 	
 	if (InSpawnParams.LifeSpan > 0.f)
 	{
 		SetLifeSpan(InSpawnParams.LifeSpan);
+	}
+	else
+	{
+		SetLifeSpan(0.0f);
 	}
 }
 
@@ -57,7 +124,22 @@ void ABOEnemyProjectile::BeginPlay()
 {
 	Super::BeginPlay();
 	
+	if (!HasAuthority() && ProjectileMovement)
+	{
+		ProjectileMovement->SetActive(false);
+	}
+	
 	SetCollisionEvent();
+}
+
+void ABOEnemyProjectile::LifeSpanExpired()
+{
+	SetLifeSpan(0.0f);
+
+	if (HasAuthority())
+	{
+		ReturnToPool();
+	}
 }
 
 void ABOEnemyProjectile::OnBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
@@ -67,12 +149,14 @@ void ABOEnemyProjectile::OnBeginOverlap(UPrimitiveComponent* OverlappedComp, AAc
 	if (!HasAuthority()) return;
 
 	ApplyDamageToTarget(OtherActor, SweepResult.BoneName);
-	Destroy();
+	ReturnToPool();
 }
 
 void ABOEnemyProjectile::ApplyDamageToTarget(AActor* Target, FName HitBoneName)
 {
 	if (!SpawnParams.Effect) return;
+	
+	if (!Target || !Target->IsA(ABlackoutPlayerCharacter::StaticClass())) return;
 	
 	IBlackoutDamageable* Damageable = Cast<IBlackoutDamageable>(Target);
 	if (!Damageable) return;
@@ -92,6 +176,9 @@ void ABOEnemyProjectile::ApplyDamageToTarget(AActor* Target, FName HitBoneName)
 		SpecHandle.Data->SetSetByCallerMagnitude(
 			BlackoutGameplayTags::Data_Damage, 
 			SpawnParams.DamageMagnitude);
+		SpecHandle.Data->SetSetByCallerMagnitude(
+			BlackoutGameplayTags::Data_Stun,
+			SpawnParams.StunMagnitude);
         
 		Damageable->ReceiveDamageFromHitbox(SpecHandle, HitBoneName);
 	}
@@ -114,12 +201,25 @@ void ABOEnemyProjectile::SetCollisionEvent()
 	{
 		CollisionComp->OnComponentBeginOverlap.AddDynamic(this, &ABOEnemyProjectile::OnBeginOverlap);
 	}
-	
-	if (!HasAuthority() && ProjectileMovement)
-	{
-		ProjectileMovement->SetActive(false);
-	}
-	
 }
 
+void ABOEnemyProjectile::ReturnToPool()
+{
+	if (!HasAuthority() || bReturnedToPool)
+	{
+		return;
+	}
 
+	bReturnedToPool = true;
+
+	if (UWorld* World = GetWorld())
+	{
+		if (UBlackoutPoolSubsystem* PoolSubsystem = World->GetSubsystem<UBlackoutPoolSubsystem>())
+		{
+			PoolSubsystem->ReturnToPool(this);
+			return;
+		}
+	}
+
+	Destroy();
+}

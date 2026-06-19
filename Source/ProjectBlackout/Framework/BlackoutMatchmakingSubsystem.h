@@ -1,12 +1,21 @@
+// ─── 구현 내역 ───────────────────────
+//  - 최승현: 매칭 서브시스템 — 로그인·자동 합방·로비 WebSocket·데디 ClientTravel·재접속(자동/수동/active-session)·MoviePlayer 로딩 화면
+//  - 김민영: 로딩 화면 텍스처 프리로드
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "Interfaces/IHttpRequest.h"
 #include "HttpFwd.h"
+#include "Engine/EngineBaseTypes.h"
+
 
 #include "IWebSocket.h"
 #include "BlackoutMatchmakingSubsystem.generated.h"
+
+class UTexture2D;
 
 
 /**
@@ -82,6 +91,12 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnBlackoutMatchmakingFailed,
                                              const FString&, SessionId,
                                              const FString&, Reason);
 
+// 자동 재접속 N 회 실패 - UI 수동 재접속 버튼 표시
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnBlackoutReconnectFailed);
+
+// 진행 중 세션 발견 - 메인메뉴 "이전 게임 재접속" 버튼 표시용 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnBlackoutActiveSessionFound);
+
 /**
  * 매칭 서버(Nest.js) HTTP + 로비 WebSocket 클라이언트.
  * Login → StartMatchmaking → WebSocket game_start 수신 → 자동 ClientTravel 전 경로 처리.
@@ -94,6 +109,9 @@ class PROJECTBLACKOUT_API
 	GENERATED_BODY()
 
 public:
+	/** 전용 서버에서는 매치메이킹 클라이언트와 로딩 화면이 필요 없으므로 서브시스템을 생성하지 않습니다. */
+	virtual bool ShouldCreateSubsystem(UObject* Outer) const override;
+
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 	virtual void Deinitialize() override;
 
@@ -111,7 +129,12 @@ public:
 
 	// 지정 데디 주소로 ClientTravel. 호출 전 로비 WebSocket 자동 종료.
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Matchmaking")
-	void TravelToGameServer(const FString& ServerIp, int32 ServerPort  , const FString& SessionId = TEXT(""));
+	void TravelToGameServer(const FString& ServerIp, int32 ServerPort,
+	                        const FString& SessionId = TEXT(""));
+	
+	// 조회된 세션으로 재접속. 메인메뉴 에서 호출
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Matchmaking")
+	void TravelToActiveSession();
 
 	// 로비 WebSocket 수동 연결. Login 성공 시 자동 호출되므로 외부 호출 보통 불필요.
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Matchmaking")
@@ -120,22 +143,34 @@ public:
 	// 로비 WebSocket 종료 + CurrentSessionId 초기화.
 	UFUNCTION(BlueprintCallable, Category = "Blackout|Matchmaking")
 	void DisconnectLobby();
-	
+
 	// 로그인 상태 해제 AccessToken / CachedPlayerName 폐기 , 로비 WS 종료
 	// 서버 호출 없음 ( JWT 제거 상태 ) 호출직후 UI 상태 갱신
-	UFUNCTION(BlueprintCallable , Category="Blackout|Matchmaking")
+	UFUNCTION(BlueprintCallable, Category="Blackout|Matchmaking")
 	void Logout();
 
 	UFUNCTION(BlueprintPure, Category = "Blackout|Matchmaking")
 	bool IsLobbyConnected() const;
+	
+	// 메인메뉴 진입 시 호출 - GET /me/active-session. 진행 중 세션 있으면 OnActiveSessionFound 브로드캐스트
+	UFUNCTION(BlueprintCallable , Category="Blackout|Matchmaking")
+	void CheckActiveSession();
 
 	UFUNCTION(BlueprintPure, Category = "Blackout|Matchmaking")
 	bool IsLoggedIn() const { return !AccessToken.IsEmpty(); }
+	
+	// seamless travel 도착시 로딩 커버 필요 여부
+	void SetPendingLoadingGate(bool bInPenging) {bPendingLoadingGate = bInPenging;}
+	bool IsPendingLoadingGate() const { return bPendingLoadingGate; }
 
 	UFUNCTION(BlueprintPure, Category = "Blackout|Matchmaking")
 	FString GetPlayerName() const { return CachedPlayerName; }
 
 	const FString& GetAccessToken() const { return AccessToken; }
+
+	// 자동 재접속 소진 후 버튼에서 호출 - 카운터 리셋하고 다시 시도
+	UFUNCTION(BlueprintCallable, Category="Blackout|Matchmaking")
+	void ManualReconnect();
 
 	// NetworkSettings 기본값 Initialize 에서 로드. 런타임에 BP에서 토글 가능.
 	UPROPERTY(BlueprintReadWrite, Category = "Blackout|Matchmaking")
@@ -168,6 +203,12 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Blackout|Matchmaking")
 	FOnBlackoutMatchmakingFailed OnMatchmakingFailed;
 
+	UPROPERTY(BlueprintAssignable, Category = "Blackout|Matchmaking")
+	FOnBlackoutReconnectFailed OnReconnectFailed;
+	
+	UPROPERTY(BlueprintAssignable, Category = "Blackout|Matchmaking")
+	FOnBlackoutActiveSessionFound OnActiveSessionFound;
+
 private:
 	// PreLoadMap 시점에 MoviePlayer SetupLoadingScreen — ClientTravel 시 자동 로딩 화면 표시.
 	// PostLoadMapWithWorld 시점에 StopMovie + WaitForMovieToFinish — viewport input lock 명시 해소.
@@ -176,6 +217,18 @@ private:
 
 	FDelegateHandle PreLoadMapHandle;
 	FDelegateHandle PostLoadMapHandle;
+
+	// 부팅 시 로딩 화면 텍스처를 미리 로드하고 밉을 강제 레지던트로 고정. 로드 타이밍에 의한 레이아웃 깨짐 방지.
+	void PreloadLoadingScreenTextures();
+
+	// 미리 로드된 로딩 화면 텍스처. UPROPERTY 강한 참조로 GameInstance 수명 동안 유지.
+	UPROPERTY(Transient)
+	TObjectPtr<UTexture2D> LoadingBackgroundTexture;
+	UPROPERTY(Transient)
+	TObjectPtr<UTexture2D> LoadingLogoTexture;
+	
+	// 로비->보스 seamless 도착 후 로딩 커버를 걸지. travel 넘어 살아남아야 해 PC 가 아닌 여기 보관.
+	bool bPendingLoadingGate = false;
 
 	// Authorization: Bearer <token> 헤더 주입. AccessToken 비어있으면 skip.
 	void SetAuthHeader(const FHttpRequestRef& Request) const;
@@ -187,12 +240,16 @@ private:
 	void OnCancelMatchmakingResponse(FHttpRequestPtr Request,
 	                                 FHttpResponsePtr Response,
 	                                 bool bSucceeded);
+	
+	void OnCheckActiveSessionResponse(FHttpRequestPtr Request, FHttpResponsePtr Response,bool bSucceeded);
 
 	// 세션 join 요청 예약. WebSocket 미연결이면 PendingSessionId 에 버퍼링 후 연결 시 flush.
 	void SendJoinSessionMessage(const FString& SessionId);
 
 	void HandleWsMessage(const FString& MessageStr);
 	void HandleWsConnected();
+	void HandleWsConnectionError(const FString& Error);  
+	void HandleWsClosed(int32 StatusCode, const FString& Reason, bool bWasClean);
 
 	// PendingSessionId 있으면 즉시 join_session 송신.
 	void FlushPendingJoin();
@@ -200,8 +257,38 @@ private:
 	FString AccessToken;
 	FString CachedPlayerName;
 	TSharedPtr<IWebSocket> WebSocket;
+	// 연결 진행 중 플래그 
+	bool bIsConnecting = false;
 	// 현재 참여 중인 세션. FlushPendingJoin 시점에 확정.
 	FString CurrentSessionId;
 	// WebSocket 미연결 시점의 join_session 요청 대기 큐.
 	FString PendingSessionId;
+
+	// 마지막 접속 데디 
+	FString LastServerIp;
+	int32 LastServerPort = 0;
+	FString LastSessionId;
+	
+	// /me/active-session 조회 결과(재접속 대상)
+	FString ActiveSessionIp;
+	int32 ActiveSessionPort = 0;
+	FString ActiveSessionId;
+
+	// GEngine NetworkFailure 콜백 , 비정상 끊김 판별 
+	void HandleNetworkFailure(UWorld* World, UNetDriver* NetDriver,
+	                          ENetworkFailure::Type FailureType,
+	                          const FString& ErrorString);
+	FDelegateHandle NetworkFailureHandle;
+
+	UPROPERTY(EditDefaultsOnly, Category="Blackout|Matchmaking")
+	int32 MaxReconnectAttempts = 3;
+
+	UPROPERTY(EditDefaultsOnly, Category="Blackout|Matchmaking")
+	float ReconnectInterval = 12.0f;
+
+	int32 ReconnectAttempts = 0;
+	bool bIsReconnecting = false;
+	FTimerHandle ReconnectTimerHandle;
+	void ScheduleReconnect();
+	void AttemptReconnect();
 };

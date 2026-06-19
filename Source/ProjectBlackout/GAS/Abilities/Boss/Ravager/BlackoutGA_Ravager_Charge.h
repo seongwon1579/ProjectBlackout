@@ -1,5 +1,10 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: Ravager 차징 공격 어빌리티
+//  - 허혁: 공격 적중 시 플레이어 스턴 게이지 부여
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -31,6 +36,7 @@ protected:
 
 	virtual TSubclassOf<UGameplayEffect> GetDamageEffect() const override;
 	virtual float GetDamageMagnitude() const override;
+	virtual float GetStunMagnitude() const override;
 	virtual const TArray<FName>& GetHitboxComponentNames() const override;
 	virtual bool HasValidSettings() const override;
 

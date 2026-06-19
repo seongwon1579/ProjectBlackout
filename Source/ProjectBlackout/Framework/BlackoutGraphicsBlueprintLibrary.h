@@ -1,12 +1,16 @@
+// ─── 구현 내역 ───────────────────────
+//  - 허혁: 그래픽 설정 BP 라이브러리 — DLSS/Reflex/Frame Generation 가용성 조회·사용자 설정 적용
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
-#include "Framework/BlackoutGraphicsUserSettings.h"
+#include "Framework/BlackoutUserSettings.h"
 #include "BlackoutGraphicsBlueprintLibrary.generated.h"
 
 /**
- * 블루프린트에서 그래픽 사용자 설정에 접근하기 위한 도우미 라이브러리입니다.
+ * 블루프린트에서 사용자 설정에 접근하기 위한 도우미 라이브러리입니다.
  */
 UCLASS()
 class PROJECTBLACKOUT_API UBlackoutGraphicsBlueprintLibrary : public UBlueprintFunctionLibrary
@@ -14,10 +18,16 @@ class PROJECTBLACKOUT_API UBlackoutGraphicsBlueprintLibrary : public UBlueprintF
 	GENERATED_BODY()
 
 public:
-	UFUNCTION(BlueprintPure, Category = "Blackout|Graphics")
-	static UBlackoutGraphicsUserSettings* GetBlackoutGraphicsUserSettings();
+	UFUNCTION(BlueprintPure, Category = "Blackout|Settings")
+	static UBlackoutUserSettings* GetBlackoutUserSettings();
 
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Graphics")
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Settings")
+	static bool ApplyBlackoutUserSettings(bool bSaveSettings = true);
+
+	UFUNCTION(BlueprintPure, Category = "Blackout|Settings", meta = (DeprecatedFunction, DeprecationMessage = "GetBlackoutUserSettings를 사용하세요."))
+	static UBlackoutUserSettings* GetBlackoutGraphicsUserSettings();
+
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Settings", meta = (DeprecatedFunction, DeprecationMessage = "ApplyBlackoutUserSettings를 사용하세요."))
 	static bool ApplyBlackoutGraphicsUserSettings(bool bSaveSettings = true);
 
 	UFUNCTION(BlueprintPure, Category = "Blackout|Graphics")

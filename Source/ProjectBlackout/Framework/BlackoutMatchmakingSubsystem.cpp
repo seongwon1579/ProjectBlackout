@@ -9,9 +9,22 @@
 #include "WebSocketsModule.h"
 #include "GameFramework/PlayerController.h"
 #include "Engine/World.h"
+#include "Engine/NetConnection.h"
+#include "Engine/NetDriver.h"
 
 #include "MoviePlayer.h"
 #include "UI/SBlackoutLoadingScreen.h"
+#include "Engine/Texture2D.h"
+
+bool UBlackoutMatchmakingSubsystem::ShouldCreateSubsystem(UObject* Outer) const
+{
+	if (!Super::ShouldCreateSubsystem(Outer))
+	{
+		return false;
+	}
+
+	return !IsRunningDedicatedServer();
+}
 
 // GameInstance 부팅 시 호출. WebSockets 모듈 로드 + NetworkSettings 기본값 적용.
 void UBlackoutMatchmakingSubsystem::Initialize(
@@ -20,16 +33,29 @@ void UBlackoutMatchmakingSubsystem::Initialize(
 	Super::Initialize(Collection);
 	FModuleManager::Get().LoadModuleChecked(TEXT("WebSockets"));
 
-	if (const UBlackoutNetworkSettings* Settings = GetDefault<UBlackoutNetworkSettings>())
+	if (const UBlackoutNetworkSettings* Settings = GetDefault<
+		UBlackoutNetworkSettings>())
 	{
 		bAutoTravelOnGameStart = Settings->bAutoTravelOnGameStart;
-		BO_LOG_NET(Log, "Matchmaking Subsystem 초기화 - API=%s WS=%s",*Settings->ApiBaseUrl,*Settings->LobbyWsUrl);
+		BO_LOG_NET(Log, "Matchmaking Subsystem 초기화 - API=%s WS=%s",
+		           *Settings->ApiBaseUrl, *Settings->LobbyWsUrl);
 	}
+
+	// 로딩 화면 텍스처를 부팅 시점(=첫 LV_Entry→LV_Main 전환 전)에 미리 로드. 첫 로딩 화면부터 항상 준비된 상태 보장.
+	PreloadLoadingScreenTextures();
 
 	// 로딩 화면 라이프사이클 명시 바인딩 — ClientTravel 시 자동 표시 + 맵 로드 완료 시 명시 종료.
 	// ClientTravel 비동기 흐름에서 bAutoCompleteWhenLoadingCompletes 만으론 dismiss 보장 안 됨 → 명시 StopMovie 필요.
-	PreLoadMapHandle = FCoreUObjectDelegates::PreLoadMap.AddUObject(this, &UBlackoutMatchmakingSubsystem::HandlePreLoadMap);
-	PostLoadMapHandle = FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(this, &UBlackoutMatchmakingSubsystem::HandlePostLoadMap);
+	PreLoadMapHandle = FCoreUObjectDelegates::PreLoadMap.AddUObject(
+		this, &UBlackoutMatchmakingSubsystem::HandlePreLoadMap);
+	PostLoadMapHandle = FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(
+		this, &UBlackoutMatchmakingSubsystem::HandlePostLoadMap);
+
+	if (GEngine)
+	{
+		NetworkFailureHandle = GEngine->OnNetworkFailure().AddUObject(
+			this, &UBlackoutMatchmakingSubsystem::HandleNetworkFailure);
+	}
 }
 
 // GameInstance 종료 시 WebSocket 정리 + 토큰 폐기.
@@ -49,7 +75,40 @@ void UBlackoutMatchmakingSubsystem::Deinitialize()
 	DisconnectLobby();
 	AccessToken.Empty();
 	CachedPlayerName.Empty();
+
+	if (GEngine && NetworkFailureHandle.IsValid())
+	{
+		GEngine->OnNetworkFailure().Remove(NetworkFailureHandle);
+	}
+
 	Super::Deinitialize();
+}
+
+// 로딩 화면 텍스처 미리 로드 + 밉 강제 레지던트. 로딩 위젯이 GetSizeX() 로 비율을 잡으므로,
+// 텍스처가 준비되기 전(저해상도 밉/플레이스홀더)에 위젯이 생성되면 레이아웃이 깨진다. 부팅 시 미리 고정해 방지.
+void UBlackoutMatchmakingSubsystem::PreloadLoadingScreenTextures()
+{
+	auto PreloadTexture = [](const TCHAR* Path) -> UTexture2D*
+	{
+		UTexture2D* Texture = LoadObject<UTexture2D>(nullptr, Path);
+		if (!Texture)
+		{
+			BO_LOG_NET(Error, "로딩 화면 텍스처 로드 실패: %s", Path);
+			return nullptr;
+		}
+
+		// 스트리밍/메모리 압박으로 밉이 빠지지 않도록 항상 최고 해상도 유지.
+		Texture->bForceMiplevelsToBeResident = true;
+		Texture->SetForceMipLevelsToBeResident(30.0f);
+		return Texture;
+	};
+
+	LoadingBackgroundTexture = PreloadTexture(BlackoutLoadingScreen::BackgroundTexturePath);
+	LoadingLogoTexture = PreloadTexture(BlackoutLoadingScreen::LogoTexturePath);
+
+	BO_LOG_NET(Log, "로딩 화면 텍스처 미리 로드 — BG=%s Logo=%s",
+	           LoadingBackgroundTexture ? TEXT("OK") : TEXT("FAIL"),
+	           LoadingLogoTexture ? TEXT("OK") : TEXT("FAIL"));
 }
 
 // 맵 로드 직전 — MoviePlayer 에 Slate 로딩 위젯 셋업. PreLoadMap → PlayMovie 흐름이 엔진 내부에서 자동 진행.
@@ -61,7 +120,10 @@ void UBlackoutMatchmakingSubsystem::HandlePreLoadMap(const FString& MapName)
 	LoadingScreenAttributes.MinimumLoadingScreenDisplayTime = 2.0f;
 	LoadingScreenAttributes.bAutoCompleteWhenLoadingCompletes = false;
 	LoadingScreenAttributes.bMoviesAreSkippable = false;
-	LoadingScreenAttributes.WidgetLoadingScreen = SNew(SBlackoutLoadingScreen);
+	// 부팅 시 미리 로드된 텍스처를 주입 — 위젯이 PreLoadMap 시점에 새로 로드하지 않도록.
+	LoadingScreenAttributes.WidgetLoadingScreen = SNew(SBlackoutLoadingScreen)
+		.BackgroundTexture(LoadingBackgroundTexture)
+		.LogoTexture(LoadingLogoTexture);
 	GetMoviePlayer()->SetupLoadingScreen(LoadingScreenAttributes);
 }
 
@@ -76,12 +138,48 @@ void UBlackoutMatchmakingSubsystem::HandlePostLoadMap(UWorld* LoadedWorld)
 		GetMoviePlayer()->StopMovie();
 	}
 	GetMoviePlayer()->WaitForMovieToFinish();
+
+	// 데지 접속 성공시 연결 주소 기억 
+	// 자동 재접속 대상 
+	if (LoadedWorld)
+	{
+		if (const UNetDriver* ND = LoadedWorld->GetNetDriver())
+		{
+			if (ND->ServerConnection) // 클라(서버 연결됨)
+			{
+				const FString Addr = ND->ServerConnection->
+				                         LowLevelGetRemoteAddress(true);
+				FString Ip, PortStr;
+				if (Addr.Split(TEXT(":"), &Ip, &PortStr,
+				               ESearchCase::IgnoreCase, ESearchDir::FromEnd))
+				{
+					LastServerIp = Ip;
+					LastServerPort = FCString::Atoi(*PortStr);
+					BO_LOG_NET(Log, "데디 접속 주소 기억: %s:%d", *LastServerIp,
+					           LastServerPort);
+					
+					if (ReconnectAttempts >0)
+					{
+						BO_LOG_NET(Log, "재접속 성공 — 자동 재접속 중단");
+						ReconnectAttempts = 0;
+						bIsReconnecting = false;
+						if (UGameInstance* GI = GetGameInstance())
+						{
+							GI->GetTimerManager().ClearTimer(ReconnectTimerHandle);
+						}
+					}
+				}
+			}
+		}
+	}
 }
 
 // POST /auth/login — JSON body로 계정 전송. 응답은 OnLoginResponse.
-void UBlackoutMatchmakingSubsystem::Login(const FString& PlayerName, const FString& Password)
+void UBlackoutMatchmakingSubsystem::Login(const FString& PlayerName,
+                                          const FString& Password)
 {
-	const UBlackoutNetworkSettings* Settings = GetDefault<UBlackoutNetworkSettings>();
+	const UBlackoutNetworkSettings* Settings = GetDefault<
+		UBlackoutNetworkSettings>();
 	if (!Settings) { return; }
 
 	const FString BodyStr = FString::Printf(
@@ -93,7 +191,8 @@ void UBlackoutMatchmakingSubsystem::Login(const FString& PlayerName, const FStri
 	Request->SetVerb(TEXT("POST"));
 	Request->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
 	Request->SetContentAsString(BodyStr);
-	Request->OnProcessRequestComplete().BindUObject(this, &UBlackoutMatchmakingSubsystem::OnLoginResponse);
+	Request->OnProcessRequestComplete().BindUObject(
+		this, &UBlackoutMatchmakingSubsystem::OnLoginResponse);
 
 	CachedPlayerName = PlayerName;
 	Request->ProcessRequest();
@@ -110,8 +209,14 @@ void UBlackoutMatchmakingSubsystem::StartMatchmaking()
 		OnMatchmakingError.Broadcast(401, TEXT("로그인 필요"));
 		return;
 	}
+	
+	if (!IsLobbyConnected())
+	{
+		ConnectLobby();
+	}
 
-	const UBlackoutNetworkSettings* Settings = GetDefault<UBlackoutNetworkSettings>();
+	const UBlackoutNetworkSettings* Settings = GetDefault<
+		UBlackoutNetworkSettings>();
 	if (!Settings) { return; }
 
 	const FHttpRequestRef Request = FHttpModule::Get().CreateRequest();
@@ -119,7 +224,8 @@ void UBlackoutMatchmakingSubsystem::StartMatchmaking()
 	Request->SetVerb(TEXT("POST"));
 	Request->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
 	SetAuthHeader(Request);
-	Request->OnProcessRequestComplete().BindUObject(this, &UBlackoutMatchmakingSubsystem::OnStartMatchmakingResponse);
+	Request->OnProcessRequestComplete().BindUObject(
+		this, &UBlackoutMatchmakingSubsystem::OnStartMatchmakingResponse);
 	Request->ProcessRequest();
 
 	BO_LOG_NET(Log, "StartMatchmaking 요청");
@@ -134,22 +240,29 @@ void UBlackoutMatchmakingSubsystem::CancelMatchmaking()
 		return;
 	}
 
-	const UBlackoutNetworkSettings* Settings = GetDefault<UBlackoutNetworkSettings>();
+	const UBlackoutNetworkSettings* Settings = GetDefault<
+		UBlackoutNetworkSettings>();
 	if (!Settings) { return; }
 
 	const FHttpRequestRef Request = FHttpModule::Get().CreateRequest();
 	Request->SetURL(Settings->ApiBaseUrl + TEXT("/matchmaking"));
 	Request->SetVerb(TEXT("DELETE"));
 	SetAuthHeader(Request);
-	Request->OnProcessRequestComplete().BindUObject(this, &UBlackoutMatchmakingSubsystem::OnCancelMatchmakingResponse);
+	Request->OnProcessRequestComplete().BindUObject(
+		this, &UBlackoutMatchmakingSubsystem::OnCancelMatchmakingResponse);
 	Request->ProcessRequest();
 
 	BO_LOG_NET(Log, "CancelMatchmaking 요청");
 }
 
 // 데디 IP:Port 로 ClientTravel. 호출 전 로비 WebSocket 정리.
-void UBlackoutMatchmakingSubsystem::TravelToGameServer(const FString& ServerIp, int32 ServerPort ,const FString& SessionId)
+void UBlackoutMatchmakingSubsystem::TravelToGameServer(
+	const FString& ServerIp, int32 ServerPort, const FString& SessionId)
 {
+	LastServerIp = ServerIp;
+	LastServerPort = ServerPort;
+	LastSessionId = SessionId;
+
 	if (ServerIp.IsEmpty() || ServerPort <= 0)
 	{
 		BO_LOG_NET(Error, "잘못된 데디 주소 - %s:%d", *ServerIp, ServerPort);
@@ -182,6 +295,11 @@ void UBlackoutMatchmakingSubsystem::TravelToGameServer(const FString& ServerIp, 
 	if (!SessionId.IsEmpty())
 	{
 		Addr += FString::Printf(TEXT("?SessionId=%s"), *SessionId);
+		
+	}
+	if (!CachedPlayerName.IsEmpty())
+	{
+		Addr +=FString::Printf(TEXT("?Acc=%s"), *CachedPlayerName);
 	}
 	BO_LOG_NET(Log, "ClientTravel -> %s", *Addr);
 
@@ -191,35 +309,47 @@ void UBlackoutMatchmakingSubsystem::TravelToGameServer(const FString& ServerIp, 
 	PC->ClientTravel(Addr, TRAVEL_Absolute);
 }
 
+void UBlackoutMatchmakingSubsystem::TravelToActiveSession()
+{
+	if (ActiveSessionIp.IsEmpty() || ActiveSessionPort <= 0)
+	{
+		BO_LOG_NET(Warning, "TravelToActiveSession — 저장된 세션 없음");
+		return;
+	}
+	TravelToGameServer(ActiveSessionIp , ActiveSessionPort , ActiveSessionId);
+}
+
 // 로비 WebSocket 연결. 이벤트 콜백 바인딩 + Connect 호출.
 void UBlackoutMatchmakingSubsystem::ConnectLobby()
 {
-	if (WebSocket.IsValid() && WebSocket->IsConnected())
+	if ((WebSocket.IsValid() && WebSocket->IsConnected()) || bIsConnecting)
 	{
-		BO_LOG_NET(Log, "이미 연결됨");
+		BO_LOG_NET(Log, "이미 연결됨/연결 중 — skip");
 		return;
 	}
 
-	const UBlackoutNetworkSettings* Settings = GetDefault<UBlackoutNetworkSettings>();
-	if (!Settings) { return; }
-
+	const UBlackoutNetworkSettings* Settings = GetDefault<
+		UBlackoutNetworkSettings>();
+	if (!Settings)
+	{
+		return;
+	}
+	
+	bIsConnecting = true;
 	WebSocket = FWebSocketsModule::Get().CreateWebSocket(Settings->LobbyWsUrl);
-	WebSocket->OnConnected().AddUObject(this, &UBlackoutMatchmakingSubsystem::HandleWsConnected);
-	WebSocket->OnConnectionError().AddLambda([](const FString& Error)
-	{
-		BO_LOG_NET(Error, "WS 연결 에러: %s", *Error);
-	});
-	WebSocket->OnClosed().AddLambda([](int32 StatusCode, const FString& Reason, bool bWasClean)
-	{
-		BO_LOG_NET(Warning, "WS 종료 %d (%s, clean=%d)", StatusCode, *Reason, bWasClean);
-	});
-	WebSocket->OnMessage().AddUObject(this, &UBlackoutMatchmakingSubsystem::HandleWsMessage);
+	WebSocket->OnConnected().AddUObject(
+		this, &UBlackoutMatchmakingSubsystem::HandleWsConnected);
+	WebSocket->OnConnectionError().AddUObject(this, &UBlackoutMatchmakingSubsystem::HandleWsConnectionError);
+	WebSocket->OnClosed().AddUObject(this, &UBlackoutMatchmakingSubsystem::HandleWsClosed);
+	WebSocket->OnMessage().AddUObject(
+		this, &UBlackoutMatchmakingSubsystem::HandleWsMessage);
 	WebSocket->Connect();
 }
 
 // WebSocket 닫기 + 현재 세션 식별자 초기화.
 void UBlackoutMatchmakingSubsystem::DisconnectLobby()
 {
+	bIsConnecting = false;
 	if (WebSocket.IsValid())
 	{
 		if (WebSocket->IsConnected())
@@ -233,12 +363,11 @@ void UBlackoutMatchmakingSubsystem::DisconnectLobby()
 
 void UBlackoutMatchmakingSubsystem::Logout()
 {
-	
 	if (AccessToken.IsEmpty() && CachedPlayerName.IsEmpty())
 	{
 		return;
 	}
-	BO_LOG_NET(Log,"로그아웃 - %s",*CachedPlayerName);
+	BO_LOG_NET(Log, "로그아웃 - %s", *CachedPlayerName);
 	AccessToken.Empty();
 	CachedPlayerName.Empty();
 	DisconnectLobby();
@@ -250,17 +379,55 @@ bool UBlackoutMatchmakingSubsystem::IsLobbyConnected() const
 	return WebSocket.IsValid() && WebSocket->IsConnected();
 }
 
-void UBlackoutMatchmakingSubsystem::SetAuthHeader(const FHttpRequestRef& Request) const
+void UBlackoutMatchmakingSubsystem::CheckActiveSession()
+{
+	if (!IsLoggedIn())
+	{
+		BO_LOG_NET(Log, "CheckActiveSession — 로그인 안 됨, skip");
+		return;
+	}
+	
+	const UBlackoutNetworkSettings* Settings = GetDefault<UBlackoutNetworkSettings>();
+	if (!Settings)
+	{
+		return;
+	}
+	
+	const FHttpRequestRef Request = FHttpModule::Get().CreateRequest();
+	Request ->SetURL(Settings->ApiBaseUrl + TEXT("/me/active-session"));
+	Request->SetVerb(TEXT("GET"));
+	SetAuthHeader(Request);
+	Request->OnProcessRequestComplete().BindUObject(this, &UBlackoutMatchmakingSubsystem::OnCheckActiveSessionResponse);
+	Request->ProcessRequest();
+	
+	BO_LOG_NET(Log, "CheckActiveSession 요청");
+
+}
+
+void UBlackoutMatchmakingSubsystem::ManualReconnect()
+{
+	// GameInstance 유지 재접속 시 이전 세션의 로딩 게이트가 stale 로 남지 않도록 클리어(보험 — 주 방어는 도착 시 1회 소비)
+	bPendingLoadingGate = false;
+	ReconnectAttempts = 0;
+	bIsReconnecting  =true;
+	AttemptReconnect();
+}
+
+void UBlackoutMatchmakingSubsystem::SetAuthHeader(
+	const FHttpRequestRef& Request) const
 {
 	if (!AccessToken.IsEmpty())
 	{
-		Request->SetHeader(TEXT("Authorization"), FString::Printf(TEXT("Bearer %s"), *AccessToken));
+		Request->SetHeader(
+			TEXT("Authorization"),
+			FString::Printf(TEXT("Bearer %s"), *AccessToken));
 	}
 }
 
 
 // 로그인 응답 파싱. access_token 추출 후 ConnectLobby 자동 호출.
-void UBlackoutMatchmakingSubsystem::OnLoginResponse(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bSucceeded)
+void UBlackoutMatchmakingSubsystem::OnLoginResponse(
+	FHttpRequestPtr Request, FHttpResponsePtr Response, bool bSucceeded)
 {
 	if (!bSucceeded || !Response.IsValid())
 	{
@@ -282,7 +449,8 @@ void UBlackoutMatchmakingSubsystem::OnLoginResponse(FHttpRequestPtr Request, FHt
 	}
 
 	TSharedPtr<FJsonObject> JsonObj;
-	const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(BodyRaw);
+	const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory
+		<>::Create(BodyRaw);
 	if (!FJsonSerializer::Deserialize(Reader, JsonObj) || !JsonObj.IsValid())
 	{
 		BO_LOG_NET(Error, "응답 JSON 파싱 실패");
@@ -301,13 +469,15 @@ void UBlackoutMatchmakingSubsystem::OnLoginResponse(FHttpRequestPtr Request, FHt
 	}
 
 	AccessToken = Token;
-	BO_LOG_NET(Log, "로그인 성공 - %s (토큰 길이 %d)", *CachedPlayerName, AccessToken.Len());
+	BO_LOG_NET(Log, "로그인 성공 - %s (토큰 길이 %d)", *CachedPlayerName,
+	           AccessToken.Len());
 	ConnectLobby();
 	OnLoginComplete.Broadcast(true);
 }
 
 // 매칭 시작 응답 파싱. session 필드에서 FBlackoutSessionInfo 채우고 join_session 예약.
-void UBlackoutMatchmakingSubsystem::OnStartMatchmakingResponse(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bSucceeded)
+void UBlackoutMatchmakingSubsystem::OnStartMatchmakingResponse(
+	FHttpRequestPtr Request, FHttpResponsePtr Response, bool bSucceeded)
 {
 	if (!bSucceeded || !Response.IsValid())
 	{
@@ -326,7 +496,8 @@ void UBlackoutMatchmakingSubsystem::OnStartMatchmakingResponse(FHttpRequestPtr R
 	}
 
 	TSharedPtr<FJsonObject> Root;
-	const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(BodyRaw);
+	const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory
+		<>::Create(BodyRaw);
 	if (!FJsonSerializer::Deserialize(Reader, Root) || !Root.IsValid())
 	{
 		OnMatchmakingError.Broadcast(Status, TEXT("JSON 파싱 실패"));
@@ -363,29 +534,34 @@ void UBlackoutMatchmakingSubsystem::OnStartMatchmakingResponse(FHttpRequestPtr R
 	Root->TryGetBoolField(TEXT("isNewRoom"), Info.bIsNewRoom);
 
 	BO_LOG_NET(Log, "매칭 시작 - sid=%s status=%s %d명 isNewRoom=%s",
-		*Info.SessionId, *Info.Status, Info.Players.Num(), Info.bIsNewRoom ? TEXT("true") : TEXT("false"));
+	           *Info.SessionId, *Info.Status, Info.Players.Num(),
+	           Info.bIsNewRoom ? TEXT("true") : TEXT("false"));
 
 	SendJoinSessionMessage(Info.SessionId);
 	OnMatchmakingStarted.Broadcast(Info);
 
 	// 4번째 클라 안전망 — autoMatch 응답이 이미 playing 상태면 game_start WS 이벤트 손실 가능
 	// (서버 측에서 정원 충족 직후 game_start emit, 이 클라는 아직 WS 룸 미참가 상태)
-	if (Info.Status == TEXT("playing") && !Info.ServerIp.IsEmpty() && Info.ServerPort > 0)
+	if (Info.Status == TEXT("playing") && !Info.ServerIp.IsEmpty() && Info.
+		ServerPort > 0)
 	{
-		BO_LOG_NET(Warning, "정원 충족 시점 진입 - game_start 이벤트 손실 가능, 직접 ClientTravel 트리거");
+		BO_LOG_NET(Warning,
+		           "정원 충족 시점 진입 - game_start 이벤트 손실 가능, 직접 ClientTravel 트리거");
 		if (bAutoTravelOnGameStart)
 		{
 			TravelToGameServer(Info.ServerIp, Info.ServerPort, Info.SessionId);
 		}
 		else
 		{
-			OnGameStart.Broadcast(Info.SessionId, Info.ServerIp, Info.ServerPort);
+			OnGameStart.Broadcast(Info.SessionId, Info.ServerIp,
+			                      Info.ServerPort);
 		}
 	}
 }
 
 // 매칭 취소 응답. sessionDestroyed 값을 OnMatchmakingCancelled 로 전달.
-void UBlackoutMatchmakingSubsystem::OnCancelMatchmakingResponse(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bSucceeded)
+void UBlackoutMatchmakingSubsystem::OnCancelMatchmakingResponse(
+	FHttpRequestPtr Request, FHttpResponsePtr Response, bool bSucceeded)
 {
 	if (!bSucceeded || !Response.IsValid())
 	{
@@ -404,18 +580,64 @@ void UBlackoutMatchmakingSubsystem::OnCancelMatchmakingResponse(FHttpRequestPtr 
 	}
 
 	TSharedPtr<FJsonObject> Root;
-	const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(BodyRaw);
+	const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory
+		<>::Create(BodyRaw);
 	bool bDestroyed = false;
 	if (FJsonSerializer::Deserialize(Reader, Root) && Root.IsValid())
 	{
 		Root->TryGetBoolField(TEXT("sessionDestroyed"), bDestroyed);
 	}
-	BO_LOG_NET(Log, "매칭 취소 - sessionDestroyed=%s", bDestroyed ? TEXT("true") : TEXT("false"));
+	BO_LOG_NET(Log, "매칭 취소 - sessionDestroyed=%s",
+	           bDestroyed ? TEXT("true") : TEXT("false"));
 	OnMatchmakingCancelled.Broadcast(bDestroyed);
 }
 
+void UBlackoutMatchmakingSubsystem::OnCheckActiveSessionResponse(
+	FHttpRequestPtr Request, FHttpResponsePtr Response, bool bSucceeded)
+{
+	if (!bSucceeded || !Response.IsValid())
+	{
+		BO_LOG_NET(Warning, "CheckActiveSession 응답 실패");
+		return;
+	}
+	const int32 Status = Response->GetResponseCode();
+	if (Status < 200 || Status >= 300)
+	{
+		BO_LOG_NET(Warning, "CheckActiveSession 비정상 - %d", Status);
+		return;
+	}
+	
+	// 진행 세션 없으면 null / 빈 바디 -> 파싱 실패로 버튼 안나옴
+	TSharedPtr<FJsonObject> Json;
+	const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Response->GetContentAsString());
+	if (!FJsonSerializer::Deserialize(Reader, Json) || !Json.IsValid())
+	{
+		BO_LOG_NET(Log, "CheckActiveSession — 진행 세션 없음");
+		return;
+	}
+	
+	FString Ip, SessionId;
+	int32 Port = 0;
+	Json->TryGetStringField(TEXT("dediIp"),Ip);
+	Json->TryGetNumberField(TEXT("port"),Port);
+	Json->TryGetStringField(TEXT("sessionId"),SessionId);
+	
+	if (Ip.IsEmpty() || Port<= 0)
+	{
+		BO_LOG_NET(Log, "CheckActiveSession — 데디 주소 없음(미배정)");
+		return;
+	}
+	ActiveSessionIp = Ip;
+	ActiveSessionPort = Port;
+	ActiveSessionId = SessionId;
+	BO_LOG_NET(Log, "재접속 가능 세션: %s:%d (%s)", *Ip, Port, *SessionId);
+	OnActiveSessionFound.Broadcast();
+	
+}
+
 // join_session 요청 처리. WebSocket 미연결이면 PendingSessionId 에 예약.
-void UBlackoutMatchmakingSubsystem::SendJoinSessionMessage(const FString& SessionId)
+void UBlackoutMatchmakingSubsystem::SendJoinSessionMessage(
+	const FString& SessionId)
 {
 	PendingSessionId = SessionId;
 	if (IsLobbyConnected())
@@ -434,7 +656,8 @@ void UBlackoutMatchmakingSubsystem::HandleWsMessage(const FString& MessageStr)
 	BO_LOG_NET(Log, "수신: %s", *MessageStr);
 
 	TSharedPtr<FJsonObject> Root;
-	const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(MessageStr);
+	const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(
+		MessageStr);
 	if (!FJsonSerializer::Deserialize(Reader, Root) || !Root.IsValid())
 	{
 		return;
@@ -447,18 +670,21 @@ void UBlackoutMatchmakingSubsystem::HandleWsMessage(const FString& MessageStr)
 	}
 
 	// 서버 ACK / keepalive 성격 이벤트는 클라에서 반응 없음.
-	if (Event == TEXT("hi") || Event == TEXT("joined_session") || Event == TEXT("left_session") || Event == TEXT("pong"))
+	if (Event == TEXT("hi") || Event == TEXT("joined_session") || Event ==
+		TEXT("left_session") || Event == TEXT("pong"))
 	{
 		return;
 	}
 
 	const TSharedPtr<FJsonObject>* DataObj = nullptr;
-	if (!Root->TryGetObjectField(TEXT("data"), DataObj) || !DataObj || !(*DataObj).IsValid())
+	if (!Root->TryGetObjectField(TEXT("data"), DataObj) || !DataObj || !(*
+		DataObj).IsValid())
 	{
 		return;
 	}
 
-	auto ExtractPlayers = [](const TSharedPtr<FJsonObject>& Obj) -> TArray<FString>
+	auto ExtractPlayers = [](
+		const TSharedPtr<FJsonObject>& Obj) -> TArray<FString>
 	{
 		TArray<FString> Out;
 		const TArray<TSharedPtr<FJsonValue>>* Arr = nullptr;
@@ -478,7 +704,8 @@ void UBlackoutMatchmakingSubsystem::HandleWsMessage(const FString& MessageStr)
 
 	if (Event == TEXT("player_joined"))
 	{
-		FString Sid; int32 Count = 0;
+		FString Sid;
+		int32 Count = 0;
 		(*DataObj)->TryGetStringField(TEXT("sessionId"), Sid);
 		(*DataObj)->TryGetNumberField(TEXT("count"), Count);
 		OnPlayerJoined.Broadcast(Sid, ExtractPlayers(*DataObj), Count);
@@ -487,17 +714,20 @@ void UBlackoutMatchmakingSubsystem::HandleWsMessage(const FString& MessageStr)
 
 	if (Event == TEXT("player_left"))
 	{
-		FString Sid, PlayerName; int32 Count = 0;
+		FString Sid, PlayerName;
+		int32 Count = 0;
 		(*DataObj)->TryGetStringField(TEXT("sessionId"), Sid);
 		(*DataObj)->TryGetStringField(TEXT("playerName"), PlayerName);
 		(*DataObj)->TryGetNumberField(TEXT("count"), Count);
-		OnPlayerLeft.Broadcast(Sid, PlayerName, ExtractPlayers(*DataObj), Count);
+		OnPlayerLeft.Broadcast(Sid, PlayerName, ExtractPlayers(*DataObj),
+		                       Count);
 		return;
 	}
 
 	if (Event == TEXT("game_start"))
 	{
-		FString Sid, Ip; int32 Port = 0;
+		FString Sid, Ip;
+		int32 Port = 0;
 		(*DataObj)->TryGetStringField(TEXT("sessionId"), Sid);
 		(*DataObj)->TryGetStringField(TEXT("serverIp"), Ip);
 		(*DataObj)->TryGetNumberField(TEXT("serverPort"), Port);
@@ -506,7 +736,7 @@ void UBlackoutMatchmakingSubsystem::HandleWsMessage(const FString& MessageStr)
 
 		if (bAutoTravelOnGameStart)
 		{
-			TravelToGameServer(Ip, Port,Sid);
+			TravelToGameServer(Ip, Port, Sid);
 		}
 		return;
 	}
@@ -532,8 +762,23 @@ void UBlackoutMatchmakingSubsystem::HandleWsMessage(const FString& MessageStr)
 // WebSocket 연결 성공 콜백. 예약된 join_session 송신.
 void UBlackoutMatchmakingSubsystem::HandleWsConnected()
 {
+	bIsConnecting  = false;
 	BO_LOG_NET(Log, "WS 연결 성공");
 	FlushPendingJoin();
+}
+
+void UBlackoutMatchmakingSubsystem::HandleWsConnectionError(
+	const FString& Error)
+{
+	bIsConnecting = false;
+	BO_LOG_NET(Error, "WS 연결 에러: %s", *Error);
+}
+
+void UBlackoutMatchmakingSubsystem::HandleWsClosed(int32 StatusCode,
+	const FString& Reason, bool bWasClean)
+{
+	bIsConnecting = false;
+	BO_LOG_NET(Warning, "WS 종료 %d (%s, clean=%d)", StatusCode, *Reason, bWasClean);
 }
 
 void UBlackoutMatchmakingSubsystem::FlushPendingJoin()
@@ -550,4 +795,58 @@ void UBlackoutMatchmakingSubsystem::FlushPendingJoin()
 	CurrentSessionId = PendingSessionId;
 	BO_LOG_NET(Log, "join_session 송신: %s", *CurrentSessionId);
 	PendingSessionId.Empty();
+}
+
+void UBlackoutMatchmakingSubsystem::HandleNetworkFailure(UWorld* World,
+	UNetDriver* NetDriver, ENetworkFailure::Type FailureType,
+	const FString& ErrorString)
+{
+	// 비정상 끊김만 자동 재접속 대상, 정상 종료/기타는 무시
+	const bool bAbnormal = FailureType == ENetworkFailure::ConnectionLost ||
+		FailureType == ENetworkFailure::ConnectionTimeout;
+
+	if (!bAbnormal || LastServerIp.IsEmpty())
+	{
+		BO_LOG_NET(Log, "NetworkFailure 무시: Type=%d LastServer=%s",
+		           (int32)FailureType, *LastServerIp);
+		return;
+	}
+	if (bIsReconnecting)
+	{
+		BO_LOG_NET(Log, "재접속 사이클 진행 중 — 추가 NetworkFailure 무시(Type=%d)", (int32)FailureType);
+		return;
+	}
+
+	BO_LOG_NET(Warning, "비정상 끊김 감지(Type=%d) — 자동 재접속 대상 %s:%d",
+	           (int32)FailureType, *LastServerIp, LastServerPort);
+
+	ReconnectAttempts = 0;
+	bIsReconnecting = true;
+	ScheduleReconnect();
+}
+
+void UBlackoutMatchmakingSubsystem::ScheduleReconnect()
+{
+	if (UGameInstance* GI = GetGameInstance())
+	{
+		GI->GetTimerManager().SetTimer(ReconnectTimerHandle, this,
+		                               &UBlackoutMatchmakingSubsystem::AttemptReconnect,
+		                               ReconnectInterval, false);
+	}
+}
+
+void UBlackoutMatchmakingSubsystem::AttemptReconnect()
+{
+	if (ReconnectAttempts >= MaxReconnectAttempts)
+	{
+		BO_LOG_NET(Warning, "자동 재접속 %d회 모두 실패 — 수동 재접속 대기",
+				   MaxReconnectAttempts);
+		OnReconnectFailed.Broadcast();
+		return;
+	}
+	++ReconnectAttempts;
+	BO_LOG_NET(Log, "자동 재접속 시도 %d/%d -> %s:%d",
+	ReconnectAttempts, MaxReconnectAttempts, *LastServerIp, LastServerPort);
+	TravelToGameServer(LastServerIp ,LastServerPort, LastSessionId);
+	ScheduleReconnect(); // 다음 라운드 예약 (성공 시 PostLoadMap 에서 중단)
 }

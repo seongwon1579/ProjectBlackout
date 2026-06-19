@@ -1,12 +1,15 @@
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: ShockWave 어빌리티 구현
+//  - 김민영: 보스 GA 네트워크 정책/설계 정합성 적용
+//  - 허혁: 충격파 오브젝트 풀 프리로드
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
 #include "GAS/Abilities/Boss/Ravager/BlackoutGA_Ravager_Base.h"
 #include "BlackoutGA_Ravager_Shockwave.generated.h"
 
-/**
- * Phase A — 앞발 충전 후 지면 장풍
- */
 class UAbilityTask_WaitGameplayEvent;
 
 UCLASS()

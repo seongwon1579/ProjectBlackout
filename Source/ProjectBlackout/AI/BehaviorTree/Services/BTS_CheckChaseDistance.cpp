@@ -4,7 +4,7 @@
 #include "AI/BehaviorTree/Services/BTS_CheckChaseDistance.h"
 
 #include "BlackoutBossCharacter.h"
-#include "BORavagerBoss.h"
+#include "BOBossChaseRanges.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "BehaviorTree/BTNodeHelper.h"
 #include "BehaviorTree/Blackboard/BlackboardKeyType_Bool.h"
@@ -26,9 +26,7 @@ UBTS_CheckChaseDistance::UBTS_CheckChaseDistance()
 void UBTS_CheckChaseDistance::TickNode(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, float DeltaSeconds)
 {
 	Super::TickNode(OwnerComp, NodeMemory, DeltaSeconds);
-
-	if (!IsValid(CachedData)) return;
-
+	
 	auto BB = OwnerComp.GetBlackboardComponent();
 	if (!BB) return;
 
@@ -36,21 +34,17 @@ void UBTS_CheckChaseDistance::TickNode(UBehaviorTreeComponent& OwnerComp, uint8*
 	bool bCurrentTrigger = BB->GetValue<UBlackboardKeyType_Bool>(bOnTrigger.GetSelectedKeyID());
 	bool bNextTrigger = bCurrentTrigger;
 	
-	UE_LOG(LogTemp, Warning, TEXT("Range:%f"), CachedData->AttackRange)
-
 	if (bCurrentTrigger)
 	{
-		if (Distance > CachedData->ChaseEndRange)
+		if (Distance > CachedRanges.ChaseEndRange)
 		{
-			UE_LOG(LogTemp, Warning, TEXT("To False"))
 			bNextTrigger = false;
 		}
 	}
 	else
 	{
-		if (Distance < CachedData->ChaseStartRange)
+		if (Distance < CachedRanges.ChaseStartRange)
 		{
-			UE_LOG(LogTemp, Warning, TEXT("To True"))
 			bNextTrigger = true;
 		}
 	}
@@ -81,25 +75,19 @@ void UBTS_CheckChaseDistance::OnBecomeRelevant(UBehaviorTreeComponent& OwnerComp
 	
 	AAIController* AICon = OwnerComp.GetAIOwner();
 	if (!AICon) return;
-
-	ABORavagerBoss* Owner = Cast<ABORavagerBoss>(AICon->GetPawn());
+	
+	ABlackoutBossCharacter* Owner = Cast<ABlackoutBossCharacter>(AICon->GetPawn());
 	if (!IsValid(Owner)) return;
 
 	FGameplayTag PatternTag = FGameplayTag::RequestGameplayTag(BB->GetValueAsName(ActiveAbilityTagKey.SelectedKeyName));
 
-	CachedData = nullptr;
+	CachedRanges = Owner->GetChaseRanges(PatternTag);
 
-	if (PatternTag.IsValid())
-	{
-		CachedData = Owner->GetPatternData(PatternTag);
-	}
 	
-	if (IsValid(CachedData))
-	{
-		const float RandomMultiplier = FMath::FRandRange(1.f - CachedData->AttackRangeVariance, 1.f + CachedData->AttackRangeVariance);
-		const float FinalAttackRange = CachedData->AttackRange * RandomMultiplier;
-		BB->SetValueAsFloat(AcceptanceRadiusKey.SelectedKeyName, FinalAttackRange);
-	}
+	const float RandomMultiplier = FMath::FRandRange(1.f - CachedRanges.AttackRangeVariance, 1.f + CachedRanges.AttackRangeVariance);
+	const float FinalAttackRange = CachedRanges.AttackRange * RandomMultiplier;
+	BB->SetValueAsFloat(AcceptanceRadiusKey.SelectedKeyName, FinalAttackRange);
+	
 }
 
 void UBTS_CheckChaseDistance::OnCeaseRelevant(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)

@@ -1,3 +1,8 @@
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: 보스 근접 공격 판정 태스크 — 지정 콜리전 활성화 후 BeginOverlap으로 히트 감지, HitActors로 중복 피격 방지
+//  - 김민영: 보스 디버그 출력 토글 연동
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -32,6 +37,7 @@ public:
 private:
 	TWeakObjectPtr<UPrimitiveComponent> Hitbox;
 	TArray<TWeakObjectPtr<AActor>> HitActors;
+	bool bEnableBossDebug = false;
 
 	UFUNCTION()
 	void OnHitboxBeginOverlap(
@@ -42,5 +48,5 @@ private:
 		bool bFromSweep,
 		const FHitResult& SweepResult);
 	
-	UPrimitiveComponent* HitboxComp;
+	UPrimitiveComponent* HitboxComp = nullptr;
 };

@@ -1,5 +1,9 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 최승현: 매치 진행 상태 GameInstance 보관 — 보스 스테이지 인덱스·정원(ExpectedPlayers)·정원별 보스 HP 배율
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -34,9 +38,15 @@ public:
 	// 싱글/멀티 진입시 정원 , 1 미만은 1로 클램프
 	void SetExpectedPlayers(int32 InCount) {ExpectedPlayers = FMath::Max(1 , InCount); }
 	
+	// 정원별 보스 체력 배율 (1인 기준) 
+	float GetBossHealthMultiplier() const;
+	
 private:
 	int32 CurrentStageIndex=0;
 	
 	// 멀티 기본 4 , 싱글 1
 	int32 ExpectedPlayers=4;
+	
+	// 1인 1.0 , 4인 3.5  ( 2 / 3 인은 프로젝트 X )
+	TMap<int32, float> BossHealthMultiplierByPlayerCount = {{1,1.0f} , {4,3.5f}};
 };

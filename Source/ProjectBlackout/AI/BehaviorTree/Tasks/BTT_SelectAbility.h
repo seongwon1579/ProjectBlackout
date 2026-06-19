@@ -1,5 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: 실행할 어빌리티 태그를 미리 골라 블랙보드에 저장하는 어빌리티 선택 Task
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -19,8 +23,8 @@ public:
 
 protected:
 	virtual EBTNodeResult::Type ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;
-	
-private:
+	virtual FString GetStaticDescription() const override;
+
 	UPROPERTY(EditAnywhere, Category = "Blackout|Ability")
 	FGameplayTag AbilityTagToSet;
 

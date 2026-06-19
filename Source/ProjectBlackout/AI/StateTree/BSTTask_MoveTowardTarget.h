@@ -1,4 +1,8 @@
-﻿#pragma once
+﻿// ─── 구현 내역 ───────────────────────
+//  - 최승현: 타겟을 향해 이동하다 허용 거리 진입 시 성공 처리하는 StateTree Task
+// ──────────────────────────────────────
+
+#pragma once
 
 #include "CoreMinimal.h"
 #include "StateTreeTaskBase.h"

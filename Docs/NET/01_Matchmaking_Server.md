@@ -27,11 +27,6 @@ flowchart LR
 | POST | `/servers/register` | 데디 등록 | `x-server-api-key` |
 | POST | `/servers/:id/idle` | 데디 idle 복귀 보고 | `x-server-api-key` |
 
-미구현 (의도적 후순위):
-
-- `POST /sessions/:id/finish` — 데디의 매치 종료 보고. `EndMatch` 와 짝
-- `POST /sessions/:id/verify` — 데디 입장 시 토큰-세션 매칭 검증
-
 ## WebSocket 이벤트 (`:3001`)
 
 | 이벤트 | 방향 | 용도 |
@@ -45,7 +40,7 @@ flowchart LR
 ## 세션 수명주기
 
 ```
-waiting → playing → (finish 미구현) → idle 복귀
+waiting → playing → idle 복귀
    ↓ 이탈                  ↓ 전원 이탈
 session_cancelled    서버 idle 복귀
 ```
@@ -68,5 +63,5 @@ session_cancelled    서버 idle 복귀
 |---|---|---|
 | 인증 | 더미 비밀번호 + JWT | 실계정 + refresh token |
 | 전송 | HTTP / WS 평문 | HTTPS / WSS (도메인 비용 이슈) |
-| 재접속 | 미구현 | heartbeat + disconnect 감지 |
+| 재접속 | heartbeat + disconnect 감지 | 세션 상태 복구 |
 | 세션 검증 | 클라 자진 신고 | `/sessions/:id/verify` 토큰 검증 |

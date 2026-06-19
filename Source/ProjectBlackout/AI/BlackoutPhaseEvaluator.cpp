@@ -23,9 +23,7 @@ void UBlackoutPhaseEvaluator::Initialize(AAIController* InAIController, UAbility
             EGameplayTagEventType::NewOrRemoved
         ).AddUObject(this, &UBlackoutPhaseEvaluator::OnPhaseLockTagChanged);
     }
-
-    // 초기 페이즈 시작
-    RequestPhaseChange(EBOBossPhase::Phase1);
+    
 }
 
 void UBlackoutPhaseEvaluator::Deinitialize()
@@ -41,8 +39,14 @@ void UBlackoutPhaseEvaluator::Deinitialize()
 
 void UBlackoutPhaseEvaluator::RequestPhaseChange(EBOBossPhase NewPhase)
 {
-    if (NewPhase == EBOBossPhase::None || NewPhase <= CurrentPhase) return;
-    if (PendingPhase != EBOBossPhase::None && NewPhase <= PendingPhase) return;
+    if (NewPhase == EBOBossPhase::None || NewPhase <= CurrentPhase)
+    {
+        return;
+    }
+    if (PendingPhase != EBOBossPhase::None && NewPhase <= PendingPhase)
+    {
+        return;
+    }
 
     PendingPhase = NewPhase;
     TryApplyPendingPhase();
@@ -58,7 +62,10 @@ void UBlackoutPhaseEvaluator::OnPhaseLockTagChanged(const FGameplayTag Tag, int3
 
 void UBlackoutPhaseEvaluator::TryApplyPendingPhase()
 {
-    if (PendingPhase == EBOBossPhase::None || IsPhaseTransitionLocked()) return;
+    if (PendingPhase == EBOBossPhase::None || IsPhaseTransitionLocked())
+    {
+        return;
+    }
 
     const EBOBossPhase PhaseToApply = PendingPhase;
     PendingPhase = EBOBossPhase::None;
@@ -70,10 +77,7 @@ void UBlackoutPhaseEvaluator::ApplyPhaseChange(EBOBossPhase NewPhase)
 {
     CurrentPhase = NewPhase;
     
-    if (OnBossPhaseChanged.IsBound())
-    {
-        OnBossPhaseChanged.Broadcast(NewPhase);
-    }
+    OnBossPhaseChanged.Broadcast(NewPhase);
 }
 
 bool UBlackoutPhaseEvaluator::IsPhaseTransitionLocked() const

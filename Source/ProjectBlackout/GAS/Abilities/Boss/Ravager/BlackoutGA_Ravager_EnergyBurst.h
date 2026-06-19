@@ -1,3 +1,9 @@
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: EnergyBurst 어빌리티 구현
+//  - 김민영: 보스 GA 네트워크 정책/설계 정합성 적용
+//  - 허혁: 적중 시 플레이어 스턴 게이지 부여
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -31,6 +37,7 @@ protected:
 private:
 	UPROPERTY(Transient)
 	TObjectPtr<UAbilityTask_WaitGameplayEvent> WaitBeginEvent;
+	UPROPERTY(Transient)
 	TObjectPtr<UAbilityTask_WaitGameplayEvent> WaitEndEvent;
 	
 	FTimerHandle DamageTimer;

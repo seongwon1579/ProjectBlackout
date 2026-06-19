@@ -1,3 +1,8 @@
+// ─── 구현 내역 ───────────────────────
+//  - 김민영: 어빌리티 입력 ID(EBlackoutAbilityInputID)와 전투 전환 유형(EBattleTransitionType) enum 정의
+//  - 최승현: 매치 생애주기 상태/종료 사유/보스 종류 enum과 매치 통계 집계 구조체(FBlackoutMatchStats) 정의
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -63,4 +68,33 @@ enum class EBossType : uint8
 {
 	Mid UMETA(DisplayName = "Mid Boss"),
 	Main UMETA(DisplayName = "Main Boss"),
+};
+
+USTRUCT(BlueprintType)
+struct FBlackoutMatchStats
+{
+	GENERATED_BODY()
+	
+	
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Stats")
+	int32 DamageDealt = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Stats")
+	int32 Kills = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Stats")
+	int32 MeleeKills = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Stats")
+	int32 ShotsFired = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Stats")
+	int32 ShotsHit = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Stats")
+	int32 ConsumablesUsed = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Stats")
+	int32 Revives = 0;
+	
 };

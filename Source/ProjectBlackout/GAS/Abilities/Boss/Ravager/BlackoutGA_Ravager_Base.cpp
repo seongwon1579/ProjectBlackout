@@ -2,8 +2,10 @@
 
 #include "Characters/BlackoutBossCharacter.h"
 #include "BlackoutGameplayTags.h"
+#include "BlackoutPlayerCharacter.h"
 #include "BORavagerBoss.h"
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
+#include "Environment/BOBreakablePillarActor.h"
 
 const FName UBlackoutGA_Ravager_Base::WarpTargetName = FName("MW_Target");
 
@@ -31,6 +33,11 @@ void UBlackoutGA_Ravager_Base::ActivateAbility(const FGameplayAbilitySpecHandle 
                                                    const FGameplayEventData* TriggerEventData)
 {
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+	
+	if (TriggerEventData)
+	{
+		CachedTarget = Cast<const APawn>(TriggerEventData->Target.Get());
+	}
 
 	if (!CanActivatePattern())
 	{
@@ -81,6 +88,11 @@ FGameplayTag UBlackoutGA_Ravager_Base::SelectMontageTag(const FGameplayEventData
 bool UBlackoutGA_Ravager_Base::CanActivatePattern() const
 {
 	return CachedOwner && CachedPatternData && HasValidSettings();
+}
+
+bool UBlackoutGA_Ravager_Base::ShouldDamageTarget(AActor* Target) const
+{
+	return IsValid(Target) && (Target->IsA(ABlackoutPlayerCharacter::StaticClass()) || Target->IsA(ABOBreakablePillarActor::StaticClass()));
 }
 
 bool UBlackoutGA_Ravager_Base::TryResolveMontage(const FGameplayEventData* TriggerEventData)

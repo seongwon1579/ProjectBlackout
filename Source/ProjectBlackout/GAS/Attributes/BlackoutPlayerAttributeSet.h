@@ -3,6 +3,11 @@
 // 수정일 : 04-21
 // 수정자 :
 
+// ─── 구현 내역 ───────────────────────
+//  - 허혁: 플레이어 전용 어트리뷰트셋 — 스태미나/스턴게이지/치명타/회복효율/유물 충전 정의·복제, 스턴게이지·피격 단계 추가
+//  - 김민영: 플레이어 유물(RelicCharges) 초기 수치 설정
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -35,6 +40,14 @@ public:
 	FGameplayAttributeData MaxStamina;
 	ATTRIBUTE_ACCESSORS(UBlackoutPlayerAttributeSet, MaxStamina)
 
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Attributes", ReplicatedUsing = OnRep_StunGauge)
+	FGameplayAttributeData StunGauge;
+	ATTRIBUTE_ACCESSORS(UBlackoutPlayerAttributeSet, StunGauge)
+
+	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Attributes", ReplicatedUsing = OnRep_MaxStunGauge)
+	FGameplayAttributeData MaxStunGauge;
+	ATTRIBUTE_ACCESSORS(UBlackoutPlayerAttributeSet, MaxStunGauge)
+
 	UPROPERTY(BlueprintReadOnly, Category = "Blackout|Attributes", ReplicatedUsing = OnRep_CriticalHitChance)
 	FGameplayAttributeData CriticalHitChance;
 	ATTRIBUTE_ACCESSORS(UBlackoutPlayerAttributeSet, CriticalHitChance)
@@ -61,6 +74,12 @@ protected:
 
 	UFUNCTION()
 	virtual void OnRep_MaxStamina(const FGameplayAttributeData& OldValue);
+
+	UFUNCTION()
+	virtual void OnRep_StunGauge(const FGameplayAttributeData& OldValue);
+
+	UFUNCTION()
+	virtual void OnRep_MaxStunGauge(const FGameplayAttributeData& OldValue);
 
 	UFUNCTION()
 	virtual void OnRep_CriticalHitChance(const FGameplayAttributeData& OldValue);

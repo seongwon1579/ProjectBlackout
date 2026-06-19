@@ -1,3 +1,9 @@
+// ─── 구현 내역 ───────────────────────
+//  - 김민영: 발사체 베이스(풀링 연동, NetState 기반 클라 이동 동기화, 트레일 GCN 생명주기, 착탄 데미지 Spec) 구현
+//  - 조성원: 발사체 중력 스케일 복제 추가
+//  - 최승현: 매치 통계용 발사체 명중 1회 집계(이중 OnHit 방어) 연동
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -117,6 +123,9 @@ protected:
 	// 풀 반환 재진입 가드. OnHit/수명만료 등으로 ReturnToPool이 같은 프레임에 여러 번 호출될 때
 	// 풀 이중 등록을 막습니다. OnSpawnFromPool에서 재사용 시 false로 리셋됩니다.
 	bool bReturnedToPool = false;
+
+	// 매치 통계: 발사체당 명중 1회만 집계(이중 OnHit 방어). OnSpawnFromPool에서 false로 리셋.
+	bool bAlreadyCountedHit = false;
 
 	FGameplayEffectSpecHandle DamageSpec;
 	FBlackoutWeaponCueSet CueSet;

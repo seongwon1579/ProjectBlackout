@@ -1,5 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: 패턴 데이터에서 받은 사거리로 공격 가능 범위 도달 여부를 갱신하는 추격 거리 서비스 (보스 일반화 포함)
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -41,5 +45,5 @@ public:
 protected:
 	
 	UPROPERTY(Transient)
-	TObjectPtr<UBORavagerPatternData> CachedData;
+	FBossChaseRanges CachedRanges;
 };

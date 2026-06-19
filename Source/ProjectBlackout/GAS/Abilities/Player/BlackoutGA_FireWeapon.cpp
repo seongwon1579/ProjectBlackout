@@ -3,8 +3,10 @@
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "AbilitySystemGlobals.h"
 #include "AbilitySystemComponent.h"
+#include "BlackoutAbilityActorInfoUtils.h"
 #include "Animation/AnimMontage.h"
 #include "Animation/BlackoutPlayerAnimInstance.h"
+#include "Characters/BlackoutCharacterBase.h"
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "Combat/BlackoutWeaponCueLibrary.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
@@ -25,12 +27,13 @@
 #include "Engine/World.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/PlayerController.h"
+#include "Framework/BlackoutPlayerState.h"
 #include "UI/BlackoutHUD.h"
 
 namespace
 {
 	constexpr float PredictedFireDebugTraceDistance = 10000.0f;
-
+	
 	void DrawPredictedFireDebugLine(
 		UWorld* World,
 		const FVector& TraceStart,
@@ -65,6 +68,25 @@ namespace
 		DrawDebugLine(World, TraceStart, DebugEnd, DebugColor, false, Duration, 0, Thickness);
 	}
 
+	bool CanShowPredictedDamageNumberForTarget(const AActor* DamageTargetActor)
+	{
+		if (!IsValid(DamageTargetActor) || !Cast<IBlackoutDamageable>(DamageTargetActor))
+		{
+			return false;
+		}
+
+		if (const ABlackoutCharacterBase* TargetCharacter = Cast<ABlackoutCharacterBase>(DamageTargetActor))
+		{
+			if (TargetCharacter->IsDowned() || TargetCharacter->IsDead())
+			{
+				return false;
+			}
+		}
+
+		float TargetHealth = 0.0f;
+		return !BlackoutWeaponDebug::TryGetHealth(DamageTargetActor, TargetHealth) || TargetHealth > 0.0f;
+	}
+
 	bool TryShowPredictedDamageNumber(
 		ABlackoutPlayerCharacter* PlayerCharacter,
 		const FHitResult& PredictedHitResult,
@@ -81,13 +103,17 @@ namespace
 
 		if (UBlackoutHitboxComponent* HitboxComponent = Cast<UBlackoutHitboxComponent>(PredictedHitResult.GetComponent()))
 		{
-			bCanShowDamageNumber = HitboxComponent->GetOwner() && Cast<IBlackoutDamageable>(HitboxComponent->GetOwner());
-			bIsCritical = HitboxComponent->GetPartTag().MatchesTagExact(BlackoutGameplayTags::Body_WeakSpot);
-			PredictedDisplayDamageAmount *= HitboxComponent->GetDamageMultiplier();
+			if (AActor* HitboxOwner = HitboxComponent->GetOwner())
+			{
+				bCanShowDamageNumber = CanShowPredictedDamageNumberForTarget(HitboxOwner);
+				bIsCritical = HitboxComponent->GetPartTag().MatchesTagExact(BlackoutGameplayTags::Body_WeakSpot);
+				PredictedDisplayDamageAmount *= HitboxComponent->GetDamageMultiplier();
+			}
 		}
 		else if (AActor* HitActor = PredictedHitResult.GetActor())
 		{
-			if (IBlackoutDamageable* Damageable = Cast<IBlackoutDamageable>(HitActor))
+			if (IBlackoutDamageable* Damageable = Cast<IBlackoutDamageable>(HitActor);
+				Damageable && CanShowPredictedDamageNumberForTarget(HitActor))
 			{
 				bCanShowDamageNumber = true;
 				bIsCritical = Damageable->GetHitPartTag(PredictedHitResult.BoneName).MatchesTagExact(BlackoutGameplayTags::Body_WeakSpot);
@@ -655,6 +681,22 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 			UBlackoutWeaponCueLibrary::ExecuteFireCue(AbilitySystemComponent, WeaponCueSet, ShotgunFirearm, MuzzleLocation, FireDirection);
 
 			const TArray<FBlackoutShotgunPelletHit> PelletHits = ShotgunFirearm->FireShotgun(FireDirection, PelletDamageSpecHandle);
+
+			// 매치 통계: 발포=펠릿 수, 명중=적중 펠릿 수(펠릿 단위)
+			if (ABlackoutPlayerState* SourcePS = PlayerCharacter->GetPlayerState<ABlackoutPlayerState>())
+			{
+				int32 HitPelletCount = 0;
+				for (const FBlackoutShotgunPelletHit& PelletHit : PelletHits)
+				{
+					if (PelletHit.bAppliedDamage)
+					{
+						++HitPelletCount;
+					}
+				}
+				SourcePS->RecordShotsFired(PelletHits.Num());
+				SourcePS->RecordShotsHit(HitPelletCount);
+			}
+
 			TArray<FBlackoutWeaponGameplayCueEntry> ShotgunCueEntries;
 			ShotgunCueEntries.Reserve(PelletHits.Num() * 2);
 
@@ -680,7 +722,30 @@ void UBlackoutGA_FireWeapon::ActivateAbility(const FGameplayAbilitySpecHandle Ha
 			UAbilitySystemComponent* AbilitySystemComponent = GetAbilitySystemComponentFromActorInfo();
 			UBlackoutWeaponCueLibrary::ExecuteFireCue(AbilitySystemComponent, WeaponCueSet, EquippedFirearm, MuzzleLocation, FireDirection);
 
-			const FHitResult ShotHitResult = EquippedFirearm->Fire(FireDirection, DamageSpecHandle);
+			bool bHitEnemy = false;
+			const FHitResult ShotHitResult = EquippedFirearm->Fire(FireDirection, DamageSpecHandle, bHitEnemy);
+
+			// 매치 통계: 히트스캔만 발포/명중 집계(발사 단위). 투사체는 2단계(BOProjectile)에서 별도.
+			if (EquippedFirearm->UsesHitscan())
+			{
+				if (ABlackoutPlayerState* SourcePS = PlayerCharacter->GetPlayerState<ABlackoutPlayerState>())
+				{
+					SourcePS->RecordShotsFired(1);
+					if (bHitEnemy)
+					{
+						SourcePS->RecordShotsHit(1);
+					}
+				}
+			}
+			else
+			{
+				// 투사체: 발포만 집계(명중은 BOProjectile::OnHit)
+				if (ABlackoutPlayerState* SourcePS = PlayerCharacter->GetPlayerState<ABlackoutPlayerState>())
+				{
+					SourcePS->RecordShotsFired(1);
+				}
+			}
+
 			const FVector TraceEnd = ShotHitResult.TraceEnd.IsNearlyZero()
 				? MuzzleLocation + FireDirection.GetSafeNormal() * ParallaxMaxDistance
 				: FVector(ShotHitResult.TraceEnd);
@@ -810,7 +875,10 @@ FGameplayEffectSpecHandle UBlackoutGA_FireWeapon::BuildDamageSpec(const ABOFirea
 		if (SpecHandle.IsValid())
 		{
 			SpecHandle.Data->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Damage, Firearm->GetBaseDamage());
-			SpecHandle.Data->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_DamageNumber_PredictedOnly, 1.0f);
+			if (Firearm->UsesHitscan())
+			{
+				SpecHandle.Data->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_DamageNumber_PredictedOnly, 1.0f);
+			}
 		}
 	}
 	else
@@ -859,6 +927,14 @@ bool UBlackoutGA_FireWeapon::ApplyAmmoCost()
 	if (!CombatComponent || !AbilitySystemComponent)
 	{
 		return false;
+	}
+
+	if (const ABlackoutPlayerState* BlackoutPlayerState = BlackoutAbilityUtils::ResolveOwningBlackoutPlayerState(CurrentActorInfo))
+	{
+		if (BlackoutPlayerState->HasInfiniteAmmoCheat())
+		{
+			return true;
+		}
 	}
 
 	const FGameplayTag WeaponSlotTag = CombatComponent->GetEquippedWeaponSlotTag();

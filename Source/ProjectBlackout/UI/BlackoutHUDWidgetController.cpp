@@ -24,10 +24,23 @@
 
 namespace
 {
+	const FText DefaultInteractionPromptText = FText::FromString(TEXT("상호작용"));
 	const FText RevivePromptText = FText::FromString(TEXT("부활"));
 	const FText MissingRelicText = FText::FromString(TEXT("유물이 없습니다"));
 	const FText ReviveBusyText = FText::FromString(TEXT("부활중입니다"));
 	const FText ReviveInProgressText = FText::FromString(TEXT("소생 중..."));
+
+	FText ResolveInteractionPromptText(AActor* FocusedInteractableActor)
+	{
+		if (!FocusedInteractableActor ||
+			!FocusedInteractableActor->GetClass()->ImplementsInterface(UBlackoutInteractable::StaticClass()))
+		{
+			return DefaultInteractionPromptText;
+		}
+
+		const FText PromptText = IBlackoutInteractable::Execute_GetInteractionPrompt(FocusedInteractableActor);
+		return PromptText.IsEmpty() ? DefaultInteractionPromptText : PromptText;
+	}
 
 	FVector GetRevivePromptWorldLocation(const ABlackoutPlayerCharacter* TargetCharacter)
 	{
@@ -186,6 +199,15 @@ void UBlackoutHUDWidgetController::BindCallbacksToDependencies()
 			BlackoutCombatComponent->OnEquippedWeaponChanged.AddDynamic(this, &UBlackoutHUDWidgetController::HandleEquippedWeaponChanged);
 			BlackoutCombatComponent->OnAimingChanged.AddDynamic(this, &UBlackoutHUDWidgetController::HandleAimingChanged);
 			BoundCombatComponent = BlackoutCombatComponent;
+
+			// 캐릭터 교체로 새 전투 컴포넌트에 바인딩되면 새 캐릭터는 항상 주무기를 장착한다.
+			// 무기 슬롯 UI는 스왑 애니메이션 위치로 장착 슬롯을 표현하고 위젯 인스턴스는 유지되므로,
+			// 직전 표시가 보조무기였다면 주무기 위치로 스왑 애니메이션을 강제 재생해 정렬한다.
+			// (직전이 이미 주무기였다면 애니메이션이 그대로이므로 불필요한 재생/글리치를 피한다.)
+			if (!bLastDisplayedPrimaryEquipped)
+			{
+				BroadcastWeaponAmmoDisplay(true, BlackoutGameplayTags::Weapon_Primary);
+			}
 		}
 	}
 	else
@@ -285,30 +307,53 @@ bool UBlackoutHUDWidgetController::GetInteractionPromptData(FBlackoutInteraction
 		return false;
 	}
 
+	auto BuildReviveInProgressPromptData =
+		[this, BlackoutPlayerController, &OutPromptData](const ABlackoutPlayerCharacter* ActiveReviveTarget, float ProgressNormalized)
+	{
+		if (!ActiveReviveTarget)
+		{
+			return false;
+		}
+
+		const FVector PromptWorldLocation = GetRevivePromptWorldLocation(ActiveReviveTarget);
+		FVector2D PromptScreenPosition = FVector2D::ZeroVector;
+		UWidgetLayoutLibrary::ProjectWorldLocationToWidgetPosition(
+			BlackoutPlayerController,
+			PromptWorldLocation,
+			PromptScreenPosition,
+			true);
+
+		// 진행 UI는 화면 고정 위젯이므로 월드 좌표 투영 실패와 무관하게 표시합니다.
+		OutPromptData.bIsVisible = true;
+		OutPromptData.bShowProgress = true;
+		OutPromptData.ProgressNormalized = FMath::Clamp(ProgressNormalized, 0.0f, 1.0f);
+		OutPromptData.WorldLocation = PromptWorldLocation;
+		OutPromptData.ScreenPosition = PromptScreenPosition;
+		OutPromptData.State = EBlackoutInteractionPromptState::InProgress;
+		OutPromptData.PromptText = FText::GetEmpty();
+		OutPromptData.StatusText = ReviveInProgressText;
+		return true;
+	};
+
+	// 데디케이트 서버 환경에서는 서버의 GA 인스턴스가 실제 진행을 소유하므로,
+	// 시전자 HUD는 복제된 대상 포인터와 대상의 서버 시간 데이터를 우선 사용합니다.
+	if (const ABlackoutPlayerCharacter* ReplicatedReviveTarget = LocalPlayerCharacter->GetActiveReviveTarget())
+	{
+		if (ReplicatedReviveTarget->IsDowned() && ReplicatedReviveTarget->IsBeingRevived())
+		{
+			return BuildReviveInProgressPromptData(
+				ReplicatedReviveTarget,
+				ReplicatedReviveTarget->GetReviveProgressNormalized());
+		}
+	}
+
 	if (const UBlackoutGA_Revive* ActiveReviveAbility = UBlackoutGA_Revive::GetActiveReviveAbilityFromActor(LocalPlayerCharacter))
 	{
 		if (ABlackoutPlayerCharacter* ActiveReviveTarget = ActiveReviveAbility->GetReviveTarget())
 		{
-			const FVector PromptWorldLocation = GetRevivePromptWorldLocation(ActiveReviveTarget);
-			FVector2D PromptScreenPosition = FVector2D::ZeroVector;
-			if (!UWidgetLayoutLibrary::ProjectWorldLocationToWidgetPosition(
-				BlackoutPlayerController,
-				PromptWorldLocation,
-				PromptScreenPosition,
-				true))
-			{
-				return false;
-			}
-
-			OutPromptData.bIsVisible = true;
-			OutPromptData.bShowProgress = true;
-			OutPromptData.ProgressNormalized = ActiveReviveAbility->GetReviveProgressNormalized();
-			OutPromptData.WorldLocation = PromptWorldLocation;
-			OutPromptData.ScreenPosition = PromptScreenPosition;
-			OutPromptData.State = EBlackoutInteractionPromptState::InProgress;
-			OutPromptData.PromptText = FText::GetEmpty();
-			OutPromptData.StatusText = ReviveInProgressText;
-			return true;
+			return BuildReviveInProgressPromptData(
+				ActiveReviveTarget,
+				ActiveReviveAbility->GetReviveProgressNormalized());
 		}
 	}
 
@@ -333,9 +378,7 @@ bool UBlackoutHUDWidgetController::GetInteractionPromptData(FBlackoutInteraction
 			OutPromptData.WorldLocation = PromptWorldLocation;
 			OutPromptData.ScreenPosition = PromptScreenPosition;
 			OutPromptData.State = EBlackoutInteractionPromptState::Available;
-			OutPromptData.PromptText = FocusedInteractableActor->GetClass()->ImplementsInterface(UBlackoutInteractable::StaticClass())
-				? IBlackoutInteractable::Execute_GetInteractionPrompt(FocusedInteractableActor)
-				: FText::GetEmpty();
+			OutPromptData.PromptText = ResolveInteractionPromptText(FocusedInteractableActor);
 			return true;
 		}
 
@@ -386,7 +429,8 @@ void UBlackoutHUDWidgetController::HandleEquippedWeaponChanged(ABOWeaponBase* Eq
 	OnEquippedWeaponChanged.Broadcast(EquippedWeapon, WeaponSlotTag);
 	BroadcastAiming();
 	BroadcastAmmo();
-	BroadcastWeaponAmmoDisplay(true);
+	// 이벤트가 전달한 슬롯 태그를 그대로 사용한다(무기 포인터 비교 재계산으로 인한 오판정 방지).
+	BroadcastWeaponAmmoDisplay(true, WeaponSlotTag);
 }
 
 void UBlackoutHUDWidgetController::HandleAimingChanged(bool bIsAiming)
@@ -512,7 +556,7 @@ void UBlackoutHUDWidgetController::BroadcastAiming() const
 	OnAimingChanged.Broadcast(BlackoutCombatComponent ? BlackoutCombatComponent->IsAiming() : false, GetEquippedCrosshairType());
 }
 
-void UBlackoutHUDWidgetController::BroadcastWeaponAmmoDisplay(bool bPlaySwapAnimation) const
+void UBlackoutHUDWidgetController::BroadcastWeaponAmmoDisplay(bool bPlaySwapAnimation, FGameplayTag EquippedSlotTagOverride)
 {
 	const UBlackoutCombatComponent* BlackoutCombatComponent = CombatComponent.Get();
 	if (!BlackoutCombatComponent)
@@ -524,7 +568,17 @@ void UBlackoutHUDWidgetController::BroadcastWeaponAmmoDisplay(bool bPlaySwapAnim
 		return;
 	}
 
-	const FGameplayTag EquippedWeaponSlotTag = BlackoutCombatComponent->GetEquippedWeaponSlotTag();
+	// 호출부가 슬롯 태그를 명시하면 그것을 신뢰한다(클래스 변경 직후 등 무기 포인터 비교가 불안정한 시점 대응).
+	const FGameplayTag EquippedWeaponSlotTag = EquippedSlotTagOverride.IsValid()
+		? EquippedSlotTagOverride
+		: BlackoutCombatComponent->GetEquippedWeaponSlotTag();
+
+	// 스왑 애니메이션을 재생하는 경우에만 위젯의 표시 슬롯이 바뀌므로 이때만 추적 값을 갱신한다.
+	if (bPlaySwapAnimation)
+	{
+		bLastDisplayedPrimaryEquipped = EquippedWeaponSlotTag.MatchesTagExact(BlackoutGameplayTags::Weapon_Primary);
+	}
+
 	const FBlackoutWeaponAmmoSlotData PrimarySlotData = MakeWeaponAmmoSlotData(
 		BlackoutCombatComponent->GetPrimaryWeapon(),
 		BlackoutGameplayTags::Weapon_Primary,

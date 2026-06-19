@@ -1,3 +1,9 @@
+// ─── 구현 내역 ───────────────────────
+//  - 김민영: 인게임 HUD 기본 클래스 및 위젯 컨트롤러 바인딩 구현
+//  - 조성원: 보스 체력 동기화 적 HUD 연동
+//  - 허혁: 데미지 숫자 위젯 연동
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -8,6 +14,7 @@ class UBlackoutHUDWidget;
 class UBlackoutEnemyHUDWidget;
 class UBlackoutHUDWidgetController;
 class UBlackoutEnemyHUDWidgetController;
+class UBlackoutMatchResultWidgetController;
 class UBlackoutPartyRosterWidgetController;
 
 UCLASS(Blueprintable)
@@ -35,6 +42,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Blackout|HUD")
 	UBlackoutPartyRosterWidgetController* GetPartyRosterWidgetController() const { return PartyRosterWidgetController; }
 
+	UFUNCTION(BlueprintPure, Category = "Blackout|HUD")
+	UBlackoutMatchResultWidgetController* GetMatchResultWidgetController() const { return MatchResultWidgetController; }
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|HUD")
 	TSubclassOf<UBlackoutEnemyHUDWidget> EnemyHUDWidgetClass;
 
@@ -56,6 +66,9 @@ protected:
 
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|HUD")
 	TObjectPtr<UBlackoutPartyRosterWidgetController> PartyRosterWidgetController;
+
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|HUD")
+	TObjectPtr<UBlackoutMatchResultWidgetController> MatchResultWidgetController;
 
 private:
 	void CreateHUDWidget();

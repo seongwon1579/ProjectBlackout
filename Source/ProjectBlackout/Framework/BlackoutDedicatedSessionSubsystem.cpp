@@ -122,6 +122,66 @@ void UBlackoutDedicatedSessionSubsystem::OnFinishResponse(
 	
 }
 
+// serverId 기반 idle 보고 — /sessions/:id/finish 와 달리 세션 키 존재에 의존하지 않아
+// 긴 매치로 세션이 만료돼도 서버 status 를 idle 로 되돌린다.
+void UBlackoutDedicatedSessionSubsystem::ReportIdleToMatchmakingServer()
+{
+	const UWorld* World = GetWorld();
+	if (World && World->GetNetMode() != NM_DedicatedServer)
+	{
+		BO_LOG_NET(Warning, "ReportIdle - 데디 환경 아님 (NetMode=%d), skip", static_cast<int32>(World->GetNetMode()));
+		return;
+	}
+	if (ServerId.IsEmpty())
+	{
+		BO_LOG_NET(Warning, "ReportIdle - ServerId 없음(미등록), skip");
+		return;
+	}
+
+	const FString ApiKey = FPlatformMisc::GetEnvironmentVariable(TEXT("BLACKOUT_API_KEY"));
+	if (ApiKey.IsEmpty())
+	{
+		BO_LOG_NET(Error, "ReportIdle - BLACKOUT_API_KEY 환경변수 없음, skip");
+		return;
+	}
+
+	const UBlackoutNetworkSettings* Settings = GetDefault<UBlackoutNetworkSettings>();
+	if (!Settings || Settings->ApiBaseUrl.IsEmpty())
+	{
+		BO_LOG_NET(Error, "ReportIdle - ApiBaseUrl 미설정");
+		return;
+	}
+
+	const FString Url = FString::Printf(TEXT("%s/servers/%s/idle"), *Settings->ApiBaseUrl, *ServerId);
+	const FHttpRequestRef Request = FHttpModule::Get().CreateRequest();
+	Request->SetURL(Url);
+	Request->SetVerb(TEXT("POST"));   // 바디 없음 — markIdle(:id)
+	Request->SetHeader(TEXT("x-server-api-key"), ApiKey);
+	Request->OnProcessRequestComplete().BindUObject(this, &UBlackoutDedicatedSessionSubsystem::OnIdleResponse);
+	Request->ProcessRequest();
+	BO_LOG_NET(Log, "ReportIdle 요청 - %s", *Url);
+}
+
+void UBlackoutDedicatedSessionSubsystem::OnIdleResponse(
+	FHttpRequestPtr Request, FHttpResponsePtr Response, bool bSucceeded)
+{
+	if (!bSucceeded || !Response.IsValid())
+	{
+		BO_LOG_NET(Error, "ReportIdle 응답 실패 (네트워크 / 타임아웃)");
+		return;
+	}
+
+	const int32 Status = Response->GetResponseCode();
+	if (Status >= 200 && Status < 300)
+	{
+		BO_LOG_NET(Log, "ReportIdle 성공 - %d", Status);
+	}
+	else
+	{
+		BO_LOG_NET(Error, "ReportIdle 실패 - %d %s", Status, *Response->GetContentAsString());
+	}
+}
+
 void UBlackoutDedicatedSessionSubsystem::RegisterToMatchmakingServer()
 {
 	const FString Publicip = FPlatformMisc::GetEnvironmentVariable(TEXT("BLACKOUT_PUBLIC_IP"));

@@ -1,3 +1,7 @@
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: 보스 애님 갱신 루프와 하위 클래스용 UpdateAnimationProperties 훅을 구현
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -12,9 +16,6 @@ UCLASS()
 class PROJECTBLACKOUT_API UBlackoutBossAnimInstance : public UBlackoutEnemyAnimInstance
 {
 	GENERATED_BODY()
-
-public:
-	virtual void OnDeath() {}
 
 protected:
 	virtual void NativeUpdateAnimation(float DeltaSeconds) override;

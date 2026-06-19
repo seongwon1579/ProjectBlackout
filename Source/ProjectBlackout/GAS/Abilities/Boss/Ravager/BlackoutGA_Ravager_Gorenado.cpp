@@ -72,16 +72,42 @@ void UBlackoutGA_Ravager_Gorenado::UpdatePulling()
 		FCollisionShape::MakeSphere(Settings.PullRadius),
 		QueryParams);
 	
+	TSet<AActor*> PulledThisUpdate;
+	TArray<AActor*> TargetsToPull;
+	
 	for (const FOverlapResult& Overlap : Overlaps)
 	{
 		AActor* Target = Overlap.GetActor();
 		if (!Target) continue;
-		
+
 		if (!Cast<IBlackoutPullable>(Target)) continue;
-		
-		if (IsTargetBlocked(Target)) continue;;
-		
+
+		if (PulledThisUpdate.Contains(Target)) continue;
+
+		if (IsTargetBlocked(Target)) continue;
+
+		PulledThisUpdate.Add(Target);
+		TargetsToPull.Add(Target);
+	}
+	
+	for (AActor* Target : TargetsToPull)
+	{
+		SetBeingPulledTag(Target, true);
+		PulledActors.Add(Target);
 		PullTarget(Target, UpdateInterval);
+	}
+	
+	for (auto It = PulledActors.CreateIterator(); It; ++It)
+	{
+		AActor* Prev = It->Get();
+		if (!Prev || !PulledThisUpdate.Contains(Prev))
+		{
+			if (Prev)
+			{
+				SetBeingPulledTag(Prev, false);
+			}
+			It.RemoveCurrent();
+		}
 	}
 }
 
@@ -109,10 +135,16 @@ void UBlackoutGA_Ravager_Gorenado::ApplyDamage()
 	UAbilitySystemComponent* OwnerASC = GetAbilitySystemComponentFromActorInfo();
 	if (!OwnerASC) return;
 	
+	TSet<AActor*> DamagedActors; 
 	for (const FOverlapResult& Overlap : Overlaps)
 	{
 		AActor* Target = Overlap.GetActor();
 		if (!Target) continue;
+		
+		if (!ShouldDamageTarget(Target)) continue;
+		
+		if (DamagedActors.Contains(Target)) continue;
+		DamagedActors.Add(Target);
 		
 		IBlackoutDamageable* Damageable = Cast<IBlackoutDamageable>(Target);
 		if (!Damageable) continue;
@@ -130,6 +162,7 @@ void UBlackoutGA_Ravager_Gorenado::ApplyDamage()
 			const float Damage = Settings.Damage * Settings.DamageTickInterval;
 			
 			SpecHandle.Data->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Damage, Damage);
+			SpecHandle.Data->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Stun, Settings.StunMagnitude);
 			Damageable->ReceiveDamageFromHitbox(SpecHandle, NAME_None);
 		}
 	}
@@ -182,9 +215,44 @@ void UBlackoutGA_Ravager_Gorenado::PullTarget(AActor* Target, float DeltaTime)
 	}
 }
 
+void UBlackoutGA_Ravager_Gorenado::SetBeingPulledTag(AActor* Target, bool bApply)
+{
+	if (!Target) return;
+
+	IAbilitySystemInterface* ASI = Cast<IAbilitySystemInterface>(Target);
+	if (!ASI) return;
+
+	UAbilitySystemComponent* TargetASC = ASI->GetAbilitySystemComponent();
+	if (!TargetASC) return;
+
+	if (bApply)
+	{
+		if (!TargetASC->HasMatchingGameplayTag(BlackoutGameplayTags::State_Pulled))
+		{
+			TargetASC->AddLooseGameplayTag(BlackoutGameplayTags::State_Pulled);
+		}
+	}
+	else
+	{
+		TargetASC->RemoveLooseGameplayTag(BlackoutGameplayTags::State_Pulled);
+	}
+}
+
+void UBlackoutGA_Ravager_Gorenado::ClearAllPulledTags()
+{
+	for (const TWeakObjectPtr<AActor>& WeakActor : PulledActors)
+	{
+		if (AActor* Target = WeakActor.Get())
+		{
+			SetBeingPulledTag(Target, false);
+		}
+	}
+	PulledActors.Empty();
+}
+
 void UBlackoutGA_Ravager_Gorenado::EndAbility(const FGameplayAbilitySpecHandle Handle,
-	const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo,
-	bool bReplicateEndAbility, bool bWasCancelled)
+                                              const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo,
+                                              bool bReplicateEndAbility, bool bWasCancelled)
 {
 	if (UWorld* World = GetWorld())
 	{
@@ -196,6 +264,8 @@ void UBlackoutGA_Ravager_Gorenado::EndAbility(const FGameplayAbilitySpecHandle H
 	{
 		OwnerASC->RemoveGameplayCue(BlackoutGameplayTags::GameplayCue_Ravager_Gorenado);
 	}
+	
+	ClearAllPulledTags();
 	
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
@@ -247,4 +317,7 @@ void UBlackoutGA_Ravager_Gorenado::OnPullEndNotify(FGameplayEventData Payload)
 	{
 		OwnerASC->RemoveGameplayCue(BlackoutGameplayTags::GameplayCue_Ravager_Gorenado);
 	}
+	
+	ClearAllPulledTags();
+	PulledActors.Empty();
 }

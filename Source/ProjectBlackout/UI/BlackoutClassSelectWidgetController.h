@@ -1,5 +1,10 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 최승현: 클래스 선택 데이터 제공·3D 프리뷰·싱글 모드 연동 컨트롤러 구현
+//  - 김민영: 산탄 무기 펠릿 수 조회 기능 추가
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -68,6 +73,7 @@ public:
 private:
 	FBlackoutClassSelectDisplayData BuildDisplayData(int32 Index) const;
 	FBlackoutFirearmStat LookupFirearmStat(TSubclassOf<ABOFirearm> WeaponClass) const;
+	bool LookupShotgunPelletCount(TSubclassOf<ABOFirearm> WeaponClass, int32& OutPelletCount) const;
 	
 	/** SubLevel 안 Manager 찾기 , 현재 인덱스 캐릭터 Pawn 갱신 첫 호출 시 GetAllActorsOfClass 로 lookup, 이후 캐싱 활용 */
 	void UpdatePreviewPawn();

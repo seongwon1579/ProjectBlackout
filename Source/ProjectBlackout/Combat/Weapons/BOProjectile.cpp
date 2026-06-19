@@ -6,6 +6,7 @@
 #include "GameplayCueManager.h"
 #include "Characters/BlackoutPlayerCharacter.h"
 #include "Combat/Components/BlackoutHitboxComponent.h"
+#include "Framework/BlackoutPlayerState.h"
 #include "Combat/BlackoutWeaponCueLibrary.h"
 #include "Components/SceneComponent.h"
 #include "Components/SphereComponent.h"
@@ -51,7 +52,8 @@ void ABOProjectile::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 void ABOProjectile::OnSpawnFromPool_Implementation()
 {
 	bReturnedToPool = false;
-	
+	bAlreadyCountedHit = false;
+
 	// 풀 재사용 시 LifeSpan 타이머 재무장. InitialLifeSpan(BP 기본값)이 0이면 자동 정리 없음(히트로만 반환).
 	SetLifeSpan(InitialLifeSpan);
 	ApplyActiveState(true);
@@ -266,13 +268,29 @@ void ABOProjectile::OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor,
 
 	if (HasAuthority() && DamageSpec.IsValid())
 	{
+		bool bHitEnemy = false;
 		if (UBlackoutHitboxComponent* HitboxComponent = Cast<UBlackoutHitboxComponent>(OtherComp))
 		{
 			HitboxComponent->ReceiveDamageSpec(DamageSpec);
+			bHitEnemy = true;
 		}
 		else if (IBlackoutDamageable* Damageable = Cast<IBlackoutDamageable>(OtherActor))
 		{
 			Damageable->ReceiveDamageFromHitbox(DamageSpec, Hit.BoneName);
+			bHitEnemy = true;
+		}
+
+		// 매치 통계: 적 명중 시 발사체당 1회만(이중 OnHit 방어). 발포는 GA_FireWeapon에서.
+		if (bHitEnemy && !bAlreadyCountedHit)
+		{
+			bAlreadyCountedHit = true;
+			if (const APawn* InstigatorPawn = GetInstigator())
+			{
+				if (ABlackoutPlayerState* InstigatorPS = InstigatorPawn->GetPlayerState<ABlackoutPlayerState>())
+				{
+					InstigatorPS->RecordShotsHit(1);
+				}
+			}
 		}
 	}
 

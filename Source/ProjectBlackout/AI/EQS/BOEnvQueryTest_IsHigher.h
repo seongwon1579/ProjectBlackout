@@ -1,5 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: 후보 지점의 고도를 기준으로 점수를 매기는 EQS 테스트
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

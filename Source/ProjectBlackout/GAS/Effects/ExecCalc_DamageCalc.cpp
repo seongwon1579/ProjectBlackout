@@ -1,5 +1,6 @@
 #include "ExecCalc_DamageCalc.h"
 #include "Attributes/BlackoutBaseAttributeSet.h"
+#include "Attributes/BlackoutPlayerAttributeSet.h"
 #include "BlackoutGameplayTags.h"
 #include "BlackoutLog.h"
 
@@ -38,7 +39,8 @@ void UExecCalc_DamageCalc::Execute_Implementation(
 
 	// 1. SetByCaller 기본 데미지
 	float BaseDamage = Spec.GetSetByCallerMagnitude(BlackoutGameplayTags::Data_Damage, false, 0.f);
-	if (BaseDamage <= 0.f)
+	const float BaseStun = Spec.GetSetByCallerMagnitude(BlackoutGameplayTags::Data_Stun, false, 0.f);
+	if (BaseDamage <= 0.f && BaseStun <= 0.f)
 	{
 		return;
 	}
@@ -58,11 +60,22 @@ void UExecCalc_DamageCalc::Execute_Implementation(
 
 	// 4. 최종 피해 출력
 	const float FinalDamage = BaseDamage * PartMultiplier * (1.f - DamageReduction);
-	BO_LOG_GAS(Verbose, "DamageCalc: Base=%.1f Part=%.2f Reduction=%.2f Final=%.1f",
-		BaseDamage, PartMultiplier, DamageReduction, FinalDamage);
+	BO_LOG_GAS(Verbose, "DamageCalc: Base=%.1f Part=%.2f Reduction=%.2f Final=%.1f Stun=%.1f",
+		BaseDamage, PartMultiplier, DamageReduction, FinalDamage, BaseStun);
 
-	OutExecutionOutput.AddOutputModifier(FGameplayModifierEvaluatedData(
-		UBlackoutBaseAttributeSet::GetHealthAttribute(),
-		EGameplayModOp::Additive,
-		-FinalDamage));
+	if (FinalDamage > 0.0f)
+	{
+		OutExecutionOutput.AddOutputModifier(FGameplayModifierEvaluatedData(
+			UBlackoutBaseAttributeSet::GetHealthAttribute(),
+			EGameplayModOp::Additive,
+			-FinalDamage));
+	}
+
+	if (BaseStun > 0.0f)
+	{
+		OutExecutionOutput.AddOutputModifier(FGameplayModifierEvaluatedData(
+			UBlackoutPlayerAttributeSet::GetStunGaugeAttribute(),
+			EGameplayModOp::Additive,
+			BaseStun));
+	}
 }

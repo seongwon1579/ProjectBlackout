@@ -1,3 +1,7 @@
+// ─── 구현 내역 ───────────────────────
+//  - 최승현: 로비 GameMode — 전원 Ready 집계 후 보스맵 ServerTravel·복귀 시 선택 클래스 spawn·로비 도착 회복/ShelterPrep
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -29,6 +33,10 @@ protected:
 	virtual void OnAllPlayersReady() override;
 
 	virtual void OnSeamlessArrival(APlayerController* PC) override;
+
+	// 빈 서버(로비) 복귀 — 매칭 서버에 finish/idle 보고(안 하면 status='playing' 좀비) + 로비 reload.
+	virtual void HandleEmptyServerReset() override;
+
 	UPROPERTY(EditDefaultsOnly, Category = "Blackout|Lobby")
 	TArray<FSoftObjectPath> BossStageMapPaths;
 	

@@ -27,7 +27,7 @@ classDiagram
         +ReceiveDamageFromHitbox(SpecHandle, BoneName) void
     }
 
-    UGA_FireWeapon ..> UBlackoutHitboxComponent : LineTrace Hit.GetComponent()
+    UBlackoutGA_FireWeapon ..> UBlackoutHitboxComponent : LineTrace Hit.GetComponent()
     ABOProjectile ..> UBlackoutHitboxComponent : OnHit.GetComponent()
 ```
 

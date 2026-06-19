@@ -2,13 +2,16 @@
 
 #include "AbilitySystemComponent.h"
 #include "BlackoutAbilitySystemComponent.h"
+#include "BlackoutEnemyCharacter.h"
 #include "BlackoutLog.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Core/BlackoutCollisionChannels.h"
 #include "Framework/BlackoutPlayerController.h"
+#include "Framework/BlackoutPlayerState.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
 #include "GAS/Attributes/BlackoutBaseAttributeSet.h"
+#include "GAS/Attributes/BlackoutPlayerAttributeSet.h"
 #include "GAS/Effects/ExecCalc_CombatReward.h"
 #include "GameFramework/Controller.h"
 #include "GameFramework/Pawn.h"
@@ -251,6 +254,8 @@ bool ABlackoutCharacterBase::ApplyIncomingDamageSpec(const FGameplayEffectSpecHa
 
 	const float HealthBefore =
 		AbilitySystemComponent->GetNumericAttribute(UBlackoutBaseAttributeSet::GetHealthAttribute());
+	const float StunBefore =
+		AbilitySystemComponent->GetNumericAttribute(UBlackoutPlayerAttributeSet::GetStunGaugeAttribute());
 	const FGameplayTag HitPartTag = GetHitPartTag(BoneName);
 
 	// 약점 치명타 처치 보상은 실제 사망 확정 직후 같은 Spec으로 판정되므로, 데미지 적용 전에 태그를 보강합니다.
@@ -263,21 +268,29 @@ bool ABlackoutCharacterBase::ApplyIncomingDamageSpec(const FGameplayEffectSpecHa
 
 	const float HealthAfter =
 		AbilitySystemComponent->GetNumericAttribute(UBlackoutBaseAttributeSet::GetHealthAttribute());
+	const float StunAfter =
+		AbilitySystemComponent->GetNumericAttribute(UBlackoutPlayerAttributeSet::GetStunGaugeAttribute());
 
 	const float AppliedDamage = FMath::Max(0.f, HealthBefore - HealthAfter);
-	if (AppliedDamage > 0.f && !ShouldSuppressAuthoritativeDamageNumber(SpecHandle))
+	ABlackoutPlayerController* SourcePC =
+		AppliedDamage > 0.f ? ResolveDamageNumberOwner(SpecHandle) : nullptr;
+	ABlackoutPlayerState* SourcePS =
+		SourcePC ? SourcePC->GetPlayerState<ABlackoutPlayerState>() : nullptr;
+	const bool bPlayerDamagedEnemy =
+			SourcePS != nullptr && Cast<ABlackoutEnemyCharacter>(this) != nullptr;
+	if (bPlayerDamagedEnemy)
 	{
-		if (ABlackoutPlayerController* SourcePlayerController = ResolveDamageNumberOwner(SpecHandle))
-		{
-			const bool bIsCritical = IsCriticalDamageSpec(SpecHandle, HitPartTag);
-			const FVector DamageNumberWorldLocation = ResolveDamageNumberWorldLocation(this, BoneName);
+		SourcePS->AddDamageDealt(AppliedDamage);
+	}
 
-			// 실제 적용된 데미지만 서버에서 계산해 사격한 클라 HUD로 전달합니다.
-			SourcePlayerController->Client_ShowDamageNumberAtLocation(
-				AppliedDamage,
-				DamageNumberWorldLocation,
-				bIsCritical);
-		}
+	if (SourcePC && !ShouldSuppressAuthoritativeDamageNumber(SpecHandle))
+	{
+		const bool bIsCritical = IsCriticalDamageSpec(SpecHandle, HitPartTag);
+		const FVector DamageNumberWorldLocation = ResolveDamageNumberWorldLocation(this, BoneName);
+
+		// 실제 적용된 데미지만 서버에서 계산해 사격한 클라 HUD로 전달합니다.
+		SourcePC->Client_ShowDamageNumberAtLocation(
+			AppliedDamage, DamageNumberWorldLocation, bIsCritical);
 	}
 
 	if (HealthBefore > 0.f && HealthAfter <= 0.f)
@@ -288,16 +301,23 @@ bool ABlackoutCharacterBase::ApplyIncomingDamageSpec(const FGameplayEffectSpecHa
 			return true;
 		}
 
-		// 치명 피해 확정 직후, State.Dead 부여와 풀 반환 사이드 이펙트가 실행되기 전에 보상 GE를 먼저 적용합니다.
+		// 매치 통계: 적/보스 처치 → 킬 +1
+		if (bPlayerDamagedEnemy)
+		{
+			const bool bMeleeKill =
+				SpecHandle.Data->GetDynamicAssetTags().HasTagExact(BlackoutGameplayTags::Kill_Melee);
+			SourcePS->RecordKill(bMeleeKill);
+		}
+		
 		UExecCalc_CombatReward::ApplyConfiguredRewardEffect(SpecHandle, AbilitySystemComponent);
 		OnDeath();
 		return true;
 	}
 
-	if (HealthAfter < HealthBefore)
+	if (HealthAfter < HealthBefore || StunAfter > StunBefore)
 	{
 		const FVector DamageSourceLocation = ResolveDamageSourceWorldLocation(SpecHandle, this);
-		OnHitReact(AppliedDamage, DamageSourceLocation);
+		HandlePostDamageReaction(AppliedDamage, StunBefore, StunAfter, DamageSourceLocation);
 		return true;
 	}
 
@@ -359,6 +379,21 @@ void ABlackoutCharacterBase::OnHitReact(float AppliedDamage, const FVector& Dama
 {
 	(void)AppliedDamage;
 	(void)DamageSourceLocation;
+}
+
+void ABlackoutCharacterBase::HandlePostDamageReaction(
+	float AppliedDamage,
+	float StunBefore,
+	float StunAfter,
+	const FVector& DamageSourceLocation)
+{
+	(void)StunBefore;
+	(void)StunAfter;
+
+	if (AppliedDamage > 0.0f)
+	{
+		OnHitReact(AppliedDamage, DamageSourceLocation);
+	}
 }
 
 void ABlackoutCharacterBase::OnStun()

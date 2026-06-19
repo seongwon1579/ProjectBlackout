@@ -1,3 +1,7 @@
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: StateTree 컴포넌트를 보유하고 전투 시작 시 AI를 구동하는 컨트롤러 베이스
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -17,11 +21,14 @@ class PROJECTBLACKOUT_API ABlackoutAIController : public AAIController
 
 public:
 	ABlackoutAIController(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+	
+	UFUNCTION(BlueprintCallable, Category = "Blackout|Combat")
+	virtual void StartCombat() {}
 
 protected:
-	virtual void OnPossess(APawn* InPawn) override;
-	virtual void OnUnPossess() override;
-
+	// virtual void OnPossess(APawn* InPawn) override;
+	// virtual void OnUnPossess() override;
+	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|AI")
 	TObjectPtr<UStateTreeAIComponent> StateTreeComp;
 };

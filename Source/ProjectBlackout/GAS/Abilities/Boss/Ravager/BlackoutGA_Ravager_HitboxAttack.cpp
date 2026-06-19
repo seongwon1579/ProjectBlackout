@@ -27,7 +27,7 @@ void UBlackoutGA_Ravager_HitboxAttack::SetupEventListeners()
 		this,
 		BlackoutGameplayTags::Event_Enemy_Attack_OnCollision,
 		nullptr,
-		true);
+		false);
 
 	WaitCollisionOnEvent->EventReceived.AddDynamic(this, &UBlackoutGA_Ravager_HitboxAttack::HandleHitboxEnable);
 	WaitCollisionOnEvent->ReadyForActivation();
@@ -36,7 +36,7 @@ void UBlackoutGA_Ravager_HitboxAttack::SetupEventListeners()
 		this,
 		BlackoutGameplayTags::Event_Enemy_Attack_OffCollision,
 		nullptr,
-		true);
+		false);
 	WaitCollisionOffEvent->EventReceived.AddDynamic(this, &UBlackoutGA_Ravager_HitboxAttack::HandleHitboxDisable);
 	WaitCollisionOffEvent->ReadyForActivation();
 }
@@ -129,6 +129,8 @@ void UBlackoutGA_Ravager_HitboxAttack::ApplyHitboxDamage(const FHitResult& HitRe
 
 	AActor* HitActor = HitResult.GetActor();
 	if (!HitActor) return;
+	
+	if (!ShouldDamageTarget(HitActor)) return;
 
 	if (DamagedActorsThisWindow.Contains(HitActor)) return;
 
@@ -145,6 +147,7 @@ void UBlackoutGA_Ravager_HitboxAttack::ApplyHitboxDamage(const FHitResult& HitRe
 	if (SpecHandle.IsValid())
 	{
 		SpecHandle.Data->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Damage, GetDamageMagnitude());
+		SpecHandle.Data->SetSetByCallerMagnitude(BlackoutGameplayTags::Data_Stun, GetStunMagnitude());
 		Damageable->ReceiveDamageFromHitbox(SpecHandle, HitResult.BoneName);
 		
 		DamagedActorsThisWindow.Add(HitActor);

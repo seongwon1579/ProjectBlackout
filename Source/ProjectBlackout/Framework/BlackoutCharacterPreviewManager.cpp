@@ -6,8 +6,8 @@
 #include "Kismet/GameplayStatics.h"
 #include "Engine/TextureRenderTarget2D.h"
 #include "Engine/SceneCapture2D.h"
+#include "Camera/CameraComponent.h"
 #include "Components/SceneCaptureComponent2D.h"
-#include "TimerManager.h"
 
 
 void ABlackoutCharacterPreviewManager::BeginPlay()
@@ -27,6 +27,8 @@ void ABlackoutCharacterPreviewManager::BeginPlay()
 	{
 		CaptureComp->TextureTarget = DynamicRT;
 		CaptureComp->PrimitiveRenderMode = ESceneCapturePrimitiveRenderMode::PRM_UseShowOnlyList;
+
+		SetPreviewCaptureActive(false);
 	}
 	BO_LOG_CORE(Log, "Manager BeginPlay: DynamicRT created (%dx%d), CaptureComp=%s",
 		RTSizeX, RTSizeY, CaptureComp ? TEXT("OK") : TEXT("NULL"));
@@ -41,18 +43,23 @@ ABlackoutCharacterPreviewManager::ABlackoutCharacterPreviewManager()
 	
 	SpawnRoot = CreateDefaultSubobject<USceneComponent>(TEXT("SpawnRoot"));
 	RootComponent = SpawnRoot;
+
+	ViewCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("ViewCamera"));
+	ViewCamera->SetupAttachment(SpawnRoot);
+	ViewCamera->SetRelativeLocation(FVector(-300.f, 0.f, 120.f));
+	ViewCamera->SetRelativeRotation(FRotator(-10.f, 0.f, 0.f));
 }
 
-void ABlackoutCharacterPreviewManager::SetPreviewCharacter(TSubclassOf<APawn> PawnClass)
+void ABlackoutCharacterPreviewManager::SetPreviewCharacter(TSubclassOf<AActor> PreviewClass)
 {
-	if (CurrentPawnClass == PawnClass)
+	if (CurrentPreviewClass == PreviewClass)
 	{
 		return; // 같은 클래스는 재스폰 X
 	}
 
 	ClearPreview();
 
-	if (!PawnClass)
+	if (!PreviewClass)
 	{
 		return;
 	}
@@ -64,43 +71,39 @@ void ABlackoutCharacterPreviewManager::SetPreviewCharacter(TSubclassOf<APawn> Pa
 	SpawnParams.Owner = this;
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-	CurrentPawn = GetWorld()->SpawnActor<APawn>(PawnClass, SpawnTransform, SpawnParams);
-	if (CurrentPawn)
+	CurrentPreviewActor  = GetWorld()->SpawnActor<AActor>(PreviewClass, SpawnTransform, SpawnParams);
+	if (CurrentPreviewActor)
 	{
 		// Preview Pawn 은 각 client local — server 의 Pawn 이 다른 client 로 replicate 되면 stack
-		CurrentPawn->SetReplicates(false);
+		CurrentPreviewActor->SetReplicates(false);
 
 		if (CaptureComp)
 		{
 			CaptureComp->ShowOnlyActors.Reset();
-			CaptureComp->ShowOnlyActors.Add(CurrentPawn);
+			CaptureComp->ShowOnlyActors.Add(CurrentPreviewActor);
 
 			TArray<AActor*> AttachedActors;
-			CurrentPawn->GetAttachedActors(AttachedActors);
+			CurrentPreviewActor->GetAttachedActors(AttachedActors);
 			for (AActor* Attached : AttachedActors)
 			{
 				CaptureComp->ShowOnlyActors.Add(Attached);
 			}
-
-			// client 에서 every-frame 캡처가 안 도는 정황 → 스폰 직후 명시적 1회 캡처(포즈 잡힌 뒤).
-			GetWorldTimerManager().SetTimer(PreviewCaptureTimerHandle, this,
-				&ABlackoutCharacterPreviewManager::CaptureCurrentPreview, 0.05f, false);
 		}
 	}
-	CurrentPawnClass = PawnClass;
+	CurrentPreviewClass = PreviewClass;
 
-	BO_LOG_CORE(Log, "CharacterPreview spawn: %s @ %s", *GetNameSafe(PawnClass.Get()), *SpawnTransform.GetLocation().ToString());
+	BO_LOG_CORE(Log, "CharacterPreview spawn: %s @ %s", *GetNameSafe(PreviewClass.Get()), *SpawnTransform.GetLocation().ToString());
 }
 
 void ABlackoutCharacterPreviewManager::ClearPreview()
 {
-	if (CurrentPawn)
+	if (CurrentPreviewActor)
 	{
-		CurrentPawn->Destroy();
-		CurrentPawn = nullptr;
+		CurrentPreviewActor->Destroy();
+		CurrentPreviewActor = nullptr;
 	}
 
-	CurrentPawnClass = nullptr;
+	CurrentPreviewClass = nullptr;
 
 	if (CaptureComp)
 	{
@@ -108,14 +111,25 @@ void ABlackoutCharacterPreviewManager::ClearPreview()
 	}
 }
 
-void ABlackoutCharacterPreviewManager::CaptureCurrentPreview()
+void ABlackoutCharacterPreviewManager::SetPreviewCaptureActive(bool bActive)
 {
-	if (CaptureComp)
+	if (!CaptureComp)
 	{
-		CaptureComp->CaptureScene();
+		return;
+	}
+
+	// UI 가 닫힌 동안에는 렌더타깃 갱신 자체를 멈추고, 열렸을 때만 애니메이션을 매 프레임 캡처한다.
+	CaptureComp->bCaptureEveryFrame = bActive;
+	CaptureComp->bCaptureOnMovement = false;
+	CaptureComp->SetVisibility(bActive);
+	CaptureComp->SetComponentTickEnabled(bActive);
+
+	if (bActive)
+	{
+		CaptureComp->Activate(true);
+	}
+	else
+	{
+		CaptureComp->Deactivate();
 	}
 }
-
-
-
-

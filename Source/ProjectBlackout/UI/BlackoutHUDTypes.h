@@ -1,3 +1,8 @@
+// ─── 구현 내역 ───────────────────────
+//  - 김민영: 착탄·궤적·탄퍼짐 인디케이터 및 다운 상태 HUD 데이터 타입 정의
+//  - 허혁: 상호작용 프롬프트 데이터 타입 정의
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -45,8 +50,6 @@ enum class EBlackoutInteractionPromptState : uint8
 	Busy,
 	InProgress
 };
-
-using EBlackoutRevivePromptState = EBlackoutInteractionPromptState;
 
 USTRUCT(BlueprintType)
 struct FBlackoutTrajectoryPointData
@@ -143,8 +146,6 @@ struct FBlackoutInteractionPromptData
 	UPROPERTY(BlueprintReadOnly, Category = "Blackout|HUD")
 	FText StatusText;
 };
-
-using FBlackoutRevivePromptData = FBlackoutInteractionPromptData;
 
 /**
  * 다운 상태 위젯이 화면에 표시할 사망/부활 타이머 데이터입니다.

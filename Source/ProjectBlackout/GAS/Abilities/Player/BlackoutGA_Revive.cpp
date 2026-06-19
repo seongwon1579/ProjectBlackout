@@ -7,6 +7,7 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Combat/Components/BlackoutCombatComponent.h"
 #include "Core/BlackoutLog.h"
+#include "Framework/BlackoutPlayerState.h"
 #include "EngineUtils.h"
 #include "GAS/Attributes/BlackoutBaseAttributeSet.h"
 #include "GAS/Attributes/BlackoutPlayerAttributeSet.h"
@@ -400,6 +401,12 @@ void UBlackoutGA_Revive::FinishRevive()
 			-ReviveRelicChargeCost);
 		CachedTarget->Server_ReviveFromDowned(RevivedHealth);
 		ExecuteReviveCue(TargetAbilitySystemComponent, RevivedHealth);
+
+		// 매치 통계: 부활 시전자(reviver) 부활 +1. 모든 재검증 통과한 실제 부활만.
+		if (ABlackoutPlayerState* ReviverPS = Cast<ABlackoutPlayerState>(ReviverAbilitySystemComponent->GetOwner()))
+		{
+			ReviverPS->RecordRevive();
+		}
 
 		BO_LOG_GAS(Log,
 			"GA_Revive succeeded: Reviver=%s Target=%s RevivedHealth=%.1f RemainingRelics=%.0f",

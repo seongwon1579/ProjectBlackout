@@ -1,3 +1,9 @@
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: 보스 근접 공격 스윕 태스크 — 매 틱 시작~끝 소켓 구간을 구체 스윕해 무기 길이 전체 판정, HitActors로 중복 피격 방지
+//  - 최승현: 소켓 검색 대상 메시를 지정하는 MeshOverride 일반화(임의 무기 메시 지원)
+//  - 김민영: 보스 디버그 출력 토글 연동
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -49,6 +55,7 @@ private:
 
 	TArray<TWeakObjectPtr<AActor>> HitActors;
 
+	bool bEnableBossDebug = false;
 	bool bFirstTick = true;
 	FVector PrevStartLoc = FVector::ZeroVector;
 	FVector PrevEndLoc   = FVector::ZeroVector;

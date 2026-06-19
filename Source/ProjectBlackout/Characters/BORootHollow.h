@@ -1,3 +1,8 @@
+// ─── 구현 내역 ───────────────────────
+//  - 김민영: Root Hollow 일반 미니언 클래스 — 순수 StateTree 기반 추격·돌진 행동
+//  - 조성원: 미니언 모션 워핑 컴포넌트 추가
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -18,14 +23,7 @@ class PROJECTBLACKOUT_API ABORootHollow : public ABlackoutMinionCharacter
 
 public:
 	ABORootHollow();
-
-	UFUNCTION(BlueprintCallable, Category = "Blackout|Minion")
-	void PerformCharge();
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blackout|MotionWarping")
 	TObjectPtr<UMotionWarpingComponent> MotionWarpingComponent;
-
-protected:
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|AI")
-	TObjectPtr<UStateTree> ST_RootHollow;
 };

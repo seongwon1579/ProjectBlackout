@@ -69,7 +69,7 @@ classDiagram
 6. **체크포인트 + 전멸 복귀** — `ABlackoutCheckpoint` + `HandlePartyWipe`
 7. **매치 종료 진입점** — `EndMatch(Reason)`
 
-## 후속 구현 (예정)
+## 운영 검증 항목
 
 | 항목 | 블로커 / 트리거 |
 |---|---|

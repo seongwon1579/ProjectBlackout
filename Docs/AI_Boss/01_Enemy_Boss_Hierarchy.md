@@ -1,28 +1,35 @@
 # AI/Boss — 01. 적 / 보스 캐릭터 상속 계층
 
-> TDD v5 §2, §6 참조. Foundation의 `ABlackoutEnemyCharacter` 스켈레톤을 AI/Boss 에픽에서 확장.
+> TDD v5 §2, §6 참조. Foundation의 `ABlackoutEnemyCharacter` 계층을 AI/Boss 에픽에서 확장.
 
 ```mermaid
 classDiagram
     direction TB
 
     ABlackoutCharacterBase <|-- ABlackoutEnemyCharacter
-    ABlackoutEnemyCharacter <|-- ABORootHollow
-    ABlackoutEnemyCharacter <|-- ABORootWraith
+    ABlackoutEnemyCharacter <|-- ABlackoutMinionCharacter
+    ABlackoutMinionCharacter <|-- ABORootHollow
+    ABlackoutMinionCharacter <|-- ABORootWraith
     ABlackoutEnemyCharacter <|-- ABlackoutBossCharacter
     ABlackoutBossCharacter <|-- ABOShrewdBoss
     ABlackoutBossCharacter <|-- ABORavagerBoss
 
-    ABlackoutEnemyCharacter ..|> IBlackoutPoolableInterface : implements
+    ABlackoutMinionCharacter ..|> IBlackoutPoolableInterface : implements
 
     class ABlackoutEnemyCharacter {
         <<Foundation 확장>>
         #UBlackoutAbilitySystemComponent* ASC
+    }
+
+    class ABlackoutMinionCharacter {
+        <<풀링 대상 미니언 베이스>>
         #UBlackoutHitboxComponent* Hitbox
         #UBOMinionData* MinionData
+        #UBODissolveComponent* DissolveComponent
+        #UBOMinionHealthBarComponent* HealthBarComponent
         +OnSpawnFromPool() void
         +OnReturnToPool() void
-        #InitFromMinionData() void
+        #InitializeFromMinionData() void
     }
 
     class ABORootHollow {
@@ -45,46 +52,47 @@ classDiagram
 
     class ABlackoutBossCharacter {
         <<Abstract — 보스 베이스>>
-        #UBOBossData* BossData
-        #EBossPhase CurrentPhase
-        #int32 PhaseIndex
-        +OnDamageReceived(FGameplayEffectSpec) void
-        +EvaluatePhaseTransition() void
-        +OnPhaseChanged(EBossPhase) virtual void
-        #BroadcastOnPhaseChanged() void
+        +UMotionWarpingComponent* MotionWarpingComponent
+        +FBlackoutBossDefeatedSignature OnDefeated
+        +SetData() virtual void
+        +GetChaseRanges(FGameplayTag) virtual FBossChaseRanges
+        #OnDeath() override void
+        #OnDamageReceived(FOnAttributeChangeData) virtual void
+        #GetBossDisplayName() virtual FText
+        #TryBindToHUD() void
     }
 
     class ABOShrewdBoss {
-        <<중간 보스 — StateTree 2-Phase Cycling + 하위 BT>>
-        -UStateTree* ST_Shrewd_Phases
-        -bool bIsOnPlatform
-        -bool bEnableSeedMechanic
-        +EnterPlatformPhase() void
-        +EnterGroundPhase() void
-        #OnPhaseChanged(EBossPhase) override void
+        <<중간 보스 — 순수 StateTree>>
+        -UStateTree* ST_Shrewd
+        -UBlackoutAggroComponent* AggroComponent
+        -UUBOShrewdData* ShrewdData
+        -TArray~AActor~ TeleportPoints
+        +GetRandomTeleportTransform(FTransform&) bool
+        #OnDamageReceived(FOnAttributeChangeData) override void
     }
 
     class ABORavagerBoss {
-        <<메인 보스 3-Phase — StateTree + 하위 BT>>
-        -UStateTree* ST_Ravager_Phases
-        -float AnimPlayRateMultiplier
-        -int32 SummonedMinionCount
-        +EnterPhaseA() void
-        +EnterPhaseB() void
-        +EnterPhaseC() void
-        +SpawnMinionWave(int32 PhaseIdx) void
-        #OnPhaseChanged(EBossPhase) override void
+        <<메인 보스 3-Phase — 순수 BehaviorTree>>
+        -TMap~FGameplayTag,UBORavagerPatternData~ BossPatternData
+        -UBORavagerStatData* BossStatData
+        +GetPatternData(FGameplayTag) UBORavagerPatternData*
+        +DetermineTargetPhase(float HealthRatio) EBOBossPhase
+        +GetChaseRanges(FGameplayTag) FBossChaseRanges
+        #OnDamageReceived(FOnAttributeChangeData) override void
     }
 
     ABlackoutBossCharacter o-- UBOBossData
-    ABlackoutEnemyCharacter o-- UBOMinionData
+    ABlackoutMinionCharacter o-- UBOMinionData
 ```
 
 ## 구현 노트
 
-- **`ABlackoutBossCharacter`**: 보스는 풀링 대상이 아니므로 `OnReturnToPool`을 오버라이드하여 풀 반환 대신 `Destroy()` 처리. **어그로(타겟 선정)는 별도 컴포넌트를 두지 않고 `ABlackoutBossAIController`의 StateTree Evaluator(`FBSTEval_AggroTarget`)가 전담**. Shrewd / Ravager **동일 규칙**(GDD §6.0) 적용 — 03 다이어그램 참조.
-- **페이즈 전환**: `OnDamageReceived`에서 현재 Health/MaxHealth 비율을 `BossData->PhaseHealthCutlines`와 비교 → 경계 돌파 시 `EvaluatePhaseTransition` → `OnPhaseChanged` 오버라이드에서 각 보스 고유 연출/GA 활성화.
-- **`ABOShrewdBoss`**: `bIsOnPlatform` 리플리케이션 → StateTree Evaluator가 읽어 발판(원거리)/지면(근접) 2-Phase Cycling 트리거. **씨앗 기믹은 GDD §5에서 "개발 보류. 제거될 수 있음"으로 명시됨** — `bEnableSeedMechanic` 데이터 플래그(기본 `false`)로 런타임 게이팅, 대응 GA(`GA_Shrewd_SeedHatch`) 및 BT Task(`UBTTask_SeedDrop`) 스켈레톤은 유지하되 페이즈 전이 경로에서 분리.
-- **`ABORootWraith`**: 원거리 상태에서는 2연발 화살 → 점멸, **근접(`MeleeDetectRadius`) 감지 시 활대를 휘둘러 강하게 밀쳐내는 `BowShove`**(거리 재확보) 후 다시 원거리로 복귀. 기존 상태 전이가 Kite → Fire → Teleport 순환에서 **Kite → Fire → (Teleport | BowShove→Kite)** 로 확장됨.
-- **`ABORavagerBoss`**: `AnimPlayRateMultiplier`는 Phase C 진입 시 1.0 → 1.3 승수 적용해 선후딜 감소 (TDD §6). 미니언 스폰은 `UBlackoutPoolSubsystem`을 통해 수행. `SpawnMinionWave(PhaseIdx)`는 Phase A는 일반 미니언, Phase B 이상은 일반+엘리트(Root Wraith) 혼합으로 분기.
+- **`ABlackoutMinionCharacter`**: 현재 풀링 계약을 구현하는 적 베이스입니다. `ABlackoutEnemyCharacter`는 ASC 공통 소유자이고, `ABORootHollow` / `ABORootWraith`가 `ABlackoutMinionCharacter`를 통해 풀링 생명주기를 공유합니다.
+- **`ABlackoutBossCharacter`**: 보스는 풀링 대상이 아니며 `ABlackoutEnemyCharacter`를 직접 상속합니다. Motion Warping, 사망 델리게이트(`OnDefeated`), 데이터 주입(`SetData`), 추격 거리(`GetChaseRanges`), 피격 훅(`OnDamageReceived`)을 공통 제공합니다. **페이즈 상태 자체는 베이스에 두지 않고**, 페이즈 결정은 Ravager가, 페이즈 관리는 AI 컨트롤러의 C++ 모듈이 담당합니다.
+- **어그로(타겟 선정)**: `ABlackoutBossAIController`가 `Instanced`로 소유하는 `UBlackoutAggroEvaluator`가 가중치 점수제로 타겟을 평가하고 `OnAggroTargetChanged`로 전파합니다. `ABOShrewdBoss`에는 StateTree Evaluator(`FBSTEval_ShrewdAggroTarget`)가 읽는 `UBlackoutAggroComponent` 경로가 공존합니다(02·03 참조).
+- **페이즈 결정/전환(Ravager 전용)**: `ABORavagerBoss::OnDamageReceived`에서 Health/MaxHealth 비율을 `DetermineTargetPhase`로 판정(≤0.3→Phase3, ≤0.6→Phase2, else Phase1) → `ABlackoutRavagerAIController::RequestPhaseChange` → `UBlackoutPhaseEvaluator`(`Ability.PhaseLock` 게이팅) → `UBlackoutBossBTRunner`가 페이즈 BehaviorTree 교체. Shrewd는 페이즈가 없습니다.
+- **`ABOShrewdBoss`**: `UUBOShrewdData`와 Shrewd 전용 GA(`UBlackoutGA_Shrewd_*`, `UBOGA_Shrewd_FireStraightArrow`), `TeleportPoints`/`GetRandomTeleportTransform`로 원거리·텔레포트 패턴을 **순수 StateTree**로 구성합니다.
+- **`ABORootWraith`**: 원거리 상태에서는 2연발 화살 → 점멸, **근접(`MeleeDetectRadius`) 감지 시 활대를 휘둘러 강하게 밀쳐내는 `BowShove`**(거리 재확보) 후 다시 원거리로 복귀. 상태 전이는 **Kite → Fire → (Teleport | BowShove→Kite)**.
+- **`ABORavagerBoss`**: `UBORavagerStatData`(`BossStatData`)와 패턴별 `UBORavagerPatternData` 맵(`BossPatternData`)을 참조하고, HealthRatio 기반으로 `EBOBossPhase`를 결정합니다. 미니언 스폰은 `UBlackoutGA_Ravager_SummonMinion`과 풀 서브시스템 경로에서 처리합니다.
 - **공통 어트리뷰트**: 보스도 `UBlackoutBaseAttributeSet`(Foundation) 사용. 추가 어트리뷰트 불필요.

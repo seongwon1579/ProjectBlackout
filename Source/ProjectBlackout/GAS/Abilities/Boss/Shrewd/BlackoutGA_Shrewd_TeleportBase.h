@@ -1,5 +1,10 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: 텔레포트 베이스 — 특정 지점/EQS 결정 지점 텔레포트, Vanish/Appear 노티파이 연동
+//  - 최승현: 텔포 위치/높이 변동, 연속 텔포 방지 쿨다운, 텔포 중 이동 잠금(State.MovementLocked)
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"

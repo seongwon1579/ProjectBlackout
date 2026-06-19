@@ -10,12 +10,15 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(State_Invulnerable,  "State.Invulnerable");
 	UE_DEFINE_GAMEPLAY_TAG(State_MovementLocked,"State.MovementLocked");
 	UE_DEFINE_GAMEPLAY_TAG(State_Locked,        "State.Locked");
+	UE_DEFINE_GAMEPLAY_TAG(State_Stunned,       "State.Stunned");
+	UE_DEFINE_GAMEPLAY_TAG(State_StunBroken,    "State.StunBroken");
 	UE_DEFINE_GAMEPLAY_TAG(State_Aiming,        "State.Aiming");
 	UE_DEFINE_GAMEPLAY_TAG(State_Sprinting,     "State.Sprinting");
 	UE_DEFINE_GAMEPLAY_TAG(State_Attacking,     "State.Attacking");
 	UE_DEFINE_GAMEPLAY_TAG(State_Reloading,     "State.Reloading");
 	UE_DEFINE_GAMEPLAY_TAG(State_UseConsumable, "State.UseConsumable");
 	UE_DEFINE_GAMEPLAY_TAG(State_UseRelic,      "State.UseRelic");
+	UE_DEFINE_GAMEPLAY_TAG(State_Pulled,		"State.Pulled");
 	
 	// ─── Character Abilities ───────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Player_Dodge,			"Ability.Player.Dodge");
@@ -34,6 +37,7 @@ namespace BlackoutGameplayTags
 
 	// ─── GAS SetByCaller 데이터 키 ────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Data_Damage,        "Data.Damage");
+	UE_DEFINE_GAMEPLAY_TAG(Data_Stun,          "Data.Stun");
 	UE_DEFINE_GAMEPLAY_TAG(Data_MaxHealth,     "Data.Stat.MaxHealth");
 	UE_DEFINE_GAMEPLAY_TAG(Data_Health,        "Data.Stat.Health");
 	UE_DEFINE_GAMEPLAY_TAG(Data_MaxStamina,    "Data.Stat.MaxStamina");
@@ -206,15 +210,27 @@ namespace BlackoutGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_EnergyBurst, "Ability.Ravager.EnergyBurst");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Charge, "Ability.Ravager.Charge");
 	
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Ravager_Howl, "Ability.Ravager.Howl");
+	
 	// ─── Ravager Gameplay Cues ──────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Ravager_Gorenado, "GameplayCue.Ravager.Gorenado");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Ravager_EnergyBurst, "GameplayCue.Ravager.EnergyBurst");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Ravager_Shockwave_Launch, "GameplayCue.Ravager.Shockwave.Launch");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Ravager_Swipe_L, "GameplayCue.Ravager.Swipe.L");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Ravager_Swipe_R, "GameplayCue.Ravager.Swipe.R");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Ravager_BiteSingle, "GameplayCue.Ravager.BiteSingle");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Ravager_Evade, "GameplayCue.Ravager.Evade");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Ravager_FlashKick, "GameplayCue.Ravager.FlashKick");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Ravager_Flea, "GameplayCue.Ravager.Flea");
 	
 	// ─── Hollow Abilities ──────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Hollow_Spawn, "Ability.Hollow.Spawn");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Hollow_PreRoll, "Ability.Hollow.PreRoll");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Hollow_Attack, "Ability.Hollow.Attack");
+	
+	// ─── Hollow Gameplay Cues ─────────────────────────────────────────────────────────
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Hollow_Spawn, "GameplayCue.Hollow.Spawn");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Hollow_Projectile, "GameplayCue.Hollow.Projectile");
 	
 	// ─── Shrewd Abilities ──────────────────────────────────────────────────────
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Shrewd_Teleport_ToPoint, "Ability.Shrewd.Teleport.ToPoint");
@@ -262,6 +278,9 @@ namespace BlackoutGameplayTags
 	
 	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_OnEnergyBurst, "Event.Enemy.Attack.OnEnergyBurst");
 	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_OffEnergyBurst, "Event.Enemy.Attack.OffEnergyBurst");
+	
+	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_KickFlash_Start, "Event.Enemy.Attack.KickFlash.Start");
+	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Attack_KickFlash_End, "Event.Enemy.Attack.KickFlash.End");
 	
 	UE_DEFINE_GAMEPLAY_TAG(Event_Enemy_Shrewd_Attack_FireArrow, "Event.Enemy.Shrewd.Attack.FireArrow");
 	

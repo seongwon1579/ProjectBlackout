@@ -64,9 +64,9 @@ void ABlackoutGameState::SetMatchState(EBlackoutMatchState NewState)
 UENUM(BlueprintType)
 enum class EBlackoutMatchEndReason : uint8
 {
-    BossDefeated,    // 보스 사망 감지 (전투팀 훅 연결 예정)
+    BossDefeated,    // 보스 사망 감지
     AllPlayersLeft,  // 전원 이탈 (OnPlayerLeft 에서 자동 트리거)
-    Timeout,         // 장기 미진행 (후속 PR)
+    Timeout,         // 장기 미진행
 };
 ```
 

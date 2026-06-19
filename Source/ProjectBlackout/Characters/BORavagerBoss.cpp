@@ -6,16 +6,31 @@
 #include "BlackoutBaseAttributeSet.h"
 #include "BlackoutBossAIController.h"
 #include "BlackoutRavagerAIController.h"
+#include "BORavagerPatternData.h"
+#include "BORavagerStatData.h"
 #include "BrainComponent.h"
 #include "GameplayEffectExtension.h"
-#include "Animation/UBlackoutRavagerAnimInstance.h"
 #include "GameFramework/PlayerState.h"
+#include "Framework/BlackoutMatchFlowSubsystem.h"
 
 
 UBORavagerPatternData* ABORavagerBoss::GetPatternData(FGameplayTag AbilityTag) const
 {
 	const TObjectPtr<UBORavagerPatternData>* Found = BossPatternData.Find(AbilityTag);
 	return Found ? Found->Get() : nullptr;
+}
+
+void ABORavagerBoss::SetCollisionState(bool bIgnore)
+{
+	if (HasAuthority())
+	{
+		Multicast_SetCollisionState(bIgnore);
+	}
+}
+
+void ABORavagerBoss::Multicast_SetCollisionState_Implementation(bool bIgnore)
+{
+	BP_OnCollisionStateChanged(bIgnore);
 }
 
 void ABORavagerBoss::OnDeath()
@@ -34,12 +49,15 @@ void ABORavagerBoss::OnDeath()
 			Brain->StopLogic("Dead");
 		}
 	}
-	
-	if (UUBlackoutRavagerAnimInstance* Anim = Cast<UUBlackoutRavagerAnimInstance>(
-		GetMesh()->GetAnimInstance()))
+}
+
+FBossChaseRanges ABORavagerBoss::GetChaseRanges(const FGameplayTag& PatternTag) const
+{
+	if (const UBORavagerPatternData* Data = GetPatternData(PatternTag))
 	{
-		Anim->OnDeath();
+		return Data->ChaseRanges;
 	}
+	return FBossChaseRanges();
 }
 
 void ABORavagerBoss::SetData()
@@ -60,14 +78,25 @@ void ABORavagerBoss::SetData()
 	{
 		AbilitySystemComponent->InitAbilityActorInfo(this, this);
 
-		if (BaseAttributeSet && BossStatData)
+		if (BaseAttributeSet && BossStatData && HasAuthority())
 		{
+			float HealthMultiplier =1.0f;
+			if (UGameInstance* GameInstance = GetGameInstance())
+			{
+				if (UBlackoutMatchFlowSubsystem* FlowSubsystem = GameInstance->GetSubsystem<UBlackoutMatchFlowSubsystem>())
+				{
+					HealthMultiplier = FlowSubsystem->GetBossHealthMultiplier();
+				}
+			}
+			
+			const float ScaledMaxHealth = BossStatData->MaxHealth * HealthMultiplier;
+			
 			AbilitySystemComponent->SetNumericAttributeBase(
 				UBlackoutBaseAttributeSet::GetMaxHealthAttribute(),
-				BossStatData->MaxHealth);
+				ScaledMaxHealth);
 			AbilitySystemComponent->SetNumericAttributeBase(
 				UBlackoutBaseAttributeSet::GetHealthAttribute(),
-				BossStatData->MaxHealth);
+				ScaledMaxHealth);
 		}
 	}
 }
@@ -109,7 +138,7 @@ FText ABORavagerBoss::GetBossDisplayName() const
 	{
 		return BossStatData->Name;
 	}
-	return FText::FromString(TEXT("Ravager"));
+	return FText::FromString(TEXT("타락한 약탈자"));
 }
 
 EBOBossPhase ABORavagerBoss::DetermineTargetPhase(float HealthRatio)

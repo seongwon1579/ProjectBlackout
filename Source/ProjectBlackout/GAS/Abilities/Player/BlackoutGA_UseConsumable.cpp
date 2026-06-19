@@ -221,6 +221,12 @@ void UBlackoutGA_UseConsumable::ConsumeAndApplyEffect()
 		return;
 	}
 
+	// 매치 통계: 실제 차감 사용만 집계(쉘터 무료 사용 bSkipCost 제외). 사용 1회 = +1(수량 무관)
+	if (!bSkipCost)
+	{
+		BlackoutPlayerState->RecordConsumableUsed();
+	}
+
 	bKeepActiveAfterMontage = ApplyConsumableEffect(PendingConsumableData);
 	ApplyConfiguredGameplayEffect(PendingConsumableData);
 	StartConsumableCooldown(PendingConsumableData);

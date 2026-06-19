@@ -1,8 +1,15 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 조성원: Ravager 패턴 데이터 에셋 전반 구현 — 추적 범위·기본 공격·투사체·미니언 스폰·Gorenado(Pull)·EnergyBurst·차징 설정 구조체 일체
+//  - 김민영: 타락한 약탈자 엘리트 미니언 스폰 필드(EliteMinionSpawnData·SpawnCount·SpawnRadius) 추가
+//  - 허혁: 각 공격 설정에 스턴 게이지(StunMagnitude) 필드 추가
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
+#include "BOBossChaseRanges.h"
 #include "GameplayEffect.h"
 #include "GameplayTagContainer.h"
 #include "Engine/DataAsset.h"
@@ -27,8 +34,11 @@ struct FBossBasicAttackSettings
 	
 	UPROPERTY(EditAnywhere)
 	float DamageMagnitude = 10.f;
+
+	UPROPERTY(EditAnywhere, meta = (ClampMin = "0.0"))
+	float StunMagnitude = 0.0f;
 	
-	bool IsValid() const { return Effect && DamageMagnitude > 0.f && HitboxComponentNames.Num() > 0; }
+	bool IsValid() const { return Effect && (DamageMagnitude > 0.f || StunMagnitude > 0.f) && HitboxComponentNames.Num() > 0; }
 };
 
 
@@ -67,6 +77,9 @@ struct FProjectileSpawnData
 	
 	UPROPERTY(EditAnywhere)
 	float DamageMagnitude = 10.f;
+
+	UPROPERTY(EditAnywhere, meta = (ClampMin = "0.0"))
+	float StunMagnitude = 0.0f;
 };
 
 USTRUCT()
@@ -111,6 +124,15 @@ struct FBossMinionSpawnSettings
     
 	UPROPERTY(EditAnywhere)
 	float ThrowPitch = 45.f;
+	
+	UPROPERTY(EditAnywhere, Category = "Spawn|Throw")
+	float ThrowPitchVariance = 10.f;
+
+	UPROPERTY(EditAnywhere, Category = "Spawn|Throw", meta = (ClampMin = "0.1"))
+	float DistanceScaleMin = 0.7f;
+
+	UPROPERTY(EditAnywhere, Category = "Spawn|Throw", meta = (ClampMin = "0.1"))
+	float DistanceScaleMax = 1.3f;
     
 	UPROPERTY(EditAnywhere, Category = "Elite")
 	FMinionSpawnData EliteMinionSpawnData;
@@ -169,6 +191,9 @@ struct FBossGorenadoSettings
 	
 	UPROPERTY(EditAnywhere)
 	float Damage = 15.f;
+
+	UPROPERTY(EditAnywhere, meta = (ClampMin = "0.0"))
+	float StunMagnitude = 0.0f;
 	
 	UPROPERTY(EditAnywhere, meta = (ClampMin = "0"))
 	float DamageTickInterval = 0.5f;
@@ -192,6 +217,9 @@ struct FBossEnergyBurstSettings
 	
 	UPROPERTY(EditAnywhere)
 	float Damage = 999999.f;
+
+	UPROPERTY(EditAnywhere, meta = (ClampMin = "0.0"))
+	float StunMagnitude = 0.0f;
 	
 	UPROPERTY(EditAnywhere, meta = (ClampMin = "0"))
 	float DamageTickInterval = 0.5f;
@@ -213,6 +241,9 @@ struct FBossChargeSettings
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Damage")
 	float DamageMagnitude = 100.f;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Damage", meta = (ClampMin = "0.0"))
+	float StunMagnitude = 0.0f;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Hitbox")
 	TArray<FName> HitboxComponentNames;
 	
@@ -231,7 +262,7 @@ struct FBossChargeSettings
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Logic", meta = (ClampMin = "0.0"))
 	float MaxChargeDuration = 3.f;
 
-	bool IsValid() const { return DamageEffect != nullptr && HitboxComponentNames.Num() > 0; }
+	bool IsValid() const { return DamageEffect != nullptr && (DamageMagnitude > 0.f || StunMagnitude > 0.f) && HitboxComponentNames.Num() > 0; }
 };
 
 UCLASS()
@@ -247,16 +278,7 @@ public:
 	TMap<FGameplayTag, TObjectPtr<UAnimMontage>> Montages;
 	
 	UPROPERTY(EditAnywhere, Category = "Blackout|Chase")
-	float ChaseStartRange = 800.f;
-
-	UPROPERTY(EditAnywhere, Category = "Blackout|Chase")
-	float ChaseEndRange = 1000.f;
-
-	UPROPERTY(EditAnywhere, Category = "Blackout|Chase")
-	float AttackRange = 300.f;
-	
-	UPROPERTY(EditAnywhere, Category = "Blackout|Chase", meta = (ClampMin = "0.0", ClampMax = "1.0"))
-	float AttackRangeVariance = 0.f;
+	FBossChaseRanges ChaseRanges;
 	
 	UPROPERTY(EditAnywhere, Category = "Blackout|Melee")
 	FBossBasicAttackSettings BasicAttackSettings;

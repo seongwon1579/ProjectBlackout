@@ -1,5 +1,9 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
+// ─── 구현 내역 ───────────────────────
+//  - 최승현: 데디 세션 서브시스템 — 세션 메타데이터·매칭서버 자동 등록/Heartbeat·종료 보고(finish)
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -39,10 +43,14 @@ public:
 	
 	// EndMatch 시점에 호출 POST /sessions/:id/finish
 	void ReportFinishToMatchmakingServer();
-	
+
+	// EndMatch / 빈 서버 복귀 시 POST /servers/:id/idle — serverId 기반이라 세션 만료와 무관하게 markIdle
+	void ReportIdleToMatchmakingServer();
+
 private:
 	// HTTP 응답 콜백
 	void OnFinishResponse(FHttpRequestPtr Request, FHttpResponsePtr Response , bool bSucceeded);
+	void OnIdleResponse(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bSucceeded);
 
 	// 데디 시작시 매칭 서버에 등록
 	void RegisterToMatchmakingServer();

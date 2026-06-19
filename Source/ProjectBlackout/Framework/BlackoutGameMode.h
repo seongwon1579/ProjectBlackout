@@ -1,3 +1,7 @@
+// ─── 구현 내역 ───────────────────────
+//  - 최승현: GameMode 베이스 — 세션ID/Acc 파싱·Ready/Loaded 집계 훅·매치 상태 전이 단일 권위(TransitionTo)·전원 퇴장 Idle 복귀·화면 페이드 브로드캐스트
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -27,6 +31,8 @@ public:
 	// 정원 충족 + 전원 bIsReady == true 조건 검사. Lobby / Battle 공용.
 	UFUNCTION(BlueprintCallable, Category = "Blackout|GameMode")
 	virtual bool AllPlayersReady() const;
+	
+	bool AllPlayersLoaded() const;
 
 	// PlayerController::Server_SetReady 처리 직후 호출. AllPlayersReady 성립 시 OnAllPlayersReady 훅 실행.
 	UFUNCTION(BlueprintCallable, Category = "Blackout|GameMode")
@@ -39,6 +45,9 @@ protected:
 	// 클라가 매칭으로 처음 접속할 때 URL ?SessionId=... 옵션을 잡아 DedicatedSessionSubsystem 에 저장.
 	virtual void PreLogin(const FString& Options, const FString& Address,
 		const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage) override;
+	
+	// 접속시 URL ?Acc (로그인 ID) 파싱 -> PlayerState에 보관 재접속 stash 키 소스
+	virtual FString InitNewPlayer(APlayerController* NewPlayerController, const FUniqueNetIdRepl& UniqueId, const FString& Options, const FString& Portal = TEXT("")) override;
 
 	virtual void Logout(AController* Exiting) override;
 	
@@ -51,6 +60,13 @@ protected:
 	
 	// seamless 도착 시 공통 집계 뒤 자식이 붙는 훅
 	virtual  void OnSeamlessArrival(APlayerController* PC) {};
+	
+	// 전원 퇴장 (정원 0) 이 grace동안 유지되면 호출
+	virtual void HandleEmptyServerReset(){}
+	
+	// 정원 0 grace 만료 콜백. 여전히 0이면 HandleEmptyServerReset 실행
+	void ConfirmEmptyServer();
+	
 	// 전원 Ready 성립 시 자식 GameMode 가 override 하여 액션을 정의하는 훅 (Lobby: StartBattle / Battle: 보스 활성).
 	virtual void OnAllPlayersReady() {}
 
@@ -68,10 +84,18 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Blackout|GameMode")
 	TArray<TObjectPtr<APlayerController>> ConnectedPlayers;
 	
-	// 레벨 전환 직전, 접속 중 전 클라에 화면 페이드아웃 브로드캐스트
-	void BroadcastScreenFadeOut(FLinearColor FadeColor);
+	// 정원 0 감지후 Idle 복귀까지 유예
+	UPROPERTY(EditDefaultsOnly , Category="Blackout|GameMode")
+	float EmptyServerGracePeriod =10.0f;
+	
+	FTimerHandle EmptyServerGraceHandle;
+	
+	// 레벨 전환 직전, 접속 중 전 클라에 화면 페이드아웃 브로드캐스트. bHoldUntilReady=true 면 도착 후 ready 게이트까지 fade-in 보류(로비->보스)
+	void BroadcastScreenFadeOut(FLinearColor FadeColor, bool bHoldUntilReady = false);
 	
 	// 페이드아웃 후 실제 travel 까지 서버대기 
 	UPROPERTY(EditDefaultsOnly, Category="Blackout|Transition")
 	float FadeOutTravelDelay = 1.5f;
+	
+
 };

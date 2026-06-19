@@ -1,3 +1,10 @@
+// ─── 구현 내역 ───────────────────────
+//  - 김민영: 플레이어 ASC/AttributeSet 초기화 + 전투 GA 입력 연동 + 무기 몽타주/GCN RPC + 다운 HUD·부활 진행 복제 + 소모품/플래시라이트/에임오프셋
+//  - 허혁: 플레이어 입력·로코모션 + 회피/근접 콤보 + 부활 흐름 클라 동기화 + 스턴 게이지 + 데미지 숫자 UI + 소모품 픽업/리로드
+//  - 최승현: 3인칭 카메라 폴리시(Remnant2) — 벽 근처 조준 표시/카메라 충돌 보간 + 진영 구분 외곽선
+//  - 조성원: 보스 Pull 대상 적용(IBlackoutPullable)
+// ──────────────────────────────────────
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -103,6 +110,9 @@ public:
 
 	UFUNCTION(Server, Reliable, Category = "Blackout|Debug")
 	void Server_RequestDebugSelfDamage(float DamageAmount);
+
+	/** 현재 플레이어의 스턴 게이지 상태를 디버그 문자열로 구성합니다. */
+	FString BuildStunDebugString() const;
 
 	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "Blackout|State")
 	void Server_ReviveFromDowned(float RevivedHealth);
@@ -217,6 +227,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Blackout|Interaction")
 	bool IsBeingRevived() const;
 
+	/** 이 플레이어가 현재 부활을 진행 중인 대상입니다. 진행 중이 아니면 nullptr입니다. */
+	UFUNCTION(BlueprintPure, Category = "Blackout|Interaction")
+	ABlackoutPlayerCharacter* GetActiveReviveTarget() const { return ActiveReviveTarget.Get(); }
+
 	/** 다운 상태 진입 시 설정된 완전 사망 카운트다운 총 지속 시간(초)입니다. */
 	UFUNCTION(BlueprintPure, Category = "Blackout|State")
 	float GetDownedDeathDuration() const { return DownedDeathDuration; }
@@ -303,12 +317,30 @@ protected:
 	/** CharacterData를 기반으로 초기 어트리뷰트 값 설정 (GE 적용) */
 	virtual void InitializeAttributes();
 
+	virtual void HandlePostDamageReaction(float AppliedDamage, float StunBefore, float StunAfter, const FVector& DamageSourceLocation) override;
+
 	/** 피격 시 실제 적용된 데미지와 공격 방향에 따라 플레이어 전용 히트 리액션 몽타주를 재생합니다. */
 	virtual void OnHitReact(float AppliedDamage, const FVector& DamageSourceLocation) override;
 	virtual void OnDowned() override;
 	virtual bool CanEnterDownedState() const override;
 	virtual void OnDeath() override;
 	virtual void HandleDownedStateChanged(bool bWasDowned, bool bIsDowned) override;
+	void StartStunDecayDelay();
+	void BeginStunDecay();
+	void HandleStunDecayTick();
+	void StopStunDecay();
+	void ResetStunGauge(bool bStopDecay = true);
+	void BeginStunReaction(UAnimMontage* Montage, FGameplayTag ReactionTag);
+	void ClearStunReactionState();
+	float GetCurrentStunGaugeValue() const;
+	float GetMaxStunGaugeValue() const;
+	float GetHeavyStunThresholdValue() const;
+	float GetStunBreakThresholdValue() const;
+	float GetStunDecayDelayValue() const;
+	float GetStunDecayPerSecondValue() const;
+	float GetStunDecayTickIntervalValue() const;
+	UAnimMontage* ResolveHeavyStunMontage(bool bIsBackHitReact) const;
+	UAnimMontage* ResolveStunBreakMontage(bool bIsBackHitReact) const;
 	
 	/** 완전 사망 시 이 목록에서 유효한 몽타주 하나를 골라 재생합니다. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
@@ -518,11 +550,17 @@ protected:
 	UPROPERTY(Transient)
 	TWeakObjectPtr<ABlackoutPlayerCharacter> ActiveReviver;
 
+	/** 서버가 부활 시전자에게 복제하는 현재 부활 대상입니다. 시전자 HUD는 이 값을 기준으로 진행 UI를 계산합니다. */
+	UPROPERTY(Transient, Replicated, BlueprintReadOnly, Category = "Blackout|Interaction")
+	TObjectPtr<ABlackoutPlayerCharacter> ActiveReviveTarget = nullptr;
+
 	UPROPERTY(Transient)
 	TWeakObjectPtr<ABlackoutPlayerState> BoundReadyStatePlayerState;
 
 	FTimerHandle ReviveWeaponRestoreTimerHandle;
 	FTimerHandle DownedDeathTimerHandle;
+	FTimerHandle StunDecayDelayTimerHandle;
+	FTimerHandle StunDecayTickTimerHandle;
 
 	/**
 	 * 다운 사망 타이머가 만료되는 서버 월드 시간(초)입니다.
@@ -546,6 +584,12 @@ protected:
 	/** 진행 중인 부활 시도의 총 지속 시간(초)입니다. 시도 중이 아니면 0. */
 	UPROPERTY(Transient, Replicated)
 	float ReviveDuration = 0.0f;
+
+	bool bAppliedStunLockedTag = false;
+	bool bAppliedStunnedTag = false;
+	bool bAppliedStunBreakTag = false;
+	bool bAppliedStunBreakInvulnerableTag = false;
+	bool bClearStunReactionStateOnMontageEnd = false;
 
 	UFUNCTION()
 	void HandleHitReactMontageEnded(UAnimMontage* Montage, bool bInterrupted);
@@ -618,6 +662,30 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation", meta = (ClampMin = "0.0"))
 	float HeavyHitReactDamageThreshold = 30.0f;
 
+	/** 일반 스턴 구간 진입 시 사용할 전면/측면 방향 몽타주입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
+	TObjectPtr<UAnimMontage> HeavyStunFrontMontage;
+
+	/** 일반 스턴 구간 진입 시 사용할 후면 방향 몽타주입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
+	TObjectPtr<UAnimMontage> HeavyStunBackMontage;
+
+	/** 방향별 몽타주가 비어 있을 때 사용할 공통 스턴 몽타주입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
+	TObjectPtr<UAnimMontage> HeavyStunMontage;
+
+	/** 스턴 브레이크 시 사용할 전면/측면 방향 몽타주입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
+	TObjectPtr<UAnimMontage> StunBreakFrontMontage;
+
+	/** 스턴 브레이크 시 사용할 후면 방향 몽타주입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
+	TObjectPtr<UAnimMontage> StunBreakBackMontage;
+
+	/** 방향별 몽타주가 비어 있을 때 사용할 공통 스턴 브레이크 몽타주입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
+	TObjectPtr<UAnimMontage> StunBreakMontage;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Animation")
 	TArray<FBlackoutFireMontageEntry> FireMontageEntries;
 
@@ -647,11 +715,44 @@ protected:
 #pragma region Aim
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Camera")
-	float DefaultArmLength = 350.f;
+	float DefaultArmLength = 200.f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Camera")
-	float AimArmLength = 230.f;
+	float AimArmLength = 100.f;
+	
+	// 카메라 충돌 trace 설정
+	UPROPERTY(EditDefaultsOnly , Category="Blackout|Camera")
+	float CameraProbeRadius = 12.0f;
+	
+	UPROPERTY(EditDefaultsOnly , Category="Blackout|Camera")
+	float CameraCollisionBuffer = 8.0f;
+	
+	UPROPERTY(EditDefaultsOnly , Category="Blackout|Camera")
+	float MinCameraArmLength  = 40.0f;
+	
+	UPROPERTY(EditDefaultsOnly , Category="Blackout|Camera")
+	float CameraBlockInterpSpeed =25.0f;
+	
+	UPROPERTY(EditDefaultsOnly , Category="Blackout|Camera")
+	float CameraReturnInterpSpeed = 8.0f;
 
+	UPROPERTY(EditDefaultsOnly , Category="Blackout|Camera")
+	float CameraTargetDeadband = 6.0f;
+
+	float StabilizedArmLength = 350.f;
+
+	float DesiredArmLength = 350.f;
+	
+	FVector DesiredSocketOffset = FVector::ZeroVector;
+	
+	float StabilizedShoulderY =0.0f;
+	
+	UPROPERTY(EditDefaultsOnly, Category="Blackout|Camera")
+	float HideMeshArmLength = 67.0f;
+	
+	bool bOwnMeshHidden = false;
+	void UpdateOwnerMeshVisibility();
+	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Camera")
 	FVector DefaultSocketOffset = FVector::ZeroVector;
 
@@ -672,9 +773,16 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Camera")
 	float AimCameraInterpSpeed = 12.f;
+	
+	// 카메라 전환 속도 ( 낮을수록 천천히 )
+	UPROPERTY(EditDefaultsOnly , Category = "Blackout|Camera" , meta=(ClampMin="0.1"))
+	float CameraRelaxedInterpSpeed  =3.5f;
+	
 
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Movement")
 	float DefaultMaxWalkSpeed;
+	
+	void UpdateCameraCollision(float DeltaSeconds);
 
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Movement")
 	float AimMaxWalkSpeed;
