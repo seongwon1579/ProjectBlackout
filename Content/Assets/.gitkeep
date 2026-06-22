@@ -1,0 +1,38 @@
+# Content/Assets — 사용 중인 외부 에셋 목록
+
+이 폴더의 실제 에셋 파일은 `.gitignore`에 의해 Git에서 제외됩니다.
+(`Content/Assets/**` 무시, `.gitkeep`만 추적)
+
+아래는 **프로젝트 콘텐츠가 실제로 참조하고 있는** 외부 에셋입니다.
+(Fab / 언리얼 엔진 마켓플레이스에서 받아 구글 드라이브로 공유)
+프로젝트를 클론한 뒤 이 폴더에 압축을 풀어 배치해야 합니다.
+
+> 참조 여부는 프로젝트 본체(`Assets`/`RemnantAssets` 제외)의 `.uasset`·`.umap`에
+> 저장된 `/Game/Assets/<팩>/` 참조 경로를 검색해 확인했습니다.
+
+---
+
+## VFX / Niagara
+- `__AoeVFX`               — 광역(AoE) 스킬 이펙트
+- `3D_Fire_and_Explosions` — 3D 화염·폭발 이펙트
+- `ARPGVFXPack01`          — ARPG VFX 팩 01
+- `ARPGVFXPack03`          — ARPG VFX 팩 03
+- `CharacterVanishVFX`     — 캐릭터 소멸(디졸브) 이펙트
+- `Cursed_Magic`           — 저주 계열 마법 이펙트
+- `GunFX`                  — 총기 발사·머즐 플래시 이펙트
+- `VDB_DustEffectsPack`    — VDB 먼지 이펙트 팩
+
+## 환경 / 맵 (Environment)
+- `Dark_Ruins`             — 어두운 폐허 환경 (메인 레벨 전반에 사용)
+- `MagicianLabatory`       — 마법사 실험실 환경
+
+## 사운드 (Audio / SFX)
+- `MEGA_FULL_BUNDLE`                  — 통합 게임 사운드 번들(무기·전투·UI·발소리 등)
+- `Ultimate_SFX_Bundle_-_HD_Remaster` — HD 리마스터 SFX 번들(총·폭발·전투·발소리 등)
+
+## UI
+- `ProHUDV2_Horror`        — 호러 테마 HUD 위젯 팩
+
+---
+
+> 새 외부 에셋을 추가/제거할 경우 위 목록에도 함께 반영해 주세요.
