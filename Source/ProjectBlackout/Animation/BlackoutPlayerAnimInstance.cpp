@@ -6,6 +6,7 @@
 #include "Combat/Weapons/BOFirearm.h"
 #include "Combat/Weapons/BOWeaponBase.h"
 #include "Core/BlackoutCollisionChannels.h"
+#include "DrawDebugHelpers.h"
 #include "Engine/World.h"
 #include "GameFramework/Controller.h"
 #include "GameplayTags/BlackoutGameplayTags.h"
@@ -268,6 +269,16 @@ void UBlackoutPlayerAnimInstance::UpdateAimTarget()
 		AimTargetActor = HitResult.GetActor();
 		bHasAimTarget = true;
 	}
+
+#if ENABLE_DRAW_DEBUG
+	if (bDrawAimTraceDebug)
+	{
+		// 카메라 뷰포인트에서 계산된 카메라 타겟까지 레이를 그립니다. 명중=초록, 미명중=빨강.
+		const FColor DebugColor = bHasAimTarget ? FColor::Green : FColor::Red;
+		DrawDebugLine(World, TraceStart, AimTargetLocation, DebugColor, false, -1.f, 0, AimTraceDebugThickness);
+		DrawDebugPoint(World, AimTargetLocation, 10.f, DebugColor, false, -1.f);
+	}
+#endif
 }
 
 bool UBlackoutPlayerAnimInstance::GetAimTraceViewPoint(FVector& OutViewLocation, FRotator& OutViewRotation) const
