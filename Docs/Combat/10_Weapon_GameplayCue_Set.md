@@ -7,7 +7,6 @@ classDiagram
     direction TB
 
     FBlackoutWeaponStat *-- FBlackoutWeaponCueSet : CueSet
-    FBlackoutWeaponCueSet *-- FBlackoutSurfaceImpactCueRule : SurfaceImpactRules
 
     ABOWeaponBase --> FBlackoutWeaponCueSet : Cache / Getter
     ABOFirearm --> FBlackoutWeaponCueSet : Fire / Trail / Impact Cue 조회
@@ -22,7 +21,7 @@ classDiagram
     UBlackoutWeaponCueLibrary --> UAbilitySystemComponent : ExecuteGameplayCue
     UBlackoutWeaponCueLibrary --> UPhysicalMaterial : HitResult.PhysMaterial 조회
     UBlackoutWeaponCueLibrary --> UBlackoutImpactSurfaceSettings : SurfaceType -> SurfaceTag
-    UBlackoutWeaponCueLibrary --> FBlackoutSurfaceImpactCueRule : ResolveSurfaceImpactCueTag
+    UBlackoutWeaponCueLibrary --> FBlackoutWeaponCueSet : ResolveImpactCue
 
     UGameplayCueNotify_Static <|-- UGCN_WeaponFire
     UGameplayCueNotify_Static <|-- UGCN_WeaponTrail
@@ -42,17 +41,10 @@ classDiagram
         +FGameplayTag FireCueTag
         +FGameplayTag TrailCueTag
         +FGameplayTag DefaultImpactCueTag
-        +TArray~FBlackoutSurfaceImpactCueRule~ SurfaceImpactRules
+        +TMap~FGameplayTag, FGameplayTag~ SurfaceImpactCues
         +bool HasFireCue() bool
         +bool HasTrailCue() bool
         +FGameplayTag ResolveImpactCue(FGameplayTag SurfaceTag) FGameplayTag
-    }
-
-    class FBlackoutSurfaceImpactCueRule {
-        <<Struct>>
-        +FGameplayTag SurfaceTag
-        +FGameplayTag ImpactCueTag
-        +int32 Priority
     }
 
     class UBlackoutImpactSurfaceSettings {
@@ -176,7 +168,7 @@ sequenceDiagram
         CueLib->>CueLib: DefaultSurfaceTag 사용
     end
     GA->>CueLib: SurfaceTag 기반 ImpactCueTag 해결
-    alt SurfaceImpactRules 매칭 없음
+    alt SurfaceImpactCues 매칭 없음
         CueLib->>CueLib: DefaultImpactCueTag 사용
     end
     CueLib->>ASC: ExecuteGameplayCue(CueTag, Params)
@@ -187,8 +179,8 @@ sequenceDiagram
 
 - **서버 권한 실행**: 다른 클라이언트가 반드시 봐야 하는 발사, 탄 궤적, 피격 Cue는 서버에서 `SourceASC->ExecuteGameplayCue`로 실행합니다. 로컬 즉시 반응이 필요하면 이후 예측 전용 로컬 Cue를 별도로 추가하되, 서버 Cue와 중복 재생을 방지하는 키가 필요합니다.
 - **Cue 위치 전달**: `FGameplayCueParameters`에는 총구 위치, 피격 위치, `FHitResult`, Source/Target Actor를 담습니다. 트레일 Cue는 총구 위치와 착탄 위치를 모두 사용해 빔 또는 트레이서를 그립니다.
-- **표면 재질 분기**: `ResolveSurfaceTag`는 `FHitResult.PhysMaterial`의 `SurfaceType`을 읽고 `UBlackoutImpactSurfaceSettings.SurfaceTagMap`으로 `Surface.*` 태그를 얻습니다. `SurfaceImpactRules`에 같은 표면 태그가 있으면 해당 `ImpactCueTag`를 사용하고, 없으면 `DefaultImpactCueTag`를 사용합니다.
-- **Fallback 처리**: `FHitResult.PhysMaterial`이 비어 있거나 `SurfaceType`이 `SurfaceTagMap`에 등록되어 있지 않으면 `DefaultSurfaceTag`를 반환합니다. 그 `DefaultSurfaceTag`도 무기 `SurfaceImpactRules`에 매칭되지 않으면 최종적으로 `DefaultImpactCueTag`를 실행합니다. `DefaultImpactCueTag`까지 비어 있으면 Cue를 실행하지 않고 로그로 누락 정보를 남깁니다.
+- **표면 재질 분기**: `ResolveSurfaceTag`는 `FHitResult.PhysMaterial`의 `SurfaceType`을 읽고 `UBlackoutImpactSurfaceSettings.SurfaceTagMap`으로 `Surface.*` 태그를 얻습니다. `SurfaceImpactCues` 맵에 같은 표면 태그 키가 있으면 해당 값(`ImpactCueTag`)을 사용하고, 없으면 `DefaultImpactCueTag`를 사용합니다.
+- **Fallback 처리**: `FHitResult.PhysMaterial`이 비어 있거나 `SurfaceType`이 `SurfaceTagMap`에 등록되어 있지 않으면 `DefaultSurfaceTag`를 반환합니다. 그 `DefaultSurfaceTag`도 무기 `SurfaceImpactCues`에 키로 존재하지 않으면 최종적으로 `DefaultImpactCueTag`를 실행합니다. `DefaultImpactCueTag`까지 비어 있으면 Cue를 실행하지 않고 로그로 누락 정보를 남깁니다.
 - **트레이스 설정**: 히트스캔 라인트레이스와 투사체 충돌 결과 모두 서버에서 피지컬 머티리얼을 얻을 수 있어야 합니다. 히트스캔은 QueryParams의 `bReturnPhysicalMaterial=true`를 사용하고, 투사체는 충돌 컴포넌트/물리 설정에서 PhysMaterial 반환이 가능해야 합니다.
 - **투사체 무기**: `ABOProjectile`은 풀에서 꺼낼 때 DamageSpec과 함께 `FBlackoutWeaponCueSet`을 복사받습니다. 충돌 시 서버에서 같은 Resolver를 사용해 Impact Cue를 실행하고, 필요하면 Trail Cue는 투사체 비주얼 또는 별도 지속 Cue로 분리합니다.
 - **투사체 공통 Cue 실행 경로**: `ABOProjectile`은 표면 Impact Cue뿐 아니라 하위 투사체가 만든 폭발/특수 Cue도 실행할 수 있도록 `ExecuteProjectileGameplayCue()` 보호 헬퍼를 제공합니다. 하위 클래스는 필요한 `FGameplayCueParameters`를 직접 구성한 뒤 이 헬퍼에 태그와 파라미터를 넘기며, 헬퍼는 플레이어 캐릭터 멀티캐스트, ASC `ExecuteGameplayCue`, GameplayCueManager fallback 순서로 실행 경로를 정리합니다. 이 공통화는 Cue 전송 경로에 한정하며, 폭발 판정과 피해 적용은 `ABOMeridianGrenadeProjectile`, `ABOShrewdArrowExplosive` 같은 하위 클래스 책임입니다.

@@ -51,9 +51,9 @@ sequenceDiagram
 ## [Slide B] 무기별 Cue 세트 & 표면 재질 분기
 
 - **무기별 Cue 세트(`FBlackoutWeaponCueSet`)** — 무기 데이터(`FBlackoutWeaponStat`)가 보유
-  - `FireCueTag` / `TrailCueTag` / `DefaultImpactCueTag` / `SurfaceImpactRules[]`
+  - `FireCueTag` / `TrailCueTag` / `DefaultImpactCueTag` / `SurfaceImpactCues{}`
 - **실행 허브(`UBlackoutWeaponCueLibrary`)** — 파라미터 구성·표면 해석·큐 실행을 한곳에서 담당 (`BuildCueParameters` / `ResolveSurfaceTag` / `ResolveImpactCueTag` / `ExecuteWeaponCue`)
-- **표면 재질 분기**: `HitResult.PhysMaterial` → `SurfaceType` → `UBlackoutImpactSurfaceSettings` 로 **`Surface.*` 태그** 변환 → `SurfaceImpactRules` 매칭 시 해당 ImpactCue, 없으면 `DefaultImpactCueTag`, 그것도 없으면 **실행 생략 + 누락 로그**
+- **표면 재질 분기**: `HitResult.PhysMaterial` → `SurfaceType` → `UBlackoutImpactSurfaceSettings` 로 **`Surface.*` 태그** 변환 → `SurfaceImpactCues` 맵에 키가 있으면 해당 ImpactCue, 없으면 `DefaultImpactCueTag`, 그것도 없으면 **실행 생략 + 누락 로그**
 - **태그 규칙**: `GameplayCue.Weapon.<무기>.<Fire | Trail | Impact.<표면>>`
   - 예: `...ChicagoTypewriter.Fire` · `...ChicagoTypewriter.Impact.Flesh / .Metal / .Stone`
 - **적용 범위**: 히트스캔(라인트레이스 `bReturnPhysicalMaterial`)·투사체·**근접 무기**(Swing=FireCue, Impact=표면별, 벽/지형 타격 시에도 동일) 모두 동일 Resolver 사용. 투사체는 풀에서 꺼낼 때 CueSet을 복사받음
@@ -64,7 +64,6 @@ sequenceDiagram
 classDiagram
     direction TB
     FBlackoutWeaponStat *-- FBlackoutWeaponCueSet : CueSet
-    FBlackoutWeaponCueSet *-- FBlackoutSurfaceImpactCueRule : SurfaceImpactRules
     UGameplayCueNotify_Static <|-- UGCN_WeaponFire
     UGameplayCueNotify_Static <|-- UGCN_WeaponTrail
     UGameplayCueNotify_Static <|-- UGCN_WeaponImpact
@@ -74,14 +73,8 @@ classDiagram
         +FGameplayTag FireCueTag
         +FGameplayTag TrailCueTag
         +FGameplayTag DefaultImpactCueTag
-        +TArray~FBlackoutSurfaceImpactCueRule~ SurfaceImpactRules
+        +TMap~FGameplayTag, FGameplayTag~ SurfaceImpactCues
         +ResolveImpactCue(SurfaceTag) FGameplayTag
-    }
-    class FBlackoutSurfaceImpactCueRule {
-        <<Struct>>
-        +FGameplayTag SurfaceTag
-        +FGameplayTag ImpactCueTag
-        +int32 Priority
     }
     class UBlackoutWeaponCueLibrary {
         <<BlueprintFunctionLibrary>>
