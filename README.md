@@ -54,12 +54,6 @@ ProjectBlackout/
 | [클래스 다이어그램](Docs/Project_Blackout_클래스다이어그램.md) | 전체 클래스 관계 개요 (도메인별 상세는 `Docs/Combat/`, `Docs/Foundation/`, `Docs/AI_Boss/`, `Docs/NET/`, `Docs/UI/` 참조) |
 | [시퀀스 다이어그램](Docs/Project_Blackout_시퀀스다이어그램.md) | 주요 플로우 시퀀스 |
 
-## 기여 가이드
-
-- `main`, `develop` 브랜치에 직접 커밋하지 않습니다. 항상 `feature/` 브랜치를 생성하고, PR의 base는 `develop`입니다.
-- 커밋 메시지는 태그 형식(`Feat`, `Fix`, `Design`, `Refactor`, `Docs`, `Chore`)을 사용합니다.
-- 상세 규칙은 [`Docs/CONVENTIONS.md`](Docs/CONVENTIONS.md)를 참조하세요.
-
 ## 라이선스
 
 이 프로젝트의 코드는 [MIT License](LICENSE)를 따릅니다. 단, `Content/Assets/`의 외부 에셋은 각 에셋 제작자의 라이선스를 따르며 저장소에 포함되지 않습니다.
