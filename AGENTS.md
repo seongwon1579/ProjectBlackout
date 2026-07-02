@@ -10,8 +10,8 @@
 
 | 문서 | 경로 | 용도 |
 | ---- | ---- | ---- |
-| 게임 기획서 (GDD) | [`Docs/게임_기획서_GDD_초안.md`](Docs/게임_기획서_GDD_초안.md) | 게임 플로우, 캐릭터 상성, 보스 설계, UI/UX 기획 |
-| 기술 설계서 (TDD) | [`Docs/기술_설계서_TDD_v5.md`](Docs/기술_설계서_TDD_v5.md) | 클래스 계층, GAS, AI BT, 네트워크, 최적화 명세 |
+| 게임 기획서 (GDD) | [`Docs/게임_기획서_GDD.md`](Docs/게임_기획서_GDD.md) | 게임 플로우, 캐릭터 상성, 보스 설계, UI/UX 기획 |
+| 기술 설계서 (TDD) | [`Docs/기술_설계서_TDD.md`](Docs/기술_설계서_TDD.md) | 클래스 계층, GAS, AI BT, 네트워크, 최적화 명세 |
 | 개발 컨벤션 | [`Docs/CONVENTIONS.md`](Docs/CONVENTIONS.md) | 에셋/코드 네이밍, Git 브랜치, 커밋, PR 규칙 |
 | 클래스 다이어그램 | [`Docs/Project_Blackout_클래스다이어그램.md`](Docs/Project_Blackout_클래스다이어그램.md) + `Docs/*/` 하위 다이어그램 | 클래스 관계 시각화. 루트 문서는 전체 개요이며, 작업 영역별 최신 상세 설계는 관련 하위 폴더(예: `Docs/Combat/`, `Docs/Foundation/`, `Docs/AI_Boss/`, `Docs/NET/`)의 인덱스와 세부 다이어그램을 함께 확인 |
 | 시퀀스 다이어그램 | [`Docs/Project_Blackout_시퀀스다이어그램.md`](Docs/Project_Blackout_시퀀스다이어그램.md) | 주요 플로우 시퀀스 |

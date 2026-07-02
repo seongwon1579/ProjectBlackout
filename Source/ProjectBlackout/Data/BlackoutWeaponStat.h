@@ -13,32 +13,6 @@
 class UTexture2D;
 
 /**
- * 표면 재질 태그별로 무기 피격 GCN을 고르는 규칙.
- */
-USTRUCT(BlueprintType)
-struct PROJECTBLACKOUT_API FBlackoutSurfaceImpactCueRule
-{
-	GENERATED_BODY()
-
-	/** 피격 표면 재질을 의미하는 태그입니다. 예: Surface.Flesh, Surface.Metal */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Cue")
-	FGameplayTag SurfaceTag = BlackoutGameplayTags::Surface_Default;
-
-	/** 해당 표면에 맞았을 때 실행할 무기별 피격 GCN 태그입니다. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Cue")
-	FGameplayTag ImpactCueTag = BlackoutGameplayTags::GameplayCue_Weapon_Default_Impact_Default;
-
-	/** 같은 표면 태그가 중복 등록된 경우 높은 값이 먼저 선택됩니다. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Cue", meta = (ClampMin = 0))
-	int32 Priority = 0;
-
-	bool MatchesSurfaceTag(const FGameplayTag& InSurfaceTag) const
-	{
-		return SurfaceTag.IsValid() && SurfaceTag.MatchesTagExact(InSurfaceTag);
-	}
-};
-
-/**
  * 무기별 발사, 탄 궤적, 표면 재질별 피격 GCN 태그 세트.
  */
 USTRUCT(BlueprintType)
@@ -54,13 +28,13 @@ struct PROJECTBLACKOUT_API FBlackoutWeaponCueSet
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Cue")
 	FGameplayTag TrailCueTag = BlackoutGameplayTags::GameplayCue_Weapon_Default_Trail;
 
-	/** 표면 규칙이 없거나 GCN 매핑이 비어 있을 때 사용할 기본 피격 GCN 태그입니다. */
+	/** 표면 매핑이 없거나 GCN 매핑이 비어 있을 때 사용할 기본 피격 GCN 태그입니다. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Cue")
 	FGameplayTag DefaultImpactCueTag = BlackoutGameplayTags::GameplayCue_Weapon_Default_Impact_Default;
 
-	/** 표면 재질 태그별 피격 GCN 선택 규칙입니다. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Cue")
-	TArray<FBlackoutSurfaceImpactCueRule> SurfaceImpactRules;
+	/** 표면 재질 태그별 피격 GCN 매핑입니다. 등록되지 않은 표면은 DefaultImpactCueTag를 사용합니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Blackout|Cue", meta = (ForceInlineRow))
+	TMap<FGameplayTag, FGameplayTag> SurfaceImpactCues;
 
 	bool HasFireCue() const
 	{
@@ -74,21 +48,15 @@ struct PROJECTBLACKOUT_API FBlackoutWeaponCueSet
 
 	FGameplayTag ResolveImpactCue(const FGameplayTag& SurfaceTag) const
 	{
-		const FBlackoutSurfaceImpactCueRule* BestRule = nullptr;
-		for (const FBlackoutSurfaceImpactCueRule& Rule : SurfaceImpactRules)
+		if (const FGameplayTag* ImpactCueTag = SurfaceImpactCues.Find(SurfaceTag))
 		{
-			if (!Rule.MatchesSurfaceTag(SurfaceTag) || !Rule.ImpactCueTag.IsValid())
+			if (ImpactCueTag->IsValid())
 			{
-				continue;
-			}
-
-			if (!BestRule || Rule.Priority > BestRule->Priority)
-			{
-				BestRule = &Rule;
+				return *ImpactCueTag;
 			}
 		}
 
-		return BestRule ? BestRule->ImpactCueTag : DefaultImpactCueTag;
+		return DefaultImpactCueTag;
 	}
 };
 

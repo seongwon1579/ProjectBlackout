@@ -137,6 +137,14 @@ protected:
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Blackout|Animation")
 	bool bHasAimTarget = false;
 
+	/** 카메라 타겟(에임 트레이스) 디버그 레이를 화면에 표시할지 여부 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Blackout|Debug")
+	bool bDrawAimTraceDebug = false;
+
+	/** 카메라 타겟 디버그 레이 두께 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Blackout|Debug", meta = (EditCondition = "bDrawAimTraceDebug", ClampMin = 0.f))
+	float AimTraceDebugThickness = 1.5f;
+
 	/** 에임 오프셋 복제 송신 누적 시간 */
 	UPROPERTY(Transient)
 	float AimOffsetReplicationElapsed = 0.f;
