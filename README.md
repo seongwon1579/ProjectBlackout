@@ -31,10 +31,10 @@
 | **장르** | 3인칭 슈팅(TPS) 소울라이크 PvE |
 | **엔진** | Unreal Engine 5.7 (C++) |
 | **인원** | 팀 프로젝트 (4인) |
-| **본인 담당** | **AI 시스템** (보스/미니언 행동 트리·스테이트 트리, 어그로·페이즈 평가) |
+| **담당** | **AI 시스템** (보스/미니언 행동 트리·스테이트 트리, 어그로·페이즈 평가) |
 
 > 팀원별 기여는 각 소스 파일 상단의 `구현 내역` 주석으로 관리하고 있습니다.
-> 본 문서는 **본인(조성원)이 담당한 AI 파트**를 중심으로 정리했습니다.
+> 본 문서는 **제가 담당한 AI 파트**를 중심으로 정리했습니다.
 
 <br>
 
@@ -115,29 +115,6 @@ graph TD
 - **AI**: Behavior Tree, State Tree, EQS, AI Perception
 - **네트워크**: 데디케이티드 서버, HTTP/WebSocket 매치메이킹
 - **그래픽**: DLSS / Reflex (NVIDIA Streamline)
-
-<br>
-
-**캐릭터 클래스 계층** (개요)
-
-```mermaid
-classDiagram
-    ACharacter <|-- ABlackoutCharacterBase
-    ABlackoutCharacterBase <|-- ABlackoutPlayerCharacter
-    ABlackoutCharacterBase <|-- ABlackoutEnemyCharacter
-    ABlackoutEnemyCharacter <|-- ABlackoutBossCharacter
-    ABlackoutEnemyCharacter <|-- ABlackoutMinionCharacter
-
-    class ABlackoutCharacterBase {
-        +IAbilitySystemInterface
-        +IBlackoutDamageable
-    }
-    class ABlackoutMinionCharacter {
-        +IBlackoutPoolableInterface
-    }
-```
-
-<br>
 
 ---
 
@@ -267,7 +244,30 @@ classDiagram
 
 <br>
 
-## 3. AI 클래스 구조 (UML)
+## 3. 클래스 구조 (UML)
+
+### 캐릭터 클래스 계층
+
+```mermaid
+classDiagram
+    ACharacter <|-- ABlackoutCharacterBase
+    ABlackoutCharacterBase <|-- ABlackoutPlayerCharacter
+    ABlackoutCharacterBase <|-- ABlackoutEnemyCharacter
+    ABlackoutEnemyCharacter <|-- ABlackoutBossCharacter
+    ABlackoutEnemyCharacter <|-- ABlackoutMinionCharacter
+
+    class ABlackoutCharacterBase {
+        +IAbilitySystemInterface
+        +IBlackoutDamageable
+    }
+    class ABlackoutMinionCharacter {
+        +IBlackoutPoolableInterface
+    }
+```
+
+<br>
+
+### AI 컨트롤러 계층
 
 컨트롤러를 계층화해, 공통 기능은 상위 클래스에 두고 적 특성별로 필요한 요소만 하위에서 추가했습니다.
 
@@ -379,7 +379,7 @@ flowchart TD
 
 # 게임 플로우 & 플레이어
 
-> 아래는 본인 담당 파트는 아니지만, 게임 전체 흐름 이해를 돕기 위해 간략히 정리한 내용입니다.
+> 아래는 저의 담당 파트는 아니지만, 게임 전체 흐름 이해를 돕기 위해 간략히 정리한 내용입니다.
 
 ## 전체 게임 흐름
 
@@ -411,7 +411,7 @@ flowchart LR
 - **연출/카메라** — Remnant2 스타일 3인칭 카메라, 진영 구분 외곽선
 
 > **AI 파트와의 접점** — 플레이어 캐릭터에 `IBlackoutPullable` 인터페이스를 적용해,
-> Ravager 보스의 끌어당김 패턴(Gorenado)이 플레이어에게 작용하도록 연동한 부분을 본인이 담당했습니다.
+> Ravager 보스의 끌어당김 패턴(Gorenado)이 플레이어에게 작용하도록 연동한 부분을 제가 담당했습니다.
 
 <!-- [ 플레이어 전투 / 어빌리티 이미지 자리 ] -->
 
