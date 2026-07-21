@@ -34,7 +34,7 @@
 | **본인 담당** | **AI 시스템** (보스/미니언 행동 트리·스테이트 트리, 어그로·페이즈 평가) |
 
 > 팀원별 기여는 각 소스 파일 상단의 `구현 내역` 주석으로 관리하고 있습니다.
-> 본 문서는 **본인(조성원)이 담당한 AI 파트**를 중심으로 정리했습니다.
+> 본 문서는 **제가 담당한 AI 파트**를 중심으로 정리했습니다.
 
 <br>
 
@@ -95,6 +95,17 @@ graph TD
     CombatComp --> Weapon
     Character --> GAS
     Weapon --> Pool
+
+    classDef box fill:#f5f5f5,stroke:#bbb,color:#333
+    classDef ai fill:#e8eef7,stroke:#7591c4,color:#333
+    class GM,MM,PC,Enemy,Ability,Attr,Effect,Weapon,CombatComp,Pool box
+    class Ctrl,BTST,Eval ai
+
+    style Framework fill:transparent,stroke:#bbb,color:#555
+    style Character fill:transparent,stroke:#bbb,color:#555
+    style AI fill:transparent,stroke:#7591c4,color:#555
+    style GAS fill:transparent,stroke:#bbb,color:#555
+    style Combat fill:transparent,stroke:#bbb,color:#555
 ```
 
 **기술 스택**
@@ -142,36 +153,36 @@ classDiagram
 컨트롤러를 계층화해, 공통 기능은 상위 클래스에 두고 적 특성별로 필요한 요소만 하위에서 추가했습니다.
 
 ```mermaid
-classDiagram
-    AAIController <|-- ABlackoutAIController
-    ABlackoutAIController <|-- ABlackoutBossAIController
-    ABlackoutBossAIController <|-- ABlackoutRavagerAIController
-    ABlackoutBossAIController <|-- ABlackoutShrewdAIController
-    ABlackoutAIController <|-- ABlackoutMinionAIController
+flowchart TD
+    AAI["AAIController<br/><i>언리얼 기본</i>"]
+    Base["ABlackoutAIController<br/>전투 시작 시 AI 구동"]
+    Boss["ABlackoutBossAIController<br/>어그로 평가기 보유·구독<br/>피해 기록·타겟 전달"]
+    Minion["ABlackoutMinionAIController<br/>Perception 기반 미니언"]
+    Ravager["ABlackoutRavagerAIController<br/>페이즈별 BT 러너 구동<br/>페이즈 전환 처리"]
+    Shrewd["ABlackoutShrewdAIController<br/>StateTree 기반 원거리 보스"]
 
-    ABlackoutAIController o-- UStateTreeAIComponent
-    ABlackoutBossAIController o-- UBlackoutAggroEvaluator
-    ABlackoutRavagerAIController o-- UBlackoutBossBTRunner
-    ABlackoutRavagerAIController o-- UBlackoutPhaseEvaluator
+    Aggro["UBlackoutAggroEvaluator"]
+    BTRunner["UBlackoutBossBTRunner"]
+    Phase["UBlackoutPhaseEvaluator"]
 
-    class ABlackoutAIController {
-        StateTree 컴포넌트 보유
-        전투 시작 시 AI 구동
-    }
-    class ABlackoutBossAIController {
-        어그로 평가기 보유/구독
-        피해 기록·타겟 전달
-    }
-    class ABlackoutRavagerAIController {
-        페이즈별 BT 러너 구동
-        페이즈 전환 처리
-    }
-    class ABlackoutShrewdAIController {
-        StateTree 기반 원거리 보스
-    }
-    class ABlackoutMinionAIController {
-        Perception 기반 미니언
-    }
+    %% 상속 (자식 --|> 부모)
+    Base -->|상속| AAI
+    Boss -->|상속| Base
+    Minion -->|상속| Base
+    Ravager -->|상속| Boss
+    Shrewd -->|상속| Boss
+
+    %% 소유 (점선)
+    Boss -.보유.-> Aggro
+    Ravager -.보유.-> BTRunner
+    Ravager -.보유.-> Phase
+
+    classDef cls fill:#f5f5f5,stroke:#bbb,color:#333
+    classDef own fill:#e8eef7,stroke:#7591c4,color:#333
+    classDef ext fill:#eee,stroke:#ccc,color:#777
+    class Base,Boss,Minion,Ravager,Shrewd cls
+    class Aggro,BTRunner,Phase own
+    class AAI ext
 ```
 
 > **설계 포인트** — `ABlackoutAIController`가 StateTree를, `ABlackoutBossAIController`가 어그로 평가기를 공통으로 보유합니다.
@@ -280,19 +291,53 @@ flowchart TD
 
 <br>
 
-## 5. EQS (환경 쿼리)
-
-- **IsHigher 테스트** — 후보 지점의 고도를 기준으로 점수화. 비행/원거리 보스가 **높은 지형으로 텔레포트**할 위치를 고르는 데 사용
-
-<!-- [ EQS 시각화 이미지 자리 ] -->
-
-<br>
-
-## 6. 설계에서 신경 쓴 점
+## 5. 설계에서 신경 쓴 점
 
 - **공통 로직 중앙화** — 어그로/페이즈 평가, 거리·회전 계산, 노드 접근 헬퍼를 분리해 BT·ST 양쪽에서 재사용
 - **BT/ST ↔ GAS 동기화** — 어빌리티 실행을 델리게이트로 추적해 행동 노드가 실제 어빌리티 종료까지 대기
 - **디버그 편의** — 회피 가능 영역 등 판정을 에디터에서 시각화(디버그 드로우 토글)
+
+<br>
+
+---
+
+# 게임 플로우 & 플레이어 (간략)
+
+> 아래는 본인 담당 파트는 아니지만, 게임 전체 흐름 이해를 돕기 위해 간략히 정리한 내용입니다.
+
+## 전체 게임 흐름
+
+로비에서 클래스를 고르고, 쉘터(안전구역)에서 준비를 마친 뒤 보스 전투로 이동하는 흐름입니다.
+
+```mermaid
+flowchart LR
+    A["로비<br/>클래스 선택"] --> B[전원 Ready]
+    B --> C["쉘터 안전구역<br/>자원 보정·체크포인트"]
+    C --> D["이동 비석<br/>전원 Ready 시 전투 이동"]
+    D --> E[보스 전투]
+    E -->|승리| F[매치 결과]
+    E -->|전멸| C
+```
+
+- **쉘터 존** — overlap 시 `InShelter` 태그로 자원 회복·체크포인트 등록
+- **정원 기반 밸런스** — 참가 인원(정원)에 따라 보스 HP 배율 조정
+- **재도전/관전** — 전멸 시 체크포인트 복귀, 사망 후 관전 대상 순환, 항복 투표
+
+<br>
+
+## 플레이어 개요
+
+플레이어는 GAS 기반으로 사격·조준·회피·근접 콤보·소모품 등 다양한 어빌리티를 사용합니다.
+
+- **전투** — 사격/정조준, 4타 순환 근접 콤보, 무기 스왑, 재장전
+- **기동** — 방향 입력 기반 구르기 회피(체인 회피), 스태미나 기반 질주
+- **생존** — 다운/부활 시스템, 소모품(블러드 루트·굴 세럼 등)·유물 사용
+- **연출/카메라** — Remnant2 스타일 3인칭 카메라, 진영 구분 외곽선
+
+> **AI 파트와의 접점** — 플레이어 캐릭터에 `IBlackoutPullable` 인터페이스를 적용해,
+> Ravager 보스의 끌어당김 패턴(Gorenado)이 플레이어에게 작용하도록 연동한 부분을 본인이 담당했습니다.
+
+<!-- [ 플레이어 전투 / 어빌리티 이미지 자리 ] -->
 
 <br>
 
