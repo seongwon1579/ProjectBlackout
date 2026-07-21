@@ -44,6 +44,8 @@
 회피(I-Frame), 근접 콤보, 사격/조준, 무기 스왑 등 소울라이크 특유의 전투 감각을 3인칭 슈팅에 결합했습니다.
 
 <!-- [ 게임플레이 이미지 / GIF 자리 ] -->
+<img width="1660" height="1037" alt="image" src="https://github.com/user-attachments/assets/1227812d-4f64-4df3-92ac-0178e5350213" />
+
 <!-- ![Gameplay](docs/images/gameplay_overview.png) -->
 
 **주요 특징**
