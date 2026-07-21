@@ -17,6 +17,7 @@
 
 - [프로젝트 개요](#프로젝트-개요)
 - [게임 소개](#게임-소개)
+- [담당 파트 폴더 구조](#담당-파트-폴더-구조)
 - [전체 아키텍처](#전체-아키텍처)
 - [담당 파트: AI 시스템](#담당-파트-ai-시스템)
 - [그 외 주요 시스템](#그-외-주요-시스템)
@@ -52,6 +53,102 @@
 - **소울라이크 전투** — 회피 무적 프레임, 근접 콤보 윈도우, 다운/부활 시스템
 - **다양한 적 AI** — 서로 다른 아키텍처로 설계된 보스 2종과 미니언들
 - **페이즈 기반 보스전** — 체력 구간에 따라 행동 패턴이 전환되는 보스
+
+<br>
+
+## 담당 파트 폴더 구조
+
+제가 작업한 **AI 시스템**, **보스 어빌리티**, **데이터 애셋**의 폴더 구조입니다. (`.h`/`.cpp`는 하나로 표기)
+
+```
+Source/ProjectBlackout/
+│
+├── 📁 AI/
+│   ├── 📄 BlackoutAIController
+│   ├── 📄 BlackoutBossAIController
+│   ├── 📄 BlackoutRavagerAIController
+│   ├── 📄 BlackoutShrewdAIController
+│   ├── 📄 BlackoutMinionAIController
+│   ├── 📄 BlackoutBossBTRunner
+│   ├── 📄 BlackoutAggroEvaluator
+│   ├── 📄 BlackoutAggroComponent
+│   ├── 📄 BlackoutPhaseEvaluator
+│   ├── 📄 BOAICalcHelper
+│   │
+│   ├── 📁 BehaviorTree/
+│   │   ├── 📄 BTNodeHelper
+│   │   ├── 📁 Decorators/
+│   │   │   ├── 📄 BTD_CanEvade
+│   │   │   ├── 📄 BTD_IsInRange
+│   │   │   ├── 📄 BTD_NeedsRotation
+│   │   │   └── 📄 BTD_RandomChance
+│   │   ├── 📁 Services/
+│   │   │   ├── 📄 BTS_CheckChaseDistance
+│   │   │   ├── 📄 BTS_UpdateAngleToTarget
+│   │   │   └── 📄 BTS_UpdateTargetData
+│   │   ├── 📁 Tasks/
+│   │   │   ├── 📄 BTT_ActivateAbility
+│   │   │   ├── 📄 BTT_ActivateEvadeAbility
+│   │   │   ├── 📄 BTT_ActivateRotateAbility
+│   │   │   ├── 📄 BTT_PickNextPattern
+│   │   │   └── 📄 BTT_SelectAbility
+│   │   └── 📁 Enum/
+│   │       └── 📄 EvadeDirection
+│   │
+│   ├── 📁 StateTree/
+│   │   ├── 📄 BSTCond_HealthBelow
+│   │   ├── 📄 BSTCond_TargetWithinRange
+│   │   ├── 📄 BSTEval_HealthRatio
+│   │   ├── 📄 BSTEval_ShrewdAggroTarget
+│   │   ├── 📄 BSTEval_WraithAggroTarget
+│   │   ├── 📄 BSTTask_ActivateAbility
+│   │   ├── 📄 BSTTask_MoveTowardTarget
+│   │   ├── 📄 BSTTask_RetreatFromTarget
+│   │   ├── 📄 BSTTask_StrafeAroundTarget
+│   │   ├── 📄 BSTTask_FlyKite
+│   │   ├── 📄 BSTTask_FocusOnTarget
+│   │   ├── 📄 BSTTask_Teleport
+│   │   ├── 📄 BSTTask_Charge
+│   │   ├── 📄 BSTTask_BowShove
+│   │   ├── 📄 BSTTask_FireTwinArrows
+│   │   └── 📄 BSTTask_RunSubBehaviorTree
+│   │
+│   ├── 📁 EQS/
+│   │   ├── 📄 BOEnvQueryTest_IsHigher
+│   │   └── 📄 EnvQueryContext_BlackoutPlayer
+│   │
+│   └── 📁 Enum/
+│       └── 📄 BOBossPhase
+│
+├── 📁 Data/                       ← 데이터 애셋 (UDataAsset)
+│   ├── 📄 BOShrewdData            Shrewd 스탯·어빌리티
+│   ├── 📄 BORavagerPatternData    Ravager 패턴 설정
+│   ├── 📄 BORavagerStatData       Ravager 스탯
+│   └── 📄 BOBossChaseRanges       보스 추격 사거리
+│
+└── 📁 GAS/Abilities/Boss/
+    ├── 📁 Ravager/
+    │   ├── 📄 BlackoutGA_Ravager_Base
+    │   ├── 📄 BlackoutGA_Ravager_HitboxAttack
+    │   ├── 📄 BlackoutGA_Ravager_BasicAttack
+    │   ├── 📄 BlackoutGA_Ravager_Charge
+    │   ├── 📄 BlackoutGA_Ravager_ChaseAttack
+    │   ├── 📄 BlackoutGA_Ravager_Gorenado
+    │   ├── 📄 BlackoutGA_Ravager_Shockwave
+    │   ├── 📄 BlackoutGA_Ravager_EnergyBurst
+    │   ├── 📄 BlackoutGA_Ravager_SummonMinion
+    │   ├── 📄 BlackoutGA_Ravager_Evade
+    │   └── 📄 BlackoutGA_Ravager_Rotate
+    │
+    └── 📁 Shrewd/
+        ├── 📄 BlackoutGA_Shrewd_Base
+        ├── 📄 BlackoutGA_Shrewd_FireArrowBase
+        ├── 📄 BOGA_Shrewd_FireStraightArrow
+        ├── 📄 BlackoutGA_Shrewd_FireExplosiveArrow
+        ├── 📄 BlackoutGA_Shrewd_TeleportBase
+        ├── 📄 BlackoutGA_Shrewd_TeleportByEQS
+        └── 📄 BlackoutGA_Shrewd_TeleportToPoint
+```
 
 <br>
 
