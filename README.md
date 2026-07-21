@@ -7,10 +7,12 @@
 [![ProjectBlackout](docs/images/main_thumbnail.png)](플레이영상_URL)
 ======================================================================== 
 -->
-
 > **3인칭 슈팅(TPS) 소울라이크 PvE 프로젝트**
 > Unreal Engine 5.7 · GAS 기반 · 데디케이티드 서버 멀티플레이
-
+<a href="https://www.youtube.com/watch?v=al6WtrptHU0&t=1s">
+  <img width="2382" height="1005" alt="image" src="https://github.com/user-attachments/assets/532d286a-7e4a-4d38-80b4-552082794e05" />
+</a>
+※ 클릭 시 플레이 영상으로 이동합니다.
 <br>
 
 ## 목차
