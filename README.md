@@ -7,12 +7,16 @@
 [![ProjectBlackout](docs/images/main_thumbnail.png)](플레이영상_URL)
 ======================================================================== 
 -->
+
 > **3인칭 슈팅(TPS) 소울라이크 PvE 프로젝트**
 > Unreal Engine 5.7 · GAS 기반 · 데디케이티드 서버 멀티플레이
+
 <a href="https://www.youtube.com/watch?v=al6WtrptHU0&t=1s">
   <img width="2382" height="1005" alt="image" src="https://github.com/user-attachments/assets/532d286a-7e4a-4d38-80b4-552082794e05" />
 </a>
+
 ※ 클릭 시 플레이 영상으로 이동합니다.
+
 <br>
 
 ## 목차
@@ -22,7 +26,6 @@
 - [담당 파트 폴더 구조](#담당-파트-폴더-구조)
 - [전체 아키텍처](#전체-아키텍처)
 - [담당 파트: AI 시스템](#담당-파트-ai-시스템)
-- [그 외 주요 시스템](#그-외-주요-시스템)
 
 <br>
 
@@ -156,7 +159,6 @@ Source/ProjectBlackout/
 
 ## 전체 아키텍처
 
-프로젝트는 기능별 모듈로 구성되어 있습니다. (제 담당은 **AI** 모듈)
 
 ```mermaid
 graph TD
@@ -206,14 +208,7 @@ graph TD
     style GAS fill:transparent,stroke:#bbb,color:#555
     style Combat fill:transparent,stroke:#bbb,color:#555
 ```
-
-**기술 스택**
-
-- **엔진**: Unreal Engine 5.7 / C++
-- **전투**: GAS (Gameplay Ability System)
-- **AI**: Behavior Tree, State Tree, EQS, AI Perception
-- **네트워크**: 데디케이티드 서버, HTTP/WebSocket 매치메이킹
-- **그래픽**: DLSS / Reflex (NVIDIA Streamline)
+<br>
 
 ---
 
@@ -518,16 +513,6 @@ flowchart LR
 
 ---
 
-## 그 외 주요 시스템
-
-AI 외 시스템은 팀원들이 담당했으며, 참고용으로 간단히만 정리합니다.
-
-- **GAS 전투** — 플레이어/적 어빌리티, 어트리뷰트 셋, 데미지·보상 계산(ExecCalc), 히트 큐
-- **전투/무기** — 사격·조준·연사·반동, 무기 스왑, 근접 콤보 윈도우, 착탄 인디케이터
-- **네트워크** — 데디케이티드 세션, WebSocket 로비·매치메이킹, 재접속, 정원별 보스 HP 배율
-- **오브젝트 풀링** — 발사체 등 반복 스폰 액터의 풀 기반 재사용(GC 추적 포함)
-- **UI/HUD** — 체력·탄약·소모품 HUD, 로비/파티/매치 결과, 다운/부활 표시
-- **연출/그래픽** — 보스 인트로 시퀀스, 카메라 셰이크, DLSS/Reflex 지원
 
 <br>
 
