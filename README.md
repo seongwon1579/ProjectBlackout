@@ -34,7 +34,7 @@
 | **본인 담당** | **AI 시스템** (보스/미니언 행동 트리·스테이트 트리, 어그로·페이즈 평가) |
 
 > 팀원별 기여는 각 소스 파일 상단의 `구현 내역` 주석으로 관리하고 있습니다.
-> 본 문서는 **제가 담당한 AI 파트**를 중심으로 정리했습니다.
+> 본 문서는 **본인(조성원)이 담당한 AI 파트**를 중심으로 정리했습니다.
 
 <br>
 
@@ -153,36 +153,35 @@ classDiagram
 컨트롤러를 계층화해, 공통 기능은 상위 클래스에 두고 적 특성별로 필요한 요소만 하위에서 추가했습니다.
 
 ```mermaid
-flowchart TD
-    AAI["AAIController<br/><i>언리얼 기본</i>"]
-    Base["ABlackoutAIController<br/>전투 시작 시 AI 구동"]
-    Boss["ABlackoutBossAIController<br/>어그로 평가기 보유·구독<br/>피해 기록·타겟 전달"]
-    Minion["ABlackoutMinionAIController<br/>Perception 기반 미니언"]
-    Ravager["ABlackoutRavagerAIController<br/>페이즈별 BT 러너 구동<br/>페이즈 전환 처리"]
-    Shrewd["ABlackoutShrewdAIController<br/>StateTree 기반 원거리 보스"]
+classDiagram
+    AAIController <|-- ABlackoutAIController
+    ABlackoutAIController <|-- ABlackoutBossAIController
+    ABlackoutBossAIController <|-- ABlackoutRavagerAIController
+    ABlackoutBossAIController <|-- ABlackoutShrewdAIController
+    ABlackoutAIController <|-- ABlackoutMinionAIController
 
-    Aggro["UBlackoutAggroEvaluator"]
-    BTRunner["UBlackoutBossBTRunner"]
-    Phase["UBlackoutPhaseEvaluator"]
+    ABlackoutAIController o-- UStateTreeAIComponent
+    ABlackoutBossAIController o-- UBlackoutAggroEvaluator
+    ABlackoutRavagerAIController o-- UBlackoutBossBTRunner
+    ABlackoutRavagerAIController o-- UBlackoutPhaseEvaluator
 
-    %% 상속 (자식 --|> 부모)
-    Base -->|상속| AAI
-    Boss -->|상속| Base
-    Minion -->|상속| Base
-    Ravager -->|상속| Boss
-    Shrewd -->|상속| Boss
-
-    %% 소유 (점선)
-    Boss -.보유.-> Aggro
-    Ravager -.보유.-> BTRunner
-    Ravager -.보유.-> Phase
-
-    classDef cls fill:#f5f5f5,stroke:#bbb,color:#333
-    classDef own fill:#e8eef7,stroke:#7591c4,color:#333
-    classDef ext fill:#eee,stroke:#ccc,color:#777
-    class Base,Boss,Minion,Ravager,Shrewd cls
-    class Aggro,BTRunner,Phase own
-    class AAI ext
+    class ABlackoutAIController {
+        전투 시작 시 AI 구동
+    }
+    class ABlackoutBossAIController {
+        어그로 평가기 보유/구독
+        피해 기록·타겟 전달
+    }
+    class ABlackoutRavagerAIController {
+        페이즈별 BT 러너 구동
+        페이즈 전환 처리
+    }
+    class ABlackoutShrewdAIController {
+        StateTree 기반 원거리 보스
+    }
+    class ABlackoutMinionAIController {
+        Perception 기반 미니언
+    }
 ```
 
 > **설계 포인트** — `ABlackoutAIController`가 StateTree를, `ABlackoutBossAIController`가 어그로 평가기를 공통으로 보유합니다.
