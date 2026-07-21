@@ -279,7 +279,6 @@ classDiagram
     ABlackoutBossAIController <|-- ABlackoutShrewdAIController
     ABlackoutAIController <|-- ABlackoutMinionAIController
 
-    ABlackoutAIController o-- UStateTreeAIComponent
     ABlackoutBossAIController o-- UBlackoutAggroEvaluator
     ABlackoutRavagerAIController o-- UBlackoutBossBTRunner
     ABlackoutRavagerAIController o-- UBlackoutPhaseEvaluator
@@ -303,7 +302,7 @@ classDiagram
     }
 ```
 
-> **설계 포인트** — `ABlackoutAIController`가 StateTree를, `ABlackoutBossAIController`가 어그로 평가기를 공통으로 보유합니다.
+> **설계 포인트** — `ABlackoutBossAIController`가 어그로 평가기를 공통으로 보유하고,
 > Ravager만 BT 러너·페이즈 평가기를 추가로 소유해, **필요한 적에게만 필요한 시스템을 붙이는** 구조입니다.
 
 <br>
