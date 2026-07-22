@@ -65,8 +65,12 @@
 
 제가 작업한 **AI 시스템**, **보스 어빌리티**, **데이터 애셋**의 폴더 구조입니다. (`.h`/`.cpp`는 하나로 표기)
 
-```
 Source/ProjectBlackout/
+│
+├── 📁 Characters/
+│   ├── 📄 BlackoutBossCharacter    
+│   ├── 📄 BORavagerBoss            
+│   └── 📄 BOShrewdBoss             
 │
 ├── 📁 AI/
 │   ├── 📄 BlackoutAIController
@@ -101,8 +105,8 @@ Source/ProjectBlackout/
 │   │       └── 📄 EvadeDirection
 │   │
 │   ├── 📁 StateTree/
-│   │   ├── 📄 BSTEval_ShrewdAggroTarget 
-│   │   └── 📄 BSTTask_ActivateAbility 
+│   │   ├── 📄 BSTEval_ShrewdAggroTarget
+│   │   └──  📄 BSTTask_ActivateAbility
 │   │
 │   ├── 📁 EQS/
 │   │   ├── 📄 BOEnvQueryTest_IsHigher
@@ -116,6 +120,12 @@ Source/ProjectBlackout/
 │   ├── 📄 BORavagerPatternData    Ravager 패턴 설정
 │   ├── 📄 BORavagerStatData       Ravager 스탯
 │   └── 📄 BOBossChaseRanges       보스 추격 사거리
+│
+├── 📁 Framework/
+│   └── 📄 BOBossIntroSequencer     보스 인트로 컷신 (서버 권위 재생)
+│
+├── 📁 GameplayTags/
+│   └── 📄 BlackoutGameplayTags     AI·보스·어그로·스폰·모션워핑 태그 정의
 │
 └── 📁 GAS/Abilities/Boss/
     ├── 📁 Ravager/
