@@ -107,7 +107,7 @@ Source/ProjectBlackout/
 │   │
 │   ├── 📁 StateTree/
 │   │   ├── 📄 BSTEval_ShrewdAggroTarget
-│   │   └──  📄 BSTTask_ActivateAbility
+│   │   └── 📄 BSTTask_ActivateAbility
 │   │
 │   ├── 📁 EQS/
 │   │   ├── 📄 BOEnvQueryTest_IsHigher
