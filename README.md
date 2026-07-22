@@ -101,22 +101,8 @@ Source/ProjectBlackout/
 │   │       └── 📄 EvadeDirection
 │   │
 │   ├── 📁 StateTree/
-│   │   ├── 📄 BSTCond_HealthBelow
-│   │   ├── 📄 BSTCond_TargetWithinRange
-│   │   ├── 📄 BSTEval_HealthRatio
-│   │   ├── 📄 BSTEval_ShrewdAggroTarget
-│   │   ├── 📄 BSTEval_WraithAggroTarget
-│   │   ├── 📄 BSTTask_ActivateAbility
-│   │   ├── 📄 BSTTask_MoveTowardTarget
-│   │   ├── 📄 BSTTask_RetreatFromTarget
-│   │   ├── 📄 BSTTask_StrafeAroundTarget
-│   │   ├── 📄 BSTTask_FlyKite
-│   │   ├── 📄 BSTTask_FocusOnTarget
-│   │   ├── 📄 BSTTask_Teleport
-│   │   ├── 📄 BSTTask_Charge
-│   │   ├── 📄 BSTTask_BowShove
-│   │   ├── 📄 BSTTask_FireTwinArrows
-│   │   └── 📄 BSTTask_RunSubBehaviorTree
+│   │   ├── 📄 BSTEval_ShrewdAggroTarget 
+│   │   ├── 📄 BSTTask_ActivateAbility 
 │   │
 │   ├── 📁 EQS/
 │   │   ├── 📄 BOEnvQueryTest_IsHigher
@@ -232,6 +218,7 @@ graph TD
 <br>
 
 ## 1. Behavior Tree — Ravager (근접 보스)
+<img width="1150" height="734" alt="image" src="https://github.com/user-attachments/assets/bdb5c3a5-06fc-42b3-b541-9e3a4246d870" />
 
 페이즈별로 서로 다른 Behavior Tree를 보관하고, 페이즈 전환 시 트리를 통째로 교체하는
 **BT 러너(Runner)** 구조로 구현했습니다.
@@ -244,8 +231,6 @@ graph TD
 
 > 어빌리티 실행 Task는 GAS 어빌리티의 시작·종료 델리게이트를 구독해
 > **실제 어빌리티가 끝날 때까지 노드가 대기**하도록 만들어, BT와 GAS의 흐름을 동기화했습니다.
-
-<!-- [ Ravager Behavior Tree 에디터 캡처 자리 ] -->
 
 ### 대표 어빌리티
 
@@ -295,15 +280,10 @@ classDiagram
 
 <img width="675" height="440" alt="image" src="https://github.com/user-attachments/assets/c5fbf2b9-510a-412f-84c8-d68f8e2b9c4f" />
 
-상태 전환이 잦은 원거리/비행 적은 State Tree로 구현했습니다.
-(카이팅·텔레포트·스트레이프 등 일부 Task는 팀원과 분담)
-
 **State Tree 요소**
 
 - **Task** — 태그로 어빌리티를 실행하고 부여 대기(타임아웃)·핸들 추적까지 처리, 하위 BT 실행 Task
 - **공용 헬퍼** — 컨트롤러/폰/블랙보드/ASC를 일관되게 가져오는 정적 헬퍼(`BTNodeHelper`), AI 거리·회전 계산 헬퍼(`BOAICalcHelper`)
-
-<!-- [ Shrewd State Tree 에디터 캡처 자리 ] -->
 
 ### 대표 어빌리티
 
